@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZenFlow · App de Tareas Sin Agobio | Brainstorming Keepsake</title>
+  <style>
+    /* ==========================================================================
+       RESET & VARIABLES
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card: rgba(22, 27, 34, 0.75);
+      --bg-card-hover: rgba(30, 38, 48, 0.85);
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --text-soft: #c9d1d9;
+      
+      --accent-sage: #10b981;
+      --accent-sage-soft: rgba(16, 185, 129, 0.15);
+      --accent-lavender: #a855f7;
+      --accent-lavender-soft: rgba(168, 85, 247, 0.15);
+      --accent-sky: #38bdf8;
+      --accent-sky-soft: rgba(56, 189, 248, 0.15);
+      --accent-amber: #f59e0b;
+      --accent-amber-soft: rgba(245, 158, 11, 0.15);
+      --accent-rose: #f43f5e;
+      --accent-rose-soft: rgba(244, 63, 94, 0.15);
+
+      --gradient-zen: linear-gradient(135deg, #10b981 0%, #38bdf8 50%, #a855f7 100%);
+      --gradient-hero: radial-gradient(circle at top center, rgba(56, 189, 248, 0.12) 0%, rgba(13, 17, 23, 0) 70%);
+      --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      --gradient-card: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --radius-full: 9999px;
+
+      --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.25);
+      --shadow-glow-sage: 0 0 25px rgba(16, 185, 129, 0.25);
+      --shadow-glow-sky: 0 0 25px rgba(56, 189, 248, 0.25);
+      
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(16, 185, 129, 0.06) 0px, transparent 40%),
+        radial-gradient(at 90% 20%, rgba(168, 85, 247, 0.06) 0px, transparent 40%),
+        radial-gradient(at 50% 80%, rgba(56, 189, 248, 0.06) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* ==========================================================================
+       LAYOUT & UTILITIES
+       ========================================================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 70px 0;
+      position: relative;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      background: var(--bg-glass);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent-sky);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 2.3rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .section-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-subtle);
+      transition: var(--transition-smooth);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    /* ==========================================================================
+       HERO / SESSION HEADER
+       ========================================================================== */
+    .hero-section {
+      padding: 90px 0 60px;
+      text-align: center;
+      background: var(--gradient-hero);
+      position: relative;
+    }
+
+    .hero-badge-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .badge-session {
+      background: rgba(168, 85, 247, 0.12);
+      border-color: rgba(168, 85, 247, 0.3);
+      color: #c084fc;
+    }
+
+    .badge-platform {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+    }
+
+    .badge-mode {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 5vw, 3.8rem);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+
+    .hero-title .gradient-text {
+      background: var(--gradient-zen);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-description {
+      font-size: 1.25rem;
+      color: var(--text-soft);
+      max-width: 820px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    .hero-pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+      text-align: left;
+    }
+
+    .hero-pillar-mini {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: var(--transition-smooth);
+    }
+
+    .hero-pillar-mini:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+
+    .hero-pillar-icon {
+      font-size: 1.8rem;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-glass);
+      border-radius: var(--radius-md);
+    }
+
+    .hero-pillar-info h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .hero-pillar-info p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       INTERACTIVE SINGLE-TASK DISPENSER (CORE UI)
+       ========================================================================== */
+    .dispenser-container {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 36px;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .dispenser-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dispenser-story {
+      padding-right: 12px;
+    }
+
+    .dispenser-story h3 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      color: var(--text-main);
+    }
+
+    .dispenser-story p {
+      color: var(--text-soft);
+      margin-bottom: 20px;
+      font-size: 1.05rem;
+    }
+
+    .feature-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .feature-point {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 0.95rem;
+      color: var(--text-soft);
+    }
+
+    .feature-point-icon {
+      color: var(--accent-sage);
+      font-size: 1.1rem;
+      margin-top: 2px;
+    }
+
+    /* Phone Mockup Frame */
+    .phone-mockup {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto;
+      background: #090d12;
+      border: 8px solid #2d3748;
+      border-radius: 44px;
+      padding: 18px 16px 24px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), var(--shadow-glow-sage);
+      position: relative;
+    }
+
+    .phone-notch {
+      width: 120px;
+      height: 22px;
+      background: #2d3748;
+      border-radius: 0 0 14px 14px;
+      margin: -18px auto 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .notch-camera {
+      width: 8px;
+      height: 8px;
+      background: #1a202c;
+      border-radius: 50%;
+    }
+
+    .notch-speaker {
+      width: 32px;
+      height: 4px;
+      background: #1a202c;
+      border-radius: 2px;
+    }
+
+    .phone-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 0 6px;
+    }
+
+    .time-pool-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: var(--radius-full);
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-sky);
+    }
+
+    .energy-checkin {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .energy-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .energy-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .energy-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 4px;
+      color: var(--text-soft);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: var(--transition-smooth);
+    }
+
+    .energy-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .energy-btn.active {
+      background: var(--accent-sage-soft);
+      border-color: var(--accent-sage);
+      color: #34d399;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Single Task Card inside Dispenser */
+    .task-card-active {
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition-smooth);
+    }
+
+    .task-zone-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .task-zone-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      background: rgba(168, 85, 247, 0.2);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+      border-radius: var(--radius-full);
+    }
+
+    .task-rule-pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--accent-sky);
+    }
+
+    .task-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+
+    .task-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+
+    .micro-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    .micro-step-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .micro-step-item input[type="checkbox"] {
+      accent-color: var(--accent-sage);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    .micro-step-item.checked {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .lock-timer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px dashed rgba(245, 158, 11, 0.3);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      color: #fbbf24;
+      margin-bottom: 16px;
+    }
+
+    .timer-display {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .dispenser-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-done {
+      width: 100%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transition: var(--transition-smooth);
+    }
+
+    .btn-done:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-done:active {
+      transform: scale(0.98);
+    }
+
+    .btn-defer {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      color: var(--text-soft);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+
+    .btn-defer:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .zero-guilt-toast {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+
+    .zero-guilt-toast.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .toast-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .toast-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 6px;
+    }
+
+    .toast-msg {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Cumulative Progress HUD */
+    .accumulator-hud {
+      margin-top: 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .hud-progress-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hud-progress-fill {
+      height: 100%;
+      background: var(--gradient-zen);
+      width: 45%;
+      border-radius: 3px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Confetti Canvas */
+    #confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ==========================================================================
+       KILLER FEATURE: MULTIMODAL PHOTO-DIAGNOSIS & BEFORE/AFTER SLIDER
+       ========================================================================== */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .slider-comparison-box {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-subtle);
+      user-select: none;
+    }
+
+    .comparison-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px;
+    }
+
+    .layer-before {
+      background: linear-gradient(180deg, #1e1b2e 0%, #2a1b28 100%);
+      z-index: 1;
+    }
+
+    .layer-after {
+      background: linear-gradient(180deg, #0d2b26 0%, #0f3d35 100%);
+      z-index: 2;
+      clip-path: inset(0 0 0 50%);
+    }
+
+    /* Illustrated visual scene inside Before/After */
+    .scene-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.9;
+    }
+
+    .layer-label {
+      position: relative;
+      z-index: 5;
+      display: inline-block;
+      align-self: flex-start;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .label-before {
+      background: rgba(244, 63, 94, 0.25);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
+
+    .label-after {
+      background: rgba(16, 185, 129, 0.25);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .comparison-slider-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      background: #ffffff;
+      z-index: 10;
+      transform: translateX(-50%);
+      cursor: ew-resize;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .handle-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 42px;
+      height: 42px;
+      background: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .photo-scan-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .scan-step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .scan-step-num {
+      width: 32px;
+      height: 32px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--accent-sky);
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .scan-step-content h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text-main);
+    }
+
+    .scan-step-content p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .sim-scan-btn {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      color: #0f172a;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 20px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition-smooth);
+    }
+
+    .sim-scan-btn:hover {
+      box-shadow: var(--shadow-glow-sky);
+      transform: translateY(-2px);
+    }
+
+    /* ==========================================================================
+       TECHNIQUES JOURNEY (INTERACTIVE TABS & CARDS)
+       ========================================================================== */
+    .techniques-nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 36px;
+    }
+
+    .tech-tab-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 10px 22px;
+      color: var(--text-soft);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition-smooth);
+    }
+
+    .tech-tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .tech-tab-btn.active {
+      background: var(--accent-sky-soft);
+      border-color: var(--accent-sky);
+      color: var(--accent-sky);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+
+    .tech-tab-pane {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .tech-tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tab 1: JTBD Cards Grid */
+    .jtbd-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 20px;
+    }
+
+    .jtbd-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+    }
+
+    .jtbd-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .jtbd-card-icon {
+      font-size: 1.8rem;
+    }
+
+    .jtbd-card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .jtbd-card-body {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Tab 2: SCAMPER List */
+    .scamper-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .scamper-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+    }
+
+    .scamper-letter {
+      width: 42px;
+      height: 42px;
+      background: var(--accent-lavender-soft);
+      border: 1px solid var(--accent-lavender);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #c084fc;
+      flex-shrink: 0;
+    }
+
+    .scamper-text h4 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .scamper-text p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* Tab 3: Worst Possible Idea FLIP CARDS */
+    .flips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      perspective: 1000px;
+    }
+
+    .flip-card {
+      background: transparent;
+      height: 280px;
+      cursor: pointer;
+    }
+
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: left;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+
+    .flip-card.flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .flip-card-front, .flip-card-back {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: var(--radius-lg);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .flip-card-front {
+      background: linear-gradient(145deg, rgba(244, 63, 94, 0.12) 0%, rgba(22, 27, 34, 0.9) 100%);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .flip-card-back {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.15) 0%, rgba(22, 27, 34, 0.95) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      transform: rotateY(180deg);
+    }
+
+    .flip-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: right;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    /* Tab 4: Disney Method (3 Rooms) */
+    .disney-rooms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .disney-room-card {
+      border-radius: var(--radius-lg);
+      padding: 26px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .room-dreamer {
+      border-top: 4px solid #a855f7;
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, rgba(22, 27, 34, 0.8) 100%);
+    }
+
+    .room-realist {
+      border-top: 4px solid #38bdf8;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(22, 27, 34, 0.8) 100%);
+    }
+
+    .room-critic {
+      border-top: 4px solid #f59e0b;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(22, 27, 34, 0.8) 100%);
+    }
+
+    .room-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ==========================================================================
+       THE 4 CONVERGED PILLARS (ARCHITECTURE GRID)
+       ========================================================================== */
+    .pillars-main-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .pillar-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 30px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition-smooth);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pillar-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-zen);
+      opacity: 0;
+      transition: var(--transition-smooth);
+    }
+
+    .pillar-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .pillar-card:hover::before {
+      opacity: 1;
+    }
+
+    .pillar-number {
+      font-size: 3rem;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.06);
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      line-height: 1;
+    }
+
+    .pillar-icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 20px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .pillar-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+
+    .pillar-summary {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+      flex-grow: 1;
+    }
+
+    .pillar-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pillar-tag-item {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ==========================================================================
+       FOOTER & METADATA
+       ========================================================================== */
+    footer {
+      padding: 60px 0 40px;
+      border-top: 1px solid var(--border-subtle);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .footer-links a {
+      color: var(--accent-sky);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Confetti Particle Engine Canvas -->
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- ==========================================================================
+       HERO SECTION
+       ========================================================================== -->
+  <header class="hero-section">
+    <div class="container">
+      <div class="hero-badge-row">
+        <span class="badge badge-session">🧠 BMAD Brainstorming Artifact · 2026-08-20</span>
+        <span class="badge badge-platform">📱 Mobile Native (iOS / Android)</span>
+        <span class="badge badge-mode">🤝 Modo Partner: Coach + Usuario</span>
+      </div>
+
+      <h1 class="hero-title">
+        ZenFlow: <span class="gradient-text">App de Tareas Sin Agobio</span>
+      </h1>
+      
+      <p class="hero-description">
+        Fusión inteligente de la filosofía <strong>FlyLady</strong> y la regla <strong>1-3-5</strong> con diagnóstico visual por <strong>IA Multimodal</strong>, diseñada para actuar sin pensar, reducir la parálisis por elección y erradicar la culpa.
+      </p>
+
+      <div class="hero-pillars-grid">
+        <div class="hero-pillar-mini">
+          <div class="hero-pillar-icon">🎯</div>
+          <div class="hero-pillar-info">
+            <h4>Dispensador 1 Tarea</h4>
+            <p>0 parálisis por elección</p>
+          </div>
+        </div>
+        <div class="hero-pillar-mini">
+          <div class="hero-pillar-icon">📸</div>
+          <div class="hero-pillar-info">
+            <h4>Foto-Diagnóstico IA</h4>
+            <p>Desglose visual instantáneo</p>
+          </div>
+        </div>
+        <div class="hero-pillar-mini">
+          <div class="hero-pillar-icon">⏳</div>
+          <div class="hero-pillar-info">
+            <h4>Bolsa Flotante</h4>
+            <p>15 min/día sin alarmas rígidas</p>
+          </div>
+        </div>
+        <div class="hero-pillar-mini">
+          <div class="hero-pillar-icon">💚</div>
+          <div class="hero-pillar-info">
+            <h4>100% Anti-Shaming</h4>
+            <p>Sin rachas rotas ni culpa</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       CORE UI EXPERIENCE: EL DISPENSADOR DE 1 SOLA TAREA
+       ========================================================================== -->
+  <section id="dispensador">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">✨ Corazón Funcional de la App</span>
+        <h2 class="section-title">El Dispensador de 1 Sola Tarea</h2>
+        <p class="section-subtitle">
+          Sin listas interminables ni calendarios estresantes. La app decide el micro-paso exacto según tu energía actual para que tú solo tengas que pulsar y avanzar.
+        </p>
+      </div>
+
+      <div class="dispenser-container">
+        <!-- Story & Mechanics description -->
+        <div class="dispenser-story">
+          <h3>Piloto Automático & Amortiguador de Culpa</h3>
+          <p>
+            Cuando abres la app, no te enfrentas a una montaña de pendientes. Solo ves <strong>una única micro-acción de 2 a 10 minutos</strong> adaptada a tu estado de ánimo y tu nivel de batería mental.
+          </p>
+
+          <ul class="feature-points">
+            <li class="feature-point">
+              <span class="feature-point-icon">⚡</span>
+              <div>
+                <strong>Check-in de Energía en 1 tap:</strong> Selecciona cómo estás hoy y la app ajustará la complejidad de las tareas al vuelo.
+              </div>
+            </li>
+            <li class="feature-point">
+              <span class="feature-point-icon">🛡️</span>
+              <div>
+                <strong>Candado Protector Anti-Maratón:</strong> Límite forzado de 15 minutos. La app te prohíbe seguir para evitar el agotamiento y celebrar tu éxito.
+              </div>
+            </li>
+            <li class="feature-point">
+              <span class="feature-point-icon">☕</span>
+              <div>
+                <strong>Botón "Hoy no puedo":</strong> Pospón con cero culpa. La app recalcula en silencio sin marcas rojas de retraso.
+              </div>
+            </li>
+          </ul>
+
+          <div class="glass-card" style="padding: 16px 20px; background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.2);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 1.5rem;">💡</span>
+              <div style="font-size: 0.88rem; color: var(--text-soft);">
+                <strong>Pruébalo en el simulador móvil:</strong> Cambia de energía o pulsa [¡Hecho!] para experimentar la sensación de cero fricción.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone Mockup Device -->
+        <div class="phone-mockup">
+          <div class="phone-notch">
+            <div class="notch-camera"></div>
+            <div class="notch-speaker"></div>
+          </div>
+
+          <div class="phone-top-bar">
+            <div style="font-weight: 700; font-size: 0.85rem; color: #fff;">ZenFlow</div>
+            <div class="time-pool-badge">
+              <span>⏳ Bolsa:</span>
+              <strong id="timePoolDisplay">15 min</strong>
+            </div>
+          </div>
+
+          <!-- Energy check-in selector -->
+          <div class="energy-checkin">
+            <div class="energy-label">¿Cómo está tu energía ahora mismo?</div>
+            <div class="energy-buttons">
+              <button class="energy-btn active" onclick="setEnergy('high', this)">
+                <span>🔋</span>
+                <span>Con Energía</span>
+              </button>
+              <button class="energy-btn" onclick="setEnergy('normal', this)">
+                <span>☕</span>
+                <span>Normal</span>
+              </button>
+              <button class="energy-btn" onclick="setEnergy('zombie', this)">
+                <span>🛋️</span>
+                <span>Zombie</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Single Task Card -->
+          <div class="task-card-active" id="activeTaskCard">
+            <!-- Toast message when deferring or rescue mode -->
+            <div class="zero-guilt-toast" id="zeroGuiltToast">
+              <div class="toast-emoji">🌿</div>
+              <div class="toast-title" id="toastTitle">¡Cero Culpa!</div>
+              <div class="toast-msg" id="toastMsg">Guardamos esto para cuando tengas mejor energía. Tu bienestar es lo primero.</div>
+            </div>
+
+            <div class="task-zone-header">
+              <span class="task-zone-pill" id="taskZone">📍 Zona 2: Cocina</span>
+              <span class="task-rule-pill" id="taskRule">FlyLady 1-3-5 (1 Principal)</span>
+            </div>
+
+            <h4 class="task-title" id="taskTitle">Despejar encimera y fregar tazas</h4>
+            <p class="task-desc" id="taskDesc">Un micro-bloque de 8 minutos para dejar la superficie limpia sin limpiar toda la cocina.</p>
+
+            <div class="micro-steps-list" id="microStepsList">
+              <label class="micro-step-item">
+                <input type="checkbox" onchange="toggleStep(this)">
+                <span>Llevar las 3 tazas al fregadero</span>
+              </label>
+              <label class="micro-step-item">
+                <input type="checkbox" onchange="toggleStep(this)">
+                <span>Guardar aceite y especias en su sitio</span>
+              </label>
+              <label class="micro-step-item">
+                <input type="checkbox" onchange="toggleStep(this)">
+                <span>Pasar una bayeta húmeda 30 seg</span>
+              </label>
+            </div>
+
+            <div class="lock-timer-bar">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span>🛡️ Candado Zen:</span>
+                <span class="timer-display" id="timerDisplay">08:00</span>
+              </div>
+              <button onclick="toggleTimer()" id="timerBtn" style="background: none; border: none; color: #fbbf24; cursor: pointer; font-size: 0.75rem; font-weight: 700; text-decoration: underline;">
+                Iniciar
+              </button>
+            </div>
+
+            <div class="dispenser-actions">
+              <button class="btn-done" onclick="completeTask()">
+                <span>¡Hecho! 🎉</span>
+              </button>
+              <button class="btn-defer" onclick="deferTask()">
+                <span>Hoy no puedo / Más fácil ☕</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Accumulator HUD (Snowball Motivation) -->
+          <div class="accumulator-hud">
+            <div class="hud-header">
+              <span>🌱 Impacto acumulado hoy</span>
+              <strong style="color: #34d399;" id="completedCount">1 / 3 micro-pasos</strong>
+            </div>
+            <div class="hud-progress-bar">
+              <div class="hud-progress-fill" id="hudProgressFill" style="width: 33%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       KILLER FEATURE: MULTIMODAL PHOTO SCANNER & BEFORE/AFTER SLIDER
+       ========================================================================== -->
+  <section id="multimodal" style="background: rgba(255, 255, 255, 0.01);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">📸 Killer Feature</span>
+        <h2 class="section-title">Foto-Diagnóstico IA Multimodal</h2>
+        <p class="section-subtitle">
+          Saca una foto a la zona que te abruma. La IA no te juzga: desmenuza el espacio en micro-acciones de 2 minutos y te muestra tu transformación.
+        </p>
+      </div>
+
+      <div class="showcase-grid">
+        <!-- Interactive Before vs After Slider -->
+        <div>
+          <div class="slider-comparison-box" id="comparisonBox">
+            <!-- Layer Before (Messy space representation) -->
+            <div class="comparison-layer layer-before">
+              <!-- Visual SVG representation of clutter -->
+              <svg class="scene-svg" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="300" fill="#1e1728"/>
+                <!-- Desk -->
+                <rect x="40" y="160" width="320" height="90" rx="6" fill="#332742"/>
+                <!-- Messy papers -->
+                <rect x="70" y="145" width="45" height="30" rx="2" fill="#e2e8f0" transform="rotate(-15 70 145)" opacity="0.6"/>
+                <rect x="85" y="150" width="40" height="28" rx="2" fill="#cbd5e1" transform="rotate(8 85 150)" opacity="0.8"/>
+                <rect x="60" y="165" width="50" height="25" rx="2" fill="#94a3b8" transform="rotate(-5 60 165)" opacity="0.7"/>
+                <!-- Messy cups & cables -->
+                <circle cx="210" cy="155" r="14" fill="#f87171" opacity="0.9"/>
+                <circle cx="235" cy="165" r="12" fill="#fb923c" opacity="0.9"/>
+                <path d="M 210 155 Q 260 200 310 180 T 350 240" stroke="#f43f5e" stroke-width="3" fill="none" opacity="0.7"/>
+                <!-- Clothes / stuff on chair -->
+                <ellipse cx="320" cy="170" rx="35" ry="25" fill="#a855f7" opacity="0.6"/>
+              </svg>
+              <span class="layer-label label-before">⚠️ ANTES: Abrumador (Caos Visual)</span>
+            </div>
+
+            <!-- Layer After (Clean, organized zen space) -->
+            <div class="comparison-layer layer-after" id="afterLayer">
+              <!-- Visual SVG representation of clean space -->
+              <svg class="scene-svg" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="300" fill="#062e24"/>
+                <!-- Desk -->
+                <rect x="40" y="160" width="320" height="90" rx="6" fill="#0f4a3c"/>
+                <!-- Single plant & clean laptop -->
+                <rect x="150" y="130" width="100" height="60" rx="4" fill="#1e293b"/>
+                <rect x="155" y="135" width="90" height="48" rx="2" fill="#38bdf8" opacity="0.3"/>
+                <!-- Cute Zen Succulent plant -->
+                <circle cx="90" cy="145" r="12" fill="#10b981"/>
+                <path d="M 90 145 C 80 135, 100 135, 90 145 Z" fill="#34d399"/>
+                <rect x="83" y="152" width="14" height="15" rx="2" fill="#d97706"/>
+                <!-- Lamp with warm light glow -->
+                <circle cx="310" cy="120" r="28" fill="#fef08a" opacity="0.25"/>
+                <circle cx="310" cy="120" r="10" fill="#fde047"/>
+              </svg>
+              <span class="layer-label label-after">✨ DESPUÉS: Espacio Zen en 8 min</span>
+            </div>
+
+            <!-- Slider Handle -->
+            <div class="comparison-slider-handle" id="sliderHandle">
+              <div class="handle-circle">⟷</div>
+            </div>
+          </div>
+          <p style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">
+            👆 Arrastra o pasa el ratón sobre el control para ver la transformación Antes / Después
+          </p>
+        </div>
+
+        <!-- How it works flow -->
+        <div class="photo-scan-flow">
+          <div class="scan-step-card">
+            <div class="scan-step-num">1</div>
+            <div class="scan-step-content">
+              <h4>📸 Captura el rincón desordenado</h4>
+              <p>El usuario toma una foto del escritorio, encimera o armario sin necesidad de redactar nada.</p>
+            </div>
+          </div>
+
+          <div class="scan-step-card">
+            <div class="scan-step-num">2</div>
+            <div class="scan-step-content">
+              <h4>🤖 IA Smart Slicer (Detección de Objetos)</h4>
+              <p>Identifica tazas, papeles y ropa, ordenándolos automáticamente de menor a mayor esfuerzo mental.</p>
+            </div>
+          </div>
+
+          <div class="scan-step-card">
+            <div class="scan-step-num">3</div>
+            <div class="scan-step-content">
+              <h4>🎯 Inyección directa en el Dispensador</h4>
+              <p>Convierte el caos en 3 micro-acciones de 2 minutos para resolverlas una a una sin pensar.</p>
+            </div>
+          </div>
+
+          <button class="sim-scan-btn" onclick="simulateScan()">
+            <span>✨ Simular Foto-Escaneo IA</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       JOURNEY OF TECHNIQUES (INTERACTIVE EXPLORER)
+       ========================================================================== -->
+  <section id="tecnicas">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">🗺️ Metodología de Ideación</span>
+        <h2 class="section-title">El Recorrido de Técnicas Creativas</h2>
+        <p class="section-subtitle">
+          Cómo evolucionaron los conceptos desde la definición del trabajo esencial hasta los filtros del realismo y el blindaje anti-fallos.
+        </p>
+      </div>
+
+      <!-- Techniques Nav Buttons -->
+      <div class="techniques-nav">
+        <button class="tech-tab-btn active" onclick="switchTechTab('jtbd', this)">
+          <span>🎯</span> Job to Be Done
+        </button>
+        <button class="tech-tab-btn" onclick="switchTechTab('scamper', this)">
+          <span>⚡</span> SCAMPER (Híbrido)
+        </button>
+        <button class="tech-tab-btn" onclick="switchTechTab('flips', this)">
+          <span>🔄</span> Worst Idea & Flips
+        </button>
+        <button class="tech-tab-btn" onclick="switchTechTab('disney', this)">
+          <span>🏰</span> Disney Method (3 Salas)
+        </button>
+      </div>
+
+      <!-- TAB 1: JOB TO BE DONE -->
+      <div class="tech-tab-pane active" id="pane-jtbd">
+        <div class="jtbd-grid">
+          <div class="jtbd-card">
+            <div class="jtbd-card-header">
+              <span class="jtbd-card-icon">🛋️</span>
+              <h3 class="jtbd-card-title">Amortiguador de Culpa</h3>
+            </div>
+            <p class="jtbd-card-body">
+              El usuario no contrata una lista de tareas, sino un piloto automático que le diga qué micro-acción hacer en 5 minutos para sentir avance sin desgastar fuerza de voluntad.
+            </p>
+          </div>
+
+          <div class="jtbd-card">
+            <div class="jtbd-card-header">
+              <span class="jtbd-card-icon">🛡️</span>
+              <h3 class="jtbd-card-title">Candado Protector Anti-Maratón</h3>
+            </div>
+            <p class="jtbd-card-body">
+              Evitar el agotamiento de "limpiezas titánicas de sábado". La app fuerza un tope (15 min) y te prohíbe continuar, dando permiso explícito para descansar.
+            </p>
+          </div>
+
+          <div class="jtbd-card">
+            <div class="jtbd-card-header">
+              <span class="jtbd-card-icon">🧩</span>
+              <h3 class="jtbd-card-title">Fragmentación Multi-Día</h3>
+            </div>
+            <p class="jtbd-card-body">
+              Desarmar tareas colosales en micro-pasos de 3 a 5 minutos distribuidos a lo largo de la semana para lograr la meta sin esfuerzo perceptible.
+            </p>
+          </div>
+
+          <div class="jtbd-card">
+            <div class="jtbd-card-header">
+              <span class="jtbd-card-icon">🤝</span>
+              <h3 class="jtbd-card-title">Pacto de Tiempo Mínimo</h3>
+            </div>
+            <p class="jtbd-card-body">
+              Un bloque pactado y reservado (ej. 15 min al día) como techo máximo saludable, adaptándose al ritmo de vida real.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SCAMPER -->
+      <div class="tech-tab-pane" id="pane-scamper">
+        <div class="scamper-list">
+          <div class="scamper-item">
+            <div class="scamper-letter">S</div>
+            <div class="scamper-text">
+              <h4>Sustituir Listas por Feed 1-a-1</h4>
+              <p>Reemplazar listas infinitas por una interfaz de 1 sola tarea para extirpar la parálisis de decisión.</p>
+            </div>
+          </div>
+
+          <div class="scamper-item">
+            <div class="scamper-letter">C</div>
+            <div class="scamper-text">
+              <h4>Combinar FlyLady + Regla 1-3-5</h4>
+              <p>1 tarea principal de Zona (10m), 3 micro-mantenimientos (2m) y 5 hábitos flash (30s).</p>
+            </div>
+          </div>
+
+          <div class="scamper-item">
+            <div class="scamper-letter">A</div>
+            <div class="scamper-text">
+              <h4>Adaptar a la Energía Real</h4>
+              <p>Check-in inmediato (🔋 / ☕ / 🛋️) que transmuta la exigencia del sistema según tu batería.</p>
+            </div>
+          </div>
+
+          <div class="scamper-item">
+            <div class="scamper-letter">M</div>
+            <div class="scamper-text">
+              <h4>Modificar "Horas Fijas" por Bolsa Flotante</h4>
+              <p>En vez de alarmas inflexibles, el botón "Tengo X minutos ahora" activa sesiones cuando hay hueco.</p>
+            </div>
+          </div>
+
+          <div class="scamper-item">
+            <div class="scamper-letter">P</div>
+            <div class="scamper-text">
+              <h4>Poner en Otro Uso: Foto Multimodal</h4>
+              <p>Usar la cámara no solo para archivar, sino para diagnosticar y convertir el desorden visual en micro-pasos.</p>
+            </div>
+          </div>
+
+          <div class="scamper-item">
+            <div class="scamper-letter">E</div>
+            <div class="scamper-text">
+              <h4>Eliminar el Castigo por Retraso</h4>
+              <p>Eliminar contadores de rachas rotas y alertas en rojo. La app recalcula en silencio.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: WORST POSSIBLE IDEA & FLIPS -->
+      <div class="tech-tab-pane" id="pane-flips">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            💡 <em>Haz clic en las tarjetas para girarlas y ver cómo la "peor idea posible" se transformó en una ventaja competitiva:</em>
+          </p>
+        </div>
+
+        <div class="flips-grid">
+          <!-- Flip Card 1 -->
+          <div class="flip-card" onclick="toggleCardFlip(this)">
+            <div class="flip-card-inner">
+              <div class="flip-card-front">
+                <div>
+                  <span class="badge" style="background: rgba(244,63,94,0.2); color: #fda4af; border-color: rgba(244,63,94,0.4);">❌ Peor Idea</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Shaming y Rachas Rotas</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+                    Notificaciones en rojo gigante que te llaman perezoso, destruyen tu racha de 40 días con una calavera y te bombardean con culpa si faltas 2 días.
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para ver el Flip 🔄</div>
+              </div>
+              <div class="flip-card-back">
+                <div>
+                  <span class="badge" style="background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.4);">✨ El Flip Ganador</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Diseño 100% Anti-Shaming</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-soft); margin-top: 8px;">
+                    Cero estados de "atrasado". Si vuelves tras 1 mes, la app te recibe con cariño: <em>"¡Qué alegría verte! Empecemos con algo suave de 1 minuto."</em>
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para volver 🔄</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flip Card 2 -->
+          <div class="flip-card" onclick="toggleCardFlip(this)">
+            <div class="flip-card-inner">
+              <div class="flip-card-front">
+                <div>
+                  <span class="badge" style="background: rgba(244,63,94,0.2); color: #fda4af; border-color: rgba(244,63,94,0.4);">❌ Peor Idea</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Maratones Obligatorias</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+                    Prohibido parar hasta limpiar los 150m² de la casa de golpe durante 6 horas consecutivas de agotamiento extremo un domingo por la tarde.
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para ver el Flip 🔄</div>
+              </div>
+              <div class="flip-card-back">
+                <div>
+                  <span class="badge" style="background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.4);">✨ El Flip Ganador</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Candado Protector & Micro-Dosis</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-soft); margin-top: 8px;">
+                    La app te frena en 15 minutos exactos. <em>"¡Objetivo cumplido! Has ganado tu descanso."</em> Se fragmenta a lo largo de los días para preservar tu energía.
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para volver 🔄</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flip Card 3 -->
+          <div class="flip-card" onclick="toggleCardFlip(this)">
+            <div class="flip-card-inner">
+              <div class="flip-card-front">
+                <div>
+                  <span class="badge" style="background: rgba(244,63,94,0.2); color: #fda4af; border-color: rgba(244,63,94,0.4);">❌ Peor Idea</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Castigar el Ocio Espontáneo</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+                    Si surge un plan improvisado con amigos o una película en el cine, la app te envía alertas de alarma exigiendo que vuelvas a fregar los platos.
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para ver el Flip 🔄</div>
+              </div>
+              <div class="flip-card-back">
+                <div>
+                  <span class="badge" style="background: rgba(16,185,129,0.2); color: #6ee7b7; border-color: rgba(16,185,129,0.4);">✨ El Flip Ganador</span>
+                  <h4 style="margin-top: 14px; font-size: 1.15rem; color: #fff;">Celebrar la Vida Real</h4>
+                  <p style="font-size: 0.85rem; color: var(--text-soft); margin-top: 8px;">
+                    Un botón <em>"Surgió un planazo 🎉"</em> pausa la sesión al instante y recoloca el tiempo en el colchón invisible sin penalización ni reproches.
+                  </p>
+                </div>
+                <div class="flip-hint">Toca para volver 🔄</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: DISNEY METHOD -->
+      <div class="tech-tab-pane" id="pane-disney">
+        <div class="disney-rooms-grid">
+          <!-- Room 1: Dreamer -->
+          <div class="disney-room-card room-dreamer">
+            <div class="room-badge" style="color: #c084fc;">
+              <span>🌟</span> La Habitación del Soñador
+            </div>
+            <h4 style="font-size: 1.2rem; color: #fff;">El Mayordomo Zen Invisible</h4>
+            <p style="font-size: 0.9rem; color: var(--text-soft); line-height: 1.5;">
+              La casa y las tareas se ordenan casi por arte de magia. La app es un amigo empático y omnisciente que detecta tus momentos ideales de descanso y convierte cada micro-acción en un juego irresistible.
+            </p>
+            <div style="background: rgba(168,85,247,0.1); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; color: #d8b4fe;">
+              ✨ <strong>Visión:</strong> Cero resistencia psicológica. La sensación de que el orden ocurre solo.
+            </div>
+          </div>
+
+          <!-- Room 2: Realist -->
+          <div class="disney-room-card room-realist">
+            <div class="room-badge" style="color: #38bdf8;">
+              <span>🛠️</span> La Habitación del Realista
+            </div>
+            <h4 style="font-size: 1.2rem; color: #fff;">Colchón Invisible & Sincronización</h4>
+            <p style="font-size: 0.9rem; color: var(--text-soft); line-height: 1.5;">
+              Micro check-in de energía en 1 tap (🟢/🟡/🔴), motor de holguras con "buffer invisible" que recalcula plazos sin presionar, e integración no invasiva con calendario que propone huecos sin imponerlos.
+            </p>
+            <div style="background: rgba(56,189,248,0.1); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; color: #7dd3fc;">
+              ⚙️ <strong>Mecánica:</strong> Algoritmo adaptativo basado en histórico real de hábitos y tiempos.
+            </div>
+          </div>
+
+          <!-- Room 3: Critic & Mitigations -->
+          <div class="disney-room-card room-critic">
+            <div class="room-badge" style="color: #fbbf24;">
+              <span>🔍</span> El Crítico y sus Blindajes
+            </div>
+            <h4 style="font-size: 1.2rem; color: #fff;">Mitigación de Riesgos</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; color: var(--text-soft);">
+              <div>
+                <strong>⚠️ Riesgo:</strong> Procrastinación infinita saltando tareas.<br>
+                <span style="color: #34d399;">🛡️ Blindaje:</span> <em>Modo Rescate</em> reduce la tarea a 60 seg si se pospone 3 veces.
+              </div>
+              <div>
+                <strong>⚠️ Riesgo:</strong> No percibir avance en micro-pasos.<br>
+                <span style="color: #34d399;">🛡️ Blindaje:</span> Impacto acumulado y efecto bola de nieve visual.
+              </div>
+              <div>
+                <strong>⚠️ Riesgo:</strong> Privacidad en calendario/cámara.<br>
+                <span style="color: #34d399;">🛡️ Blindaje:</span> Procesamiento 100% on-device (local).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       THE 4 CONVERGED PILLARS (ARCHITECTURE GRID)
+       ========================================================================== -->
+  <section id="pilares" style="background: rgba(0, 0, 0, 0.2);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">🏛️ Arquitectura del Sistema</span>
+        <h2 class="section-title">Los 4 Pilares Convergidos</h2>
+        <p class="section-subtitle">
+          El mapa maestro derivado de la sesión de brainstorming para construir la app definitiva de productividad amable.
+        </p>
+      </div>
+
+      <div class="pillars-main-grid">
+        <!-- Pillar 1 -->
+        <div class="pillar-card">
+          <span class="pillar-number">01</span>
+          <div class="pillar-icon-box" style="color: #38bdf8;">🎯</div>
+          <h3 class="pillar-title">Núcleo Dispensador & Smart Slicer</h3>
+          <p class="pillar-summary">
+            Interfaz de 1 sola tarea a la vez. Desglosador inteligente mediante IA que fragmenta proyectos densos en micro-acciones de 2 a 10 min, con plantillas pre-configuradas de zonas y entrada de voz natural.
+          </p>
+          <div class="pillar-tags">
+            <span class="pillar-tag-item">Single-Task Feed</span>
+            <span class="pillar-tag-item">Smart Slicer IA</span>
+            <span class="pillar-tag-item">Voz Natural</span>
+          </div>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="pillar-card">
+          <span class="pillar-number">02</span>
+          <div class="pillar-icon-box" style="color: #a855f7;">⏳</div>
+          <h3 class="pillar-title">Bolsa Flotante & Sincronización</h3>
+          <p class="pillar-summary">
+            Presupuesto flexible de tiempo diario (ej. 15 min) que se activa bajo demanda cuando el usuario tiene un hueco ("Tengo X min ahora"), con integración suave de calendario sin alarmas invasivas.
+          </p>
+          <div class="pillar-tags">
+            <span class="pillar-tag-item">Bolsa Flotante</span>
+            <span class="pillar-tag-item">Modo Hueco Libre</span>
+            <span class="pillar-tag-item">Cero Alarmas Rígidas</span>
+          </div>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="pillar-card">
+          <span class="pillar-number">03</span>
+          <div class="pillar-icon-box" style="color: #10b981;">🌿</div>
+          <h3 class="pillar-title">Híbrido FlyLady + 1-3-5 & Descarte</h3>
+          <p class="pillar-summary">
+            Doble ciclo (Recurrentes vs. Estacionales) con <strong>Protocolo de Descarte Consciente</strong> previo (<em>«el desorden no se organiza, se elimina»</em>): preguntas de desapego sin culpa, caja de cuarentena y métrica de espacio liberado, integrado en el <em>Tejedor de Proyectos</em>.
+          </p>
+          <div class="pillar-tags">
+            <span class="pillar-tag-item">Proyectos Recurrentes</span>
+            <span class="pillar-tag-item">Descarte Consciente</span>
+            <span class="pillar-tag-item">Tejedor 1-3-5</span>
+            <span class="pillar-tag-item">Caja Cuarentena</span>
+          </div>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="pillar-card">
+          <span class="pillar-number">04</span>
+          <div class="pillar-icon-box" style="color: #fbbf24;">💖</div>
+          <h3 class="pillar-title">Psicología Anti-Shaming & Progreso</h3>
+          <p class="pillar-summary">
+            Eliminación total del castigo por pausa o racha rota. Bienvenida cálida siempre, modo rescate de 60 segundos si hay resistencia y visualización del impacto acumulado mediante efecto bola de nieve.
+          </p>
+          <div class="pillar-tags">
+            <span class="pillar-tag-item">0% Culpa</span>
+            <span class="pillar-tag-item">Modo Rescate 60s</span>
+            <span class="pillar-tag-item">Impacto Acumulado</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       STRATEGIC PLATFORM DECISION & ROADMAP
+       ========================================================================== -->
+  <section id="estrategia">
+    <div class="container">
+      <div class="glass-card" style="border-color: rgba(56, 189, 248, 0.3); background: linear-gradient(180deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.95) 100%);">
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;">
+          <div>
+            <span class="badge badge-platform" style="margin-bottom: 12px;">📱 Decisión Estratégica Clave</span>
+            <h3 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 10px; color: #fff;">
+              Prioridad Absoluta: App Móvil Nativa (iOS / Android)
+            </h3>
+            <p style="color: var(--text-soft); font-size: 0.95rem; line-height: 1.6; max-width: 800px;">
+              El producto debe vivir en el móvil del usuario para aprovechar la <strong>cámara táctil</strong> (escaneo visual en cualquier rincón del hogar), la <strong>portabilidad física</strong> mientras se ejecutan micro-tareas y la experiencia de <strong>widgets de 1 solo toque</strong> con haptics relajantes.
+            </p>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 3rem;">📲</div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Mobile First</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       FOOTER
+       ========================================================================== -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="#dispensador">Dispensador UI</a>
+        <a href="#multimodal">Foto-Diagnóstico</a>
+        <a href="#tecnicas">Técnicas</a>
+        <a href="#pilares">4 Pilares</a>
+      </div>
+      <p>
+        Generado con amor y serenidad · BMAD Brainstorming Interactive Keepsake · 2026-08-20
+      </p>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       INLINE INTERACTIVE JAVASCRIPT (100% OFFLINE)
+       ========================================================================== -->
+  <script>
+    /* --------------------------------------------------------------------------
+       1. DATA QUEUES FOR SINGLE-TASK DISPENSER
+       -------------------------------------------------------------------------- */
+    const taskDatabase = {
+      high: [
+        {
+          zone: "📍 Zona 2: Cocina & Despensa",
+          rule: "FlyLady 1-3-5 (1 Principal)",
+          title: "Despejar encimera y fregar tazas",
+          desc: "Un micro-bloque de 8 minutos para dejar la superficie reluciente sin limpiar toda la cocina.",
+          steps: [
+            "Llevar las 3 tazas al fregadero",
+            "Guardar aceite y especias en su sitio",
+            "Pasar una bayeta húmeda 30 seg"
+          ],
+          timer: "08:00",
+          timeCost: 8
+        },
+        {
+          zone: "📍 Zona 1: Escritorio & Trabajo",
+          rule: "FlyLady 1-3-5 (1 Principal)",
+          title: "Organizar bandeja de entrada física",
+          desc: "Filtrar los papeles del escritorio: tirar folletos viejos y apilar facturas.",
+          steps: [
+            "Reciclar folletos y sobres abiertos",
+            "Apilar documentos importantes en 1 carpeta",
+            "Despejar alfombrilla del ratón"
+          ],
+          timer: "10:00",
+          timeCost: 10
+        }
+      ],
+      normal: [
+        {
+          zone: "📍 Zona 3: Salón & Descanso",
+          rule: "Micro-Mantenimiento (3 Secundarias)",
+          title: "Colocar los cojines y doblar la manta",
+          desc: "Micro-acción de 3 minutos para restaurar la sensación de armonía visual en el sofá.",
+          steps: [
+            "Doblar la manta del sofá en 2 pliegues",
+            "Colocar los 2 cojines rectos",
+            "Llevar un vaso a la cocina"
+          ],
+          timer: "03:00",
+          timeCost: 3
+        },
+        {
+          zone: "📍 Zona 4: Dormitorio",
+          rule: "Micro-Mantenimiento (3 Secundarias)",
+          title: "Despejar la silla de la ropa",
+          desc: "Guardar 3 prendas colgadas y meter la ropa sucia al cesto sin ordenar todo el armario.",
+          steps: [
+            "Colgar 2 chaquetas en percha",
+            "Echar ropa usada al cesto",
+            "Dejar el asiento libre"
+          ],
+          timer: "04:00",
+          timeCost: 4
+        }
+      ],
+      zombie: [
+        {
+          zone: "📍 Hábito Zen Inmediato",
+          rule: "Hábito Flash (5 Rápidas)",
+          title: "Hacer brillar el grifo del lavabo (1 min)",
+          desc: "El famoso paso FlyLady: solo pasar un paño seco al grifo para ver un destello de orden sin cansancio.",
+          steps: [
+            "Coger un paño seco o toallita",
+            "Frotar el grifo 20 segundos hasta que brille",
+            "¡Admirar el reflejo y respirar hondo!"
+          ],
+          timer: "01:00",
+          timeCost: 1
+        },
+        {
+          zone: "📍 Micro-Paso de Rescate",
+          rule: "Modo Rescate 60s",
+          title: "Tirar 3 papeles o envoltorios a la basura",
+          desc: "60 segundos exactos. Mirar alrededor, agarrar 3 cosas para tirar y listo por hoy.",
+          steps: [
+            "Agarrar 3 envoltorios / papeles viejos",
+            "Tirarlos al cubo",
+            "Celebrar que hoy también sumaste"
+          ],
+          timer: "01:00",
+          timeCost: 1
+        }
+      ]
+    };
+
+    let currentEnergy = 'high';
+    let currentTaskIndex = 0;
+    let completedStepsCount = 0;
+    let minutesInvested = 0;
+    let timerRunning = false;
+    let timerSeconds = 480;
+    let timerInterval = null;
+
+    // Web Audio API Synthesizer for Zen Bell
+    function playZenBell() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        
+        // Root tone
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(528, ctx.currentTime); // 528Hz Solfeggio / Zen clarity
+        
+        // Harmonics
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1056, ctx.currentTime);
+
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
+        
+        gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+
+        osc.start();
+        osc2.start();
+        osc.stop(ctx.currentTime + 2.0);
+        osc2.stop(ctx.currentTime + 2.0);
+      } catch (e) {
+        // Audio fallback silent
+      }
+    }
+
+    /* Set Energy & Render Task */
+    function setEnergy(level, btnElement) {
+      currentEnergy = level;
+      currentTaskIndex = 0;
+      
+      // Update active button styling
+      document.querySelectorAll('.energy-btn').forEach(btn => btn.classList.remove('active'));
+      if (btnElement) {
+        btnElement.classList.add('active');
+      }
+
+      renderCurrentTask();
+    }
+
+    function renderCurrentTask() {
+      const list = taskDatabase[currentEnergy];
+      const task = list[currentTaskIndex % list.length];
+
+      document.getElementById('taskZone').innerText = task.zone;
+      document.getElementById('taskRule').innerText = task.rule;
+      document.getElementById('taskTitle').innerText = task.title;
+      document.getElementById('taskDesc').innerText = task.desc;
+      document.getElementById('timerDisplay').innerText = task.timer;
+
+      // Parse timer seconds
+      const parts = task.timer.split(':');
+      timerSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      stopTimer();
+
+      // Render micro steps
+      const stepsContainer = document.getElementById('microStepsList');
+      stepsContainer.innerHTML = '';
+      task.steps.forEach(stepText => {
+        const label = document.createElement('label');
+        label.className = 'micro-step-item';
+        label.innerHTML = `
+          <input type="checkbox" onchange="toggleStep(this)">
+          <span>${stepText}</span>
+        `;
+        stepsContainer.appendChild(label);
+      });
+    }
+
+    function toggleStep(checkbox) {
+      const item = checkbox.closest('.micro-step-item');
+      if (checkbox.checked) {
+        item.classList.add('checked');
+      } else {
+        item.classList.remove('checked');
+      }
+    }
+
+    /* Complete Task with Confetti & Zen Chime */
+    function completeTask() {
+      playZenBell();
+      fireConfetti();
+
+      completedStepsCount++;
+      minutesInvested += 5;
+
+      // Update progress HUD
+      document.getElementById('completedCount').innerText = `${completedStepsCount} micro-acciones`;
+      const progressPercent = Math.min(100, completedStepsCount * 33);
+      document.getElementById('hudProgressFill').style.width = `${progressPercent}%`;
+
+      // Animate card swap
+      const card = document.getElementById('activeTaskCard');
+      card.style.transform = 'scale(0.96) translateY(-8px)';
+      card.style.opacity = '0.7';
+
+      setTimeout(() => {
+        currentTaskIndex++;
+        renderCurrentTask();
+        card.style.transform = 'scale(1) translateY(0)';
+        card.style.opacity = '1';
+      }, 300);
+    }
+
+    /* Defer Task with Zero-Guilt Toast */
+    function deferTask() {
+      const toast = document.getElementById('zeroGuiltToast');
+      const titles = [
+        "¡Cero Drama ni Culpa! 🌿",
+        "Tu descanso es sagrado ☕",
+        "Recalculando con cariño 💫"
+      ];
+      const msgs = [
+        "Guardamos esta micro-tarea para cuando tengas mejor energía.",
+        "A veces parar es la decisión más productiva. ¡Te cuidamos!",
+        "La app se adapta a ti, nunca tú a una máquina exigente."
+      ];
+      
+      const randIdx = Math.floor(Math.random() * titles.length);
+      document.getElementById('toastTitle').innerText = titles[randIdx];
+      document.getElementById('toastMsg').innerText = msgs[randIdx];
+
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+        // Switch to a softer task or next task
+        currentTaskIndex++;
+        renderCurrentTask();
+      }, 1800);
+    }
+
+    /* Timer Controls */
+    function toggleTimer() {
+      const btn = document.getElementById('timerBtn');
+      if (timerRunning) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      timerRunning = true;
+      document.getElementById('timerBtn').innerText = "Pausar";
+      timerInterval = setInterval(() => {
+        if (timerSeconds > 0) {
+          timerSeconds--;
+          const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+          const s = (timerSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+        } else {
+          stopTimer();
+          playZenBell();
+          alert("🛡️ ¡Candado Protector Activado! Han pasado los minutos pactados. Hora de descansar.");
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      timerRunning = false;
+      clearInterval(timerInterval);
+      const btn = document.getElementById('timerBtn');
+      if (btn) btn.innerText = "Iniciar";
+    }
+
+    /* --------------------------------------------------------------------------
+       2. INTERACTIVE BEFORE / AFTER SLIDER
+       -------------------------------------------------------------------------- */
+    const comparisonBox = document.getElementById('comparisonBox');
+    const afterLayer = document.getElementById('afterLayer');
+    const sliderHandle = document.getElementById('sliderHandle');
+    let isSliding = false;
+
+    function setSliderPosition(xRatio) {
+      const clamped = Math.max(0.05, Math.min(0.95, xRatio));
+      const percentage = clamped * 100;
+      afterLayer.style.clipPath = `inset(0 0 0 ${percentage}%)`;
+      sliderHandle.style.left = `${percentage}%`;
+    }
+
+    function handleMove(e) {
+      if (!isSliding && e.type !== 'mousemove') return;
+      const rect = comparisonBox.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const xRatio = (clientX - rect.left) / rect.width;
+      setSliderPosition(xRatio);
+    }
+
+    comparisonBox.addEventListener('mousedown', (e) => { isSliding = true; handleMove(e); });
+    window.addEventListener('mouseup', () => { isSliding = false; });
+    window.addEventListener('mousemove', (e) => { if (isSliding) handleMove(e); });
+
+    comparisonBox.addEventListener('touchstart', (e) => { isSliding = true; handleMove(e); });
+    window.addEventListener('touchend', () => { isSliding = false; });
+    window.addEventListener('touchmove', (e) => { if (isSliding) handleMove(e); });
+
+    // Optional hover ease when moving across container
+    comparisonBox.addEventListener('mousemove', (e) => {
+      if (!isSliding) {
+        const rect = comparisonBox.getBoundingClientRect();
+        const xRatio = (e.clientX - rect.left) / rect.width;
+        setSliderPosition(xRatio);
+      }
+    });
+
+    /* Simulate Photo Scan Action */
+    function simulateScan() {
+      const scanBtn = document.querySelector('.sim-scan-btn');
+      scanBtn.innerHTML = `<span>⏳ Analizando foto con IA...</span>`;
+      scanBtn.style.opacity = '0.8';
+
+      setTimeout(() => {
+        scanBtn.innerHTML = `<span>✨ ¡3 Micro-pasos generados!</span>`;
+        scanBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        scanBtn.style.color = '#fff';
+        playZenBell();
+        setSliderPosition(0.15); // Show after space prominently
+        
+        // Feed into phone
+        currentEnergy = 'normal';
+        setEnergy('normal', document.querySelectorAll('.energy-btn')[1]);
+        
+        setTimeout(() => {
+          scanBtn.innerHTML = `<span>✨ Simular Foto-Escaneo IA</span>`;
+          scanBtn.style.background = '';
+          scanBtn.style.color = '';
+          scanBtn.style.opacity = '1';
+        }, 2500);
+      }, 1200);
+    }
+
+    /* --------------------------------------------------------------------------
+       3. TECHNIQUES TAB SWITCHER & 3D FLIP CARDS
+       -------------------------------------------------------------------------- */
+    function switchTechTab(tabId, btnElement) {
+      document.querySelectorAll('.tech-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tech-tab-pane').forEach(pane => pane.classList.remove('active'));
+
+      btnElement.classList.add('active');
+      const targetPane = document.getElementById(`pane-${tabId}`);
+      if (targetPane) {
+        targetPane.classList.add('active');
+      }
+    }
+
+    function toggleCardFlip(cardElement) {
+      cardElement.classList.toggle('flipped');
+    }
+
+    /* --------------------------------------------------------------------------
+       4. LIGHTWEIGHT EMBEDDED CONFETTI ENGINE
+       -------------------------------------------------------------------------- */
+    const canvas = document.getElementById('confettiCanvas');
+    const ctx = canvas.getContext('2d');
+    let confettiParticles = [];
+    let animationFrameId = null;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function fireConfetti() {
+      const colors = ['#10b981', '#38bdf8', '#a855f7', '#fbbf24', '#f43f5e', '#34d399'];
+      const count = 50;
+      
+      for (let i = 0; i < count; i++) {
+        confettiParticles.push({
+          x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+          y: canvas.height / 2 + 50,
+          w: Math.random() * 8 + 4,
+          h: Math.random() * 6 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 1.5) * 14,
+          rot: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 10,
+          life: 1,
+          decay: Math.random() * 0.015 + 0.015
+        });
+      }
+
+      if (!animationFrameId) {
+        updateConfetti();
+      }
+    }
+
+    function updateConfetti() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = confettiParticles.length - 1; i >= 0; i--) {
+        const p = confettiParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.4; // Gravity
+        p.rot += p.rotSpeed;
+        p.life -= p.decay;
+
+        if (p.life <= 0 || p.y > canvas.height) {
+          confettiParticles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+
+      if (confettiParticles.length > 0) {
+        animationFrameId = requestAnimationFrame(updateConfetti);
+      } else {
+        animationFrameId = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // Initialize Default View
+    renderCurrentTask();
+  </script>
+</body>
+</html>
