@@ -35,7 +35,7 @@ Open questions OQ-1 and OQ-10. Updated 2026-08-21 for the three-path access mode
 
 **On-device candidate (Local, the preferred ideal).** Gemma 4, released 2026-04-02, in E2B / E4B / 26B-MoE / 31B-dense variants. E4B is the phone-class target: native multimodal input (image with variable aspect ratio and resolution, plus video and audio), an encoder-free architecture projecting raw image patches directly into the embedding space, 256K context, and official Android support. The 12B is laptop-class and irrelevant to a handset. The only open question is slicing quality on real clutter photos — a bounded test on the validation phone, not a research programme.
 
-**The fallback path is no longer a template — but the Evergreen day is not a fallback.** FR-29 makes the no-Slicer state explicit and routes anything personal to Manual Capture (FR-27). Separately, Evergreen templates ship pre-sliced as product content (FR-11), so a keyless offline install still has a 1-3-5 day. The distinction that matters downstream: Evergreen is universal and can be authored once at build time; Epic is personal and only the Slicer authors it.
+**The fallback path is no longer a template — but the Evergreen day is not a fallback.** FR-29 makes the no-Slicer state explicit and routes anything personal to Manual Capture (FR-27). Separately, the whole Evergreen Library ships pre-sliced as product content (FR-11, FR-31, catalogue in A12), so a keyless offline install still has a varied month of 1-3-5 days. The distinction that matters downstream: Evergreen is universal and can be authored once at build time; Epic is personal and only the Slicer authors it.
 
 ## A3. Decision Rationale — AI included in the validation build
 
@@ -104,3 +104,204 @@ A second-order pass produced three findings that were first routed downstream as
 - **FR-29's seven strings, authored first.** These are the highest shaming-risk sentences in a product whose entire thesis is anti-shaming, and they are structurally the last strings anyone writes — the error branch, in a hurry, at the end. Making them a completion condition of FR-29 rather than a UX wish is the only mechanism that reliably beats that ordering. They enter the SM-C2 audit table with everything else.
 - **FR-30's silent automatic export.** Manual-only export + no backup reminders (correct for the user) + a 4-week window = a real chance the validation data dies with a dropped phone in week 3. The two requirements are only compatible if the export happens by itself. Two constraints kept it from breaking anything: it runs in the *foreground* at natural moments, so §7's background minimalism holds unchanged; and the app writes a local file rather than transmitting, so the egress map is untouched and any cloud sync is the user's own client's doing.
 - **What the third promotion also produced.** Resolving where export state may be shown surfaced a principle that had been implicit in three separate decisions: **settings is where the validator reads, the Dispenser is where the user lives.** The raw FR-26 series, FR-30's export state and the Managed path's credit balance all belong there and nowhere else. It is what makes one person holding both roles survivable inside one app, and it is now written into §7.
+
+## A11. Decision Rationale — the Evergreen Library, and the two rulings that paid for it (2026-08-23)
+
+Sergio asked that the PRD record the need for predefined tasks, varied across cadences: everyday basics (lavar los platos, cocinar, poner la mesa) and weekly work (pasar la aspiradora, limpiar ventanas). The concept already existed — Archetype Templates, Evergreen pre-sliced since the 2026-08-21 lifecycle split — but it was far narrower than the ask, and reconciling the two forced two product decisions.
+
+- **What was actually missing.** The shipped Evergreen material amounted to five FlyLady zone templates plus five ~30-second daily anchors. That fills the "5" of the 1-3-5 and, thinly, the "1". Nothing filled the "3", and nothing covered the third cadence a home actually has — the monthly and seasonal work that "limpiar ventanas" belongs to. FR-11 promised a working 1-3-5 day on a keyless offline install; the content behind that promise could not deliver a varied month. FR-31 and A12 are that content, with a coverage floor attached so it stays checkable.
+
+- **Daily Evergreen could no longer mean 30 seconds.** Poner la mesa is ~3 min (Micro-maintenance) and lavar los platos ~10 min (Focus Chunk). The request therefore required daily Evergreen material at all three sizes, not only at the anchor size — which is why **Baseline Upkeep** is a named glossary term rather than "more anchors". The distinction is by size, not by kind.
+
+- **Rejected: cooking, and clock-bound work generally.** Cooking has an hour. The Floating Time Bag exists so that nothing in this product has a time of day (§1.1 principle 3), and calendar access is excluded by philosophy rather than by phasing (§5.2). A Dispenser that deals "cocinar" at five in the afternoon is not a nag, it is simply broken — and the alternative, teaching the app mealtimes, rebuilds the calendar inside the catalogue. The upkeep that hangs off a meal ships instead: clearing the table, the dishwasher, closing the kitchen. Those follow a moment the user recognises rather than a clock the app must track. The cost is stated rather than hidden: the app knows about the plates and not the meal, which may read as arbitrary from inside the kitchen, and OQ-12 now owns the copy problem that creates.
+
+- **Rejected: charging Baseline Upkeep to the Time Bag.** Honest on its face, and fatal in arithmetic. At the 15-minute default, dishes (10) plus setting the table (3) consume the day before any Epic Project is touched — and SM-3, the metric that validates the whole Weaver, requires visible Epic progress. Charging unavoidable work to a budget meant for getting ahead guarantees the build never validates the thing it exists to validate. So the Time Bag now budgets **advance** work only, and upkeep sits outside it. Also rejected, as a middle path: letting the user mark per-task which obligations count against the budget. Maximum fidelity to any given home, and one more onboarding decision in a product whose first principle is that the user never chooses from a list.
+
+- **What that split had to keep intact.** An unbudgeted class of tasks is an anti-marathon hole if nothing else bounds it. Nothing else needed inventing: FR-8 already bounds a session by the *declared pocket*, which is a different quantity from the daily budget. The pocket bounds the sitting; the Time Bag budgets the advance. Anti-marathon lives on the first, so it survives the change untouched.
+
+- **A pre-existing contradiction the split resolves rather than adds to.** FR-12's canonical 1-3-5 sums to roughly 26 minutes (15 + 9 + 2.5) against FR-7's 15-minute default Time Bag. "Scaled to the current Time Bag" had been carrying that inconsistency silently since the first draft. With the Focus Chunk as the only budgeted element, 15 against 15 is exact, and scaling now has a defined meaning: drop upkeep and habits by count, never shrink a Micro-task's own estimate.
+
+- **Rejected: shipping the catalogue as a browsable, editable list.** The natural way to let a user tailor 85 tasks to their own home is to show them 85 tasks. That is the endless list §1 exists to abolish, walking in through the template door rather than the GTD one. Curation is therefore at cluster level — zones and upkeep groups — in onboarding and settings only, never from the Dispenser (§7). Per-task opt-out was refused for the same reason, and the price is accepted in §10.2: a cluster that half applies is enabled whole or disabled whole.
+
+- **Rejected: letting the user add to the catalogue.** A "create your own template" affordance is a task manager with a longer setup. Manual Capture (FR-27) is the only user-authored entrance and stays deliberately poor. The library is a data file fixed at build time, which is also what makes FR-31's coverage floor verifiable without running the app.
+
+## A12. The Evergreen Library — shipped catalogue (FR-31)
+
+Product content, authored 2026-08-23, closing OQ-3. Task names are shipped Spanish UI copy and go into the string table on the same terms as everything else (§7). Sizes are the 1-3-5 taxonomy exactly: **30 s** = Instant Habit, **3 min** = Micro-maintenance, **10–15 min** = Focus Chunk. Nothing here carries an hour, a mealtime, or a dependency on another task.
+
+Counts against FR-31's coverage floor: **34 daily**, **36 weekly** across five zones, **15 monthly/seasonal** — 51 non-daily entries against a floor of 45, so 28 consecutive Focus Chunks never repeat even with no Epic Project active.
+
+### A12.1 Daily — Instant Habits (30 s), cluster `anclas`
+
+| Task | Notes |
+|---|---|
+| Sacar brillo al fregadero | The FlyLady keystone anchor |
+| Hacer la cama | |
+| Abrir una ventana a ventilar | |
+| Recoger 3 cosas del suelo | Also FR-5's canonical 30-Second Rescue |
+| Colgar la toalla | |
+| Repasar el espejo del baño con la toalla usada | |
+| Meter en el lavavajillas lo que hay en el fregadero | |
+| Arrancar una lavadora | Starting it only; the load is separate |
+| Sacar la basura al rellano | |
+| Guardar los zapatos de la entrada | |
+| Regar una planta | Cluster `plantas` |
+| Despejar la mesita de noche | |
+| Bajar la tapa y repasar el borde del inodoro | |
+| Vaciar la papelera del baño | |
+
+### A12.2 Daily — Baseline Upkeep (3 min), cluster `sostén`
+
+| Task | Notes |
+|---|---|
+| Poner la mesa | |
+| Recoger la mesa | Post-meal, no hour attached |
+| Vaciar el lavavajillas | |
+| Repasar la encimera | |
+| Limpiar la placa | Post-meal |
+| Barrer bajo la mesa del comedor | |
+| Pasar la mopa por la cocina | |
+| Repasar el lavabo y los grifos | |
+| Doblar cinco prendas | Deliberately bounded — not "fold the laundry" |
+| Guardar la compra que quedó fuera | |
+| Ordenar los cojines y la manta del sofá | |
+| Vaciar y aclarar el cubo de reciclaje | |
+| Recoger la mesa de centro | |
+| Sacar la basura orgánica | |
+
+### A12.3 Daily — Baseline Upkeep (10–15 min), cluster `sostén`
+
+| Task | Notes |
+|---|---|
+| Lavar los platos a mano | |
+| Dejar la cocina cerrada | Encimera, fregadero y suelo — the end-of-day one |
+| Tender la colada | |
+| Doblar y guardar una colada | |
+| Recoger el salón entero | |
+| Ordenar la entrada y el recibidor | |
+
+### A12.4 Weekly — zone routines
+
+Five FlyLady zones, exactly one active per day, rotating weekly (§3, FR-11).
+
+**Z1 · Cocina y despensa** — 8 entries
+
+| Task | Size |
+|---|---|
+| Pasar la aspiradora a la cocina | 10–15 min |
+| Fregar el suelo de la cocina | 10–15 min |
+| Desengrasar la campana extractora | 10–15 min |
+| Vaciar una balda del frigorífico y tirar lo caducado | 10–15 min |
+| Repasar los azulejos detrás de la placa | 10–15 min |
+| Limpiar el microondas por dentro | 3 min |
+| Limpiar el frigorífico por fuera y los tiradores | 3 min |
+| Ordenar el cajón de los cubiertos | 3 min |
+
+**Z2 · Baños** — 7 entries
+
+| Task | Size |
+|---|---|
+| Limpiar la ducha o la bañera | 10–15 min |
+| Fregar el suelo del baño | 10–15 min |
+| Ordenar el armario del baño y tirar lo caducado | 10–15 min |
+| Limpiar el inodoro | 3 min |
+| Limpiar el espejo y los grifos | 3 min |
+| Cambiar las toallas | 3 min |
+| Destapar el desagüe de la ducha | 3 min |
+
+**Z3 · Dormitorios** — 7 entries
+
+| Task | Size |
+|---|---|
+| Cambiar las sábanas | 10–15 min |
+| Pasar la aspiradora al dormitorio | 10–15 min |
+| Aspirar debajo de la cama | 10–15 min |
+| Vaciar y airear una balda del armario | 10–15 min |
+| Quitar el polvo de las superficies | 3 min |
+| Ordenar la mesilla y los cables | 3 min |
+| Limpiar los espejos del armario | 3 min |
+
+**Z4 · Salón y zonas comunes** — 7 entries
+
+| Task | Size |
+|---|---|
+| Pasar la aspiradora al salón | 10–15 min |
+| Fregar el suelo del salón | 10–15 min |
+| Quitar el polvo de las estanterías | 10–15 min |
+| Aspirar el sofá y los cojines | 10–15 min |
+| Ordenar el mueble de cables y cargadores | 10–15 min |
+| Limpiar la mesa de centro y los mandos | 3 min |
+| Limpiar la pantalla del televisor | 3 min |
+
+**Z5 · Entrada, lavadero y exteriores** — 7 entries
+
+| Task | Size |
+|---|---|
+| Barrer y fregar la entrada | 10–15 min |
+| Ordenar los zapatos del recibidor | 10–15 min |
+| Barrer el balcón o la terraza | 10–15 min |
+| Limpiar el filtro de la lavadora | 3 min |
+| Limpiar el cubo de la basura por dentro | 3 min |
+| Revisar y regar las plantas | 3 min |
+| Repasar el espejo y la consola de la entrada | 3 min |
+
+### A12.5 Monthly and seasonal — cluster `fondo`
+
+15 entries. These are the cadence the previous template set had no representation for at all.
+
+| Task | Size |
+|---|---|
+| Limpiar los cristales de una habitación | 10–15 min |
+| Limpiar las mosquiteras y los rieles de las ventanas | 10–15 min |
+| Limpiar el horno | 10–15 min |
+| Revisar y organizar el congelador | 10–15 min |
+| Descalcificar los grifos | 10–15 min |
+| Repasar las juntas de la ducha | 10–15 min |
+| Limpiar los rodapiés de una habitación | 10–15 min |
+| Limpiar las puertas y los marcos | 10–15 min |
+| Limpiar las lámparas y las pantallas | 10–15 min |
+| Aspirar detrás de un mueble grande | 10–15 min |
+| Revisar el botiquín y tirar lo caducado | 10–15 min |
+| Limpiar el interior del coche | 10–15 min (cluster `coche`) |
+| Limpiar el filtro del aire acondicionado | 3 min |
+| Limpiar el filtro del lavavajillas | 3 min |
+| Poner a lavar las fundas de los cojines | 3 min |
+
+### A12.6 Deliberately absent
+
+Named so nobody adds them back by accident.
+
+- **Cocinar**, and any other task with an hour attached (§5.2, FR-31, A11).
+- **Cambio de armario de temporada** and **ordenar el trastero** — these are Epic Projects, personal to a home, and only the Slicer authors them (§1.1 principle 6, FR-11). A catalogue entry for either would be exactly the template-standing-in-for-the-Slicer fiction FR-29 removed.
+- **Non-spatial errands** (llamar al dentista, entregar el formulario) — the catalogue is spatial throughout, and whether such work belongs in the product at all is OQ-11, unresolved.
+
+## A13. Decision Rationale — voice as an input method, not as a path (2026-08-26)
+
+**The signal.** Typing on a touch-screen keyboard is genuinely hard for a lot of people, so voice must be one of the ways information enters the app. The observation is correct and the PRD had already half-conceded it: §2.1's "without typing or categorizing" was true only of the photo path, and Manual Capture — the one surface that asks for writing — asked for it through the worst input device on the phone.
+
+**What made this a decision rather than a feature.** Four things in the document pointed different ways, and "add voice" would have quietly broken three of them.
+
+- §5.1 already deferred a **voice-first natural-language slicer** to Phase 3. Shipping "voice" without saying which voice would leave a later reader unable to tell whether that bullet had been delivered.
+- §4.9 describes Manual Capture as a floor whose comfort was removed **on purpose**, and §2.2 uses that discomfort to keep GTD power users out of the product. Voice is a comfort affordance. If it makes the floor pleasant to live in, the non-user boundary moves without anyone having chosen to move it.
+- §7's egress map and FR-27's "no network, no key, no model, no account" are the strongest promises in the build. Cloud speech recognition would add a destination to the map and put a network dependency inside the one feature that exists to need nothing.
+- FR-27 says a captured line is unrecoverable once the user leaves the surface, and §5.2 forbids the list that would let them find it again. That rule was written for a human typing what they read.
+
+**The four rulings.**
+
+1. **Dictation, not genesis.** Voice fills the existing one line and nothing is parsed out of it — not the size, not a second task, not a date. The boundary is the one §1.1 principle 6 already draws: dictation transcribes, a Slicer authors. §5.1's bullet now states which side of the line it owns, so the Phase 3 item survives intact instead of being half-consumed.
+2. **On-device only, with no fallback.** This is what keeps FR-27's floor and §7's egress map literally true rather than newly qualified. The absence of a fallback is the load-bearing half: a cloud fallback is precisely how a new egress destination arrives in a build without anyone deciding to add one, and the person who wires it will be fixing a bug on an unsupported device, not making a privacy decision.
+3. **The transcript is visible and editable before the user leaves.** Machine-written text plus an unrecoverable pool plus no list is a defect, not a trade-off: a mis-heard word becomes an undeletable garbage card. The transcript lands in the field the correct-or-discard affordance already governs, so §4.9 keeps its "no confirmation screen" property and gains no surface.
+4. **The keyboard stays, forever.** Correcting a transcript requires it, and a voice-only capture surface fails the first time recognition mis-hears a household word.
+
+**Rejected alternatives.**
+
+- **Cloud STT, or on-device with a cloud fallback.** Rejected on §7 rather than on cost. It buys universal availability with the property that makes the whole data stance credible, and it buys it in the one feature whose entire purpose is to need nothing.
+- **Voice through the BYOK provider.** Rejected because it ties Manual Capture to a configured key — exactly the dependency FR-27 exists to eliminate. UJ-5's closing line ("on the day his API key expires, this is the only path still working") would have become false.
+- **Bringing the Phase 3 voice-first slicer forward.** Rejected as scope, not as an idea. Free speech → several sized micro-tasks needs a text slicer, network, key and a review surface for a multi-task result — and a review surface for several tasks is a list, which §5.2 abolishes. It is a genuinely different product decision and it deserves its own pass.
+- **A tablet form factor and a tablet user segment.** The signal mentioned tablets; §5.1's "Android only" already covers Android tablets, but §2's three named users, §7's one-handed rule and the pocket-sized framing of every UJ do not. Treating "people who use tablets" as a new segment would have widened the validation build's audience on the strength of one sentence. Ruled: the input problem is real and general to touch keyboards, and it is absorbed by §7's Accessibility floor rather than by a new persona. The tablet segment, if it is one, is a post-validation question.
+- **Voice commands for the Dispenser** (saying "hecho", "otra más fácil"). Rejected on §1.1 principle 1 and on honesty: the Dispenser has two buttons and one card, so voice would add a modality to the one surface that is already effortless while doing nothing for the one that is not.
+- **Spoken sizes** ("tres minutos"). Rejected because parsing a duration out of speech is the first step of the deferred slicer, and because the three sizes are three taps — the cheapest interaction in the app. There is nothing to save.
+
+**Deliberately left open.** What the app does when on-device Spanish recognition is missing (OQ-13). The standing answer is absent-and-silent, which follows from §1.1 principle 2 — a greyed-out microphone is pending work in the Dispenser's own house. The counter-argument is that a user who never sees the affordance concludes the product has no voice and never looks, and settings is the only place §7 would let a pointer live.
+
+**What the window should watch.** FR-32 records a local dictation boolean on each capture, settings-visible only. Read against SM-4's origin mix it answers two separate questions: whether voice was used at all, and whether cheap capture turned the floor into the road (§10.2). The second is the one that would matter, because its only obvious remedy is a list.
