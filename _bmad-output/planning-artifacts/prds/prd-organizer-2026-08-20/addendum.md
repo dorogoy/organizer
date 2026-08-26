@@ -129,7 +129,7 @@ Sergio asked that the PRD record the need for predefined tasks, varied across ca
 
 Product content, authored 2026-08-23, closing OQ-3. Task names are shipped Spanish UI copy and go into the string table on the same terms as everything else (§7). Sizes are the 1-3-5 taxonomy exactly: **30 s** = Instant Habit, **3 min** = Micro-maintenance, **10–15 min** = Focus Chunk. Nothing here carries an hour, a mealtime, or a dependency on another task.
 
-Counts against FR-31's coverage floor: **34 daily**, **36 weekly** across five zones, **15 monthly/seasonal** — 51 non-daily entries against a floor of 45, so 28 consecutive Focus Chunks never repeat even with no Epic Project active.
+Counts against FR-31's coverage floor: **34 daily**, **36 weekly** across five zones, **15 monthly/seasonal**. The floor counts eligible units only (corrected 2026-08-26): distinct 10–15 min non-daily entries — 20 weekly (5/3/4/5/3 per zone) plus 12 monthly/seasonal in `fondo` = 32 against a floor of 28, so 28 dealt Focus Chunks never repeat even with no Epic Project active. A thin zone week (baño, entrada) draws from `fondo` before repeating anything; the earlier ≥45 non-daily count included 3-minute entries that can never occupy the slot and verified nothing.
 
 ### A12.1 Daily — Instant Habits (30 s), cluster `anclas`
 
