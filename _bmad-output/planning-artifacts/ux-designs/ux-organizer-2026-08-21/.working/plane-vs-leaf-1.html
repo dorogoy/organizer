@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avión de papel o hoja · decisión del tercer destino</title>
+<style>
+/* =====================================================================
+   AVIÓN DE PAPEL vs HOJA · GLIFO DE «TIRAR O SOLTAR» · DECISIÓN FINAL
+   Sesión UX BMad · Organizador anti-agobio · 2026-08-21
+   Hereda: seed-glyph-and-mass-depth-1.html (geometría, tokens, medidas)
+           color-themes-1.html variación 4 «Aliento» (paleta elegida)
+   =====================================================================
+
+   ---------------------------------------------------------------------
+   1. TODOS LOS HEX USADOS EN ESTA PÁGINA, CON SU L* CIE (D65, sRGB)
+   ---------------------------------------------------------------------
+   ESTRUCTURA (Aliento, sin tocar)
+     surface-base      #F7F8F9   L* 97.5   a  -0.4  b  -0.9   el suelo
+     surface-raised    #FFFFFF   L* 100.0  a   0.0  b   0.0   tarjeta
+     ink-primary       #1E2124   L*  12.6                     línea y texto
+     ink-secondary     #5C6368   L*  41.5                     línea suave
+     border-hairline   #E1E5E8   L*  90.7                     filete
+     accent-soft       #D5E0DC   L*  88.3  a  -4.4  b   0.7   agua clara
+                                 (único pastel que lleva texto: botón Hecho)
+     radius            14px
+
+   MASAS DE ICONO · banda profunda, esquema C de dos niveles, L* 76.0
+     icon-mass-keep    #AEBFB8   L*  75.9  a  -7.2  b   1.5   C  7.3  menta
+     icon-mass-donate  #BCB9CD   L*  75.9  a   4.9  b  -9.7   C 10.8  glicina
+     icon-mass-trash   #A6BFCC   L*  75.9  a  -5.7  b  -9.4   C 11.0  cielo lavado
+     icon-mass-accent  #B3BEBA   L*  76.0  a  -4.6  b   0.7   C  4.7  neutra utilidad
+
+   dL* contra surface-base (97.5): las tres masas de destino 21.6.
+   El umbral encontrado en la página anterior está entre dL* 18 y 20; las
+   tres masas quedan holgadamente por encima. No hay rojo en la página.
+   Los tres destinos están a L* 75.9 +/- 0.1: NINGUNO es más oscuro que
+   los otros, condición necesaria para que no haya jerarquía.
+
+   NO HAY BALDOSAS DE COLOR. Los pasteles solo aparecen como masa dentro
+   del glifo. Ninguna superficie pastel lleva texto excepto accent-soft
+   #D5E0DC en el botón «Hecho», que es el uso autorizado desde Aliento.
+
+   ---------------------------------------------------------------------
+   2. VECTOR DE DESPLAZAMIENTO (variante A · registro desplazado)
+   ---------------------------------------------------------------------
+   |d| = 0.08 x lado renderizado.  viewBox SIEMPRE "0 0 24 24", luego en
+   unidades de usuario el valor es constante a cualquier tamaño:
+
+       24 u x 0.08 = 1.92 u        (magnitud del vector)
+
+   Descomposición a 45 grados arriba-derecha (el 8% es la MAGNITUD, no el
+   valor por eje):
+
+       dx = +1.92 / raiz(2) = +1.358 u
+       dy = -1.92 / raiz(2) = -1.358 u
+       transform="translate(1.358,-1.358)"
+
+   UN SOLO VECTOR GLOBAL PARA TODO EL SET. Ningún offset por icono.
+
+   Valor en píxeles de pantalla por tamaño de render:
+       render 20px -> 1u = 0.833px -> |d| = 1.60px  (dx 1.13 / dy -1.13)
+       render 24px -> 1u = 1.000px -> |d| = 1.92px  (dx 1.36 / dy -1.36)
+       render 36px -> 1u = 1.500px -> |d| = 2.88px  (dx 2.04 / dy -2.04)
+       render 48px -> 1u = 2.000px -> |d| = 3.84px  (dx 2.72 / dy -2.72)
+
+   EXIGENCIA AXIAL (hallazgo cerrado de la ronda anterior). El vector
+   tiene que correr A LO LARGO del eje del glifo, nunca de través. Los
+   dos candidatos se dibujan por tanto directamente en el eje 45 arriba-
+   derecha: sus coordenadas ya están rotadas en el path, no hay rotate()
+   ni transform de orientación. Componente perpendicular al eje = 0.000 u
+   en los dos. Ninguna masa sale de su forma por un costado.
+
+   ---------------------------------------------------------------------
+   3. GEOMETRÍA DE LOS DOS CANDIDATOS (construcción, no adorno)
+   ---------------------------------------------------------------------
+   Base común: centro (12,12); u = (+0.70711, -0.70711) eje del glifo;
+   v = (+0.70711, +0.70711) perpendicular. P(t,w) = centro + t*u + w*v.
+
+   AVIÓN DE PAPEL · dardo de dos planos, sin curvas
+     morro    P(+7.60,  0.00) = (17.374,  6.626)
+     muesca   P(-5.10,  0.00) = ( 8.394, 15.606)
+     ala izq  P(-7.60, -6.30) = ( 2.171, 12.919)
+     ala der  P(-7.60, +6.30) = (11.081, 21.829)
+     longitud axial 15.20 u · envergadura 12.60 u
+     masa = 2 triángulos (morro-alaizq-muesca) + (morro-muesca-alader)
+     área por ala 40.01 + 40.00 = 80.01 u^2
+     tinta: contorno cuadrilátero 46.46 u + pliegue morro-muesca 12.70 u
+            = 59.16 u
+     dimensión menor de cada masa, perpendicular al eje: 6.30 u  (<8 u)
+
+   HOJA · dos cúbicas simétricas respecto al eje, k = 80/L
+     L = 18.00 u · k = 4.4444 u
+     base B   P(-9.00, 0)      = ( 5.636, 18.364)
+     ápice T  P(+9.00, 0)      = (18.364,  5.636)
+     c1 P(-3, +k) = (13.021, 17.264)   c2 P(+3, +k) = (17.264, 13.021)
+     c3 P(+3, -k) = (10.979,  6.736)   c4 P(-3, -k) = ( 6.736, 10.979)
+     y(t) de cada cúbica = 3k t(1-t) => x(t) = L t (paramétrico uniforme)
+     área exacta = k*L = 80.00 u^2 (medida por cordón: 79.98 u^2)
+     ancho máximo = 1.5k = 6.667 u en (14.357,14.357)/(9.643,9.643)
+     tinta: contorno 39.06 u + nervio central 16.40 u + peciolo 2.10 u
+            = 57.56 u
+     dimensión menor de la masa, perpendicular al eje: 6.67 u  (<8 u)
+
+   HOJA NATURAL (la de las páginas anteriores, para referencia)
+     path M5 19.4 C5 10.6 11 4.2 19.2 4.2 C19.2 13 13.2 19.4 5 19.4 Z
+     área 128.07 u^2 (1.60x el objetivo de paridad) · contorno 46.53 u
+     => la hoja «que se leía perfecta» NO cumple paridad de masa; la que
+        se usa aquí es 0.62x aquella. Es una hoja más pequeña y esbelta.
+
+   ---------------------------------------------------------------------
+   4. TABLA COMPLETA DE ÁREA Y PERÍMETRO DE TODO LO QUE SE DIBUJA
+      (u^2 y u en viewBox de 24; Béziers y arcos aplanados a 60
+       segmentos por curva; área por fórmula del cordón)
+   ---------------------------------------------------------------------
+   glifo                       área masa   tinta de línea   área/objetivo
+     caja B (aligerada)           79.2         78.6           anclaje
+     bolsa B (aligerada)          80.2         46.0           anclaje
+     (semilla descartada)         85.0         42.5           referencia
+     AVIÓN DE PAPEL               80.0         59.2           +1.0% / -0.2%
+     HOJA (paridad)               80.0         57.6           +1.0% / -0.2%
+     hoja natural (rechazada)    128.1         46.5           +61.7%
+   utilidad (masa icon-mass-accent):
+     cámara                      191.5         —  (no medida esta ronda)
+     álbum                       182.3         —
+     reloj                       211.2         —
+     ajustes B (conmutador)      130.3         —
+     lápiz                        94.5         —
+   marcadores de zona propuestos:
+     A · plano 4 cuadrantes        80.1         86.6   (menor 9.00 u)
+     B · casa, una zona            78.7         72.3   (menor 8.20 u)
+     C · umbral con arco           77.1         38.6   (menor 8.00 u)
+
+   Recomputación de control de los anclajes con este mismo script:
+     caja B  masa 78.0 (publicado 79.2, -1.5%) · tinta 75.7 (publ. 78.6)
+     bolsa B masa 83.5 (publicado 80.2, +4.1%) · tinta 47.9 (publ. 46.0)
+   Las diferencias vienen del redondeo de esquinas rx; se conservan los
+   valores publicados como anclaje para no mover el marco de la ronda.
+
+   Razón tinta/área (cuánto contorno por unidad de mancha):
+     bolsa B 0.57 · hoja 0.72 · avión 0.74 · caja B 0.99
+   La caja sigue siendo el caso raro. Ninguno de los dos candidatos la
+   empeora; los dos aterrizan en la mitad de la banda.
+
+   ---------------------------------------------------------------------
+   5. TRAZO. Objetivo óptico constante en pantalla, no valor constante
+      en viewBox. stroke-width(u) = px_objetivo * 24 / px_render
+   ---------------------------------------------------------------------
+     render 20px -> objetivo 1.5px -> stroke-width 1.80
+     render 24px -> objetivo 1.5px -> stroke-width 1.50
+     render 36px -> objetivo 1.8px -> stroke-width 1.20
+     render 40px -> objetivo 1.5px -> stroke-width 0.90  (flujo de destinos)
+     render 48px -> objetivo 2.0px -> stroke-width 1.00
+     render 64px -> solo ampliacion de estudio, no tamano de uso
+   La sección 4 de la página compara 1.00 contra 1.50 a 24px, que es
+   exactamente 1.0px contra 1.5px de pantalla.
+   ===================================================================== */
+
+:root{
+  --sb:#F7F8F9; --sr:#FFFFFF;
+  --ink:#1E2124; --ink2:#5C6368;
+  --hair:#E1E5E8;
+  --acc:#D5E0DC;
+  --keep:#AEBFB8; --don:#BCB9CD; --tra:#A6BFCC; --accD:#B3BEBA;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--sb); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:15px; line-height:1.62; -webkit-font-smoothing:antialiased;
+}
+.head{padding:44px 32px 30px; border-bottom:1px solid var(--hair); background:var(--sr)}
+.head h1{margin:0 0 8px; font-size:1.32rem; font-weight:620; letter-spacing:-.012em}
+.head p{margin:0; color:var(--ink2); font-size:.86rem; max-width:74ch}
+.wrap{max-width:1080px; margin:0 auto; padding:0 32px 110px}
+section{padding:60px 0 10px; border-bottom:1px solid var(--hair)}
+section:last-of-type{border-bottom:0}
+.snum{margin:0 0 6px; font-size:.7rem; letter-spacing:.13em; text-transform:uppercase; color:var(--ink2); font-weight:600}
+h2{margin:0 0 12px; font-size:1.08rem; font-weight:620; letter-spacing:-.006em}
+h3{margin:38px 0 10px; font-size:.94rem; font-weight:620}
+h4{margin:0 0 4px; font-size:.82rem; font-weight:620}
+.lede{margin:0 0 30px; max-width:80ch; color:var(--ink2); font-size:.9rem}
+p{max-width:82ch}
+.note{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:18px 22px; margin:26px 0 0; font-size:.86rem}
+.note p{margin:0 0 10px} .note p:last-child{margin:0}
+.note.verdict{border-left:3px solid var(--ink2)}
+.card{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:22px 24px; margin:0 0 18px}
+.cap{font-size:.7rem; color:var(--ink2); letter-spacing:.02em; text-align:center; line-height:1.35}
+.sub{font-size:.8rem; color:var(--ink2); margin:0 0 16px}
+.row{display:flex; flex-wrap:wrap; gap:34px; align-items:flex-end}
+.cell{display:flex; flex-direction:column; align-items:center; gap:8px}
+svg{display:block; overflow:visible}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.78rem}
+table{border-collapse:collapse; width:100%; font-size:.8rem; margin:14px 0 0}
+th,td{text-align:left; padding:8px 12px; border-bottom:1px solid var(--hair)}
+th{font-weight:620; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink2)}
+td.n{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+tr.hl td{background:#FAFBFB}
+.two{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px}
+.destrow{display:flex; gap:14px; align-items:stretch}
+.dest{flex:1; background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:20px 12px 16px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center}
+.dest span{font-size:.82rem; line-height:1.35}
+.plain{display:flex; gap:16px; align-items:stretch}
+.plainc{flex:1; display:flex; flex-direction:column; align-items:center; gap:10px; padding:20px 10px 8px; text-align:center}
+.plainc span{font-size:.82rem}
+.setrow{display:flex; flex-wrap:wrap; gap:24px; margin:10px 0 0; align-items:flex-end}
+.setrow .cell{width:74px}
+.phone{width:344px; border:1px solid var(--hair); border-radius:26px; background:var(--sb); padding:16px 14px 26px}
+.phone .bar{height:5px; width:70px; border-radius:3px; background:var(--hair); margin:2px auto 30px}
+.zone{display:flex; align-items:center; gap:9px; font-size:.74rem; color:var(--ink2); padding:0 6px}
+.dcard{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:26px 22px 22px; margin:132px 0 0}
+.dcard .dur{font-size:.72rem; color:var(--ink2); letter-spacing:.04em}
+.dcard .task{font-size:1.16rem; font-weight:600; margin:8px 0 28px; line-height:1.34; letter-spacing:-.01em}
+.btn{display:block; width:100%; text-align:center; padding:14px; border-radius:11px;
+  background:var(--acc); color:var(--ink); font-size:.94rem; font-weight:600; border:0}
+.qrow{display:flex; gap:10px; margin:10px 0 0}
+.q{flex:1; text-align:center; padding:11px; border-radius:11px; border:1px solid var(--hair); color:var(--ink2); font-size:.8rem; background:var(--sr)}
+.tag{display:inline-block; font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink2);
+  border:1px solid var(--hair); border-radius:999px; padding:2px 9px}
+.composer{display:flex; align-items:center; gap:12px; background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:12px 14px}
+.fakefield{flex:1; height:15px; border-radius:8px; background:var(--sb); border:1px solid var(--hair)}
+.sendbtn{width:44px; height:44px; border-radius:50%; background:var(--acc); display:flex; align-items:center; justify-content:center; flex:0 0 auto}
+ul{max-width:82ch; padding-left:1.15rem} li{margin:0 0 7px}
+.chips{display:flex; flex-wrap:wrap; gap:12px; margin:16px 0 0}
+.chip{border:1px solid var(--hair); border-radius:10px; padding:9px 12px; display:flex; align-items:center; gap:10px; font-size:.76rem; background:var(--sr)}
+.sw{width:30px; height:30px; border-radius:8px; border:1px solid rgba(30,33,36,.10)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Avión de papel o hoja · el glifo de «Tirar o soltar»</h1>
+  <p>Sesión UX · Organizador anti-agobio · Aliento (variación 4). Dos candidatos, siete preguntas cerradas: cómo se comportan bajo el registro desplazado, cuánto miden, si el avión arrastra el registro de «enviar», qué trazo aguanta a 24px contra una masa a L*&nbsp;76, si alguno de los dos tríos pesa de verdad igual, y qué marca la zona FlyLady si la hoja se va al tercer destino.</p>
+</div>
+
+<!-- ==================== DEFINICIONES DE GLIFOS ====================
+     Los dos candidatos están dibujados YA en el eje 45 arriba-derecha:
+     no hay rotate(). El vector global (+1.358,-1.358) es paralelo a su
+     eje por construcción. Componente perpendicular = 0.000 u.        -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+
+  <!-- AVIÓN DE PAPEL · dardo de dos planos · masa 80.01 u^2 · tinta 59.16 u -->
+  <g id="m-avi">
+    <path d="M17.374 6.626 L2.171 12.919 L8.394 15.606 Z"/>
+    <path d="M17.374 6.626 L8.394 15.606 L11.081 21.829 Z"/>
+  </g>
+  <g id="l-avi">
+    <path d="M17.374 6.626 L2.171 12.919 L8.394 15.606 L11.081 21.829 Z"/>
+    <path d="M17.374 6.626 L8.394 15.606"/>
+  </g>
+
+  <!-- HOJA DE PARIDAD · L=18.0 k=4.4444 · masa 79.98 u^2 · tinta 57.56 u -->
+  <g id="m-hoj">
+    <path d="M5.636 18.364 C13.021 17.264 17.264 13.021 18.364 5.636 C10.979 6.736 6.736 10.979 5.636 18.364 Z"/>
+  </g>
+  <g id="l-hoj">
+    <path d="M5.636 18.364 C13.021 17.264 17.264 13.021 18.364 5.636 C10.979 6.736 6.736 10.979 5.636 18.364 Z"/>
+    <path d="M6.202 17.798 L17.798 6.202"/>
+    <path d="M5.636 18.364 L4.151 19.849"/>
+  </g>
+
+  <!-- HOJA NATURAL, la de las páginas anteriores · masa 128.07 u^2 -->
+  <g id="m-hojN">
+    <path d="M5 19.4 C5 10.6 11 4.2 19.2 4.2 C19.2 13 13.2 19.4 5 19.4 Z"/>
+  </g>
+  <g id="l-hojN">
+    <path d="M5 19.4 C5 10.6 11 4.2 19.2 4.2 C19.2 13 13.2 19.4 5 19.4 Z"/>
+    <path d="M6.2 18.2 C10 14.4 14.4 10 18.4 5.2"/>
+  </g>
+
+  <!-- CAJA B aligerada (heredada) · masa 79.2 u^2 · tinta 78.6 u -->
+  <g id="m-cajB"><rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/></g>
+  <g id="l-cajB">
+    <rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/>
+    <path d="M4.9 10.6 L4.9 20 L19.1 20 L19.1 10.6"/>
+  </g>
+
+  <!-- BOLSA B aligerada (heredada) · masa 80.2 u^2 · tinta 46.0 u -->
+  <g id="m-bolB"><path d="M5.15 14.1 L18.85 14.1 L19.3 20 L4.7 20 Z"/></g>
+  <g id="l-bolB">
+    <path d="M5.6 9.4 L4.7 20 L19.3 20 L18.4 9.4"/>
+    <path d="M9.2 9.4 V7.8 A2.8 2.8 0 0 1 14.8 7.8 V9.4"/>
+  </g>
+
+  <!-- SET DE UTILIDAD (heredado tal cual) -->
+  <g id="m-cam">
+    <rect x="3" y="8.4" width="18" height="11.4" rx="2.4"/>
+    <rect x="8.8" y="5.4" width="6.4" height="3.4" rx="1"/>
+  </g>
+  <g id="l-cam">
+    <rect x="3" y="8.4" width="18" height="11.4" rx="2.4"/>
+    <rect x="8.8" y="5.4" width="6.4" height="3.4" rx="1"/>
+    <circle cx="12" cy="14.1" r="3.6"/>
+  </g>
+  <g id="m-alb"><rect x="3" y="7" width="14" height="14" rx="2"/></g>
+  <g id="l-alb">
+    <rect x="7" y="3" width="14" height="14" rx="2"/>
+    <rect x="3" y="7" width="14" height="14" rx="2"/>
+    <path d="M4.4 18.6 L8.2 13.8 L11 17 L13.4 14.2 L15.6 18.6"/>
+  </g>
+  <g id="m-rel"><circle cx="12" cy="12" r="8.2"/></g>
+  <g id="l-rel"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.2 L12 12 L15.4 13.8"/></g>
+  <g id="m-ajB"><rect x="3" y="8" width="18" height="8" rx="4"/></g>
+  <g id="l-ajB"><rect x="3" y="8" width="18" height="8" rx="4"/><circle cx="16.4" cy="12" r="2.9"/></g>
+  <g id="m-lap"><path d="M3.4 20.6 L4.60 15.86 L16.48 3.98 L20.02 7.52 L8.14 19.40 Z"/></g>
+  <g id="l-lap">
+    <path d="M3.4 20.6 L4.60 15.86 L16.48 3.98 L20.02 7.52 L8.14 19.40 Z"/>
+    <path d="M4.60 15.86 L8.14 19.40"/>
+    <path d="M14.01 6.45 L17.55 9.99"/>
+  </g>
+
+  <!-- MARCADORES DE ZONA · A · plano de cuatro cuadrantes, uno encendido
+       masa 80.14 u^2 (cuadrante 9x9 con esquina rx2) · menor 9.00 u
+       tinta 68.57 (rect exterior) + 18.00 (divisor en L) = 86.57 u -->
+  <g id="m-zoA"><path d="M12 3 H19 A2 2 0 0 1 21 5 V12 H12 Z"/></g>
+  <g id="l-zoA">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <path d="M12 3 V12 H21"/>
+  </g>
+
+  <!-- B · casa con una zona encendida
+       masa 78.72 u^2 (8.2 x 9.6) · menor 8.20 u · tinta 61.85 + 10.40 = 72.25 u -->
+  <g id="m-zoB"><rect x="12.4" y="10.6" width="8.2" height="9.6"/></g>
+  <g id="l-zoB">
+    <path d="M12 3 L21 10.2 V20.6 H3 V10.2 Z"/>
+    <path d="M12 10.2 V20.6"/>
+  </g>
+
+  <!-- C · umbral con arco
+       masa 77.13 u^2 (8 x 6.5 + semidisco r4) · menor 8.00 u · tinta 38.57 u -->
+  <g id="m-zoC"><path d="M8 20 V13.5 A4 4 0 0 1 16 13.5 V20 Z"/></g>
+  <g id="l-zoC">
+    <path d="M8 20 V13.5 A4 4 0 0 1 16 13.5 V20"/>
+    <path d="M5.5 20 H18.5"/>
+  </g>
+
+</defs></svg>
+
+<div class="wrap">
+
+<!-- ============================ 1 ============================ -->
+<section>
+  <p class="snum">Sección 1</p>
+  <h2>Cara a cara, en el tratamiento cerrado</h2>
+  <p class="lede">Los dos a 24 / 36 / 48px. Masa <span class="mono">#A6BFCC</span> (cielo lavado, L*&nbsp;75.9) bajo la línea, desplazada <span class="mono">translate(1.358,-1.358)</span> — un solo vector global de 1.92&nbsp;u a 45° arriba-derecha. Los dos glifos están dibujados directamente en ese eje: sus coordenadas ya vienen rotadas, no hay <span class="mono">rotate()</span>, y la componente perpendicular del desplazamiento es exactamente 0.000&nbsp;u en los dos casos. El trazo aquí es el ganador de la sección 4 (1.5px de pantalla en los tres tamaños).</p>
+
+  <div class="two">
+    <div class="card">
+      <h4>Avión de papel</h4>
+      <p class="sub">Dardo de dos planos. Longitud axial 15.20&nbsp;u · envergadura 12.60&nbsp;u. Todo recto, cero curvas. El morro apunta al mismo sitio al que va la masa.</p>
+      <div class="row" style="gap:30px">
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg><span class="cap">24px<br>trazo 1.50 u</span>
+        </div>
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="36" height="36">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg><span class="cap">36px<br>trazo 1.20 u</span>
+        </div>
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="48" height="48">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg><span class="cap">48px<br>trazo 1.00 u</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Hoja</h4>
+      <p class="sub">Dos cúbicas simétricas respecto al eje. Longitud axial 18.00&nbsp;u · ancho máximo 6.67&nbsp;u. Nervio central y peciolo son línea sin masa detrás.</p>
+      <div class="row" style="gap:30px">
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg><span class="cap">24px<br>trazo 1.50 u</span>
+        </div>
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="36" height="36">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg><span class="cap">36px<br>trazo 1.20 u</span>
+        </div>
+        <div class="cell">
+          <svg viewBox="0 0 24 24" width="48" height="48">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg><span class="cap">48px<br>trazo 1.00 u</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Mismo tamaño, misma fila, para comparar de verdad</h3>
+  <div class="card">
+    <div class="row" style="gap:44px">
+      <div class="cell">
+        <div class="row" style="gap:16px; align-items:flex-end">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg>
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg>
+        </div><span class="cap">24px · avión / hoja</span>
+      </div>
+      <div class="cell">
+        <div class="row" style="gap:20px; align-items:flex-end">
+          <svg viewBox="0 0 24 24" width="36" height="36">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg>
+          <svg viewBox="0 0 24 24" width="36" height="36">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg>
+        </div><span class="cap">36px · avión / hoja</span>
+      </div>
+      <div class="cell">
+        <div class="row" style="gap:26px; align-items:flex-end">
+          <svg viewBox="0 0 24 24" width="48" height="48">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg>
+          <svg viewBox="0 0 24 24" width="48" height="48">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg>
+        </div><span class="cap">48px · avión / hoja</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Lo que cuesta la paridad de masa en la hoja</h3>
+  <div class="card">
+    <p class="sub">Izquierda: la hoja de las páginas anteriores, la que «se leía perfecta». Derecha: la misma hoja reducida a 80&nbsp;u² para igualar a caja y bolsa. No es la misma forma.</p>
+    <div class="row" style="gap:40px">
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="48" height="48">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hojN" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hojN"/></g>
+        </svg><span class="cap">hoja natural<br>128.1 u² · +61.7%</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="48" height="48">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+        </svg><span class="cap">hoja de paridad<br>80.0 u² · en banda</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hojN" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hojN"/></g>
+        </svg><span class="cap">natural · 24px</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+        </svg><span class="cap">paridad · 24px</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:22px"><b>Hallazgo incómodo de entrada.</b> La hoja «que se leía perfecta a los tres tamaños» tiene 128.1&nbsp;u² de masa: un 62% por encima del anclaje del trío. Para entrar en paridad hay que reducirla al 0.62 de aquella, y lo que sale es una hoja más estrecha y más lanceolada — de laurel, no de álamo. Sigue leyéndose como hoja, pero <em>no es</em> la forma que se validó antes; ese aval no se puede dar por heredado. El avión, en cambio, se dibujó desde cero con el área como parámetro de diseño, así que no paga nada por entrar en banda.</p>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Lo que hace bien cada uno bajo el tratamiento.</b> El avión tiene dos masas triangulares que comparten el pliegue central; el desplazamiento las desliza a lo largo del morro y deja asomar una cuña de 1.92&nbsp;u en la punta y una franja limpia en el borde de fuga de cada ala. Es el glifo del set que <em>mejor</em> aprovecha el registro desplazado, porque el registro desplazado significa movimiento y el avión ya se mueve. La hoja hace lo mismo con una sola masa: el ápice asoma, la base retrocede. Ninguno de los dos rompe.</p>
+    <p><b>Lo que rompe la regla de 8&nbsp;u en los dos.</b> La regla dice masa mínima de 8&nbsp;u en su dimensión menor. Medida perpendicular al eje, el ala del avión tiene 6.30&nbsp;u y la hoja 6.67&nbsp;u: <b>los dos incumplen la letra de la regla.</b> Pero la regla se derivó para desplazamientos cualesquiera, y aquí la componente perpendicular es 0.000&nbsp;u por construcción: la masa no cruza su dimensión menor, se desliza por la mayor (15.20&nbsp;u en el avión, 18.00&nbsp;u en la hoja). Ninguna masa sale por un costado. La consecuencia real: <b>en un glifo estrictamente axial la cifra que hay que vigilar es la extensión axial, no la menor.</b> Si algún día se cambia el vector global de dirección, estos dos son los primeros que revientan.</p>
+  </div>
+</section>
+
+<!-- ============================ 2 ============================ -->
+<section>
+  <p class="snum">Sección 2</p>
+  <h2>Medición</h2>
+  <p class="lede">Área de path en u² y perímetro de tinta en u, con Béziers y arcos aplanados a 60 segmentos por curva y área por fórmula del cordón, el mismo método de la página anterior. Los anclajes de caja y bolsa se conservan con sus valores publicados.</p>
+
+  <div class="card">
+    <table>
+      <tr><th>glifo</th><th>área masa (u²)</th><th>vs anclaje 79.7</th><th>tinta de línea (u)</th><th>vs semilla 42.5</th><th>tinta/área</th></tr>
+      <tr><td>caja B (aligerada)</td><td class="n">79.2</td><td class="n">−0.6%</td><td class="n">78.6</td><td class="n">1.85×</td><td class="n">0.99</td></tr>
+      <tr><td>bolsa B (aligerada)</td><td class="n">80.2</td><td class="n">+0.6%</td><td class="n">46.0</td><td class="n">1.08×</td><td class="n">0.57</td></tr>
+      <tr><td>semilla descartada</td><td class="n">85.0</td><td class="n">+6.6%</td><td class="n">42.5</td><td class="n">1.00×</td><td class="n">0.50</td></tr>
+      <tr class="hl"><td><b>avión de papel</b></td><td class="n"><b>80.0</b></td><td class="n"><b>+0.4%</b></td><td class="n"><b>59.2</b></td><td class="n"><b>1.39×</b></td><td class="n"><b>0.74</b></td></tr>
+      <tr class="hl"><td><b>hoja (paridad)</b></td><td class="n"><b>80.0</b></td><td class="n"><b>+0.4%</b></td><td class="n"><b>57.6</b></td><td class="n"><b>1.35×</b></td><td class="n"><b>0.72</b></td></tr>
+      <tr><td>hoja natural (referencia)</td><td class="n">128.1</td><td class="n">+60.7%</td><td class="n">46.5</td><td class="n">1.09×</td><td class="n">0.36</td></tr>
+    </table>
+    <p class="sub" style="margin:14px 0 0">Anclaje = media de caja B y bolsa B (79.7&nbsp;u²). Objetivo de paridad: ±7% → banda 74.1–85.3&nbsp;u². Los dos candidatos caen en el centro de la banda.</p>
+  </div>
+
+  <div class="card">
+    <h4>Desglose de la tinta, que es donde está el argumento</h4>
+    <table>
+      <tr><th>glifo</th><th>contorno cerrado</th><th>línea interior</th><th>total</th><th>qué es la línea interior</th></tr>
+      <tr><td>caja B</td><td class="n">42.7</td><td class="n">33.0 + 2.9</td><td class="n">78.6</td><td>los tres lados abiertos del cuerpo</td></tr>
+      <tr><td>bolsa B</td><td class="n">37.2</td><td class="n">8.8</td><td class="n">46.0</td><td>el asa</td></tr>
+      <tr class="hl"><td><b>avión</b></td><td class="n"><b>46.5</b></td><td class="n"><b>12.7</b></td><td class="n"><b>59.2</b></td><td>el pliegue morro→muesca</td></tr>
+      <tr class="hl"><td><b>hoja</b></td><td class="n"><b>39.1</b></td><td class="n"><b>16.4 + 2.1</b></td><td class="n"><b>57.6</b></td><td>nervio central + peciolo</td></tr>
+    </table>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Paridad de masa: las dos la cumplen y de forma indistinguible.</b> 80.0&nbsp;u² las dos, +0.4% sobre el anclaje, −0.2% contra la bolsa y +1.0% contra la caja. Por área, esta pregunta está cerrada y no distingue entre candidatos.</p>
+    <p><b>¿Hereda el avión el problema de perímetro de la caja? Parcialmente, y menos de lo que yo esperaba.</b> La hipótesis de partida era que un glifo hecho solo de rectas arrastraría el mismo exceso de borde que el rectángulo. No es así: el avión mide 59.2&nbsp;u de tinta, 1.39× la semilla, contra 1.85× de la caja. La razón es geométrica y vale anotarla: un rectángulo de 79&nbsp;u² tiene la peor relación borde/área de todas las formas rectas porque encierra el área con cuatro lados largos, mientras que un triángulo largo la encierra con dos lados largos y uno corto. Rectas no equivale a perímetro alto; <em>número de lados largos</em> sí. La caja además paga doble porque su cuerpo está abierto y esa línea de tres lados (33.0&nbsp;u) no encierra masa ninguna.</p>
+    <p><b>¿Le gana la hoja por su contorno orgánico? Sí en el contorno, no en el total.</b> El contorno de la hoja mide 39.1&nbsp;u, el más bajo de toda la página — incluso por debajo de la semilla (42.5). Pero una hoja sin nervio central es una lente, no una hoja, y el nervio son 16.4&nbsp;u de línea recta que no encierra nada, más 2.1&nbsp;u de peciolo. Sumado: 57.6&nbsp;u. <b>La diferencia final entre hoja y avión es de 1.6&nbsp;u, un 2.7%: empate técnico.</b> La ventaja orgánica de la hoja existe y se la come su propio detalle interior.</p>
+    <p><b>¿Alguno empeora el desequilibrio existente? Ninguno; los dos lo mejoran igual.</b> Con la semilla, la banda de tinta del trío era 42.5–78.6, una dispersión de 36.1&nbsp;u y un rango de 1.85×. Con cualquiera de los dos candidatos la banda pasa a 46.0–78.6, dispersión 32.6&nbsp;u, y el tercer destino deja de ser el extremo inferior: se coloca casi en la mediana. <b>La caja sigue siendo la anómala, y sigue siéndolo por su cuenta.</b> Ninguno de los dos candidatos la arregla, porque el problema de la caja no es el tercer destino, es que su cuerpo abierto son 33&nbsp;u de línea vacía. Si se quiere cerrar de verdad la paridad de tinta, lo que hay que redibujar es la caja, no el tercer hueco. Eso queda fuera de esta página y es la deuda más clara que deja.</p>
+  </div>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<section>
+  <p class="snum">Sección 3</p>
+  <h2>La colisión con «enviar»</h2>
+  <p class="lede">El avión de papel es el icono universal de enviar: Telegram, redactar correo, cualquier mensajería. El riesgo no es confusión funcional — esta app no tiene mensajes ni compartir — sino de <b>registro</b>: que el avión se lea como <em>botón de acción</em> y no como <em>categoría de destino</em>. Aquí está las dos veces, en los dos contextos, sin comentario previo.</p>
+
+  <h3>A · El avión como categoría, dentro del Flujo de 3 Destinos</h3>
+  <div class="card">
+    <div class="plain">
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+        </svg>
+        <span>Quedármelo</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+        </svg>
+        <span>Donar o vender</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+        </svg>
+        <span>Tirar o soltar</span>
+      </div>
+    </div>
+    <p class="sub" style="margin:18px 0 0; text-align:center">Sin baldosas. Tres huecos iguales, tres etiquetas sobre el suelo claro, el pastel solo dentro del glifo.</p>
+  </div>
+
+  <h3>B · El avión donde vive normalmente: junto a un botón primario</h3>
+  <div class="card">
+    <p class="sub">Una fila de composición cualquiera. El avión a 24px en el sitio exacto que ocupa un icono de enviar en cualquier app, y otra vez dentro del propio botón relleno.</p>
+    <div style="max-width:420px; display:flex; flex-direction:column; gap:16px">
+      <div class="composer">
+        <span class="fakefield"></span>
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+        </svg>
+      </div>
+      <div class="composer">
+        <span class="fakefield"></span>
+        <span class="sendbtn">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+          </svg>
+        </span>
+      </div>
+      <button class="btn" style="display:flex; align-items:center; justify-content:center; gap:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+        </svg>
+        Hecho
+      </button>
+    </div>
+  </div>
+
+  <h3>C · La misma prueba con la hoja, como control</h3>
+  <div class="card">
+    <div style="max-width:420px; display:flex; flex-direction:column; gap:16px">
+      <div class="composer">
+        <span class="fakefield"></span>
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+        </svg>
+      </div>
+      <div class="composer">
+        <span class="fakefield"></span>
+        <span class="sendbtn">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg>
+        </span>
+      </div>
+    </div>
+    <p class="sub" style="margin:16px 0 0">La hoja en el sitio del botón de enviar no dice nada: no ofrece ninguna acción. Ese vacío es exactamente la medida de cuánto dice el avión.</p>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Resultado, y es negativo.</b> En el contexto A el marco de categoría <em>reduce</em> la asociación pero no la apaga. Tres huecos iguales, tres etiquetas debajo y dos vecinos que son objetos (una caja, una bolsa) empujan al avión hacia la lectura de sustantivo, y la etiqueta «Tirar o soltar» cierra el sentido. Pero en el contexto B basta un campo y un círculo relleno para que el avión vuelva a ser un verbo <b>de forma inmediata y sin resistencia</b>. Un glifo cuyo registro depende por completo del contexto que lo rodea no es un glifo estable, y este producto va a poner iconos en barras de navegación, en cabeceras y junto a botones. El avión aguanta en el flujo de destinos y se cae en cuanto sale de él.</p>
+    <p><b>El síntoma más fino, que es el que de verdad importa aquí.</b> Incluso dentro del flujo, el avión es el único de los tres que <em>apunta</em>. La caja y la bolsa son objetos en reposo; el avión tiene morro, dirección y velocidad implícita. En una fila de tres opciones que deben pesar igual, el que apunta se lee primero. No lee «peor» ni «más alarmante» — lee <b>más activo</b>, y eso es una jerarquía igual de real que la de masa, solo que no se mide en u². La app no debe sugerir la tercera opción más que las otras dos, y este glifo la sugiere.</p>
+    <p><b>Lo que no es problema.</b> Confusión funcional: ninguna. El usuario no va a pulsar «Tirar o soltar» creyendo que envía algo, porque no hay nada que enviar y la etiqueta está debajo. Si el único criterio fuera «se entiende», el avión pasa. El criterio de este producto es más estrecho que ese.</p>
+  </div>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<section>
+  <p class="snum">Sección 4</p>
+  <h2>Trazo, 1px contra 1.5px</h2>
+  <p class="lede">Pregunta abierta que esta página cierra. <span class="mono">icon-treatment-1.html</span> encontró que a 1px la línea se afina tanto que el pastel manda y el icono pierde contorno a 24px, y recomendó 1.5px. Bajar las masas a L*&nbsp;76 empeora ese caso, no lo mejora: masa más oscura contra línea más fina. Aquí están los dos candidatos y el set entero a 24px con <span class="mono">stroke-width="1"</span> (= 1.0px de pantalla) y <span class="mono">stroke-width="1.5"</span> (= 1.5px de pantalla), en la misma fila. Masas: destinos a sus tres hues, utilidad a <span class="mono">#B3BEBA</span> (L*&nbsp;76.0).</p>
+
+  <div class="card">
+    <h4>1.0px · <span class="mono">stroke-width="1"</span> a 24px</h4>
+    <p class="sub">Masa a dL* 21.6 contra el papel · línea a dL* 84.9. La relación de contraste entre masa y línea es de 1 a 3.9, pero el área de la masa es unas 60 veces el área de la línea.</p>
+    <div class="setrow">
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g></svg><span class="cap">Avión</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g></svg><span class="cap">Hoja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg><span class="cap">Caja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span class="cap">Bolsa</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg><span class="cap">Cámara</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg><span class="cap">Álbum</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-rel" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-rel"/></g></svg><span class="cap">Reloj</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg><span class="cap">Ajustes</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-lap" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-lap"/></g></svg><span class="cap">Lápiz</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>1.5px · <span class="mono">stroke-width="1.5"</span> a 24px</h4>
+    <p class="sub">Mismos glifos, mismas masas, mismo desplazamiento. Solo cambia el grosor.</p>
+    <div class="setrow">
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g></svg><span class="cap">Avión</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g></svg><span class="cap">Hoja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg><span class="cap">Caja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span class="cap">Bolsa</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg><span class="cap">Cámara</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg><span class="cap">Álbum</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-rel" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-rel"/></g></svg><span class="cap">Reloj</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg><span class="cap">Ajustes</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-lap" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-lap"/></g></svg><span class="cap">Lápiz</span></div>
+    </div>
+  </div>
+
+  <h3>Los dos casos expuestos, en grande y en directo</h3>
+  <div class="card">
+    <p class="sub">Álbum y Cámara son los dos glifos con detalle de línea interior <em>sin masa detrás</em>: el paspartú del marco de atrás, el perfil de la montaña, el aro del objetivo. Ahí la línea está sola contra el papel o sola sobre la masa desplazada, sin nada que la respalde. Cada par: 1.0px y 1.5px.</p>
+    <div class="row" style="gap:36px">
+      <div class="cell">
+        <div class="row" style="gap:14px"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg></div>
+        <span class="cap">Álbum · 24px · 1.0 / 1.5</span>
+      </div>
+      <div class="cell">
+        <div class="row" style="gap:14px"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg></div>
+        <span class="cap">Cámara · 24px · 1.0 / 1.5</span>
+      </div>
+      <div class="cell">
+        <div class="row" style="gap:18px"><svg viewBox="0 0 24 24" width="64" height="64"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg><svg viewBox="0 0 24 24" width="64" height="64"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg></div>
+        <span class="cap">Álbum ampliado a 64px<br>para ver la construcción, no la legibilidad</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Gana 1.5px, y no por poco.</b> A 24px con las masas en L*&nbsp;76 el trazo de 1.0px produce dos fallos distintos. El primero es de peso: una línea de 1.0px de tinta L*&nbsp;12.6 encierra una mancha de unas 80&nbsp;u² a L*&nbsp;75.9, y la mancha gana el reparto de atención — el glifo se lee como una silueta pastel con un borde sucio, no como un dibujo de línea con una segunda plancha detrás. El segundo es de registro: si la línea no domina, el desplazamiento del 8% deja de leerse como <em>mal registro de dos planchas</em> y se lee como antialias, que es justo la conclusión que ya había dado la página de la semilla en el esquema A. Con 1.5px la jerarquía se invierte y el efecto vuelve a funcionar.</p>
+    <p><b>Álbum y Cámara confirman el diagnóstico y añaden uno peor.</b> En el álbum, el marco de atrás está dibujado solo con línea y sin masa; a 1.0px ese rectángulo compite en desventaja con la masa del marco de delante y el icono se lee como un cuadrado con una sombra a un lado, no como dos marcos. Los picos de la montaña interior, de 2.4&nbsp;u de altura, prácticamente se cierran. En la cámara el aro del objetivo (r&nbsp;3.6) queda como un anillo de 1px cruzado por el borde de la masa desplazada: dos líneas finas de luminosidad muy distinta a 1.36px una de otra, que es exactamente la receta del moiré. A 1.5px el aro se sostiene y el borde de la masa pasa a ser secundario. La conclusión no es solo «1.5 se ve mejor»: es que <b>con detalle de línea interior sin masa detrás, 1.0px deja de describir la construcción</b>.</p>
+    <p><b>¿Se recupera 1px de alguna manera? No, en ninguna que salga barata.</b> Hay tres caminos y los tres cuestan más que aceptar 1.5. (1) Subir las masas de L*&nbsp;76 a L*&nbsp;84–86 devuelve el protagonismo a la línea, pero anula la decisión de la ronda anterior y devuelve el problema del dL*&nbsp;11.8, donde el desplazamiento no se ve. (2) Quitar el detalle interior de álbum y cámara los deja siendo un cuadrado y un rectángulo. (3) Usar 1px solo en tamaños ≥36px y 1.5 a 24px es lo mismo que decir 1.5 a 24px, que es el único tamaño donde había duda. <b>1px no es recuperable a 24px contra una masa a L*&nbsp;76.</b> Es la respuesta clara que faltaba.</p>
+    <p><b>La regla que se propone dejar cerrada.</b> Objetivo óptico constante en pantalla, no valor constante en viewBox: <span class="mono">stroke-width(u) = px_objetivo × 24 / px_render</span>. En la práctica: <span class="mono">1.80</span> a 20px, <span class="mono">1.50</span> a 24px, <span class="mono">1.20</span> a 36px, <span class="mono">1.00</span> a 48px — es decir 1.5px / 1.5px / 1.8px / 2.0px de pantalla. Se engorda deliberadamente en los tamaños grandes porque a 48px el glifo compite con texto grande. Toda esta página usa esa tabla.</p>
+  </div>
+</section>
+
+<!-- ============================ 5 ============================ -->
+<section>
+  <p class="snum">Sección 5</p>
+  <h2>El trío, entero</h2>
+  <p class="lede">Caja y bolsa aligeradas, los tres hues revisados a L*&nbsp;75.9, sin baldosas de color: el pastel solo dentro del glifo, las etiquetas sobre el suelo claro. Las dos versiones a 40px, el tamaño real del flujo de decisión. La exigencia no es que cada glifo funcione, es que <b>ninguno de los tres lea más pesado, peor, más apagado ni más alarmante que los otros</b>.</p>
+
+  <div class="card">
+    <h4>Versión A · con avión en el tercer hueco</h4>
+    <div class="plain" style="margin-top:18px">
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+        </svg>
+        <span>Quedármelo</span><span class="cap">79.2 u² · tinta 78.6 u</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+        </svg>
+        <span>Donar o vender</span><span class="cap">80.2 u² · tinta 46.0 u</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g>
+        </svg>
+        <span>Tirar o soltar</span><span class="cap">80.0 u² · tinta 59.2 u</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>Versión B · con hoja en el tercer hueco</h4>
+    <div class="plain" style="margin-top:18px">
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+        </svg>
+        <span>Quedármelo</span><span class="cap">79.2 u² · tinta 78.6 u</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+        </svg>
+        <span>Donar o vender</span><span class="cap">80.2 u² · tinta 46.0 u</span>
+      </div>
+      <div class="plainc">
+        <svg viewBox="0 0 24 24" width="40" height="40">
+          <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+        </svg>
+        <span>Tirar o soltar</span><span class="cap">80.0 u² · tinta 57.6 u</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Los dos tríos a 24px, que es donde vivirán la mayor parte del tiempo</h3>
+  <div class="card">
+    <div class="row" style="gap:52px">
+      <div class="cell">
+        <div class="row" style="gap:20px">
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg>
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg>
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-avi" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-avi"/></g></svg>
+        </div><span class="cap">A · avión</span>
+      </div>
+      <div class="cell">
+        <div class="row" style="gap:20px">
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg>
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg>
+          <svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g></svg>
+        </div><span class="cap">B · hoja</span>
+      </div>
+    </div>
+    <div class="chips">
+      <div class="chip"><span class="sw" style="background:#AEBFB8"></span>keep #AEBFB8 · L* 75.9</div>
+      <div class="chip"><span class="sw" style="background:#BCB9CD"></span>donate #BCB9CD · L* 75.9</div>
+      <div class="chip"><span class="sw" style="background:#A6BFCC"></span>trash #A6BFCC · L* 75.9</div>
+    </div>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Ninguna de las dos versiones alcanza paridad percibida. Las dos fallan, por motivos distintos.</b> La paridad de masa está resuelta en las dos (79.2 / 80.2 / 80.0, dispersión del 1.3%) y la paridad de luminosidad también (L*&nbsp;75.9 en los tres hues, dL*&nbsp;21.6 idéntico). Lo que queda desigual no es ni área ni luz.</p>
+    <p><b>Versión B, con hoja: el ojo aterriza en la caja.</b> Y aterriza por tinta. La caja tiene 78.6&nbsp;u de línea contra 46.0 de la bolsa y 57.6 de la hoja; es un 36% más de contorno que el segundo. A 40px se lee como el objeto más «construido» de los tres y el orden de lectura sale caja → hoja → bolsa. La hoja no pesa menos, pero es la más callada del trío: es la única forma sin ángulos, y en una fila con dos poliedros lee como material distinto. No es alarmante ni sobrante — es <em>de otra familia</em>. Ese es su único fallo real y es menor.</p>
+    <p><b>Versión A, con avión: el ojo aterriza en el avión.</b> Aunque los números de tinta del avión (59.2) están más cerca de la mediana que los de la hoja, el avión gana la atención por dirección, no por peso. Es el único que apunta, el único con vértice agudo (el morro, 23°) y el único cuyo desplazamiento de masa se lee como velocidad. En una fila de tres opciones equivalentes, eso es jerarquía. Y arrastra además lo de la sección 3: quien haya usado un móvil lee «enviar» antes de leer la etiqueta.</p>
+    <p><b>Comparación honesta.</b> Si el criterio es <em>que no haya jerarquía entre las tres opciones</em>, B falla menos: su desequilibrio está en la caja, es decir en la primera opción — la de quedarse — y viene de una deuda de dibujo ya identificada y arreglable sin tocar el tercer destino. A falla en el propio tercer destino, que es el hueco delicado: la app no debe empujar a tirar. <b>Con el avión, el flujo de destinos empuja levemente hacia la tercera opción; con la hoja, empuja levemente hacia la primera.</b> Las dos son asimetrías, pero la segunda es la inocua y la primera contradice el propósito del producto.</p>
+    <p><b>Lo que arreglaría las dos y esta página no toca.</b> Redibujar la caja para que su tinta baje de 78.6 a la banda de 50–60&nbsp;u: cerrar el cuerpo o insinuarlo con menos línea. Es la única intervención que produciría paridad de verdad, y es independiente de qué glifo ocupe el tercer hueco.</p>
+  </div>
+</section>
+
+<!-- ============================ 6 ============================ -->
+<section>
+  <p class="snum">Sección 6</p>
+  <h2>Marcadores de zona, solo si la hoja se va al tercer destino</h2>
+  <p class="lede">Si la hoja pasa a ser «Tirar o soltar», deja libre el hueco del <b>marcador de zona FlyLady</b>: el glifo que dice qué única área de la casa está activa hoy. El avión mantiene la hoja disponible; la hoja obliga a dibujar un glifo nuevo. Tres candidatos, todos de masas grandes y simples, todos con dimensión menor ≥ 8&nbsp;u, todos bajo el mismo vector global y con masa <span class="mono">#B3BEBA</span> (L*&nbsp;76.0). A 24 y 48px. <b>No elijo por Sergio.</b></p>
+
+  <div class="two">
+    <div class="card">
+      <h4>A · Plano de cuatro cuadrantes, uno encendido</h4>
+      <p class="sub">Rect exterior 18×18 rx&nbsp;2, divisor en L. Masa = el cuadrante superior derecho, 9.00×9.00&nbsp;u con la esquina redondeada para casar con el exterior. Masa 80.1&nbsp;u² · menor 9.00&nbsp;u · tinta 86.6&nbsp;u.</p>
+      <div class="row" style="gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoA"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-zoA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoA"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><svg viewBox="0 0 24 24" width="20" height="20"><g transform="translate(1.358,-1.358)"><use href="#m-zoA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoA"/></g></svg><span class="cap">20px · línea<br>ink-secondary</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>B · Casa con una zona encendida</h4>
+      <p class="sub">Silueta de casa en línea (pentágono, 5 lados) con un divisor vertical; masa = el cuerpo derecho, 8.20×9.60&nbsp;u. Masa 78.7&nbsp;u² · menor 8.20&nbsp;u · tinta 72.3&nbsp;u.</p>
+      <div class="row" style="gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoB"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-zoB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoB"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><svg viewBox="0 0 24 24" width="20" height="20"><g transform="translate(1.358,-1.358)"><use href="#m-zoB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoB"/></g></svg><span class="cap">20px · línea<br>ink-secondary</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>C · Umbral con arco</h4>
+      <p class="sub">Vano de 8&nbsp;u de ancho con medio punto r&nbsp;4, más una línea de suelo. Masa = el vano entero. Masa 77.1&nbsp;u² · menor 8.00&nbsp;u · tinta 38.6&nbsp;u, la más ligera de las tres.</p>
+      <div class="row" style="gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoC"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-zoC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoC"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><svg viewBox="0 0 24 24" width="20" height="20"><g transform="translate(1.358,-1.358)"><use href="#m-zoC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoC"/></g></svg><span class="cap">20px · línea<br>ink-secondary</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>Los tres juntos, y con la hoja al lado como referencia de lo que se pierde</h4>
+    <div class="row" style="gap:34px; margin-top:14px">
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoA"/></g></svg><span class="cap">A · plano</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoB"/></g></svg><span class="cap">B · casa</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-zoC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoC"/></g></svg><span class="cap">C · umbral</span></div>
+      <div class="cell" style="margin-left:20px"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-hojN" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hojN"/></g></svg><span class="cap">hoja natural<br><span class="tag">lo que había</span></span></div>
+    </div>
+    <table>
+      <tr><th>candidato</th><th>masa u²</th><th>menor u</th><th>tinta u</th><th>¿sobrevive a 24px?</th><th>¿dice «un área de la casa»?</th></tr>
+      <tr><td>A · plano 4 cuadrantes</td><td class="n">80.1</td><td class="n">9.00</td><td class="n">86.6</td><td>sí, con reservas</td><td>sí, inequívoco</td></tr>
+      <tr><td>B · casa, una zona</td><td class="n">78.7</td><td class="n">8.20</td><td class="n">72.3</td><td>sí</td><td>sí, inequívoco</td></tr>
+      <tr><td>C · umbral con arco</td><td class="n">77.1</td><td class="n">8.00</td><td class="n">38.6</td><td>sí, el más limpio</td><td>no de forma fiable</td></tr>
+      <tr><td>hoja natural (comparación)</td><td class="n">128.1</td><td class="n">6.7*</td><td class="n">46.5</td><td>sí</td><td>no literalmente; funcionaba por convención</td></tr>
+    </table>
+    <p class="sub" style="margin:10px 0 0">* la hoja no cumplía la regla de 8&nbsp;u tampoco; funcionaba por ser axial, igual que los candidatos de la sección 1.</p>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Sobreviven los tres geométricamente. Solo dos dicen lo que tienen que decir.</b></p>
+    <p><b>B · casa con una zona encendida</b> es el más sólido de los tres. La silueta de casa la reconoce cualquiera sin aprender nada, el divisor vertical parte el cuerpo en dos mitades claras y la masa encendida en una de ellas dice literalmente «esta parte de la casa, hoy». Su masa de 8.2×9.6&nbsp;u aguanta el desplazamiento con holgura: asoma 0.96&nbsp;u por encima de la línea del alero y 0.96&nbsp;u por la derecha del muro, y esa doble esquina asomada es de hecho el mejor uso del registro desplazado en toda la página. Tinta 72.3&nbsp;u, alta pero por debajo de la caja. Su punto flojo: una casa entera para señalar <em>una parte</em> de la casa es un pequeño salto lógico; requiere que el usuario entienda que la mancha es la zona y la silueta es el todo, y a 20px en la tarjeta ese matiz se puede perder y quedar en «casa» sin más.</p>
+    <p><b>A · plano de cuatro cuadrantes</b> es el más preciso semánticamente — un plano con un cuadrante encendido no puede querer decir otra cosa — y el más caro. Sus 86.6&nbsp;u de tinta lo convierten en el glifo con más línea de todo el sistema, un 10% por encima de la caja, y eso para un marcador que está permanentemente en pantalla en la tarjeta del Dispensador, donde todo lo demás está callado. A 24px las cuatro celdas son de 9&nbsp;px y se distinguen, pero el conjunto tiene seis segmentos de línea larga en 24&nbsp;px de lado: es el candidato con más riesgo de leerse como ruido en visión periférica. La reserva de «sobrevive con reservas» es esa, no la legibilidad.</p>
+    <p><b>C · umbral con arco</b> es el más limpio de dibujo — 38.6&nbsp;u de tinta, la mitad que B, una masa grande y cerrada, un contorno de tres trazos — y el que falla en el significado. Un arco sobre una línea de suelo se puede leer como puerta, como túnel, como nicho o como lápida, y ninguna de esas cuatro lecturas es «un área de la casa». Además el medio punto le da un aire arquitectónico-histórico que no encaja con una app de tareas domésticas. Lo dejo dibujado porque es el que mejor se comporta técnicamente y porque el fallo es de sentido, no de forma: si a Sergio se le ocurre una lectura que yo no veo, la forma está lista.</p>
+    <p><b>El coste de la decisión, planteado sin recomendación.</b> El avión conserva la hoja como marcador de zona, con la convención ya validada y 46.5&nbsp;u de tinta ligera, a cambio de la colisión de registro de la sección 3 y de la jerarquía por dirección de la sección 5. La hoja al tercer destino resuelve las dos, a cambio de dibujar un marcador nuevo que, en el mejor caso (B), añade 72.3&nbsp;u de tinta a la pantalla más callada de la app, y en el más preciso (A) añade 86.6. <b>La pregunta no es qué glifo es mejor: es si el precio se paga en el flujo de decisión o en la tarjeta de reposo.</b></p>
+  </div>
+</section>
+
+<!-- ============================ 7 ============================ -->
+<section>
+  <p class="snum">Sección 7</p>
+  <h2>En situación</h2>
+  <p class="lede">Una tarjeta del Dispensador con el trazo ganador. «Hecho» relleno con <span class="mono">accent-soft #D5E0DC</span> (L*&nbsp;88.3), el único pastel autorizado a llevar texto. Marcador de zona a 20px con línea <span class="mono">ink-secondary</span> y masa <span class="mono">#B3BEBA</span>, arriba a la izquierda, fuera del camino. Casi todo es espacio vacío, porque eso es la pantalla.</p>
+
+  <div class="row" style="gap:30px; align-items:flex-start; margin-top:8px">
+    <div class="cell">
+      <div class="phone">
+        <div class="bar"></div>
+        <div class="zone">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <g transform="translate(1.358,-1.358)"><use href="#m-zoB" fill="var(--accD)"/></g>
+            <g fill="none" stroke="var(--ink2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-zoB"/></g>
+          </svg>
+          Zona de hoy · Salón
+        </div>
+        <div class="dcard">
+          <p class="dur">10-15 min</p>
+          <p class="task">Despeja la mesa del salón</p>
+          <button class="btn">Hecho</button>
+          <div class="qrow">
+            <span class="q">Otra más fácil</span>
+            <span class="q">Ahora no</span>
+          </div>
+        </div>
+      </div>
+      <span class="cap" style="margin-top:12px">Marcador B · casa con una zona<br>trazo 1.80 u a 20px = 1.5px de pantalla</span>
+    </div>
+
+    <div class="cell">
+      <div class="phone">
+        <div class="bar"></div>
+        <div class="zone">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hojN" fill="var(--accD)"/></g>
+            <g fill="none" stroke="var(--ink2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hojN"/></g>
+          </svg>
+          Zona de hoy · Salón
+        </div>
+        <div class="dcard">
+          <p class="dur">10-15 min</p>
+          <p class="task">Despeja la mesa del salón</p>
+          <button class="btn">Hecho</button>
+          <div class="qrow">
+            <span class="q">Otra más fácil</span>
+            <span class="q">Ahora no</span>
+          </div>
+        </div>
+      </div>
+      <span class="cap" style="margin-top:12px">Marcador hoja · el estado actual,<br>solo posible si el avión se queda el destino</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><b>Lo que se ve al comparar las dos tarjetas.</b> La hoja a 20px en <span class="mono">ink-secondary</span> es casi un susurro: dos trazos, una mancha, y desaparece en cuanto dejas de mirarla. La casa con la zona encendida a 20px son seis segmentos y una mancha, y ya no desaparece — pide una fracción de atención en la pantalla diseñada para no pedir nada. No es un fallo, es el precio contado en el sitio donde se paga. Si el marcador de zona tiene que estar siempre presente y siempre callado, la hoja es difícil de batir, y eso es un argumento a favor del avión que no viene del avión.</p>
+  </div>
+</section>
+
+<!-- ============================ CIERRE ============================ -->
+<section>
+  <p class="snum">Cierre</p>
+  <h2>Lo que esta página deja decidido y lo que deja abierto</h2>
+  <div class="note verdict">
+    <p><b>Decidido.</b> Trazo de 1.5px a 24px, con la tabla <span class="mono">stroke-width = px_objetivo × 24 / px_render</span>. 1px no es recuperable a 24px contra masas a L*&nbsp;76. Paridad de masa alcanzada: 79.2 / 80.2 / 80.0&nbsp;u², dispersión 1.3%. Vector global único <span class="mono">(+1.358, −1.358)</span> confirmado y compatible con los dos candidatos por construcción axial.</p>
+    <p><b>Abierto, y es de Sergio.</b> El avión mide y se comporta mejor de lo que yo esperaba, y aun así arrastra dos cosas que no se arreglan dibujando: lee «enviar» en cuanto sale del flujo de destinos, y apunta cuando sus dos vecinos están quietos. La hoja no arrastra ninguna de las dos, mide igual de bien, y cuesta un marcador de zona nuevo que en su mejor versión mete 72&nbsp;u de tinta en la pantalla más silenciosa de la app. <b>El precio se paga en el flujo de decisión o se paga en la tarjeta de reposo. No hay una tercera puerta.</b></p>
+    <p><b>Deuda que ninguna de las dos opciones cancela.</b> La caja, con 78.6&nbsp;u de tinta y 33&nbsp;u de línea que no encierran masa, sigue siendo la anómala del trío y sigue siendo el sitio donde el ojo aterriza primero. Mientras no se redibuje, la paridad del Flujo de 3 Destinos está resuelta en el papel de las mediciones y no en la pantalla.</p>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

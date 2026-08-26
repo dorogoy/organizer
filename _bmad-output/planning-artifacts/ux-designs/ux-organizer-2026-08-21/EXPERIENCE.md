@@ -1,0 +1,337 @@
+---
+name: Anti-Overwhelm Mobile Task Organizer
+description: Experience spine for a single-user Android household task dispenser. One card at a time, nothing enumerated, nothing accumulated. Paired with DESIGN.md, which owns the visual identity.
+status: final
+updated: 2026-08-21
+sources:
+  - "{planning_artifacts}/prds/prd-organizer-2026-08-20/prd.md"
+  - "{planning_artifacts}/prds/prd-organizer-2026-08-20/addendum.md"
+---
+
+# Anti-Overwhelm Mobile Task Organizer — Experience Spine
+
+## Foundation
+
+Single-surface **Android** mobile. One device, one user, **no account**, offline-capable — airplane mode is a supported condition, never an error state. iOS, web, desktop, widgets and wearables are explicitly deferred by the PRD, so there is no second surface to reconcile and no parity question to answer.
+
+**No UI system is named.** Navigation, system gestures, the back gesture and dynamic type are inherited from platform convention. Where a behaviour here differs from the platform default it says so explicitly; everything unstated is the platform's.
+
+`DESIGN.md` is the visual identity reference and owns how this looks — palette, type ramp, iconography, the misregistration idiom, dark mode. This spine owns how it works. Visual specs are referenced by token (`{path.to.token}`) and never restated. Upstream product content — the six invariant principles, the thirty FRs, the glossary, the counter-metrics — is inherited from `sources` by reference and not duplicated here.
+
+**Responsive & Platform is deliberately omitted.** There is one surface, one form factor and no breakpoint; everything that section would carry is stated above or in Accessibility Floor.
+
+**Mockups illustrate; they do not specify.** Five promoted artifacts sit in [`mockups/`](mockups/), each carrying a note at its top naming what in it is superseded and by what; superseded exploration stays in `.working/`. The one supplied visual reference — [`imports/dandelion-seed-reference.png`](imports/dandelion-seed-reference.png), the builder's own drawing of the dandelion seed — is a shape reference for the third destination glyph, specified in `DESIGN.md` and reconciled claim by claim in [`reconcile-dandelion-seed-reference.md`](reconcile-dandelion-seed-reference.md). **The spines win on conflict** — over the PRD, over the reference image, and over every artifact in `mockups/` and `.working/`.
+
+## Information Architecture
+
+| Surface | Reached from | Purpose |
+|---|---|---|
+| **Dispenser** | App open (cold start) | The primary surface and **where the user lives**. Exactly one dispensed Micro-task on a `{components.dispenser-card}`: duration, task, `Hecho`, `Otra más fácil / Ahora no`, zone marker. |
+| Pocket trigger — `Tengo 15 minutos ahora` | Dispenser | Declares a Floating Time Bag (5–30 min, default 15) and re-filters the pool. Rendered as `{components.duration-chip}`. |
+| Energy check-in | Dispenser, one tap | 🟢 / 🟡 / 🔴. Exists to ask for **less**. |
+| **Scan** | Dispenser, one tap | Photo-Diagnosis of a real space. Camera, frame, shoot. |
+| **Per-scan consent gate** | Scan, before every upload, every time | States in plain Spanish what is sent and to whom. Declining costs the same number of taps as accepting. **The only surface in the app with zero recommended actions** — `{components.action-equal-pair}`, neither button filled. |
+| **Manual Capture** | Dispenser, one tap — and the single exit from the no-Slicer surface | One line of text plus a size from exactly three options (30 s / 3 min / 10–15 min). |
+| **Project genesis** | Dispenser — the single quiet affordance, as its **recommended action** | Two paths. The photo path is the recommended action: photograph a real space and the Slicer cuts it into steps. **Manual entry sits beside it and is always available** — a typed description seeds the same Epic Project. Photo is an invitation, never a gate. |
+| **Archetype Template list** | Genesis' manual-entry screen — a complement there, never a third top-level path | Instantiates an Evergreen Project from a pre-sliced Archetype Template. **The surface shows a list**, by the builder's explicit decision. |
+| **Anti-Marathon checkpoint** | Dispenser, at the end of a session | The permission-to-rest screen **is** the primary surface. Extending is an available, silent, secondary action. |
+| **Before/After reward** | Dispenser, on completing work a Before photo was taken for | Side-by-side visual diff. No negative framing, no "still messy" copy. |
+| **Transformation Album** | Before/After reward, when a transformation completes — **contextual only** | Private local gallery of Before/After pairs and cumulative milestones. Individually deletable, purgeable in one action. |
+| **Cumulative impact dashboard** | Transformation Album — **contextual only** | Minutes, completed Micro-tasks, liberated volume (`≈ 3 cajas liberadas`), album highlights, one dismissible snowball suggestion. |
+| **Decluttering Protocol** | Dispenser, when the dealt Micro-task is a decision about an object | The two detachment questions, verbatim per FR-20, answerable by skip. |
+| **3-Destination Flow** | Decluttering Protocol | One decision on a whole screen: `Quedármelo` · `Donar o vender` · `Tirar o soltar`. Three choices and nothing else. `{components.destination-flow}`. |
+| **Quarantine Box** | 3-Destination Flow | A dated box for the undecided, with exactly one dismissible follow-up after six months. |
+| **No-Slicer surface** | Scan or project genesis, whenever the Slicer cannot run | **One** calm surface carrying seven different strings, plus one exit (Manual Capture). |
+| **Settings** | Dispenser — the single quiet affordance, as **the way out of it** | **Where the validator reads.** Time Bag, AI Access Path, Ambient Invitation, export destination, album purge, export failure. |
+
+Ambient, dismissible in one tap, living on the Dispenser rather than on surfaces of their own: the seasonal activation suggestion, the six-month Quarantine follow-up, the snowball suggestion, and the Sunday self-report `Esta semana, ¿cuánto te ha agobiado la casa?`.
+
+**Navigation is mixed, and every half of it is a decision.** There is no nav bar, no drawer and no list of destinations anywhere — not as restraint but because conventional navigation is unavailable here. Principle 1 caps any surface at one recommended action plus a way out, and the PRD forbids browsing what is pending. A bottom bar with four destinations would violate the invariant and the information-density ceiling at once. Two mechanisms carry the whole map instead.
+
+- **Contextual.** The Transformation Album is reached only when a Before/After completes; the cumulative impact dashboard is reached from the Album. **Nothing is reachable "just because"** — a surface appears when its moment arrives, and not before.
+- **One quiet affordance on the Dispenser.** It opens **project genesis** as the recommended action, with **Settings as the way out**. At the affordance itself that is one recommended action plus one way out. Behind it, the genesis zone exceeds that letter — see *The genesis zone* below, where the arithmetic is written out. Rejected: the affordance being Settings with genesis nested inside it; and two separate affordances, which would redistribute the very departure that concentrating it into one point was meant to prevent.
+
+**Two consequences, recorded rather than smoothed over.**
+
+- **The contextual half means these surfaces exist without always being available.** If the user never completes a transformation, the Transformation Album is unreachable for as long as that lasts — and the dashboard behind it with it. That is accepted, not an oversight: a permanently reachable Album is a surface that invites browsing, which is the thing the product removed.
+- **Concentrating the departure into one point is deliberate**, and the PRD supplies the cover for that point being Settings — *Settings is where the validator reads*. The single place the user can leave the Dispenser for is the place already specified as not being where the user lives.
+
+**The genesis zone — photo is an invitation, not a gate.** In the builder's words: *"No podemos obligar a la gente a que use el sistema de fotos si no quiere."* Genesis therefore presents **two paths**: the photo path as the recommended action, and **manual entry always available beside it**. Neither is a precondition for the other. The **Archetype Template list is offered from the manual-entry screen**, where it is a complement or a help — **not** a third top-level genesis path. **The template surface shows a list**, by the builder's explicit decision.
+
+**The arithmetic, written honestly rather than claimed compliant.** Count what the zone carries: one recommended action (photo), manual entry beside it, Settings as the affordance's way out, and a list on the template surface. Principle 1 allows **one recommended action plus one way out**. The genesis zone **exceeds that letter**. It is recorded here as a **declared exception**, the device already used for the FR-23 dashboard's density and for the consent gate's zero recommended actions. **Principle 1 is *amended* for the genesis zone, not satisfied by it.** It is written as an exception so that it is not a precedent: no other surface may borrow either half of it.
+
+**Two things keep the exception bounded, and both are checkable.** The zone is entered from **exactly one place**, the single quiet affordance, so nothing else in the app inherits it. And the list lives on the template surface and **nowhere else** — every other surface still enumerates nothing.
+
+**Both amendments must be flagged back upstream to the PRD** — the multi-path genesis, and the list on the template surface. The PRD writes principle 1 as an invariant that **overrides individual FRs**, and states that the user never chooses from a list; amending an invariant and leaving it unflagged would turn a decision into a silent divergence between the two documents. It is an upstream edit owed, not a local preference, and it carries the same standing as the `Tirar o soltar` string change.
+
+**Also rejected, on measurement:** serialising the templates one at a time behind a *see another* deck. It removes the *list* and not the *choice*, hides how large the set is, and puts no ceiling on the number of taps — worse than a list on the only question principle 1 asks, which is whether the user is choosing. Drawn and judged in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) § 4, whose verdict box is the record of how this arithmetic was reached; that page's genesis screens are superseded in structure and say so at the top.
+
+**Invariants that govern the whole map.**
+
+- **No screen anywhere enumerates pending tasks.** Nothing lets the user browse what is pending, edit it, or count it. No lists, no calendar, no backlog, no kanban, no tags, no filters. Dormant Epic Projects appear in no default view. **The one list in the app is the Archetype Template surface**, which lists templates that have not been instantiated — never pending work — and is the declared exception above.
+- No screen reachable in under three taps from the Dispenser renders more than one actionable Micro-task at once. Beyond the PRD's cap on *actionable* items, **information** is capped too — one card, mostly empty space.
+- No interrupted, incomplete or overdue state is displayed anywhere, in either language. The schema cannot express lateness, so the UI cannot render it.
+- The **cumulative impact dashboard is a declared density exception** — the single multi-value surface in the app. It is written as an exception precisely so it is not a precedent, and **that density must not propagate to any other surface** (see `DESIGN.md` Do's and Don'ts). The Sunday self-report is the only other place where more than one value shares a surface; it inherits the ordinary card rules, not the dashboard's licence.
+- **The denominator rule — this is the mechanism that makes the density exception safe, and it is checkable line by line.** Six values share that screen, which on any other surface would be a violation, and it does not shame because **no value on the screen admits a denominator**. Every figure is a completed fact with no reference number to be measured against: no *"de 7 días"*, no average, no target, no *"this week, less than last"*, no per-day rate, no percentage, no completion ratio. That absence is what stops cumulative figures turning into quotas, averages or deficits. It is also what a reviewer checks, one value at a time: **if a value could be given a denominator, it does not belong on this screen.** `4 h 25 min de trabajo hecho, desde el primer día` has no denominator; *"4 h 25 min de las 10 h de esta semana"* has one, and would be forbidden. The corollary: adding any comparison — to a goal, to a prior period, to another person — breaks the exception rather than extending it. The screen is drawn at both scales in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) § 3.
+- **The volume line carries no glyph, and the general rule behind it.** `≈ 3 cajas liberadas` stands as a figure alone, because the system's only box glyph *is* `Quedármelo`, the first choice of the destination trio, and setting it beside a sentence about boxes *released* would say the opposite of the sentence. Generalised in `DESIGN.md` as the glyph-adjacency rule: **a destination glyph appears only where the destination it names is the meaning being expressed.**
+- **The dashboard is also the one place 200% breaks a layout rather than a size** — see Accessibility Floor. `{components.dashboard-highlight-row}` reflows to a single column; it never shrinks.
+- Origin tags (`shipped` / `manual` / `local` / `cloud`) exist in the data and are never surfaced in the Dispenser.
+
+## Voice and Tone
+
+Microcopy discipline. Register, warmth and the print idiom live in `DESIGN.md`.
+
+**Every string is externalised and no sentence is concatenated at runtime.** This is a hard structural rule, not a preference: the anti-shaming audit (SM-C2) must be reviewable as a **flat string table**, and a sentence assembled from fragments at runtime cannot be audited. Guilt events must read zero — no string frames anything as owed, late or failed.
+
+Fixed strings, verbatim, not to be re-worded downstream:
+
+| String | Where |
+|---|---|
+| `Hecho` | `{components.action-primary}` |
+| `Otra más fácil / Ahora no` | `{components.action-secondary}` |
+| `Tengo 15 minutos ahora` | `{components.duration-chip}` / pocket trigger |
+| `Despeja la mesa del salón` | The measured sample task, `{typography.task}` |
+| `Quedármelo` · `Donar o vender` · `Tirar o soltar` | 3-Destination Flow |
+| `≈ 3 cajas liberadas` | Cumulative impact dashboard |
+| `Esta semana, ¿cuánto te ha agobiado la casa?` | Sunday self-report, ambient and dismissible |
+| `hay 15 minutos esperando cuando te apetezca` | Ambient Invitation notification |
+
+| Do | Don't |
+|---|---|
+| Name the cost before the ask (duration above the task). | Frame a duration as a deadline. |
+| Say what happened. `Hecho`. | Congratulate volume — no "you're on three", no combos. |
+| Offer a way out in the user's own register — `Otra más fácil / Ahora no`. | Ask `¿seguimos?`, or make "keep going" a primary action. |
+| State plainly what the app cannot do right now. | Frame a degradation as the user's fault or as an error. |
+| Accept what the user typed. | Correct, validate or reject captured text. |
+| Leave the missed days unmentioned. | Reference absence, count it, or apologise for it. |
+| Exclamation-free, alarm-free, streak-free. | Red, warning iconography, exclamation marks, badges, overdue language. |
+| Let the reward caption name the place, the moment and the authorship. | Any adjective about the result — *mejor*, *más despejado*, *casi*. An adjective is a scale, and a scale brings back the deficit. |
+| Let a cumulative figure stand as a completed fact. | Give any figure a denominator — a target, an average, a period to compare against, a percentage. |
+
+**`Tirar o soltar` is a confirmed, intentional change from the PRD's `Tirar o reciclar` / *Trash-Recycle*.** *Soltar* dodges both the deletion vocabulary of a bin and the compliance vocabulary of recycling arrows, which is the whole reason the third destination does not read as the bad one. **It must be flagged back upstream to the PRD**, which fixed that destination name: the change is a decision, and leaving it unflagged would turn it into a silent divergence between the two documents.
+
+**`tu clave no es válida` is flagged by the PRD as a shaming risk and needs rewriting.** The replacement is not written. It is one of the seven strings below.
+
+**The seven no-Slicer strings are a required deliverable and are unwritten.** They must be authored before the failure path is wired, they carry the entire differentiation load of that surface (there is no visual differentiation — see State Patterns), and none may frame the user as at fault:
+
+1. no key configured
+2. invalid key (replaces `tu clave no es válida`)
+3. exhausted quota
+4. provider unreachable
+5. no network
+6. consent declined
+7. person detected in frame
+
+## Component Patterns
+
+Behavioural only. Visual specs live in `DESIGN.md` Components.
+
+| Component | Use | Behavioural rules |
+|---|---|---|
+| `{components.dispenser-card}` | Dispenser | One card, one Micro-task, always with its duration. On completion **the card leaves** (below). Never compresses to fit more; the screen scrolls instead. The air around it is a **minimum plus flex**, never a fixed value — at 200% the card grows into it (see `DESIGN.md` Layout & Spacing). |
+| `{components.action-primary}` — `Hecho` | Dispenser | One tap. No confirmation, no undo prompt, no modal. One recommended action per surface, outside the two declared exceptions. |
+| `{components.action-secondary}` — `Otra más fácil / Ahora no` | Dispenser | **One control, never split** (below). Available and never suggested: no animation, no emphasis, no hint. |
+| `{components.duration-chip}` | Dispenser eyebrow; pocket trigger | Reading order is the mechanism — the cost is read before the ask. Never a countdown, never a clock. |
+| Energy control | Dispenser | One tap, three values. Re-filters the pool in under 500 ms. Only ever narrows what is asked of the user; never unlocks anything. |
+| `{components.destination-flow}` | 3-Destination Flow | Three equal-weight choices at `{spacing.glyph-destination}`, `{spacing.destination-row-gap}` between rows, one decision per screen, nothing else on it. No default, no pre-selection, no ordering signal. Skip is a legitimate answer. |
+| `{components.zone-marker}` | Dispenser footer | Names the one active FlyLady zone for today, in `{typography.support}`. A place-marker, not a control — it is not a filter and opens nothing. |
+| Ambient suggestion | Dispenser | Seasonal activation, snowball, Quarantine follow-up. Dismissible in one tap; never a primary action; at most one visible at a time. |
+| Quiet affordance | Dispenser | The **single** departure from the Dispenser. Opens project genesis as the recommended action, with Settings as the way out. Never animated, never emphasised, never badged. What mark it carries is unresolved (Open Questions). |
+| Genesis paths | Project genesis | Manual entry is **never gated** behind the photo: reaching it costs one tap and asks for no reason. The Archetype Template list opens from the manual-entry screen only, and selecting a template is a tap like any other — no confirmation step. |
+| `{components.action-equal-pair}` | Per-scan consent gate, and nowhere else | Two answers of identical weight, one tap each, no delay on either, no fill on either. **This surface has zero recommended actions** — the only one in the app. Declining opens no confirmation, no second ask, no persuasion; it lands on the no-Slicer surface with its own string. |
+| `{components.size-option}` | Manual Capture | Three options shown as durations (`{formats.duration}`), never as glossary names. Single selection, always populated: no empty state, no "none of these". Selected is `{colors.accent-soft}`; unselected is a hairline. Changing the selection is a tap and costs nothing. |
+| `{components.photo-frame}` | Before/After reward, Transformation Album | Equal size, equal height, same corner, labels outside the frame. Loading shows an empty frame of the right shape — no spinner, no shimmer. Every image is local; nothing here is ever uploaded. |
+| `{components.dashboard-highlight-row}` | Cumulative impact dashboard only | Three highlights, each a thumbnail plus place and `{formats.short-date}`. Reflows to one column when a caption passes two lines; never shrinks, never truncates. Tapping a highlight is a way *into* the Album, not a browse surface. |
+| `{components.icon-glyph}` · `{components.seed-glyph}` · `{components.destination-mark-dark}` | Throughout | Drawing specs with no behaviour of their own. `destination-mark-dark` is the dark-mode form of the destination trio; how light/dark is selected is unresolved (Open Questions). |
+
+**The card leaves.** On completing a Micro-task the card does not change content — it **exits**. The justification is platform-specific and decisive: in Android's gesture vocabulary, dismissing a card means the card *disappears*. The iOS reading — dismissed cards stack somewhere else — is what would have implied accumulation, and the app is Android-only, so the Android reading governs and the accumulation risk does not apply. Two hard constraints on the departure: **it must exit the screen entirely**, and **it must never fly toward a counter, a pile or a badge**, because that would reintroduce accumulation through motion after the whole product removed it from the data.
+
+**Celebration is mandated, not forbidden.** FR-2 requires non-intrusive positive feedback; the PRD specifies a subtle haptic buzz and warm confirmation, and calls FR-17 a visual reward. The line is not whether celebration exists but **where it points**:
+
+- It must **close** — "done, and that is enough." Celebration that opens a door — "done! another?" — is forbidden even with identical animation. What disqualifies it is the continuity gesture, not the sparkle.
+- It must **not scale with quantity**. The same celebration every time. No combos, no streak, no "you're on three." This follows directly from counter-metric SM-C1: a celebration that grows with volume pushes with light instead of words.
+- It must **never gate the next card**. Completion advances the queue in under 500 ms; celebration may overlap the next card's arrival but never delays it.
+- **Two tiers, and the restraint at tier one is what makes tier two mean anything.** Tier one: a small warm haptic acknowledgement per Micro-task. Tier two: the Before/After diff, which is the real reward.
+
+**Tier two, and the two rules that keep it from becoming a score.** Both were established by drawing it, and both are checkable.
+
+- **Proportion does the work a score would do.** Two `{components.photo-frame}` plates of **equal size, at equal height, with the same corner**, `{spacing.photo-pair-gap}` apart, and the labels `Antes` / `Ahora` **outside** the pastel rather than on it. That layout makes the comparison legible without anyone grading it. The moment one plate is larger, or higher, or framed differently, the layout starts having an opinion — and an opinion is a rating. This is what replaces the percentage, the star, the score and the progress bar, none of which exist.
+- **The reward caption has a hard ceiling: it may name the place, the moment and the authorship — and nothing else.** `La mesa del salón, esta tarde. Esto lo hiciste tú.` is the shape of it. There is no third sentence available without entering judgement: **any adjective about the result — *mejor*, *más despejado*, *casi* — reintroduces a scale, and with a scale the deficit comes back.** The ceiling is narrower than it looks before you try to write it, which is why it is written here as a rule and not left to the copywriter's taste. The caption's type role is `{typography.caption-warm}` (`DESIGN.md`), the only role in the ramp created for one sentence. Drawn in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) § 5, where the plates are icon-mass pastels standing in for photographs — declared scaffolding on that page, and forbidden in the product.
+- **The secondary here closes, it does not continue.** `Cerrar`, never a variant of *seguir*. The closing rule above binds hardest on this surface, because this is the one place the celebration is large enough to be worth extending.
+
+**The single secondary control stays unsplit.** `Otra más fácil / Ahora no` carries two distinct PRD features — `Otra más fácil` is FR-5 Rescue Mode (simplify the dealt Micro-task at any time) and `Ahora no` is FR-3's guilt-free skip. Splitting it would fix the 200% line-break fold and tell the truth about what it is, and it was still rejected: principle 1 allows a surface **at most one recommended action plus a way out**, and keeping this as one control is exactly what preserves that invariant. Consequence carried knowingly: the string cannot survive intact at 200% system font scale, so **the fold is accepted and must be verified on a real Android device** — the measurement behind it was taken in Blink, and Android's line breaker is a different engine. The string is never split, shortened, ellipsized or hard-broken.
+
+## State Patterns
+
+| State | Surface | Treatment |
+|---|---|---|
+| Cold open | Dispenser | One card in ≤ 2 s. Never a splash, never a loader before the first card. |
+| **Warm Return** | Dispenser | A rebalanced plan. **No backlog, and no reference to missed days in any UI element or copy.** The days away are not representable in the schema, so they cannot appear. Copy unauthored (Open Questions). Illustrated at register scale in [`mockups/seed-at-scale-1.html`](mockups/seed-at-scale-1.html) § 4. |
+| Pause | Dispenser | One tap, at any moment, for any reason. Recalculation is silent and invisible. |
+| Resume | Dispenser | **Deals the next Micro-task directly.** Never a resume menu, never a summary, never anything about the past. |
+| Energy level | Dispenser | Defaults to 🟢, **fixed, no decay**. The pool stays wide at all times. The tap exists only to ask for **less** — a relief valve the user reaches for, never a gate to be cleared. Rejected: decay toward 🟡 late in the day (it would shrink the pool during the app's real usage window and force a tap to *correct* the app, turning an ambient check-in into a required one), last-choice-persistent (one bad day silently starves the app for weeks), and no default at all. |
+| **No Slicer** (all seven causes) | No-Slicer surface | **ONE calm surface carrying seven different strings plus a single exit (Manual Capture) — not seven visual states.** No visual differentiation is needed or wanted, which dissolves the no-red / no-warning-iconography / no-exclamation conflict entirely. **None is styled as an error.** The full-screen illustration register applies (see `DESIGN.md`). |
+| Manual Capture | Manual Capture | Spatial work only, achieved by framing rather than by refusal: **no invitation** to non-spatial work, **no validation**, **no rejection** (the frame, and why it needs no refusal, are below). Correctable and discardable only here, before leaving the surface. Nothing appears afterwards: no list, no counter, no confirmation screen. |
+| Anti-Marathon checkpoint | Checkpoint | The permission-to-rest screen is the primary surface. Extending the session exists as an available, silent, secondary action — never highlighted, never animated, never suggested. The app never asks `¿seguimos?`. Copy unauthored (Open Questions). Illustrated at register scale in [`mockups/seed-at-scale-1.html`](mockups/seed-at-scale-1.html) § 4. |
+| Offline / airplane mode | Everywhere | Supported, **never an error state**. Zones, anchors and a composition exist on a phone in airplane mode on day one. No banner, no retry prompt, no degraded chrome. |
+| Person detected in frame | Scan | Refused **on-device, before any upload**, with an offer to reframe. |
+| Consent declined | Scan | No upload happens. Lands on the no-Slicer surface with its own string and the Manual Capture exit. No re-ask, no persuasion, no second attempt at the gate. |
+| Scan wait | Scan | In-app, with visible progress and honest copy. There is **no latency cap** — the wait must be designed for rather than raced against. The affordance is unspecified (Open Questions). |
+| Dormant Epic Project | Everywhere | Absent from every default view until activated. Not listed, not counted, not previewed. |
+| Export failure | Settings only | Visible nowhere the user lives, and **never framed as the user's omission** (see Export Silence). |
+| Empty Album / empty dashboard | Album, dashboard | Unauthored (Open Questions). Whatever is written may not count what is absent. |
+
+**Manual Capture's spatial frame is an ordering rule, not a copy suggestion.** It fits in two sentences plus one example, and **the order is what does the work**, so it is written as a sequence a reviewer can check:
+
+1. **The title names a place** — a place in the house, not a task and not a category.
+2. **The helper lists things you can touch** — a drawer, a shelf, a chair, a corner: things that can be pointed at with a hand.
+3. **The example opens with a spatial verb** — *"Vaciar la caja de la entrada"*, a verb that acts on an object in a room.
+
+Read in that order, non-spatial work does not occur to the user, which is why no refusal is needed. Change the order — put the example first, or let the helper name outcomes instead of objects — and the frame stops framing. The three sizes are shown as durations (`{formats.duration}`), never as the glossary's internal names, because that vocabulary names a role inside the plan rather than what the person will spend. The surface is drawn in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) § 1.
+
+**And the confirmed absence, which is the proof that the frame works: there is no error state, no validation and no rejection, therefore no second version of this screen exists.** No red edge, no corrective message, no *"esto no encaja aquí"*, and no gentle equivalent of one. If `llamar al dentista` is typed, it is accepted in silence. Rejecting would shame; detecting reliably is impossible; so neither is attempted. One secondary control only — `Descartar`, which is also the exit; no `Cancelar` beside it, because that would be a second way out on a surface that already has a recommended action.
+
+**Forward-looking note — awaiting a PRD change, and deliberately not a spec.** Sergio is adding to the PRD the possibility of completing *añadir a mano* by **voice-to-text transcription**. The PRD as it stands defers voice entirely — *"Voice-first natural-language slicer — Phase 3"* — so this pulls a piece of that forward, and nothing about it is specified here until the PRD carries it. The consequence is recorded now because it runs against the intuition: **dictation makes non-spatial input more likely, not less.** `llamar al dentista` is easier to say than to type. That makes the no-validation, no-rejection decision **more** load-bearing rather than less, and it puts more weight on the spatial frame's ordering rule above — which is then the only thing standing between dictation and a to-do list. It also touches FR-27's two-field shape and the three-size picker. To be handled in a later Update pass.
+
+## Interaction Primitives
+
+- **One tap** is the unit for every primitive act: done, skip, dismiss, stop. Nothing important costs two.
+- **Stopping is always one tap, at any moment, for any reason.** There is no wrong moment to stop and no state in which stopping is unavailable.
+- **Timings are contractual.** Cold start to first dispensed card **≤ 2 s**. Completion advances the queue in **under 500 ms**. Energy re-filter **under 500 ms**.
+- **Feedback is never modal, never plays loud audio, and never spawns a rating prompt or a nag screen.** A subtle haptic buzz plus a warm confirmation; haptics are never the sole completion signal.
+- **Input modalities:** camera photo (the primary typeless path), taps, and one line of text plus a three-size picker in Manual Capture. **No free-form minute entry exists anywhere.** Voice is out of scope as the PRD stands; a change is pending upstream — see the forward-looking note at the end of State Patterns. No calendar permission is ever requested.
+- **Notifications — exactly one category, forever.** The Ambient Invitation: opt-in, **off by default**, at a user-chosen hour, on a silent low-importance channel. No sound, no heads-up interruption, no badge count; the launcher badge is suppressed explicitly. At most one per 24 h, no re-delivery on dismissal, no follow-up if unopened. Its copy must never acquire task content, counters or urgency (SM-C3). No second category is ever added.
+- **Background work** is limited to that one daily invitation. No sync, no location, no persistent service, no wake locks.
+- **Banned everywhere:** lists, calendars, backlogs, counts of anything undone, streaks, badges, overdue anything, red as alarm, warning iconography, exclamation marks, `¿seguimos?`, "keep going" as a primary action, a blanket "always allow" consent setting, and any motion that carries a completed card toward a counter, a pile or a badge.
+
+## Accessibility Floor
+
+Behavioural. Contrast ratios and the type ramp live in `DESIGN.md`.
+
+- **Legible at 200% system font scale with no truncation.** The floor stands as a live constraint — only the demonstration tile in [`mockups/color-themes-1.html`](mockups/color-themes-1.html) was dropped as scaffolding. Nothing is ellipsized, nothing gets `maxLines`; the card grows and the screen scrolls, which is correct. The `Otra más fácil / Ahora no` fold is the known pressure point and must be verified on a real device.
+- **One named, expected degradation: the dashboard's three-highlight row at 200%.** It is the only place in the app where 200% breaks a **layout** rather than merely a size. Nothing truncates — so the floor is met — but each column of `{components.dashboard-highlight-row}` falls to **~101dp** and its caption breaks to **four or five lines**, and the row stops reading as a row. **The stated fallback is a reflow, not a shrink: the row drops to one column per row as soon as a caption would break beyond two lines.** The trigger is expressed in lines rather than in dp deliberately, so it survives a different line breaker and a second locale. Nothing else on the screen scales: the dp gaps stay put, because what grows at 200% is content, never the grid. This is expected behaviour and is not a defect to be filed.
+- **Every action reachable one-handed.** Touch targets never below `{spacing.touch-target-min}`, which is a platform constant and does not scale with font size.
+- **Haptics are never the sole completion signal.** Every haptic acknowledgement is accompanied by something visible.
+- **Shape carries the entire differentiation load in the 3-Destination Flow, and this is load-bearing.** Coloured destination tiles were dropped, so hue now lives *only inside each glyph* — on the order of 200 device pixels. For a user with reduced colour vision, `{colors.dest-keep}`, `{colors.dest-donate}` and `{colors.dest-trash}` contribute almost nothing, and the three choices are told apart by **silhouette alone**. That is a real cost, accepted, not a detail — and it produces one non-negotiable rule: **the three destination hues never appear as a field, tile, bar or band without their glyph inside.** A hue on its own carries no meaning to part of the audience, so it must never be asked to.
+- Utility glyphs carry `{colors.icon-mass-neutral}` and no semantic hue; the zone-marker Hoja carries `{colors.icon-mass-ochre}`, which is neither the neutral mass nor any destination hue and is separated from the nearest of them by 17.21 against a threshold of 15. Nothing outside the trio can be mistaken for a destination.
+
+## Privacy & Consent Behaviour
+
+The app holds photographs of the inside the user's home. Two rules govern them: **nothing leaves the device without a per-scan decision, and what leaves is the minimum that makes the Slicer work.** The behavioural consequences:
+
+- **Consent is per scan, every scan.** A blanket "always allow" setting **does not exist** and must not be added as a convenience. The gate states, in plain Spanish, what is sent and to whom — the named provider, the scan image and a prompt, nothing else.
+- **Declining is the same number of taps as accepting.** No dark-pattern asymmetry: no larger accept button, no dimmed decline, no "are you sure", no delay before decline becomes tappable.
+- **The consent gate is the only surface in the app with ZERO recommended actions, and that is a rule rather than an omission.** Every surface carries exactly one recommended action plus a way out, apart from this gate and the genesis zone. This one carries none, because FR-25's symmetry requirement **expels `{colors.accent-soft}` from the surface entirely**: filling either button makes it the recommended one, and recommending is exactly the dark pattern the requirement forbids. Both answers are therefore `{components.action-equal-pair}` — identical width, height, ground, hairline edge, type role, ink and tap count, with no fill on either. It is a **declared exception** to the one-recommended-action invariant, written as an exception in the same spirit as the FR-23 density exception so that it is not read as a precedent: no other surface may borrow it. Drawn in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) § 2.
+- **The residual asymmetry that cannot be removed is reading order, and it is recorded rather than claimed solved.** Two buttons in a row are read left to right; stacked, one is on top. No arrangement escapes it. `Enviar` sits in the **first slot**, which for a consent decision is the unfavourable position rather than the favourable one — the honest direction to fail in, and still a failure of symmetry rather than symmetry. Everything else about the pair is verifiable by looking, which is what makes the requirement auditable.
+- **On-device face detection refuses before upload.** If a person or a face is in the frame, the scan is refused *on-device* — the image never leaves — with an offer to reframe. The refusal is about the frame, never about the user.
+- **The scan image is deleted from the device once the micro-plan is generated.** Only user-shot Before/After photos persist, and only locally.
+- **What is never sent:** plan history, album contents, device or location identifiers. **To the developers: nothing.** No app-open counts, no telemetry, no analytics, no third-party analytics SDK in the build.
+- The Transformation Album is local and private: entries individually deletable, the whole album purgeable in one action.
+
+## AI Access Path & Degradation
+
+- **BYOK only in v1.** The user supplies their own key; the provider is chosen from an **in-app allowlist**. A free-form endpoint or base-URL field **does not exist**. Each allowlist entry states the provider name and the date its no-training, no-retention terms were verified.
+- **A key is not an identity.** No login, no password, no registration, no first-run network requirement. The key lives in the OS keystore and never appears in the export.
+- The Local path is a debug-only canned-slice stub. The Managed path is interface-only and deferred; if it is ever built, its balance is never surfaced outside Settings.
+- **Configuration lives in Settings — where the validator reads — and never intrudes on the Dispenser, where the user lives.** The Dispenser never mentions a key, a quota, a provider or a network.
+- **Degradation is one calm surface, seven strings, one exit.** Whatever the cause — no key, invalid key, exhausted quota, provider unreachable, no network, consent declined, person in frame — the user meets the same composed screen and the same single onward move: Manual Capture. Nothing is styled as an error, nothing is retried automatically in front of the user, and nothing implies a task was lost. The Slicer being unavailable degrades **genesis**, never execution: the dealt pool is local, so the Dispenser keeps working.
+
+## Export Silence
+
+Export exists so the user owns their data, and it is designed to be **unnoticeable**.
+
+- The destination folder is picked **once**, through the system folder picker, in Settings. Every subsequent export happens without being asked for: plans, album images and all FR-26 series, in the same single legible-text-plus-images format.
+- **Foreground-triggered** — end of a session, app going to background. No background job. The app writes a local file and **never transmits it**; putting that folder in a synced directory is the user's own client's job.
+- **Nowhere the user lives is there any trace of it.** No reminder, no badge, no backup-age indicator, no "last exported" line, no failure toast — not in the Dispenser and not anywhere else. Silence is the specified behaviour, not an omission to be corrected later.
+- **Failure is visible in Settings only, and never framed as the user's omission.** No "you haven't backed up", no elapsed-time guilt, no call to action.
+- A one-tap manual export also remains available in Settings, for the validator rather than for reassurance.
+
+## Inspiration & Anti-patterns
+
+- **Rejected — the wellness / self-care register.** Dusty pastels and soft corners are exactly where every habit, mood and meditation app already lives, and that is the streak-and-badge category this product exists to reject. The palette stays soft anyway, and the antidote is a different **drawing language**: printed-matter iconography, risograph misregistration, a colour plate slipped off its line plate. Softest colour register, most graphic mark-making — that collision is deliberate and it is the brand.
+- **Rejected — streaks, badges, counters, overdue markers.** Every one of them needs to represent absence or failure to work, and a feature that needs to represent failure does not ship.
+- **Rejected — trash bins and recycling arrows** for the third destination. They *implican imposición* — imposition and deletion — and the whole trio depends on the third choice not reading as the bad one. The dandelion seed is the release gesture as the user's own breath: chosen, gentle, not institutional. Two of the three destinations mean the object goes on existing, which is what makes the trio genuinely equal. **One consequence is accepted rather than smoothed over:** motion dashes are barred from the destination trio on ink-parity grounds, and by the system's own inverse rule that makes the 64px trio seed read **at rest** rather than in flight — the opposite of the reference drawing's mid-flight feeling. It was confirmed knowingly once it had been named instead of arrived at as arithmetic, and dashes-on is now reserved for the illustration register at 56px and above (`DESIGN.md`).
+- **Rejected — the paper aeroplane, on measurement.** It was area-matched and ink-matched to the other two and it still lost, for one reason: **it is the only mark in the trio that POINTS.** A 23° nose, implied velocity, an offset that reads as speed. In a row of three equal-weight choices, the one that points is read first. The plane version nudges the user toward option three, discarding. The alternative asymmetry (the eye landing on the box, i.e. toward keeping) is inert; this one **contradicts the product's purpose**. An anti-overwhelm app must not push the user toward throwing things away.
+- **Rejected — splitting `Otra más fácil / Ahora no` into two controls**, despite it being two offers and two FRs. The reasoning, and the 200% cost accepted with it, is under Component Patterns.
+
+## Key Flows
+
+Protagonist: **Sergio**, the builder and primary validation user. He holds two roles at once, and that is a design constraint: *Settings is where the validator reads; the Dispenser is where the user lives.* Journey names mirror the PRD verbatim.
+
+### UJ-1 — Sergio spends a 15-minute pocket on the storage room
+
+1. He opens the app at 21:50, depleted. Cold start puts **one** card on screen in ≤ 2 s: the duration above, the task beneath, `Hecho`, `Otra más fácil / Ahora no`, and the zone marker as a quiet footer.
+2. He has a real pocket of time, so he declares it: `Tengo 15 minutos ahora`. The pool re-filters to what fits.
+3. He does the Micro-task and taps `Hecho`. The card **leaves the screen entirely** — a small warm haptic, a warm confirmation, and the next card arrives in under 500 ms without the celebration holding it up.
+4. The next card is more than he has left. He taps `Otra más fácil / Ahora no` — the one control, either offer. No explanation is asked for and none is offered.
+5. He does one more.
+6. **Climax:** the pocket's minutes are spent and the Anti-Marathon checkpoint arrives — as **permission to stop**. That is the primary surface; continuing is there, silent, unhighlighted, unanimated. Nothing counts what is left, nothing asks `¿seguimos?`, and there is no number anywhere that would have been higher if he had kept going. He puts the phone down and the storage room is measurably less than it was.
+
+*Failure path:* he abandons mid-task. Stopping is one tap. Recalculation is silent, and when he comes back the app deals the next Micro-task directly — never a menu about what he left.
+
+### UJ-2 — Sergio photographs the trastero and gets a micro-plan
+
+1. From the Dispenser, one tap to Scan.
+2. He frames the trastero and shoots.
+3. On-device face detection runs first. Nobody is in frame, so it passes — had there been, the scan would have been refused **before upload**, on-device, with an offer to reframe.
+4. The per-scan consent gate appears — as it does on **every** scan. Plain Spanish: the scan image and a prompt go to the named provider; nothing else does. Declining is the same number of taps as accepting.
+5. He accepts. The wait happens in-app, with visible progress and honest copy, on a full-screen surface in the illustration register.
+6. The Slicer returns Micro-tasks of 3–5 minutes with per-step effort. **The scan image is deleted from the device** now that the plan exists.
+7. **Climax:** he is never shown the plan. He is shown **one card** — the first step of the trastero — and the trastero has stopped being a wall and become a thing with a first step. Nothing enumerated the rest, so there is nothing to dread.
+
+*Edge case, named in the PRD — Slicer unreachable:* the calm no-Slicer surface appears with the provider-unreachable string and one exit, Manual Capture. It is not styled as an error, nothing is framed as his fault, no retry loop runs in front of him, and the Dispenser keeps dealing from the local pool. A declined consent lands on the same surface with its own string.
+
+### UJ-3 — Sergio returns after six days away
+
+1. He opens the app after six days of not opening it.
+2. Cold start, ≤ 2 s, one card — exactly as on the day he left.
+3. **Warm Return:** the plan has been rebalanced silently. The zone marker names today's zone. Invisible buffers absorbed the slip; slack is never shown, never configurable, never spendable.
+4. **Climax:** there is nothing to catch up on, and — more precisely — **there is nothing that could have accumulated.** No backlog, no "6 días", no rebalanced-plan announcement, no apology, no reference to the missed days in any UI element or in any string. The six days are not representable in the schema, so they cannot reach the screen. He does one Micro-task and stops.
+
+*Note:* the Warm Return copy is unauthored (Open Questions). Whatever is written may not name the absence it is responding to.
+
+### UJ-4 — Sergio on a low-battery Sunday
+
+1. Sunday evening, nothing in the tank. He opens the app.
+2. The Dispenser is already dealing from a **wide** pool: energy defaults to 🟢, fixed, with no decay. The app never quietly narrowed his options while he was away from it.
+3. He taps the energy control and asks for **less** — 🔴. The pool re-filters in under 500 ms. He asked; he was not made to ask.
+4. He gets a 30-second Instant Habit. `Otra más fácil` would have taken him further down still, into Rescue Mode and the 30-Second Rescue.
+5. On the same surface, ambient and dismissible in one tap: `Esta semana, ¿cuánto te ha agobiado la casa?`. He answers it, or he doesn't.
+6. **Climax:** thirty seconds of work, one tap on `Hecho`, and the card leaves. The celebration is **identical** to the one he got after fifteen minutes on the trastero — it closes the loop and opens no door. No combo, no "you're on three", nothing suggesting a second. On the worst day of the week the app asked him for thirty seconds and then let him go.
+
+*Failure path:* no network, no key configured. Nothing breaks — genesis degrades, execution does not. The pool is local, airplane mode is a supported condition rather than an error state, and no banner says otherwise.
+
+### UJ-5 — Sergio anota algo a mano en diez segundos
+
+1. Something spatial catches his eye. One tap from the Dispenser to Manual Capture.
+2. Two fields and no more: one line of text, and a size from exactly three options — 30 s, 3 min, 10–15 min. No free-form minute entry exists anywhere in the app.
+3. The surface is framed **spatially** — helper text, an example, the three durations — so non-spatial work is never invited and, in practice, never attempted.
+4. There is no validation. Had he typed `llamar al dentista`, it would have been accepted **silently**: no refusal, no warning, no "this doesn't belong here". Refusing would shame him; detecting it reliably is impossible; so neither is attempted.
+5. He fixes a typo and confirms. Correction and discard exist only here, only before he leaves.
+6. **Climax:** ten seconds later he is back on the Dispenser looking at one card, and **the thing he just captured is nowhere to be seen.** No list appeared. No counter moved. No confirmation screen congratulated him. It will arrive as a card, in its zone, on a day when it fits — and until then it does not weigh anything.
+
+## Open Questions
+
+None of these is answered anywhere in the decision record; none should be filled in with a plausible value.
+
+1. **The seven no-Slicer strings.** Unwritten, and a required deliverable before the failure path is wired: no key configured, invalid key, exhausted quota, provider unreachable, no network, consent declined, person detected in frame.
+2. **The rewrite of `tu clave no es válida`.** The PRD flags the existing string as a shaming risk. No replacement exists.
+3. **Warm Return copy.** Unauthored. It must rebalance without naming what it is rebalancing.
+4. **Anti-Marathon permission-to-rest copy**, and how the "extend the session" secondary action is *presented* without highlighting, animating or suggesting it.
+5. **The `Hecho` confirmation copy.** "A warm confirmation" is specified; the words are not.
+6. **The wording of the five FlyLady zones** (PRD OQ-3 residue) — needed before FR-11 is built.
+7. **Ambient Invitation copy** (PRD OQ-7): one fixed string, or a small rotating set to avoid the blindness that kills any repeated notification. `hay 15 minutos esperando cuando te apetezca` exists; whether it is *the* string or *a* string is undecided. Either shape must survive SM-C3.
+8. **Whether the seasonal suggestion engine needs any configuration surface in v1** (PRD OQ-6), or pure defaults. Defaults-only is the standing answer until a suggestion actually misfires — which is a position, not a decision.
+9. **Onboarding / first-run.** The PRD never describes it as a surface. All that exists is "no network, no account" and per-person zone selection at install. Whether there is a first-run surface at all is unanswered.
+10. **The scan-wait experience.** There is **no latency cap**, and no affordance beyond "visible progress and honest copy". What progress means when the duration is unbounded is undecided.
+11. **Settings IA.** Settings is now *sited* — it is the way out of the Dispenser's single quiet affordance — but its **contents** are only enumerated by the PRD and were never organised: Time Bag, AI Access Path, Ambient Invitation, export destination, album purge, export failure.
+12. **Empty states for the Transformation Album and the cumulative impact dashboard.** Unauthored, and constrained: they may not count or name what is absent.
+13. **Screen-reader behaviour.** TalkBack labels, roles, state announcements and traversal order are never discussed anywhere in the record.
+14. **How light and dark mode are selected** — system-following, or a Settings control. Dark mode is in scope and hand-authored, but the switch was never specified.
+15. **Before/After diff presentation** beyond "side-by-side": layout, whether sharing exists at all, framing, and what the reward surface does when no Before photo was ever taken.
+16. **Camera permission denial.** The record states that no calendar permission is ever requested and says nothing about the camera being refused. What the Scan entry point does without it is undecided.
+17. **Decluttering Protocol question presentation**, and how "answerable by skip" is surfaced without reading as an evasion.
+18. **The departure trajectory of the completed card.** That it exits entirely and never flies toward a counter is settled; whether it departs along the global 45° offset axis, and whether **the departure itself is the celebration** (satisfying FR-2 with one gesture instead of two), is proposed and unconfirmed.
+19. **The second locale.** FR-9 says no interrupted, incomplete or overdue state is displayed "in either language". The second language is never named, and its string lengths bear on the 200% fold.
+20. **Roughly twelve strings drafted in [`mockups/key-screens-1.html`](mockups/key-screens-1.html) and never authorised.** They are drafts on a mockup page, not spine content, and the structural rule in Voice and Tone applies to them before anything is wired: every string externalised, nothing concatenated at runtime, the whole set auditable as one flat table. Listed so none is adopted by accident: `Guardar` · `Descartar` (Manual Capture, plus that screen's title, helper text and example) · `Enviar la foto` · `No enviarla` (consent gate, plus the gate's explanatory body) · `Empezar con esta` · `Ver otra` · `Volver` (genesis) · `Guardar en el álbum` · `Cerrar` (Before/After) · `Quitar esta sugerencia` (snowball) · and the Before/After caption itself, which is bounded by the ceiling above but not written. These are additional to the seven no-Slicer strings and the copy items above, not a restatement of them.
+21. **What mark the single quiet affordance carries.** Surfaced by siting project genesis and Settings behind one affordance, and not answerable from what exists. The affordance is not "Settings" — Settings is its *way out* — so it cannot borrow a settings glyph. And the Ajustes glyph is itself unresolved in `DESIGN.md`: no construction reads unambiguously as settings, and the only universally learned form, the gear, is forbidden by the treatment. One quiet mark now has to stand for *the way off the Dispenser*, and nothing in the record names it.

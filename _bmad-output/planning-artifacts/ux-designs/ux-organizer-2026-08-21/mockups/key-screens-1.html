@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco pantallas clave · Organizador anti-agobio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&family=Lora:ital,wght@0,400..700&display=swap" rel="stylesheet">
+<style>
+/* ==================================================================
+   CINCO PANTALLAS CLAVE · sesión UX Organizador · 25 ago 2026
+   Artefacto de trabajo. Sin JavaScript. Sin imágenes externas.
+   Todo el SVG está dibujado a mano en un lienzo de 24x24.
+
+   ------------------------------------------------------------------
+   TOKENS LEVANTADOS DE DESIGN.md (frontmatter), literalmente
+   ------------------------------------------------------------------
+   colors.surface-base        #F7F8F9   L* 97.51  suelo de pantalla
+   colors.surface-raised      #FFFFFF             tarjeta + superficies
+                                                  de decisión a pantalla
+                                                  completa
+   colors.ink-primary         #1E2124   L* 12.62  texto de tarea, chip,
+                                                  acción primaria, capa
+                                                  de línea de todo glifo
+   colors.ink-secondary       #5C6368   L* 41.48  acción secundaria,
+                                                  copia de apoyo,
+                                                  marcador de zona
+   colors.border-hairline     #E1E5E8   L* 90.71  filete de 1px
+   colors.accent-soft         #D5E0DC   L* 88.31  ÚNICO pastel que lleva
+                                                  texto: chip de duración
+                                                  + `Hecho`. Ningún glifo
+                                                  puede ir dentro.
+   colors.dest-keep           #9EC3B5   L* 75.84  masa de Caja
+   colors.dest-donate         #BCB8D4   L* 75.90  masa de Bolsa
+   colors.dest-trash          #D9B2B6   L* 76.05  masa del cubo de la
+                                                  semilla
+   colors.icon-mass-neutral   #B3BEBA   L* 76.0   masa de glifos utilidad
+   colors.icon-mass-ochre     #CAB9A0   L* 76.0   masa de la Hoja
+                                                  (marcador de zona) —
+                                                  PRESENTE en DESIGN.md
+                                                  y usado aquí tal cual
+   rounded.DEFAULT            14px                tarjeta, botón, todo
+                                                  rectángulo
+   rounded.full               9999px              solo el chip de duración
+   ------------------------------------------------------------------
+   spacing.base                4dp
+   spacing.chip-to-task        8dp
+   spacing.action-gap         12dp
+   spacing.card-padding       24dp
+   spacing.screen-margin      24dp
+   spacing.task-to-actions    32dp   (el mayor hueco interior)
+   spacing.destination-row-gap 32dp
+   spacing.touch-target-min   48dp   (constante de plataforma; NO escala
+                                      con el tamaño de fuente)
+   spacing.glyph-destination  64px
+   spacing.glyph-min          48px
+   spacing.glyph-dense        36px
+   spacing.glyph-zone-marker  24px
+   Escala permitida: 4 · 8 · 12 · 16 · 24 · 32 · 48. Nada intermedio.
+   El aire alrededor de la tarjeta es MÍNIMO 48 + flex, nunca fijo
+   (por eso los viewports de abajo usan `flex:1 1 auto` y no alturas
+   fijas entre bloques).
+   ------------------------------------------------------------------
+   typography (5 roles, ni uno más)
+   task              Lora    26sp / 500 / 1.32 / 0        ink-primary
+   duration          Lexend  15sp / 500 / 1.40 / +0.01em  ink en accent-soft
+   action-primary    Lexend  19sp / 600 / 1.00 / +0.01em  ink en accent-soft
+   action-secondary  Lexend  15sp / 400 / 1.35 / +0.01em  ink-secondary
+   support           Lexend  13sp / 400 / 1.45 / +0.02em  ink-secondary
+   Regla emparejada: Lora SOLO para texto de tarea; Lexend para el resto.
+   En la Captura a mano, el contenido del campo ES texto de tarea (una
+   frase que la persona escribe sobre su propia casa), así que va en Lora.
+   Todo lo demás de esa pantalla es mecanismo → Lexend.
+   ------------------------------------------------------------------
+   ICONOS · dos planchas, masa DEBAJO de la línea
+   offset global único: translate(1.358, -1.358) en viewBox 24
+                       = 1.92u = 8% del lado, 45° arriba-derecha
+   trazo: stroke-width(u) = target_px × 24 / render_px, objetivo 1.5px@24
+          1.5000@24 · 1.0000@36 · 0.7500@48 · 0.5625@64
+   semilla: SIEMPRE 8 filamentos. Aquenio relleno en ink-primary.
+            Círculo de matiz en el cubo (r 1.70u, pomM), sin trazo,
+            debajo de la línea, desplazado con el vector global.
+            «Nunca añadir rasgos.»
+   Geometría de la semilla, la Caja C y la Bolsa B heredada sin redibujar
+   de .working/final-verification-1.html; Cámara / Álbum / Reloj / Hoja /
+   Lápiz heredados de .working/icon-treatment-1.html.
+   ------------------------------------------------------------------
+   Plano: sin degradados, sin glow, sin sombras difuminadas. Sin rojo
+   en el registro de alarma. Sin iconografía de advertencia. Sin signos
+   de exclamación en ninguna copia visible.
+   ------------------------------------------------------------------
+   LO QUE DESIGN.md NO DA Y AQUÍ HA HECHO FALTA (marcado en la página
+   con la clase .gap y listado al final):
+   G1  ningún rol de tipografía para TÍTULO de pantalla → se reusa
+       action-primary (Lexend 19sp/600) como encabezado
+   G2  ningún rol para CIFRA de métrica en la excepción de densidad
+       (FR-23) → se reusa action-primary
+   G3  ningún estado seleccionado/no seleccionado para el selector de
+       tres tamaños de FR-27 → seleccionado = accent-soft (el token del
+       chip), no seleccionado = surface-raised + filete
+   G4  ningún componente de PAR DE BOTONES DE PESO IGUAL, que es lo que
+       FR-25 exige → ambos con filete, ninguno relleno (ver §2)
+   G5  ningún token de MARCO / HUECO DE FOTOGRAFÍA para FR-17 → se usan
+       icon-mass-neutral e icon-mass-ochre como andamio, en contra de
+       «pastel solo detrás de glifos» (ver §5)
+   G6  ningún rol para el PIE del premio (FR-17) → Lexend 15sp en
+       ink-primary, que no es ninguno de los cinco roles tal cual
+   G7  la marca de la afordancia callada sigue sin resolver (DESIGN.md
+       OQ-1, EXPERIENCE.md OQ-20) → se dibuja un hueco, no una propuesta
+   G8  ninguna cadena autorizada para «Guardar» / «Descartar» /
+       «Enviar la foto» / «No enviarla» / los pies del premio: la tabla
+       de cadenas fijas de EXPERIENCE.md no las contiene. Redactadas
+       aquí y marcadas como borrador.
+   ================================================================== */
+
+*{box-sizing:border-box}
+:root{
+  --sb:#F7F8F9; --sr:#FFFFFF; --ink:#1E2124; --ink2:#5C6368;
+  --hair:#E1E5E8; --acc:#D5E0DC;
+  --keep:#9EC3B5; --don:#BCB8D4; --tra:#D9B2B6;
+  --neu:#B3BEBA; --och:#CAB9A0;
+  --r:14px;
+  --sans:'Lexend', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --serif:'Lora', Georgia, 'Times New Roman', Times, serif;
+}
+html,body{margin:0; padding:0}
+body{background:var(--sb); color:var(--ink); font-family:var(--sans);
+  font-weight:300; font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 32px 96px}
+
+/* ---- cabecera pequeña, como pide el encargo ---- */
+header.pg{border-bottom:1px solid var(--hair); padding-bottom:24px; margin-bottom:48px}
+header.pg .kick{font-size:.75rem; letter-spacing:.10em; text-transform:uppercase;
+  color:var(--ink2); margin:0 0 8px; font-weight:400}
+header.pg h1{margin:0; font-size:1.25rem; font-weight:600; letter-spacing:-.01em}
+header.pg p{margin:8px 0 0; font-size:.85rem; color:var(--ink2); max-width:70ch}
+
+section{margin:0 0 96px}
+h2{font-size:1.05rem; font-weight:600; letter-spacing:-.005em; margin:0 0 4px}
+h2 .num{color:var(--ink2); font-weight:400; margin-right:12px}
+h3{font-size:.9rem; font-weight:600; margin:32px 0 8px}
+.lede{margin:0 0 32px; font-size:.875rem; color:var(--ink2); max-width:78ch; line-height:1.6}
+p.note{font-size:.8rem; color:var(--ink2); line-height:1.6; max-width:78ch; margin:12px 0 0}
+p.note b{color:var(--ink); font-weight:600}
+.gap{background:var(--sr); border-left:2px solid var(--och); padding:12px 16px;
+  font-size:.78rem; color:var(--ink2); line-height:1.55; margin:16px 0 0; max-width:78ch}
+.gap b{color:var(--ink); font-weight:600}
+.verdict{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:24px; margin:32px 0 0; max-width:88ch}
+.verdict h4{margin:0 0 12px; font-size:.9rem; font-weight:600}
+.verdict p{margin:0 0 12px; font-size:.84rem; line-height:1.62; color:var(--ink)}
+.verdict p:last-child{margin-bottom:0}
+.verdict ol{margin:0 0 12px; padding-left:22px; font-size:.84rem; line-height:1.62}
+.verdict li{margin:0 0 8px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em}
+
+/* ---- fila de maquetas ---- */
+.rig{display:flex; flex-wrap:wrap; gap:48px; align-items:flex-start; margin:0}
+.col{width:360px}
+.col .cap{font-size:.78rem; color:var(--ink2); line-height:1.6; margin:16px 0 0}
+.col .cap b{color:var(--ink); font-weight:600}
+
+/* ==================================================================
+   VIEWPORT DE TELÉFONO
+   Tipografía en `em` (escala con el tamaño de fuente del sistema, como
+   `sp`). Espaciado en `px` (no escala, como `dp`). Por eso `.x2` solo
+   cambia la raíz: es exactamente la disciplina sp/dp de Android.
+   Sin altura fija: la tarjeta crece hacia el aire y la pantalla haría
+   scroll — el aire es mínimo 48 + flex, nunca un valor fijo.
+   ================================================================== */
+.vp{width:360px; min-height:720px; background:var(--sr); border:1px solid var(--hair);
+  border-radius:26px; padding:0 24px 32px; display:flex; flex-direction:column;
+  overflow:hidden; font-size:16px}
+.vp.x2{font-size:32px; width:360px; min-height:0}
+.vp.base{background:var(--sb)}
+.bar{height:26px; flex:0 0 26px; display:flex; align-items:center; justify-content:center}
+.bar::after{content:""; width:64px; height:5px; border-radius:3px; background:var(--hair)}
+.grow{flex:1 1 auto; min-height:48px}      /* mínimo 48 + flex */
+.grow.s{min-height:24px}
+
+/* ---- los cinco roles ---- */
+.t-task{font-family:var(--serif); font-size:1.625em; font-weight:500; line-height:1.32;
+  letter-spacing:0; color:var(--ink); margin:0}
+.t-dur{font-family:var(--sans); font-size:.9375em; font-weight:500; line-height:1.40;
+  letter-spacing:.01em}
+.t-ap{font-family:var(--sans); font-size:1.1875em; font-weight:600; line-height:1.00;
+  letter-spacing:.01em; color:var(--ink)}
+.t-as{font-family:var(--sans); font-size:.9375em; font-weight:400; line-height:1.35;
+  letter-spacing:.01em; color:var(--ink2)}
+.t-sup{font-family:var(--sans); font-size:.8125em; font-weight:400; line-height:1.45;
+  letter-spacing:.02em; color:var(--ink2)}
+
+/* ---- componentes ---- */
+.chip{display:inline-block; background:var(--acc); color:var(--ink);
+  border-radius:9999px; padding:8px 16px; margin:0}
+.btn-p{display:flex; align-items:center; justify-content:center; width:100%;
+  min-height:48px; border:0; border-radius:var(--r); background:var(--acc);
+  color:var(--ink); font-family:var(--sans); font-size:1.1875em; font-weight:600;
+  line-height:1.00; letter-spacing:.01em; padding:12px 16px; cursor:default;
+  text-align:center}
+.btn-n{display:flex; align-items:center; justify-content:center; width:100%;
+  min-height:48px; border:1px solid var(--hair); border-radius:var(--r);
+  background:var(--sr); color:var(--ink); font-family:var(--sans);
+  font-size:1.1875em; font-weight:600; line-height:1.00; letter-spacing:.01em;
+  padding:12px 16px; cursor:default; text-align:center}
+.btn-s{display:block; width:100%; min-height:48px; border:0; background:none;
+  color:var(--ink2); font-family:var(--sans); font-size:.9375em; font-weight:400;
+  line-height:1.35; letter-spacing:.01em; padding:12px 0; cursor:default;
+  text-align:left}
+.btn-s.mid{text-align:center}
+.zone{display:flex; align-items:center; gap:8px; color:var(--ink2)}
+.field{border:0; border-bottom:1px solid var(--hair); padding:0 0 12px; width:100%}
+.field .ph{color:var(--ink2)}
+.caret{display:inline-block; width:2px; height:1.1em; background:var(--ink);
+  vertical-align:-.16em; margin-left:2px}
+.sizes{display:flex; gap:12px; flex-wrap:wrap}
+.size{display:flex; align-items:center; justify-content:center; min-height:48px;
+  padding:12px 16px; border-radius:9999px; border:1px solid var(--hair);
+  background:var(--sr); color:var(--ink); font-family:var(--sans);
+  font-size:.9375em; font-weight:500; line-height:1.40; letter-spacing:.01em}
+.size.on{background:var(--acc); border-color:var(--acc)}
+.pair{display:flex; gap:12px}
+.pair>*{flex:1 1 0; min-width:0}
+
+/* ---- panel de densidad (FR-23) ---- */
+.metric{display:flex; align-items:flex-start; gap:16px; padding:16px 0;
+  border-bottom:1px solid var(--hair)}
+.metric .v{margin:0}
+.metric .l{margin:4px 0 0}
+.vol{background:var(--sb); border-radius:var(--r); padding:24px; margin:0}
+.thumbs{display:flex; gap:12px}
+.thumb{flex:1 1 0}
+.thumb .pairimg{display:flex; gap:4px}
+.thumb .pairimg div{flex:1 1 0; aspect-ratio:3/4; border-radius:4px}
+.thumb p{margin:8px 0 0}
+.snow{background:var(--sb); border-radius:var(--r); padding:16px 16px 4px; margin:0}
+.dismiss{display:inline-flex; align-items:center; min-height:48px; color:var(--ink2);
+  font-family:var(--sans); font-size:.8125em; letter-spacing:.02em; cursor:default}
+
+/* ---- premio antes/después (FR-17) ---- */
+.diff{display:flex; gap:16px}
+.diff>div{flex:1 1 0}
+.plate{aspect-ratio:3/4; border-radius:var(--r); width:100%}
+.plate.a{background:var(--och)}
+.plate.b{background:var(--neu)}
+.diff p{margin:0 0 8px}
+
+/* ---- inset pequeño del dispensador ---- */
+.inset{width:220px; min-height:440px; background:var(--sr); border:1px solid var(--hair);
+  border-radius:20px; padding:0 16px 20px; display:flex; flex-direction:column;
+  overflow:hidden; font-size:11px}
+.inset .bar{height:18px; flex:0 0 18px}
+.inset .bar::after{width:44px; height:4px}
+.affor{width:48px; height:48px; display:flex; align-items:center; justify-content:center;
+  margin-left:auto}
+.affor .hole{width:24px; height:24px; border:1px solid var(--ink2); border-radius:9999px}
+
+/* ---- tabla de cobertura ---- */
+table{border-collapse:collapse; width:100%; font-size:.8rem; margin:24px 0 0;
+  background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  overflow:hidden}
+th,td{padding:10px 14px; text-align:left; border-bottom:1px solid var(--hair);
+  vertical-align:top; line-height:1.5}
+th{font-weight:600; font-size:.72rem; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:nth-child(even){background:var(--sb)}
+td.st{white-space:nowrap; font-weight:500}
+.tag{display:inline-block; padding:2px 8px; border-radius:9999px; font-size:.7rem;
+  letter-spacing:.03em; font-weight:500}
+.tag.m{background:var(--acc); color:var(--ink)}
+.tag.s{background:var(--sb); color:var(--ink2); border:1px solid var(--hair)}
+.tally{display:flex; gap:32px; margin:24px 0 0; font-size:.84rem; flex-wrap:wrap}
+.tally div{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:16px 24px}
+.tally b{display:block; font-size:1.1875rem; font-weight:600; margin-bottom:4px}
+ul.gaps{max-width:88ch; font-size:.84rem; line-height:1.62; padding-left:22px}
+ul.gaps li{margin:0 0 10px}
+ul.gaps b{font-weight:600}
+</style>
+</head>
+<body>
+<div style="max-width:980px;margin:0 auto 8px;padding:18px 20px;border:1px solid #E1E5E8;border-left:6px solid #CAB9A0;border-radius:14px;background:#FFFFFF;color:#1E2124;font:400 14px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif"><p style="margin:0 0 10px;font-weight:600;letter-spacing:.01em;text-transform:uppercase;font-size:12px;color:#5C6368">Promoted artifact — supersession note</p><p style="margin:0 0 10px"><b>The spines win on conflict</b> — <code>../DESIGN.md</code> and <code>../EXPERIENCE.md</code>. This page is promoted because four of its five screens are current; one section is not.</p>
+<p style="margin:0 0 10px"><b>Superseded — section 4, <i>G&eacute;nesis de proyecto</i>, in its structure.</b> It draws <b>three</b> top-level genesis paths (&laquo;Hacer una foto del sitio&raquo;, &laquo;Describirlo a mano&raquo;, &laquo;Empezar por una plantilla&raquo;) and a template surface serialised one at a time (&laquo;Plantillas, de una en una&raquo;, with &laquo;Ver otra&raquo; as a deck). The decision is <b>two</b> top-level paths &mdash; the photo path as the recommended action, manual entry always available alongside it &mdash; with the Archetype Template surface offered <b>from the manual-entry screen</b> and showing a <b>list</b>. See <code>../EXPERIENCE.md</code> &sect; Information Architecture, &laquo;The genesis zone&raquo;.</p>
+<p style="margin:0 0 10px"><b>Kept deliberately:</b> that section&rsquo;s verdict box, which is the record of how the arithmetic was reached. Its exit (c) &mdash; declare genesis an explicit exception to principle 1 &mdash; is the one taken.</p>
+<p style="margin:0"><b>Current:</b> the Dispenser, Manual Capture, the consent gate, the FR-23 dashboard and the Before/After reward; the 200&nbsp;% column; the ten gaps the drawing surfaced. Two things it flags about itself still hold: icon-mass pastels stand in for photographs as declared scaffolding, and the ~12 strings drafted here are unauthorised drafts (<code>../EXPERIENCE.md</code> Open Question 20).</p></div>
+
+
+<!-- ==================================================================
+     DEFINICIONES DE GLIFOS · dibujadas a mano, viewBox 24x24
+     M-* = plancha de masa (relleno plano, sin trazo)
+     L-* = plancha de línea (hereda stroke del <g> que la usa)
+     ================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <!-- semilla: 8 filamentos, tallo, aquenio, círculo del cubo r 1.70u -->
+  <g id="fan8"><path d="M12.4 10.2 C10.734 8.698 9.275 6.228 6.396 7.008"/><path d="M12.4 10.2 C11.636 7.773 11.632 4.52 8.37 3.624"/><path d="M12.4 10.2 C12.963 7.501 14.681 4.423 12.071 1.849"/><path d="M12.4 10.2 C14.199 8.024 17.228 6.056 16.092 2.477"/><path d="M12.4 10.2 C14.811 9.111 18.17 8.705 18.69 5.226"/><path d="M12.4 10.2 C14.761 10.187 17.649 11.075 19.336 8.426"/><path d="M12.4 10.2 C14.273 10.91 16.288 12.492 18.431 10.91"/><path d="M12.4 10.2 C13.68 11.131 14.887 12.758 16.85 11.998"/></g>
+  <path id="stem" d="M6.35 18.25 Q8.9 13.5 12.4 10.2"/>
+  <path id="ach" d="M6.35 18.25 C4.696 18.55 2.919 19.837 3.7 21.55 C5.541 21.943 6.414 19.93 6.35 18.25 Z"/>
+  <circle id="pomM" cx="12.4" cy="10.2" r="1.70"/>
+  <!-- Cámara -->
+  <g id="M-cam"><rect x="3" y="7" width="18" height="13" rx="2.6" stroke="none"/></g>
+  <g id="L-cam"><rect x="3" y="7" width="18" height="13" rx="2.6"/><path d="M8.2 7 L9.8 4.4 H14.2 L15.8 7"/><circle cx="12" cy="13.5" r="3.6"/></g>
+  <!-- Álbum -->
+  <g id="M-alb"><rect x="3" y="7" width="14" height="14" rx="2.2" stroke="none"/></g>
+  <g id="L-alb"><path d="M8 7 V5.2 A2.2 2.2 0 0 1 10.2 3 H18.8 A2.2 2.2 0 0 1 21 5.2 V15.6"/><rect x="3" y="7" width="14" height="14" rx="2.2"/><path d="M5.4 18 L8.6 14.4 L11.2 16.8 L13.4 14.9"/></g>
+  <!-- Reloj -->
+  <g id="M-rel"><circle cx="12" cy="12" r="8.4" stroke="none"/></g>
+  <g id="L-rel"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.2 V12 L15.6 14.2"/></g>
+  <!-- Hoja (marcador de zona) -->
+  <g id="M-hoj"><path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z" stroke="none"/></g>
+  <g id="L-hoj"><path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z"/><path d="M12 20.4 V6.2"/></g>
+  <!-- Lápiz -->
+  <g id="M-lap"><path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z" stroke="none"/></g>
+  <g id="L-lap"><path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z"/><path d="M14.2 7.2 L17.1 10.1"/><path d="M5.9 15.5 L8.8 18.4"/></g>
+</defs></svg>
+
+<div class="wrap">
+
+<header class="pg">
+  <p class="kick">Sesión UX · Organizador anti-agobio · 25 ago 2026 · artefacto de trabajo</p>
+  <h1>Cinco pantallas clave, dibujadas por primera vez</h1>
+  <p>Captura a mano (FR-27) · puerta de consentimiento por escaneo (FR-25) · panel de impacto acumulado (FR-23, a escala normal y al 200&nbsp;%) · génesis de proyecto detrás de la afordancia callada (FR-11) · premio antes/después (FR-17). Paleta <b>Aliento</b>, masas a L*&nbsp;76, semilla de 8 filamentos, trazo <span class="mono">1.5&nbsp;×&nbsp;24&nbsp;/&nbsp;px</span>, desplazamiento único <span class="mono">translate(1.358,&nbsp;−1.358)</span>. Los tokens levantados de <span class="mono">DESIGN.md</span> están documentados en los comentarios de <span class="mono">&lt;style&gt;</span>; lo que <span class="mono">DESIGN.md</span> no daba se marca en la página y se lista al final.</p>
+</header>
+
+
+<!-- ============================================================ 1 -->
+<section>
+<h2><span class="num">1</span>Captura a mano · FR-27</h2>
+<p class="lede">Dos campos y nada más: una línea de texto y un tamaño entre <b>exactamente tres opciones</b>. No existe entrada libre de minutos en ninguna parte de la app. La pantalla está encuadrada <b>espacialmente</b>: la copia de ayuda, el placeholder y el ejemplo hacen ese trabajo, así que nunca se invita a trabajo no espacial. No hay validación, no hay rechazo, y no hay ningún estado de error que dibujar — no existe.</p>
+
+<div class="rig">
+
+<div class="col">
+<div class="vp">
+  <div class="bar"></div>
+
+  <div style="margin-top:32px">
+    <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-lap" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"><use href="#L-lap"/></g></svg>
+  </div>
+
+  <p class="t-ap" style="margin:24px 0 0">Un sitio de la casa</p>
+  <p class="t-sup" style="margin:12px 0 0">Escribe dónde está y qué le pasa. Un cajón, un estante, una silla, un rincón: algo que puedas señalar con la mano.</p>
+
+  <div class="grow s"></div>
+
+  <div class="field">
+    <p class="t-task">Vaciar el estante de arriba<span class="caret"></span></p>
+  </div>
+  <p class="t-sup" style="margin:12px 0 0">Así, por ejemplo: «Vaciar la caja de la entrada».</p>
+
+  <div class="grow s"></div>
+
+  <p class="t-sup" style="margin:32px 0 12px">¿Cuánto tiempo pide?</p>
+  <div class="sizes">
+    <span class="size">30 s</span>
+    <span class="size on">3 min</span>
+    <span class="size">10–15 min</span>
+  </div>
+
+  <div class="grow"></div>
+
+  <button class="btn-p" type="button">Guardar</button>
+  <button class="btn-s mid" type="button">Descartar</button>
+</div>
+<p class="cap"><b>Lo que revela.</b> El encuadre espacial cabe entero en dos frases y un ejemplo, y el trabajo lo hacen <em>en ese orden</em>: el título nombra un sitio, la ayuda enumera cosas que se tocan, el ejemplo empieza por un verbo espacial. Con eso, «llamar al dentista» no se le ocurre a nadie — y si se escribe, se acepta en silencio. El contenido del campo va en <b>Lora</b> porque es texto de tarea; todo lo demás de la pantalla es mecanismo y va en Lexend. No hay contador, ni lista, ni confirmación: al salir, la pantalla no deja rastro.</p>
+</div>
+
+<div class="col" style="width:420px">
+<h3>Lo que no se dibuja, a propósito</h3>
+<p class="note"><b>No hay estado de error.</b> No hay borde rojo, ni mensaje correctivo, ni «esto no encaja aquí», ni un aviso amable equivalente. Rechazar avergonzaría y detectar de forma fiable es imposible, así que no se intenta ninguna de las dos cosas. Esta pantalla es la prueba: no existe una segunda versión de ella.</p>
+<p class="note"><b>No aparecen los nombres del glosario.</b> Los tres tamaños se muestran como <em>duraciones</em> — 30&nbsp;s, 3&nbsp;min, 10–15&nbsp;min — y nunca como <span class="mono">Instant Habit</span>, <span class="mono">Micro-maintenance</span> o <span class="mono">Focus Chunk</span>. Ese vocabulario es interno y aquí engañaría: nombra un rol dentro del plan, no lo que la persona va a tardar.</p>
+<p class="note"><b>Corregir y descartar viven solo aquí.</b> Corregir es escribir encima, dentro del propio campo: no hace falta un control. Descartar es el único control secundario, y es también la salida. Después de salir, ninguna de las dos operaciones existe en ninguna pantalla.</p>
+<p class="note"><b>Un control secundario, no dos.</b> «Descartar» es la salida. No se añade «Cancelar» al lado: sería una segunda salida en una superficie que ya tiene una acción recomendada.</p>
+<div class="gap"><b>Hueco G3.</b> <span class="mono">DESIGN.md</span> especifica <span class="mono">duration-chip</span> como un componente, no como un selector: no hay estado seleccionado ni no seleccionado. Aquí el seleccionado lleva <span class="mono">accent-soft</span> (el relleno propio del chip) y los otros dos van en <span class="mono">surface-raised</span> con filete. Ninguno lleva glifo, así que la regla «ningún glifo dentro de accent-soft» sigue intacta.</div>
+<div class="gap"><b>Hueco G1 y G8.</b> No hay rol de tipografía para un título de pantalla en la rampa de cinco roles: se reusa <span class="mono">action-primary</span> (Lexend 19sp/600) como encabezado. Y las cadenas «Guardar» y «Descartar» no están en la tabla de cadenas fijas de <span class="mono">EXPERIENCE.md</span>: están redactadas aquí y son borrador.</div>
+</div>
+
+</div>
+</section>
+
+
+<!-- ============================================================ 2 -->
+<section>
+<h2><span class="num">2</span>Puerta de consentimiento por escaneo · FR-25</h2>
+<p class="lede">Aparece en <b>cada</b> escaneo. No hay casilla de «permitir siempre» y no debe aparecer una aquí. Dice en español llano <b>qué sale y a quién</b>. El requisito crítico: <b>decir no cuesta los mismos toques que decir sí</b>, con el mismo peso visual, el mismo tamaño y la misma prominencia — de forma que un auditor lo pueda verificar mirando.</p>
+
+<div class="rig">
+
+<div class="col">
+<div class="vp">
+  <div class="bar"></div>
+
+  <div style="margin-top:32px">
+    <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-cam" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"><use href="#L-cam"/></g></svg>
+  </div>
+
+  <p class="t-ap" style="margin:24px 0 0">Esta foto sale del teléfono</p>
+
+  <p class="t-as" style="margin:24px 0 0; color:var(--ink)">Se envían dos cosas a <b>Anthropic</b>, el proveedor que elegiste en Ajustes: la foto que acabas de hacer y una instrucción de texto para cortarla en pasos.</p>
+
+  <p class="t-as" style="margin:16px 0 0; color:var(--ink)">No sale nada más. Ni el álbum, ni el plan, ni nada que identifique el teléfono. A quien hizo la app no le llega nada.</p>
+
+  <p class="t-sup" style="margin:24px 0 0">Se pregunta en cada escaneo. No hay ninguna casilla para dejar de preguntar.</p>
+
+  <div class="grow"></div>
+
+  <div class="pair">
+    <button class="btn-n" type="button">Enviar la foto</button>
+    <button class="btn-n" type="button">No enviarla</button>
+  </div>
+  <p class="t-sup" style="margin:16px 0 0">Si dices que no, la foto se queda aquí y sigues con la captura a mano.</p>
+</div>
+<p class="cap"><b>Lo que revela.</b> La simetría que pide FR-25 <em>expulsa</em> el relleno de <span class="mono">accent-soft</span> de esta pantalla. Si uno de los dos botones va relleno, es el recomendado, y recomendar es exactamente el patrón oscuro que la FR prohíbe. Así que esta es la única superficie de la app con <b>cero</b> acciones recomendadas — y eso no está escrito en ninguna de las dos espinas.</p>
+</div>
+
+<div class="col" style="width:420px">
+<h3>La verificación, elemento por elemento</h3>
+<table>
+<thead><tr><th>Propiedad</th><th>Enviar</th><th>No enviar</th></tr></thead>
+<tbody>
+<tr><td>Ancho</td><td><span class="mono">flex 1 1 0</span></td><td><span class="mono">flex 1 1 0</span> — idéntico</td></tr>
+<tr><td>Alto mínimo</td><td>48dp</td><td>48dp</td></tr>
+<tr><td>Relleno</td><td><span class="mono">surface-raised</span></td><td><span class="mono">surface-raised</span></td></tr>
+<tr><td>Filete</td><td>1px <span class="mono">border-hairline</span></td><td>1px <span class="mono">border-hairline</span></td></tr>
+<tr><td>Tipografía</td><td>Lexend 19sp/600</td><td>Lexend 19sp/600</td></tr>
+<tr><td>Tinta</td><td><span class="mono">ink-primary</span></td><td><span class="mono">ink-primary</span></td></tr>
+<tr><td>Toques</td><td>1</td><td>1</td></tr>
+<tr><td>Retardo</td><td>ninguno</td><td>ninguno</td></tr>
+<tr><td>Después</td><td>espera del escaneo</td><td>superficie sin Slicer, sin re-preguntar</td></tr>
+</tbody>
+</table>
+<p class="note"><b>La única asimetría que no se puede quitar es el orden de lectura.</b> Dos botones en una fila se leen de izquierda a derecha, así que uno se lee primero. No hay disposición que lo evite: apilados, uno queda arriba; en fila, uno queda a la izquierda. Se deja constancia en vez de fingir que está resuelto. Lo que sí está resuelto es todo lo demás — y el orden elegido pone <em>enviar</em> primero, que es la posición desfavorable para el consentimiento, no la favorable.</p>
+<p class="note"><b>Sin «¿estás seguro?».</b> Decir no no abre una segunda pantalla, no pide confirmación y no vuelve a preguntar en este escaneo. La copia dice a dónde lleva el no, para que no parezca un callejón.</p>
+<div class="gap"><b>Hueco G4.</b> <span class="mono">DESIGN.md</span> tiene <span class="mono">action-primary</span> (relleno) y <span class="mono">action-secondary</span> (texto sin caja) y nada entre los dos. FR-25 necesita un tercer componente que no existe: <b>un par de botones de peso igual</b>. Dibujado aquí con el filete y el fondo del <span class="mono">dispenser-card</span> aplicados a un botón. Necesita entrar en el spine como componente propio, con la nota de que en esta superficie no hay acción recomendada.</div>
+</div>
+
+</div>
+</section>
+
+
+<!-- ============================================================ 3 -->
+<section>
+<h2><span class="num">3</span>Panel de impacto acumulado · FR-23 — la única excepción de densidad declarada</h2>
+<p class="lede">Es la pantalla densa de la app, y está justificada porque <b>no es donde la persona vive</b>: se llega solo desde el álbum, que se llega solo al completar una transformación. Lleva minutos acumulados, micro-tareas hechas, volumen liberado como <span class="mono">≈ 3 cajas liberadas</span>, destacados del álbum y una sugerencia bola de nieve <b>descartable en un toque</b>. Prohibido aquí: cupos diarios, medias comparadas en el tiempo, encuadre de déficit, rachas y contadores de nada sin hacer. Se dibuja <b>dos veces</b> — escala normal y 200&nbsp;% — porque es la superficie con más riesgo de truncarse.</p>
+
+<div class="rig">
+
+<div class="col">
+<div class="vp">
+  <div class="bar"></div>
+  <p class="t-ap" style="margin:32px 0 0">Lo que ya has movido</p>
+
+  <div style="margin-top:24px">
+    <div class="metric">
+      <svg viewBox="0 0 24 24" width="36" height="36" style="flex:0 0 36px" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-rel" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#L-rel"/></g></svg>
+      <div><p class="t-ap v">4 h 25 min</p><p class="t-sup l">de trabajo hecho, desde el primer día</p></div>
+    </div>
+    <div class="metric">
+      <svg viewBox="0 0 24 24" width="36" height="36" style="flex:0 0 36px" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-alb" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#L-alb"/></g></svg>
+      <div><p class="t-ap v">68</p><p class="t-sup l">micro-tareas hechas</p></div>
+    </div>
+  </div>
+
+  <div class="vol" style="margin-top:24px">
+    <p class="t-ap">≈ 3 cajas liberadas</p>
+    <p class="t-sup" style="margin:8px 0 0">Contado en bolsas, cajas y muebles, tal como los fuiste marcando.</p>
+  </div>
+
+  <p class="t-sup" style="margin:32px 0 12px">Del álbum</p>
+  <div class="thumbs">
+    <div class="thumb"><div class="pairimg"><div style="background:var(--och)"></div><div style="background:var(--neu)"></div></div><p class="t-sup">La mesa del salón · 12 ago</p></div>
+    <div class="thumb"><div class="pairimg"><div style="background:var(--neu)"></div><div style="background:var(--och)"></div></div><p class="t-sup">El trastero · 4 ago</p></div>
+    <div class="thumb"><div class="pairimg"><div style="background:var(--och)"></div><div style="background:var(--neu)"></div></div><p class="t-sup">La entrada · 28 jul</p></div>
+  </div>
+
+  <div class="grow"></div>
+
+  <div class="snow" style="margin-top:32px">
+    <p class="t-as" style="color:var(--ink)">El trastero ya tiene un primer paso hecho. La estantería de al lado es del mismo tamaño.</p>
+    <span class="dismiss">Quitar esta sugerencia</span>
+  </div>
+  <button class="btn-s mid" type="button" style="margin-top:12px">Volver al álbum</button>
+</div>
+<p class="cap"><b>Escala normal.</b> Seis valores en una pantalla, que en cualquier otra superficie sería una violación. Ninguno se puede leer como déficit: los tres números son <em>cosas que ya pasaron</em>, y no hay ni un solo número que pudiera haber sido mayor. La sugerencia bola de nieve va en un bloque aparte, sin relleno de acción, con su descarte de un toque a 48dp.</p>
+</div>
+
+<div class="col" style="width:auto">
+<div class="vp x2" style="padding-bottom:32px">
+  <div class="bar"></div>
+  <p class="t-ap" style="margin:32px 0 0">Lo que ya has movido</p>
+
+  <div style="margin-top:24px">
+    <div class="metric">
+      <svg viewBox="0 0 24 24" width="36" height="36" style="flex:0 0 36px" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-rel" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#L-rel"/></g></svg>
+      <div><p class="t-ap v">4 h 25 min</p><p class="t-sup l">de trabajo hecho, desde el primer día</p></div>
+    </div>
+    <div class="metric">
+      <svg viewBox="0 0 24 24" width="36" height="36" style="flex:0 0 36px" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-alb" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#L-alb"/></g></svg>
+      <div><p class="t-ap v">68</p><p class="t-sup l">micro-tareas hechas</p></div>
+    </div>
+  </div>
+
+  <div class="vol" style="margin-top:24px">
+    <p class="t-ap">≈ 3 cajas liberadas</p>
+    <p class="t-sup" style="margin:8px 0 0">Contado en bolsas, cajas y muebles, tal como los fuiste marcando.</p>
+  </div>
+
+  <p class="t-sup" style="margin:32px 0 12px">Del álbum</p>
+  <div class="thumbs">
+    <div class="thumb"><div class="pairimg"><div style="background:var(--och)"></div><div style="background:var(--neu)"></div></div><p class="t-sup">La mesa del salón · 12 ago</p></div>
+    <div class="thumb"><div class="pairimg"><div style="background:var(--neu)"></div><div style="background:var(--och)"></div></div><p class="t-sup">El trastero · 4 ago</p></div>
+    <div class="thumb"><div class="pairimg"><div style="background:var(--och)"></div><div style="background:var(--neu)"></div></div><p class="t-sup">La entrada · 28 jul</p></div>
+  </div>
+
+  <div class="grow"></div>
+
+  <div class="snow" style="margin-top:32px">
+    <p class="t-as" style="color:var(--ink)">El trastero ya tiene un primer paso hecho. La estantería de al lado es del mismo tamaño.</p>
+    <span class="dismiss">Quitar esta sugerencia</span>
+  </div>
+  <button class="btn-s mid" type="button" style="margin-top:12px">Volver al álbum</button>
+</div>
+<p class="cap" style="max-width:360px"><b>200&nbsp;%.</b> Mismo ancho de 360dp, misma maqueta, raíz de 32px en vez de 16px: la tipografía escala como <span class="mono">sp</span> y el espaciado no escala, como <span class="mono">dp</span>. Nada se recorta, nada lleva <span class="mono">maxLines</span>, nada se elide. La pantalla crece hacia abajo y en el teléfono haría scroll — que es el comportamiento correcto.</p>
+</div>
+
+</div>
+
+<h3>Lo que revela el 200&nbsp;%</h3>
+<p class="note"><b>La fila de tres destacados es lo primero que se rompe.</b> Los pies («La mesa del salón&nbsp;·&nbsp;12&nbsp;ago») caen a una columna de ~101dp y se parten en cuatro o cinco líneas. No se trunca —y por eso pasa el suelo de accesibilidad— pero la fila deja de leerse como una fila. Es el único sitio de la app donde el 200&nbsp;% degrada la <em>maqueta</em> y no solo el tamaño: la salida honesta es que a partir de cierta escala los destacados pasen a una columna, y eso no está decidido en ninguna espina.</p>
+<p class="note"><b>Los huecos fijos empiezan a parecer apretados, y eso es correcto.</b> A 32px de raíz, los 24 y 32dp entre bloques son proporcionalmente la mitad. Se resiste la tentación de escalarlos: <span class="mono">spacing.touch-target-min</span> es constante de plataforma y el resto de la escala es <span class="mono">dp</span>. Lo que crece es el contenido, no la rejilla.</p>
+<p class="note"><b>Densidad y ausencia de vergüenza son compatibles, y el mecanismo es concreto:</b> cada valor de esta pantalla es un hecho consumado y ninguno tiene un número de referencia contra el que compararse. No hay «de 7 días», no hay media, no hay meta, no hay «esta semana menos que la pasada». Seis valores no avergüenzan si ninguno admite un denominador.</p>
+<div class="gap"><b>Hueco G2.</b> La rampa tiene cinco roles y ninguno es «cifra de métrica». <span class="mono">4 h 25 min</span>, <span class="mono">68</span> y <span class="mono">≈ 3 cajas liberadas</span> van en <span class="mono">action-primary</span> (Lexend 19sp/600), que es un rol de <em>botón</em>. Funciona porque son mecanismo y no contenido, pero deja tres cifras con el peso tipográfico de un <span class="mono">Hecho</span> en una pantalla sin acción primaria.</div>
+<div class="gap"><b>Hallazgo, no hueco.</b> La línea de volumen <b>no lleva glifo</b>, y es deliberado: el único glifo de caja del sistema es el de <span class="mono">Quedármelo</span>, la primera opción del trío de destinos. Ponerlo junto a «cajas liberadas» diría literalmente lo contrario de lo que la frase cuenta, y la forma carga toda la diferenciación del trío. La cifra se sostiene sola.</div>
+</section>
+
+
+<!-- ============================================================ 4 -->
+<section>
+<h2><span class="num">4</span>Génesis de proyecto, detrás de la afordancia callada · FR-11</h2>
+<p class="lede">El dispensador lleva <b>una</b> afordancia callada. Abre la <b>génesis de proyecto</b> como acción recomendada, con <b>Ajustes</b> como salida: una acción recomendada más una salida, sin lista. La génesis puede instanciar <b>Proyectos Perennes</b> desde <b>plantillas de arquetipo ya cortadas</b>, o crear un <b>Proyecto Épico</b> desde una foto o desde una descripción escrita. Abajo se dibuja el mejor intento y después se dice, sin adornos, si cumple el invariante o lo incumple en voz baja.</p>
+
+<div class="rig">
+
+<div class="col" style="width:220px">
+<h3 style="margin-top:0">La afordancia, a escala</h3>
+<div class="inset">
+  <div class="bar"></div>
+  <div class="affor" title="afordancia callada"><span class="hole"></span></div>
+  <div class="grow"></div>
+  <div>
+    <span class="chip t-dur">Tengo 15 minutos ahora</span>
+    <p class="t-task" style="margin-top:8px">Despeja la mesa del salón</p>
+  </div>
+  <div class="grow"></div>
+  <button class="btn-p" type="button" style="min-height:44px">Hecho</button>
+  <button class="btn-s" type="button" style="min-height:44px; text-align:center">Otra más fácil / Ahora no</button>
+  <div class="zone" style="margin-top:16px">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-hoj" fill="var(--och)"/></g><g fill="none" stroke="var(--ink2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#L-hoj"/></g></svg>
+    <span class="t-sup">Zona 3 · el salón</span>
+  </div>
+</div>
+<p class="cap"><b>La restricción, para juzgarla.</b> La afordancia es un objetivo táctil de 48dp arriba a la derecha, con una marca de 24dp en <span class="mono">ink-secondary</span> dentro. No lleva relleno, ni etiqueta, ni insignia, ni animación. Contra el <span class="mono">accent-soft</span> de <span class="mono">Hecho</span> —que ocupa el ancho completo y va a 19sp/600— no compite: es lo más callado de la pantalla después del marcador de zona.</p>
+<div class="gap"><b>Hueco G7.</b> La marca está <b>vacía a propósito</b>. <span class="mono">DESIGN.md</span> OQ-1 y <span class="mono">EXPERIENCE.md</span> OQ-20 dicen que no hay ninguna construcción que lea «la salida del dispensador»: no puede ser el glifo de Ajustes (Ajustes es su <em>salida</em>, no ella misma), y el engranaje —la única forma universalmente aprendida— lo prohíbe el tratamiento. Dibujar aquí un círculo hueco es dejar constancia del hueco, no proponer una solución.</div>
+</div>
+
+<div class="col">
+<h3 style="margin-top:0">4a · Génesis, el mejor intento</h3>
+<div class="vp">
+  <div class="bar"></div>
+  <div style="margin-top:32px">
+    <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#M-cam" fill="var(--neu)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"><use href="#L-cam"/></g></svg>
+  </div>
+  <p class="t-ap" style="margin:24px 0 0">Algo nuevo de la casa</p>
+  <p class="t-sup" style="margin:12px 0 0">Enséñale el sitio y él lo corta en pasos. No hace falta que decidas nada todavía.</p>
+
+  <div class="grow"></div>
+
+  <button class="btn-p" type="button">Hacer una foto del sitio</button>
+  <button class="btn-s" type="button" style="margin-top:12px">Describirlo a mano</button>
+  <button class="btn-s" type="button">Empezar por una plantilla</button>
+
+  <div class="grow s"></div>
+
+  <button class="btn-s mid" type="button" style="margin-top:32px">Ajustes</button>
+</div>
+<p class="cap"><b>Cuatro controles.</b> Una recomendada rellena en <span class="mono">accent-soft</span> y tres en texto sin caja. El invariante permite «una acción recomendada más <em>una</em> salida», en singular. Esta pantalla tiene tres.</p>
+</div>
+
+<div class="col">
+<h3 style="margin-top:0">4b · Plantillas, de una en una</h3>
+<div class="vp">
+  <div class="bar"></div>
+  <p class="t-sup" style="margin:32px 0 0">Plantilla recomendada para hoy</p>
+  <p class="t-task" style="margin:8px 0 0">Cocina en orden</p>
+  <p class="t-as" style="margin:16px 0 0; color:var(--ink)">Seis pasos ya cortados, de 3 a 12 minutos cada uno. Se reparten por tu zona de la semana.</p>
+
+  <div class="grow"></div>
+
+  <button class="btn-p" type="button">Empezar con esta</button>
+  <button class="btn-s" type="button" style="margin-top:12px">Ver otra</button>
+
+  <div class="grow s"></div>
+
+  <button class="btn-s mid" type="button" style="margin-top:32px">Volver</button>
+</div>
+<p class="cap"><b>El esquive.</b> Una plantilla a la vez, elegida por el sistema, con «Ver otra» como baraja. No hay lista en pantalla en ningún momento. Y sigue siendo una elección entre N, solo serializada.</p>
+</div>
+
+</div>
+
+<div class="verdict">
+<h4>Veredicto sobre el invariante «la persona nunca elige de una lista»</h4>
+<p><b>Lo incumple. En voz baja, pero lo incumple.</b> El resultado negativo es el útil, así que se apunta como tal y no se maquilla.</p>
+<ol>
+<li><b>La aritmética de la superficie ya no sale.</b> El principio 1 permite <em>una</em> acción recomendada más <em>una</em> salida. 4a tiene una recomendada y tres salidas —«Describirlo a mano», «Empezar por una plantilla», «Ajustes»— porque FR-11 manda tres caminos de génesis y Ajustes tiene que estar. No es una pantalla apretada de más: es una pantalla que el invariante no admite.</li>
+<li><b>El carrusel satisface la letra y falla el espíritu.</b> «Una plantilla a la vez» quita la <em>lista</em> y no quita la <em>elección</em>: la persona sigue seleccionando entre N arquetipos. Y en un aspecto es peor que una lista — «Ver otra» hace visible que el conjunto existe sin decir cuántos hay, así que no hay vista general y el número de toques no tiene techo. En lo único que le importa al principio —¿está la persona eligiendo?— es idéntico.</li>
+<li><b>La cobertura que la IA reclama no llega hasta aquí.</b> <span class="mono">EXPERIENCE.md</span> dice que la afordancia callada «satisface el principio 1 literalmente y no por interpretación». Eso es verdad <em>de la afordancia</em>: una recomendada, una salida. No dice nada de lo que hay detrás, y detrás está el problema. La afordancia es limpia; la génesis no.</li>
+<li><b>El principio 6 empuja en la dirección contraria a FR-11.</b> «El Slicer lo escribe todo lo personal.» Una plantilla de arquetipo es, por definición, contenido ya cortado que no escribió el Slicer y que la persona tiene que reconocer como suyo — o sea, evaluar. Esa evaluación es la elección.</li>
+</ol>
+<p><b>Tres salidas reales, ninguna elegida aquí.</b> (a) Quitar las plantillas de la v1 y dejar la génesis solo con foto: el principio 6 lo respalda y la aritmética de 4a se arregla sola. (b) Que el sistema elija <em>exactamente una</em> plantilla, sin «Ver otra» y sin alternativa: FR-11 pide instanciar desde plantillas de arquetipo y no dice en ninguna parte que la elección tenga que ser plural. (c) Declarar la génesis como <b>excepción explícita al principio 1</b>, igual que FR-23 es excepción explícita al techo de densidad — escrita como excepción para que no sea precedente. Lo que no vale es lo que está dibujado en 4a y 4b: cumple de forma discutible y por eso se lee como resuelto sin estarlo.</p>
+</div>
+</section>
+
+
+<!-- ============================================================ 5 -->
+<section>
+<h2><span class="num">5</span>Premio antes/después · FR-17 — el nivel de recompensa de verdad</h2>
+<p class="lede">El nivel uno es un acuse cálido y pequeño en cada micro-tarea, siempre idéntico. Este es el nivel dos, y solo funciona porque el uno se contiene. Sin encuadre negativo, sin nada parecido a «todavía está desordenado», sin puntuación, sin porcentaje, sin valoración.</p>
+
+<div class="rig">
+
+<div class="col">
+<div class="vp base">
+  <div class="bar"></div>
+  <div class="grow"></div>
+
+  <div style="background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:24px">
+    <div class="diff">
+      <div>
+        <p class="t-sup">Antes</p>
+        <div class="plate a"></div>
+      </div>
+      <div>
+        <p class="t-sup">Ahora</p>
+        <div class="plate b"></div>
+      </div>
+    </div>
+    <p style="font-family:var(--sans); font-size:.9375em; font-weight:400; line-height:1.45; color:var(--ink); margin:24px 0 0">La mesa del salón, esta tarde. Esto lo hiciste tú.</p>
+    <p class="t-sup" style="margin:8px 0 0">Las dos fotos se quedan en este teléfono.</p>
+  </div>
+
+  <div class="grow"></div>
+
+  <button class="btn-p" type="button">Guardar en el álbum</button>
+  <button class="btn-s mid" type="button">Cerrar</button>
+</div>
+<p class="cap"><b>La maqueta, en serio.</b> Dos planchas en proporción 3:4, mismo tamaño, separadas por 16dp, dentro de una tarjeta <span class="mono">surface-raised</span> con filete y radio de 14px sobre el suelo <span class="mono">surface-base</span> — la única vez que la app usa el suelo detrás de una tarjeta que no es el dispensador. Las etiquetas «Antes» y «Ahora» van <b>fuera</b> de las planchas, en <span class="mono">support</span>: ningún pastel de la capa de masa lleva texto encima. El pie va debajo de las dos, no debajo de una.</p>
+</div>
+
+<div class="col" style="width:420px">
+<h3>Lo que revela</h3>
+<p class="note"><b>La proporción hace todo el trabajo que haría una puntuación.</b> Dos planchas del mismo tamaño, a la misma altura, con la misma esquina: la comparación se lee sin que nadie la califique. En cuanto una de las dos es más grande, o va arriba, o lleva un marco distinto, la maqueta empieza a opinar. Eso es lo que sustituye al porcentaje.</p>
+<p class="note"><b>La copia solo puede nombrar el sitio, el momento y la autoría.</b> «La mesa del salón, esta tarde. Esto lo hiciste tú.» No hay tercera frase disponible sin entrar en juicio: cualquier adjetivo sobre el resultado —mejor, más despejado, casi— mete una escala, y con la escala vuelve el déficit. El límite de la copia cálida es más estrecho de lo que parece antes de escribirla.</p>
+<p class="note"><b>«Cerrar», no «seguir».</b> El secundario tiene que cerrar el bucle. Cualquier variante de continuar aquí sería celebración que abre puerta, y eso está prohibido con la misma animación exacta: lo que descalifica es el gesto de continuidad, no el brillo.</p>
+<p class="note"><b>La pregunta que esta maqueta no puede contestar</b> es qué hace esta superficie cuando nunca se hizo una foto de «antes» (<span class="mono">EXPERIENCE.md</span> OQ-15). Con dos planchas la maqueta es una comparación; con una sola no es nada de lo dibujado aquí, y no hay diseño alternativo en el registro.</p>
+<div class="gap"><b>Hueco G5, y es una infracción consciente.</b> <span class="mono">DESIGN.md</span> dice «que el pastel respalde <b>solo glifos</b>» y no da ningún token de marco ni de hueco de fotografía. Las planchas usan <span class="mono">icon-mass-ochre</span> y <span class="mono">icon-mass-neutral</span> como <b>andamio</b> en lugar de dos fotografías que no existen en un artefacto sin imágenes. No es licencia para meter pasteles de la capa de masa en un campo: en el producto ahí van fotos. Lo que sí falta de verdad en <span class="mono">DESIGN.md</span> es el marco de la fotografía — radio, filete, proporción y qué se ve mientras carga.</div>
+<div class="gap"><b>Hueco G6.</b> El pie del premio va en Lexend 15sp/400 sobre <span class="mono">ink-primary</span>, que no es ninguno de los cinco roles: <span class="mono">action-secondary</span> tiene ese tamaño pero va en <span class="mono">ink-secondary</span>, y <span class="mono">support</span> es 13sp. La frase más cálida de la app no tiene rol asignado.</div>
+</div>
+
+</div>
+</section>
+
+
+<!-- ==================================================== COBERTURA -->
+<section>
+<h2>Cobertura de maquetas · todas las superficies de la IA de <span class="mono">EXPERIENCE.md</span></h2>
+<p class="lede">Una fila por superficie de la tabla de arquitectura de información, más las cuatro capas ambientales que viven en el dispensador. <b>Maquetada</b> significa que existe la superficie entera a escala de teléfono. Un componente suelto, un glifo o un fragmento dentro de otra pantalla <b>no</b> cuenta como maquetada.</p>
+
+<table>
+<thead><tr><th>Superficie de la IA</th><th>Estado</th><th>Dónde, y qué falta</th></tr></thead>
+<tbody>
+
+<tr><td><b>Dispensador</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td><span class="mono">final-verification-1.html</span> §5.2, tarjeta completa a 330dp. Superada en dos puntos por <span class="mono">DESIGN.md</span>: allí <span class="mono">Hecho</span> va en tinta oscura (ahora es <span class="mono">accent-soft</span>), los dos secundarios van partidos en dos botones (ahora es un solo control) y el marcador de zona lleva la semilla a 24px (ahora es la Hoja con masa ocre). En esta página se corrigen los tres en el inset de §4. <b>Hace falta un redibujo canónico.</b></td></tr>
+
+<tr><td>Disparador de bolsillo — <span class="mono">Tengo 15 minutos ahora</span></td><td class="st"><span class="tag s">solo spine</span></td>
+<td>El chip está dibujado como <em>antetítulo</em> del dispensador (aquí en §4 y en <span class="mono">typography-1.html</span>), pero el disparador como <b>control</b> —donde se toca, qué pasa al declarar la bolsa de 5 a 30 min— no se ha dibujado nunca.</td></tr>
+
+<tr><td>Check-in de energía 🟢/🟡/🔴</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar. Tres valores en un toque, en una app cuyo techo de densidad es una tarjeta: es una maqueta pendiente y no trivial.</td></tr>
+
+<tr><td><b>Escaneo</b></td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Cámara, encuadre y disparo sin dibujar. La espera del escaneo tampoco (OQ-10: no hay techo de latencia y no se sabe qué significa «progreso visible» sin duración acotada).</td></tr>
+
+<tr><td><b>Puerta de consentimiento por escaneo</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §2, con la tabla de verificación de simetría al lado.</td></tr>
+
+<tr><td><b>Captura a mano</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §1.</td></tr>
+
+<tr><td><b>Génesis de proyecto</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §4a y §4b, <b>con veredicto negativo</b>: la maqueta existe y no cumple el principio 1. Cuenta como maquetada porque la pantalla está dibujada; no cuenta como resuelta.</td></tr>
+
+<tr><td>Punto de control anti-maratón</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar, y bloqueada: la copia del permiso para parar está sin redactar (OQ-4), igual que la forma de <em>presentar</em> «alargar la sesión» sin destacarla, animarla ni sugerirla.</td></tr>
+
+<tr><td><b>Premio antes/después</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §5. Sin cubrir: el caso sin foto de «antes» (OQ-15).</td></tr>
+
+<tr><td>Álbum de transformaciones</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Aparecen tres <em>destacados</em> dentro del panel de §3, que es un fragmento y no la superficie. El álbum en sí —galería, borrado individual, purga en una acción, estado vacío (OQ-12)— sin dibujar.</td></tr>
+
+<tr><td><b>Panel de impacto acumulado</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §3, a escala normal y al 200&nbsp;%. Sin cubrir: el estado vacío (OQ-12).</td></tr>
+
+<tr><td>Protocolo de desapego</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Las dos preguntas de desapego, literales según FR-20, y el «se puede contestar saltando» sin que parezca evasión (OQ-17): sin dibujar.</td></tr>
+
+<tr><td><b>Flujo de 3 destinos</b></td><td class="st"><span class="tag m">maquetada</span></td>
+<td><span class="mono">final-verification-1.html</span> §5.1, pantalla completa a 330dp, glifos a 64px, sin baldosas de color. Sigue vigente sin cambios.</td></tr>
+
+<tr><td>Caja de cuarentena</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar. La caja fechada y su único seguimiento descartable a los seis meses no tienen forma.</td></tr>
+
+<tr><td>Superficie sin Slicer</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar, y bloqueada por contenido: las siete cadenas están sin escribir (OQ-1), y son toda la diferenciación de esa superficie porque no hay diferenciación visual.</td></tr>
+
+<tr><td>Ajustes</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar. Está <em>situada</em> —es la salida de la afordancia callada— pero su contenido solo está enumerado por el PRD y nunca organizado (OQ-11). Es donde lee el validador, así que su ausencia no es cosmética.</td></tr>
+
+<tr><td>Ambiental · sugerencia de activación estacional</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar.</td></tr>
+
+<tr><td>Ambiental · seguimiento de cuarentena a los 6 meses</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar.</td></tr>
+
+<tr><td>Ambiental · sugerencia bola de nieve</td><td class="st"><span class="tag m">maquetada</span></td>
+<td>Esta página, §3, dentro del panel, con su descarte de un toque a 48dp. Es su sitio propio según FR-23, así que aquí sí es la superficie y no un fragmento.</td></tr>
+
+<tr><td>Ambiental · autoinforme del domingo</td><td class="st"><span class="tag s">solo spine</span></td>
+<td>Sin dibujar. La cadena existe (<span class="mono">Esta semana, ¿cuánto te ha agobiado la casa?</span>); la escala de 5 puntos que la acompaña, no.</td></tr>
+
+</tbody>
+</table>
+
+<div class="tally">
+  <div><b>8</b>maquetadas</div>
+  <div><b>12</b>solo spine</div>
+  <div><b>20</b>superficies en total<br><span class="t-sup">16 de la tabla de IA + 4 ambientales</span></div>
+</div>
+
+<p class="note"><b>De las 8 maquetadas, 6 son de esta página</b> (captura a mano, consentimiento, panel ×2, génesis 4a+4b, premio, bola de nieve) y <b>2 son de <span class="mono">final-verification-1.html</span></b> (dispensador, flujo de 3 destinos) — y una de esas dos está parcialmente superada por <span class="mono">DESIGN.md</span>. Los demás artefactos de <span class="mono">.working/</span> —<span class="mono">color-themes-1</span>, <span class="mono">typography-1</span>, <span class="mono">icon-treatment-1</span>, <span class="mono">glyph-dandelion-vs-leaf-1</span>, <span class="mono">plane-vs-leaf-1</span>, <span class="mono">seed-at-scale-1</span>, <span class="mono">seed-glyph-and-mass-depth-1</span>— son estudios de componente y de glifo, no maquetas de superficie, y no aportan ninguna fila a esta tabla.</p>
+</section>
+
+
+<!-- ========================================================= HUECOS -->
+<section>
+<h2>Lo que <span class="mono">DESIGN.md</span> no daba y aquí hizo falta</h2>
+<ul class="gaps">
+<li><b>G1 · Rol de tipografía para título de pantalla.</b> La rampa tiene cinco roles y ninguno es encabezado. Las cuatro pantallas nuevas necesitan uno; se reusa <span class="mono">action-primary</span> (Lexend 19sp/600), que es un rol de botón. Funciona y es incorrecto de nombre.</li>
+<li><b>G2 · Rol para cifra de métrica.</b> La excepción de densidad de FR-23 lleva tres cifras y no hay rol para ellas. Reusado <span class="mono">action-primary</span> otra vez, con lo cual las cifras pesan tipográficamente lo mismo que un <span class="mono">Hecho</span>.</li>
+<li><b>G3 · Estados del selector de tres tamaños.</b> <span class="mono">duration-chip</span> está especificado como visualización, no como selector: no hay estado seleccionado ni no seleccionado. Aquí seleccionado = <span class="mono">accent-soft</span>, no seleccionado = <span class="mono">surface-raised</span> + filete.</li>
+<li><b>G4 · Par de botones de peso igual.</b> Es el componente que FR-25 exige y el sistema no tiene: entre el relleno de <span class="mono">action-primary</span> y el texto sin caja de <span class="mono">action-secondary</span> no hay nada. Consecuencia derivada, que tampoco está escrita: la puerta de consentimiento es la única superficie de la app <b>sin acción recomendada</b>.</li>
+<li><b>G5 · Marco de fotografía.</b> FR-17 y el álbum son superficies de imagen y no hay token de marco, radio, proporción ni estado de carga. Las planchas de §5 son andamio con pasteles de la capa de masa, en contra de la regla «pastel solo detrás de glifos», y se marca como tal.</li>
+<li><b>G6 · Rol para el pie del premio.</b> Lexend 15sp en <span class="mono">ink-primary</span> no es ninguno de los cinco roles. La frase más cálida de la app no tiene sitio en la rampa.</li>
+<li><b>G7 · La marca de la afordancia callada.</b> Sigue sin resolver (<span class="mono">DESIGN.md</span> OQ-1, <span class="mono">EXPERIENCE.md</span> OQ-20) y ahora bloquea una superficie situada. Dibujada como hueco y no como propuesta.</li>
+<li><b>G8 · Cadenas sin autorizar.</b> «Guardar», «Descartar», «Enviar la foto», «No enviarla», «Empezar con esta», «Ver otra», «Volver», «Guardar en el álbum», «Cerrar», «Quitar esta sugerencia», los pies del premio y la copia de ayuda de la captura no están en la tabla de cadenas fijas de <span class="mono">EXPERIENCE.md</span>. Redactadas aquí, y hay que auditarlas como tabla plana antes de cablearlas — regla estructural de la propia espina.</li>
+<li><b>G9 · Cómo cae el 200&nbsp;% en la excepción de densidad.</b> <span class="mono">DESIGN.md</span> resuelve el 200&nbsp;% para <em>una</em> tarjeta que crece hacia el aire. No dice nada de qué hace una fila de tres destacados cuando cada columna baja a ~101dp. No se trunca, pero deja de ser una fila.</li>
+<li><b>G10 · Fecha corta y unidad de tiempo.</b> «12 ago» y «4 h 25 min» son formatos y no hay ninguno especificado. Aparecen en la superficie más densa de la app, así que la decisión no es menor.</li>
+</ul>
+<p class="note"><b>Un hallazgo lateral, por si sirve al orden de trabajo:</b> ninguna de estas cinco pantallas necesita el trío de destinos ni la semilla. Los tokens <span class="mono">dest-keep</span>, <span class="mono">dest-donate</span> y <span class="mono">dest-trash</span> y la geometría de la semilla quedan declarados arriba y sin usar. Todo el peso de decisión de estas cinco superficies lo llevan el texto, el filete y <span class="mono">accent-soft</span>: el trío vive entero dentro del flujo de 3 destinos y del protocolo de desapego, que son justo las dos superficies que <em>no</em> tocaba dibujar hoy.</p>
+<p class="note"><b>Y una cosa que sí estaba, y se usó tal cual:</b> el token de masa ocre <span class="mono">icon-mass-ochre</span> <span class="mono">#CAB9A0</span> del <span class="mono">zone-marker</span> está presente en <span class="mono">DESIGN.md</span>, así que el marcador de zona del inset de §4 lleva la <b>Hoja</b> a 24px con línea en <span class="mono">ink-secondary</span> y masa ocre — no la semilla que dibujó <span class="mono">final-verification-1.html</span>. Queda en pie la pregunta abierta 8 de <span class="mono">DESIGN.md</span>: nadie ha medido si esa medialuna ocre se lee a 24px bajo una línea de tinta <em>secundaria</em>, porque el umbral de Δ&nbsp;L*&nbsp;18–20 se calibró contra línea de tinta primaria.</p>
+</section>
+
+</div>
+</body>
+</html>

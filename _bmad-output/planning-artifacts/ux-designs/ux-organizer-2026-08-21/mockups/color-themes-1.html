@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paletas · Organizador anti-agobio</title>
+<style>
+/* =====================================================================
+   PALETAS DE COLOR — Organizador anti-agobio (Android, UI en español)
+   5 variaciones. Regla de Sergio, aplicada en todas:
+     · la LÍNEA es tinta casi negra o gris; la MASA es pastel plano.
+     · el pastel es fondo o relleno, NUNCA lleva texto.
+     · la tinta se queda oscura (o blanco roto cálido en modo oscuro).
+   Prohibido: rojo, iconografía de aviso, signos de exclamación,
+   degradados, resplandores, sombras difusas, gamificación.
+   ===================================================================== */
+
+/* ---- página (chrome neutro, no forma parte de ninguna paleta) ---- */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:#EDEBE6; color:#1E1C19;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.5;
+}
+.pageHead{
+  position:fixed; top:0; left:0; right:0; z-index:10;
+  background:#EDEBE6; border-bottom:1px solid #CFCBC2;
+  padding:12px 24px;
+  display:flex; flex-wrap:wrap; gap:4px 16px; align-items:baseline;
+}
+.pageHead h1{font-size:15px; font-weight:600; margin:0; letter-spacing:.01em}
+.pageHead span{font-size:13px; color:#5F5A52}
+.wrap{max-width:1180px; margin:0 auto; padding:96px 24px 160px}
+.intro{max-width:760px; margin:0 0 72px}
+.intro p{margin:0 0 12px; font-size:15px; color:#403C36; line-height:1.65}
+.intro strong{font-weight:600}
+.rule{height:1px; background:#CFCBC2; border:0; margin:0 0 56px}
+
+/* ---- bloque de variación ---- */
+.variation{margin:0 0 104px}
+.vnum{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#7A736A; margin:0 0 6px}
+.variation h2{font-size:27px; font-weight:600; margin:0 0 8px; letter-spacing:-.01em}
+.register{font-size:17px; color:#403C36; margin:0 0 20px; max-width:660px; line-height:1.55}
+.axes{list-style:none; padding:0; margin:0 0 28px; display:flex; flex-wrap:wrap; gap:8px 10px}
+.axes li{font-size:13px; color:#403C36; background:#E3E0D9; border:1px solid #CFCBC2; padding:5px 11px; border-radius:2px}
+.axes b{font-weight:600}
+.modeTag{font-size:13px; background:#DDD9D0; border:1px solid #BFBAB0; padding:5px 11px; border-radius:2px; display:inline-block; margin:0 0 28px}
+
+/* ---- fichas de token ---- */
+.tokens{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 8px}
+.tok{width:132px}
+.sw{height:52px; border:1px solid #B9B4AA; border-radius:2px}
+.tokName{font-size:12px; font-weight:600; margin:7px 0 1px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tokHex{font-size:11px; color:#6C665D; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tokEs{font-size:11px; color:#6C665D; line-height:1.35}
+.tokGroup{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#7A736A; margin:26px 0 10px}
+.destNote{font-size:13px; color:#403C36; max-width:660px; margin:14px 0 0; line-height:1.6}
+
+/* ---- rejilla de maquetas ---- */
+.snips{display:flex; flex-wrap:wrap; gap:40px; margin:36px 0 0; align-items:flex-start}
+.snip{}
+.snipTitle{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#7A736A; margin:0 0 10px; font-weight:600}
+.pair{display:flex; flex-wrap:wrap; gap:20px}
+.modeCap{font-size:12px; color:#7A736A; margin:8px 0 0; text-align:center; max-width:302px}
+
+/* =====================================================================
+   COMPONENTES — todos leen variables. Sin degradados, sin sombras.
+   ===================================================================== */
+.phone{
+  width:302px; min-height:604px;
+  background:var(--surface-base);
+  border:1px solid var(--border-strong, var(--border-hairline));
+  border-radius:20px;
+  padding:20px 18px 26px;
+  display:flex; flex-direction:column;
+  color:var(--ink-primary);
+}
+.phoneTop{font-size:13px; color:var(--ink-secondary); letter-spacing:.02em}
+.phoneMid{flex:1; display:flex; flex-direction:column; justify-content:center; padding:12px 0}
+.card{
+  background:var(--surface-raised);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius, 4px);
+  padding:22px 20px 20px;
+}
+.cardKicker{font-size:13px; color:var(--ink-secondary); margin:0 0 10px; letter-spacing:.02em}
+.cardTask{font-size:23px; font-weight:600; line-height:1.3; margin:0 0 14px; color:var(--ink-primary); letter-spacing:-.01em}
+.cardDur{font-size:15px; color:var(--ink-secondary); margin:0}
+.durChip{
+  display:inline-block; background:var(--accent-soft); color:var(--ink-primary);
+  border:1px solid var(--border-hairline);
+  font-size:14px; padding:4px 10px; border-radius:var(--radius, 4px);
+}
+.acts{margin:26px 0 0}
+.btnPri{
+  display:block; text-align:center;
+  background:var(--accent-soft); color:var(--ink-primary);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius, 4px);
+  font-size:19px; font-weight:600; padding:17px 16px; letter-spacing:.01em;
+}
+.btnGho{
+  display:block; text-align:center; margin-top:12px;
+  background:transparent; color:var(--ink-secondary);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius, 4px);
+  font-size:16px; padding:15px 16px;
+}
+.phoneFoot{font-size:12px; color:var(--ink-secondary); text-align:center; margin:18px 0 0}
+
+/* 200% de escala tipográfica */
+.x2 .cardKicker{font-size:26px}
+.x2 .cardTask{font-size:46px}
+.x2 .cardDur{font-size:30px}
+.x2 .durChip{font-size:28px; padding:8px 14px}
+.x2 .btnPri{font-size:38px; padding:22px 14px}
+.x2 .btnGho{font-size:32px; padding:20px 12px; line-height:1.25}
+.x2 .phoneTop{font-size:26px}
+.x2 .phoneFoot{font-size:24px}
+.x2.phone{min-height:auto}
+
+/* 3 destinos */
+.flow{
+  width:302px; background:var(--surface-base);
+  border:1px solid var(--border-strong, var(--border-hairline));
+  border-radius:20px; padding:22px 18px 26px; color:var(--ink-primary);
+}
+.flowQ{font-size:19px; font-weight:600; margin:0 0 6px; line-height:1.35}
+.flowSub{font-size:14px; color:var(--ink-secondary); margin:0 0 20px}
+.dest{
+  display:block; border-radius:var(--radius, 4px);
+  border:1px solid var(--border-hairline);
+  padding:16px 16px; margin:0 0 12px;
+  color:var(--ink-primary);
+}
+.dest:last-child{margin-bottom:0}
+.destName{font-size:18px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
+.destWhat{font-size:13px; margin:0; color:var(--ink-primary); opacity:.72}
+.dKeep{background:var(--dest-keep)}
+.dDon{background:var(--dest-donate)}
+.dTra{background:var(--dest-trash)}
+/* modo oscuro: el pastel se retira a acento — barra + filete, la tinta manda */
+.dark .dest{background:var(--surface-raised); border-color:var(--border-hairline); border-left-width:6px; border-left-style:solid}
+.dark .dKeep{border-left-color:var(--dest-keep)}
+.dark .dDon{border-left-color:var(--dest-donate)}
+.dark .dTra{border-left-color:var(--dest-trash)}
+.dark .destWhat{opacity:.68}
+
+/* antes / después */
+.reward{
+  width:302px; background:var(--surface-base);
+  border:1px solid var(--border-strong, var(--border-hairline));
+  border-radius:20px; padding:22px 18px 24px; color:var(--ink-primary);
+}
+.shots{display:flex; gap:10px}
+.shot{flex:1}
+.shotLab{font-size:12px; color:var(--ink-secondary); margin:0 0 6px; letter-spacing:.06em; text-transform:uppercase}
+.plate{
+  position:relative; height:132px; border-radius:var(--radius, 4px);
+  border:1px solid var(--border-hairline); overflow:hidden;
+}
+.pA{background:var(--dest-donate)}
+.pB{background:var(--dest-keep)}
+.o{position:absolute; background:var(--surface-base); border:1px solid var(--border-hairline)}
+.rewardCap{font-size:15px; line-height:1.5; margin:18px 0 0; color:var(--ink-primary)}
+.rewardMeta{font-size:13px; color:var(--ink-secondary); margin:6px 0 0}
+
+/* =====================================================================
+   VARIACIÓN 1 — PAPEL DE ESTRAZA  (impreso · fondo crema cálido)
+   surface-base    #F2EADC   crema kraft
+   surface-raised  #FAF5EA   papel más claro
+   ink-primary     #211E1A   tinta casi negra cálida
+   ink-secondary   #5B5449   tinta gris parda
+   border-hairline #C6B9A4   filete de un pelo
+   accent-soft     #E3D3B0   trigo (relleno de "Hecho")
+   dest-keep       #B6C7AE   verde salvia polvoriento
+   dest-donate     #DEC49F   arena tostada
+   dest-trash      #B3C0D3   azul brumoso
+   ===================================================================== */
+.v1{
+  --surface-base:#F2EADC; --surface-raised:#FAF5EA;
+  --ink-primary:#211E1A;  --ink-secondary:#5B5449;
+  --border-hairline:#C6B9A4; --accent-soft:#E3D3B0;
+  --dest-keep:#B6C7AE; --dest-donate:#DEC49F; --dest-trash:#B3C0D3;
+  --radius:3px;
+}
+/* ---- VARIACIÓN 1 · MODO OSCURO AUTORIZADO APARTE (no una inversión) ----
+   surface-base    #1E1C18   neutro profundo cálido (nunca negro puro)
+   surface-raised  #272419
+   ink-primary     #EFE7D9   blanco roto cálido
+   ink-secondary   #A69C8B
+   border-hairline #3C372E
+   accent-soft     #4B4536   trigo replegado a acento
+   dest-keep       #7E9375   dest-donate #9E8760   dest-trash #74829B
+   (los pastel dejan de ser masa: pasan a barra de 6px + filete)         */
+.v1d{
+  --surface-base:#1E1C18; --surface-raised:#272419;
+  --ink-primary:#EFE7D9;  --ink-secondary:#A69C8B;
+  --border-hairline:#3C372E; --border-strong:#302B23; --accent-soft:#4B4536;
+  --dest-keep:#7E9375; --dest-donate:#9E8760; --dest-trash:#74829B;
+  --radius:3px;
+}
+
+/* =====================================================================
+   VARIACIÓN 2 — TINTA DE LINÓLEO  (impreso · fondo casi blanco frío)
+   surface-base    #F4F5F3   casi blanco frío
+   surface-raised  #FFFFFF   papel blanco
+   ink-primary     #1C1F1E   tinta casi negra fría
+   ink-secondary   #565B59
+   border-hairline #C2C7C4
+   accent-soft     #C7D2D4   gris hielo
+   dest-keep       #AFC4C0   verde agua apagado
+   dest-donate     #C8BCD3   lila ceniza
+   dest-trash      #C9C7B0   caqui pálido
+   ===================================================================== */
+.v2{
+  --surface-base:#F4F5F3; --surface-raised:#FFFFFF;
+  --ink-primary:#1C1F1E;  --ink-secondary:#565B59;
+  --border-hairline:#C2C7C4; --accent-soft:#C7D2D4;
+  --dest-keep:#AFC4C0; --dest-donate:#C8BCD3; --dest-trash:#C9C7B0;
+  --radius:0px;
+}
+
+/* =====================================================================
+   VARIACIÓN 3 — MEDIA TARDE  (intermedia · fondo crema cálido claro)
+   surface-base    #F7F1E8
+   surface-raised  #FDF9F2
+   ink-primary     #262119
+   ink-secondary   #63594C
+   border-hairline #DCD0BE
+   accent-soft     #E8D6B8   miel pálida
+   dest-keep       #C3CDA9   oliva pálido
+   dest-donate     #E4CBB4   melocotón polvo
+   dest-trash      #B9C6C9   gris niebla
+   ===================================================================== */
+.v3{
+  --surface-base:#F7F1E8; --surface-raised:#FDF9F2;
+  --ink-primary:#262119;  --ink-secondary:#63594C;
+  --border-hairline:#DCD0BE; --accent-soft:#E8D6B8;
+  --dest-keep:#C3CDA9; --dest-donate:#E4CBB4; --dest-trash:#B9C6C9;
+  --radius:8px;
+}
+
+/* =====================================================================
+   VARIACIÓN 4 — ALIENTO  (suave · fondo casi blanco frío, muy aireado)
+   surface-base    #F7F8F9
+   surface-raised  #FFFFFF
+   ink-primary     #1E2124
+   ink-secondary   #5C6368
+   border-hairline #E1E5E8
+   accent-soft     #D5E0DC   agua clara
+   dest-keep       #C4D6CE   menta polvo
+   dest-donate     #D3D0E4   glicina
+   dest-trash      #DCD6C8   arena clara
+   ===================================================================== */
+.v4{
+  --surface-base:#F7F8F9; --surface-raised:#FFFFFF;
+  --ink-primary:#1E2124;  --ink-secondary:#5C6368;
+  --border-hairline:#E1E5E8; --accent-soft:#D5E0DC;
+  --dest-keep:#C4D6CE; --dest-donate:#D3D0E4; --dest-trash:#DCD6C8;
+  --radius:14px;
+}
+/* ---- VARIACIÓN 4 · MODO OSCURO AUTORIZADO APARTE (no una inversión) ----
+   surface-base    #1B1E20   neutro profundo desaturado
+   surface-raised  #24282A
+   ink-primary     #ECEAE4   blanco roto cálido (calienta el frío)
+   ink-secondary   #99A0A3
+   border-hairline #343A3D
+   accent-soft     #313E3B
+   dest-keep       #7A9A8E   dest-donate #8683A6   dest-trash #98937E      */
+.v4d{
+  --surface-base:#1B1E20; --surface-raised:#24282A;
+  --ink-primary:#ECEAE4;  --ink-secondary:#99A0A3;
+  --border-hairline:#343A3D; --border-strong:#2A2F31; --accent-soft:#313E3B;
+  --dest-keep:#7A9A8E; --dest-donate:#8683A6; --dest-trash:#98937E;
+  --radius:14px;
+}
+
+/* =====================================================================
+   VARIACIÓN 5 — YESO ROSADO  (suave · fondo cálido con rubor, sin rojo)
+   surface-base    #F6EFEC
+   surface-raised  #FDF8F6
+   ink-primary     #241F1F
+   ink-secondary   #635654
+   border-hairline #E0D0CA
+   accent-soft     #E9D5CE   yeso rosado
+   dest-keep       #C9D5C2   verde tiza
+   dest-donate     #E3D0AF   mantequilla
+   dest-trash      #C6CBDA   azul yeso
+   ===================================================================== */
+.v5{
+  --surface-base:#F6EFEC; --surface-raised:#FDF8F6;
+  --ink-primary:#241F1F;  --ink-secondary:#635654;
+  --border-hairline:#E0D0CA; --accent-soft:#E9D5CE;
+  --dest-keep:#C9D5C2; --dest-donate:#E3D0AF; --dest-trash:#C6CBDA;
+  --radius:18px;
+}
+</style>
+</head>
+<body>
+<div style="max-width:980px;margin:0 auto 8px;padding:18px 20px;border:1px solid #E1E5E8;border-left:6px solid #CAB9A0;border-radius:14px;background:#FFFFFF;color:#1E2124;font:400 14px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif"><p style="margin:0 0 10px;font-weight:600;letter-spacing:.01em;text-transform:uppercase;font-size:12px;color:#5C6368">Promoted artifact — supersession note</p><p style="margin:0 0 10px"><b>The spines win on conflict</b> — <code>../DESIGN.md</code> and <code>../EXPERIENCE.md</code>. This page is promoted as the rationale for the palette: five registers rendered side by side, of which <b>Aliento</b> was chosen, and chosen <i>for the air</i>.</p>
+<p style="margin:0"><b>Superseded.</b> (1) Aliento is drawn here as a <b>single-tier</b> palette. The system is now <b>two tiers</b>: the field tier at Aliento&rsquo;s own baseline lightness, and an icon-mass tier at <b>L* 76.0</b> &mdash; <code>dest-keep</code> #9EC3B5, <code>dest-donate</code> #BCB8D4, <code>dest-trash</code> #D9B2B6, <code>icon-mass-neutral</code> #B3BEBA, <code>icon-mass-ochre</code> #CAB9A0 &mdash; because at Aliento&rsquo;s baseline the misregistered crescent measured &Delta;&nbsp;L* 11.8 and read as antialiasing. (2) The destination hues drawn here (<code>dest-keep</code> #C4D6CE, <code>dest-donate</code> #D3D0E4, <code>dest-trash</code> #DCD6C8, the light sand) predate version C, which lifts all three to chroma ~15 <b>together</b> and replaces the sand with a dusty rose. (3) The 200&nbsp;% demonstration tile on this page was discarded as scaffolding; the 200&nbsp;% accessibility floor itself stands.</p></div>
+
+
+<div class="pageHead">
+  <h1>Paletas de color · Organizador anti-agobio</h1>
+  <span>5 variaciones · tinta oscura sobre fondo claro · pastel como masa, nunca como texto</span>
+</div>
+
+<div class="wrap">
+
+  <div class="intro">
+    <p><strong>Cómo leer esta página.</strong> Cinco registros distintos, no cinco matices del mismo. Cada uno se mueve en tres ejes: <strong>temperatura del fondo</strong> (crema cálida frente a casi blanco frío), <strong>registro</strong> (materia impresa —risografía, masas planas, filetes de un pelo— frente a algo más suave y aireado) y <strong>modo oscuro</strong>.</p>
+    <p>Dos variaciones traen su modo oscuro <em>escrito a mano</em> al lado de su versión clara. No es una inversión: los pastel polvorientos se enturbian o se vuelven neón al invertirlos, así que ahí se repliegan a acento (barra y filete), la tinta pasa a blanco roto cálido y el fondo es un neutro profundo desaturado, nunca negro puro. Las otras tres son <em>solo claro</em>.</p>
+    <p>En todas: sin rojo, sin iconografía de aviso, sin signos de exclamación, sin degradados, sin resplandores, sin sombras difusas. Los tres destinos pesan lo mismo a propósito: mismo tamaño, misma luminosidad, mismo orden visual. Ninguno puede leerse como el malo.</p>
+  </div>
+  <hr class="rule">
+
+  <!-- ============================ V1 ============================ -->
+  <section class="variation v1">
+    <p class="vnum">Variación 1</p>
+    <h2>Papel de estraza</h2>
+    <p class="register">Un cuaderno de papel reciclado abierto sobre la mesa de la cocina: cálido, ya usado, sin ninguna prisa.</p>
+    <ul class="axes">
+      <li><b>Fondo:</b> crema cálida (kraft)</li>
+      <li><b>Registro:</b> impreso — risografía, masa plana, filete de un pelo, esquinas de 3px</li>
+      <li><b>Modos:</b> claro + oscuro</li>
+    </ul>
+    <p class="modeTag">Modo oscuro autorizado aparte, no una inversión</p>
+
+    <p class="tokGroup">Fondos y tinta</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#F2EADC"></div><p class="tokName">surface-base</p><p class="tokHex">#F2EADC</p><p class="tokEs">crema kraft</p></div>
+      <div class="tok"><div class="sw" style="background:#FAF5EA"></div><p class="tokName">surface-raised</p><p class="tokHex">#FAF5EA</p><p class="tokEs">papel de la tarjeta</p></div>
+      <div class="tok"><div class="sw" style="background:#211E1A"></div><p class="tokName">ink-primary</p><p class="tokHex">#211E1A</p><p class="tokEs">tinta casi negra cálida</p></div>
+      <div class="tok"><div class="sw" style="background:#5B5449"></div><p class="tokName">ink-secondary</p><p class="tokHex">#5B5449</p><p class="tokEs">gris pardo</p></div>
+      <div class="tok"><div class="sw" style="background:#C6B9A4"></div><p class="tokName">border-hairline</p><p class="tokHex">#C6B9A4</p><p class="tokEs">filete de un pelo</p></div>
+      <div class="tok"><div class="sw" style="background:#E3D3B0"></div><p class="tokName">accent-soft</p><p class="tokHex">#E3D3B0</p><p class="tokEs">trigo · relleno de Hecho</p></div>
+    </div>
+
+    <p class="tokGroup">Tres destinos · mismo peso</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#B6C7AE"></div><p class="tokName">dest-keep</p><p class="tokHex">#B6C7AE</p><p class="tokEs">salvia polvorienta</p></div>
+      <div class="tok"><div class="sw" style="background:#DEC49F"></div><p class="tokName">dest-donate</p><p class="tokHex">#DEC49F</p><p class="tokEs">arena tostada</p></div>
+      <div class="tok"><div class="sw" style="background:#B3C0D3"></div><p class="tokName">dest-trash</p><p class="tokHex">#B3C0D3</p><p class="tokEs">azul brumoso</p></div>
+    </div>
+    <p class="destNote">Los tres se mueven en la misma banda de luminosidad (L* ≈ 77–79) y en la misma saturación baja. Se distinguen por matiz, no por fuerza. <em>Tirar o reciclar</em> es un azul de niebla: el destino más neutro de los tres, no el más pesado.</p>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">1 · Dispensador</p>
+        <div class="phone">
+          <div class="phoneTop">Tengo 15 minutos ahora</div>
+          <div class="phoneMid">
+            <div class="card">
+              <p class="cardKicker">Salón</p>
+              <h4 class="cardTask">Despeja la mesa del salón</h4>
+              <p class="cardDur"><span class="durChip">10–15 min</span></p>
+            </div>
+            <div class="acts">
+              <div class="btnPri">Hecho</div>
+              <div class="btnGho">Otra más fácil / Ahora no</div>
+            </div>
+          </div>
+          <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">2 · Flujo de 3 destinos</p>
+        <div class="flow">
+          <p class="flowQ">Este objeto, ¿a dónde va?</p>
+          <p class="flowSub">Cualquiera de los tres está bien.</p>
+          <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+          <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+          <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">3 · Recompensa antes / después</p>
+        <div class="reward">
+          <div class="shots">
+            <div class="shot">
+              <p class="shotLab">Antes</p>
+              <div class="plate pA">
+                <span class="o" style="left:8px;top:12px;width:44px;height:30px"></span>
+                <span class="o" style="left:60px;top:34px;width:34px;height:44px"></span>
+                <span class="o" style="left:20px;top:62px;width:52px;height:22px"></span>
+                <span class="o" style="left:74px;top:92px;width:40px;height:26px"></span>
+                <span class="o" style="left:12px;top:96px;width:28px;height:24px"></span>
+              </div>
+            </div>
+            <div class="shot">
+              <p class="shotLab">Después</p>
+              <div class="plate pB">
+                <span class="o" style="left:14px;top:86px;width:44px;height:30px"></span>
+                <span class="o" style="left:66px;top:86px;width:44px;height:30px"></span>
+              </div>
+            </div>
+          </div>
+          <p class="rewardCap">El trastero, hace doce minutos y ahora. Esto lo hiciste tú.</p>
+          <p class="rewardMeta">≈ 3 cajas liberadas · guardado en tu álbum</p>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">Dispensador · escala de fuente al 200%</p>
+        <div class="phone x2" style="width:302px">
+          <div class="phoneTop">Tengo 15 minutos ahora</div>
+          <div class="phoneMid">
+            <div class="card">
+              <p class="cardKicker">Salón</p>
+              <h4 class="cardTask">Despeja la mesa del salón</h4>
+              <p class="cardDur"><span class="durChip">10–15 min</span></p>
+            </div>
+            <div class="acts">
+              <div class="btnPri">Hecho</div>
+              <div class="btnGho">Otra más fácil / Ahora no</div>
+            </div>
+          </div>
+        </div>
+        <p class="modeCap">Todo el texto envuelve, nada se recorta. La tarjeta crece hacia abajo; las acciones siguen en el tercio inferior, al alcance del pulgar.</p>
+      </div>
+    </div>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">Claro / oscuro, lado a lado</p>
+        <div class="pair">
+          <div>
+            <div class="phone">
+              <div class="phoneTop">Tengo 15 minutos ahora</div>
+              <div class="phoneMid">
+                <div class="card">
+                  <p class="cardKicker">Salón</p>
+                  <h4 class="cardTask">Despeja la mesa del salón</h4>
+                  <p class="cardDur"><span class="durChip">10–15 min</span></p>
+                </div>
+                <div class="acts">
+                  <div class="btnPri">Hecho</div>
+                  <div class="btnGho">Otra más fácil / Ahora no</div>
+                </div>
+              </div>
+              <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+            </div>
+            <p class="modeCap">Claro · crema kraft</p>
+          </div>
+          <div class="v1d dark">
+            <div class="phone">
+              <div class="phoneTop">Tengo 15 minutos ahora</div>
+              <div class="phoneMid">
+                <div class="card">
+                  <p class="cardKicker">Salón</p>
+                  <h4 class="cardTask">Despeja la mesa del salón</h4>
+                  <p class="cardDur"><span class="durChip">10–15 min</span></p>
+                </div>
+                <div class="acts">
+                  <div class="btnPri">Hecho</div>
+                  <div class="btnGho">Otra más fácil / Ahora no</div>
+                </div>
+              </div>
+              <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+            </div>
+            <p class="modeCap">Oscuro autorizado aparte · fondo #1E1C18, tinta #EFE7D9</p>
+          </div>
+          <div class="v1d dark">
+            <div class="flow">
+              <p class="flowQ">Este objeto, ¿a dónde va?</p>
+              <p class="flowSub">Cualquiera de los tres está bien.</p>
+              <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+              <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+              <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+            </div>
+            <p class="modeCap">En oscuro el pastel deja de ser masa: barra de 6px, tinta clara. Siguen pesando igual.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tokens" style="margin-top:26px">
+      <div class="tok"><div class="sw" style="background:#1E1C18"></div><p class="tokName">surface-base</p><p class="tokHex">#1E1C18</p><p class="tokEs">oscuro · neutro profundo</p></div>
+      <div class="tok"><div class="sw" style="background:#272419"></div><p class="tokName">surface-raised</p><p class="tokHex">#272419</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#EFE7D9"></div><p class="tokName">ink-primary</p><p class="tokHex">#EFE7D9</p><p class="tokEs">oscuro · blanco roto cálido</p></div>
+      <div class="tok"><div class="sw" style="background:#A69C8B"></div><p class="tokName">ink-secondary</p><p class="tokHex">#A69C8B</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#3C372E"></div><p class="tokName">border-hairline</p><p class="tokHex">#3C372E</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#4B4536"></div><p class="tokName">accent-soft</p><p class="tokHex">#4B4536</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#7E9375"></div><p class="tokName">dest-keep</p><p class="tokHex">#7E9375</p><p class="tokEs">oscuro · acento</p></div>
+      <div class="tok"><div class="sw" style="background:#9E8760"></div><p class="tokName">dest-donate</p><p class="tokHex">#9E8760</p><p class="tokEs">oscuro · acento</p></div>
+      <div class="tok"><div class="sw" style="background:#74829B"></div><p class="tokName">dest-trash</p><p class="tokHex">#74829B</p><p class="tokEs">oscuro · acento</p></div>
+    </div>
+  </section>
+  <hr class="rule">
+
+  <!-- ============================ V2 ============================ -->
+  <section class="variation v2">
+    <p class="vnum">Variación 2</p>
+    <h2>Tinta de linóleo</h2>
+    <p class="register">Serigrafía sobre papel blanco frío: ordenado, sobrio, la tinta puesta con la mano firme.</p>
+    <ul class="axes">
+      <li><b>Fondo:</b> casi blanco frío</li>
+      <li><b>Registro:</b> impreso — el más gráfico de los cinco, esquinas rectas (0px), filete continuo</li>
+      <li><b>Modos:</b> solo claro</li>
+    </ul>
+    <p class="modeTag">Solo claro</p>
+
+    <p class="tokGroup">Fondos y tinta</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#F4F5F3"></div><p class="tokName">surface-base</p><p class="tokHex">#F4F5F3</p><p class="tokEs">casi blanco frío</p></div>
+      <div class="tok"><div class="sw" style="background:#FFFFFF"></div><p class="tokName">surface-raised</p><p class="tokHex">#FFFFFF</p><p class="tokEs">papel blanco</p></div>
+      <div class="tok"><div class="sw" style="background:#1C1F1E"></div><p class="tokName">ink-primary</p><p class="tokHex">#1C1F1E</p><p class="tokEs">tinta casi negra fría</p></div>
+      <div class="tok"><div class="sw" style="background:#565B59"></div><p class="tokName">ink-secondary</p><p class="tokHex">#565B59</p><p class="tokEs">gris pizarra</p></div>
+      <div class="tok"><div class="sw" style="background:#C2C7C4"></div><p class="tokName">border-hairline</p><p class="tokHex">#C2C7C4</p><p class="tokEs">filete</p></div>
+      <div class="tok"><div class="sw" style="background:#C7D2D4"></div><p class="tokName">accent-soft</p><p class="tokHex">#C7D2D4</p><p class="tokEs">gris hielo · relleno de Hecho</p></div>
+    </div>
+
+    <p class="tokGroup">Tres destinos · mismo peso</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#AFC4C0"></div><p class="tokName">dest-keep</p><p class="tokHex">#AFC4C0</p><p class="tokEs">verde agua apagado</p></div>
+      <div class="tok"><div class="sw" style="background:#C8BCD3"></div><p class="tokName">dest-donate</p><p class="tokHex">#C8BCD3</p><p class="tokEs">lila ceniza</p></div>
+      <div class="tok"><div class="sw" style="background:#C9C7B0"></div><p class="tokName">dest-trash</p><p class="tokHex">#C9C7B0</p><p class="tokEs">caqui pálido</p></div>
+    </div>
+    <p class="destNote">Tres matices de tinta plana, iguales en fuerza. Aquí <em>Tirar o reciclar</em> es un caqui de papel: cálido y corriente, sin ninguna carga.</p>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">1 · Dispensador</p>
+        <div class="phone">
+          <div class="phoneTop">Tengo 15 minutos ahora</div>
+          <div class="phoneMid">
+            <div class="card">
+              <p class="cardKicker">Salón</p>
+              <h4 class="cardTask">Despeja la mesa del salón</h4>
+              <p class="cardDur"><span class="durChip">10–15 min</span></p>
+            </div>
+            <div class="acts">
+              <div class="btnPri">Hecho</div>
+              <div class="btnGho">Otra más fácil / Ahora no</div>
+            </div>
+          </div>
+          <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">2 · Flujo de 3 destinos</p>
+        <div class="flow">
+          <p class="flowQ">Este objeto, ¿a dónde va?</p>
+          <p class="flowSub">Cualquiera de los tres está bien.</p>
+          <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+          <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+          <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">3 · Recompensa antes / después</p>
+        <div class="reward">
+          <div class="shots">
+            <div class="shot">
+              <p class="shotLab">Antes</p>
+              <div class="plate pA">
+                <span class="o" style="left:8px;top:12px;width:44px;height:30px"></span>
+                <span class="o" style="left:60px;top:34px;width:34px;height:44px"></span>
+                <span class="o" style="left:20px;top:62px;width:52px;height:22px"></span>
+                <span class="o" style="left:74px;top:92px;width:40px;height:26px"></span>
+                <span class="o" style="left:12px;top:96px;width:28px;height:24px"></span>
+              </div>
+            </div>
+            <div class="shot">
+              <p class="shotLab">Después</p>
+              <div class="plate pB">
+                <span class="o" style="left:14px;top:86px;width:44px;height:30px"></span>
+                <span class="o" style="left:66px;top:86px;width:44px;height:30px"></span>
+              </div>
+            </div>
+          </div>
+          <p class="rewardCap">La mesa del salón, antes y ahora. Doce minutos bien usados.</p>
+          <p class="rewardMeta">≈ 3 cajas liberadas · guardado en tu álbum</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <hr class="rule">
+
+  <!-- ============================ V3 ============================ -->
+  <section class="variation v3">
+    <p class="vnum">Variación 3</p>
+    <h2>Media tarde</h2>
+    <p class="register">La luz de las cinco entrando de lado: cálida, tranquila, ni impresa ni etérea.</p>
+    <ul class="axes">
+      <li><b>Fondo:</b> crema cálida clara</li>
+      <li><b>Registro:</b> intermedia — masa plana como el impreso, pero con aire y esquinas de 8px</li>
+      <li><b>Modos:</b> solo claro</li>
+    </ul>
+    <p class="modeTag">Solo claro</p>
+
+    <p class="tokGroup">Fondos y tinta</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#F7F1E8"></div><p class="tokName">surface-base</p><p class="tokHex">#F7F1E8</p><p class="tokEs">crema clara</p></div>
+      <div class="tok"><div class="sw" style="background:#FDF9F2"></div><p class="tokName">surface-raised</p><p class="tokHex">#FDF9F2</p><p class="tokEs">marfil</p></div>
+      <div class="tok"><div class="sw" style="background:#262119"></div><p class="tokName">ink-primary</p><p class="tokHex">#262119</p><p class="tokEs">tinta parda oscura</p></div>
+      <div class="tok"><div class="sw" style="background:#63594C"></div><p class="tokName">ink-secondary</p><p class="tokHex">#63594C</p><p class="tokEs">topo</p></div>
+      <div class="tok"><div class="sw" style="background:#DCD0BE"></div><p class="tokName">border-hairline</p><p class="tokHex">#DCD0BE</p><p class="tokEs">filete suave</p></div>
+      <div class="tok"><div class="sw" style="background:#E8D6B8"></div><p class="tokName">accent-soft</p><p class="tokHex">#E8D6B8</p><p class="tokEs">miel pálida · relleno de Hecho</p></div>
+    </div>
+
+    <p class="tokGroup">Tres destinos · mismo peso</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#C3CDA9"></div><p class="tokName">dest-keep</p><p class="tokHex">#C3CDA9</p><p class="tokEs">oliva pálido</p></div>
+      <div class="tok"><div class="sw" style="background:#E4CBB4"></div><p class="tokName">dest-donate</p><p class="tokHex">#E4CBB4</p><p class="tokEs">melocotón polvo</p></div>
+      <div class="tok"><div class="sw" style="background:#B9C6C9"></div><p class="tokName">dest-trash</p><p class="tokHex">#B9C6C9</p><p class="tokEs">gris niebla</p></div>
+    </div>
+    <p class="destNote">El melocotón es el más cálido de los tres, así que <em>Donar o vender</em> podría atraer la mano: es el único sesgo del conjunto y hay que decidir si molesta. Nada aquí empuja hacia tirar ni castiga por quedarse.</p>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">1 · Dispensador</p>
+        <div class="phone">
+          <div class="phoneTop">Tengo 15 minutos ahora</div>
+          <div class="phoneMid">
+            <div class="card">
+              <p class="cardKicker">Salón</p>
+              <h4 class="cardTask">Despeja la mesa del salón</h4>
+              <p class="cardDur"><span class="durChip">10–15 min</span></p>
+            </div>
+            <div class="acts">
+              <div class="btnPri">Hecho</div>
+              <div class="btnGho">Otra más fácil / Ahora no</div>
+            </div>
+          </div>
+          <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">2 · Flujo de 3 destinos</p>
+        <div class="flow">
+          <p class="flowQ">Este objeto, ¿a dónde va?</p>
+          <p class="flowSub">Cualquiera de los tres está bien.</p>
+          <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+          <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+          <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">3 · Recompensa antes / después</p>
+        <div class="reward">
+          <div class="shots">
+            <div class="shot">
+              <p class="shotLab">Antes</p>
+              <div class="plate pA">
+                <span class="o" style="left:8px;top:12px;width:44px;height:30px"></span>
+                <span class="o" style="left:60px;top:34px;width:34px;height:44px"></span>
+                <span class="o" style="left:20px;top:62px;width:52px;height:22px"></span>
+                <span class="o" style="left:74px;top:92px;width:40px;height:26px"></span>
+                <span class="o" style="left:12px;top:96px;width:28px;height:24px"></span>
+              </div>
+            </div>
+            <div class="shot">
+              <p class="shotLab">Después</p>
+              <div class="plate pB">
+                <span class="o" style="left:14px;top:86px;width:44px;height:30px"></span>
+                <span class="o" style="left:66px;top:86px;width:44px;height:30px"></span>
+              </div>
+            </div>
+          </div>
+          <p class="rewardCap">Así estaba el trastero, así está ahora. Lo dejaste mejor de como lo encontraste.</p>
+          <p class="rewardMeta">≈ 3 cajas liberadas · guardado en tu álbum</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <hr class="rule">
+
+  <!-- ============================ V4 ============================ -->
+  <section class="variation v4">
+    <p class="vnum">Variación 4</p>
+    <h2>Aliento</h2>
+    <p class="register">Aire. Casi nada en pantalla y sitio de sobra alrededor de lo único que importa.</p>
+    <ul class="axes">
+      <li><b>Fondo:</b> casi blanco frío</li>
+      <li><b>Registro:</b> suave — plano igualmente, pero aireado, saltos de matiz muy cortos, esquinas de 14px</li>
+      <li><b>Modos:</b> claro + oscuro</li>
+    </ul>
+    <p class="modeTag">Modo oscuro autorizado aparte, no una inversión</p>
+
+    <p class="tokGroup">Fondos y tinta</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#F7F8F9"></div><p class="tokName">surface-base</p><p class="tokHex">#F7F8F9</p><p class="tokEs">casi blanco frío</p></div>
+      <div class="tok"><div class="sw" style="background:#FFFFFF"></div><p class="tokName">surface-raised</p><p class="tokHex">#FFFFFF</p><p class="tokEs">blanco</p></div>
+      <div class="tok"><div class="sw" style="background:#1E2124"></div><p class="tokName">ink-primary</p><p class="tokHex">#1E2124</p><p class="tokEs">tinta casi negra</p></div>
+      <div class="tok"><div class="sw" style="background:#5C6368"></div><p class="tokName">ink-secondary</p><p class="tokHex">#5C6368</p><p class="tokEs">gris acero</p></div>
+      <div class="tok"><div class="sw" style="background:#E1E5E8"></div><p class="tokName">border-hairline</p><p class="tokHex">#E1E5E8</p><p class="tokEs">filete muy leve</p></div>
+      <div class="tok"><div class="sw" style="background:#D5E0DC"></div><p class="tokName">accent-soft</p><p class="tokHex">#D5E0DC</p><p class="tokEs">agua clara · relleno de Hecho</p></div>
+    </div>
+
+    <p class="tokGroup">Tres destinos · mismo peso</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#C4D6CE"></div><p class="tokName">dest-keep</p><p class="tokHex">#C4D6CE</p><p class="tokEs">menta polvo</p></div>
+      <div class="tok"><div class="sw" style="background:#D3D0E4"></div><p class="tokName">dest-donate</p><p class="tokHex">#D3D0E4</p><p class="tokEs">glicina</p></div>
+      <div class="tok"><div class="sw" style="background:#DCD6C8"></div><p class="tokName">dest-trash</p><p class="tokHex">#DCD6C8</p><p class="tokEs">arena clara</p></div>
+    </div>
+    <p class="destNote">La banda más clara de las cinco (L* ≈ 84–86). Los tres son casi susurros: se distinguen bien uno junto a otro, pero ninguno grita ni se hunde.</p>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">1 · Dispensador · claro / oscuro</p>
+        <div class="pair">
+          <div>
+            <div class="phone">
+              <div class="phoneTop">Tengo 15 minutos ahora</div>
+              <div class="phoneMid">
+                <div class="card">
+                  <p class="cardKicker">Salón</p>
+                  <h4 class="cardTask">Despeja la mesa del salón</h4>
+                  <p class="cardDur"><span class="durChip">10–15 min</span></p>
+                </div>
+                <div class="acts">
+                  <div class="btnPri">Hecho</div>
+                  <div class="btnGho">Otra más fácil / Ahora no</div>
+                </div>
+              </div>
+              <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+            </div>
+            <p class="modeCap">Claro · casi blanco frío</p>
+          </div>
+          <div class="v4d dark">
+            <div class="phone">
+              <div class="phoneTop">Tengo 15 minutos ahora</div>
+              <div class="phoneMid">
+                <div class="card">
+                  <p class="cardKicker">Salón</p>
+                  <h4 class="cardTask">Despeja la mesa del salón</h4>
+                  <p class="cardDur"><span class="durChip">10–15 min</span></p>
+                </div>
+                <div class="acts">
+                  <div class="btnPri">Hecho</div>
+                  <div class="btnGho">Otra más fácil / Ahora no</div>
+                </div>
+              </div>
+              <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+            </div>
+            <p class="modeCap">Oscuro autorizado aparte · fondo #1B1E20, tinta cálida #ECEAE4 para quitarle frío al neutro</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">2 · Flujo de 3 destinos · claro / oscuro</p>
+        <div class="pair">
+          <div>
+            <div class="flow">
+              <p class="flowQ">Este objeto, ¿a dónde va?</p>
+              <p class="flowSub">Cualquiera de los tres está bien.</p>
+              <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+              <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+              <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+            </div>
+            <p class="modeCap">Claro · el pastel es la masa</p>
+          </div>
+          <div class="v4d dark">
+            <div class="flow">
+              <p class="flowQ">Este objeto, ¿a dónde va?</p>
+              <p class="flowSub">Cualquiera de los tres está bien.</p>
+              <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+              <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+              <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+            </div>
+            <p class="modeCap">Oscuro · el pastel se repliega a acento en el canto</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">3 · Recompensa antes / después</p>
+        <div class="reward">
+          <div class="shots">
+            <div class="shot">
+              <p class="shotLab">Antes</p>
+              <div class="plate pA">
+                <span class="o" style="left:8px;top:12px;width:44px;height:30px"></span>
+                <span class="o" style="left:60px;top:34px;width:34px;height:44px"></span>
+                <span class="o" style="left:20px;top:62px;width:52px;height:22px"></span>
+                <span class="o" style="left:74px;top:92px;width:40px;height:26px"></span>
+                <span class="o" style="left:12px;top:96px;width:28px;height:24px"></span>
+              </div>
+            </div>
+            <div class="shot">
+              <p class="shotLab">Después</p>
+              <div class="plate pB">
+                <span class="o" style="left:14px;top:86px;width:44px;height:30px"></span>
+                <span class="o" style="left:66px;top:86px;width:44px;height:30px"></span>
+              </div>
+            </div>
+          </div>
+          <p class="rewardCap">Mira la diferencia. Doce minutos, y ahí sigue.</p>
+          <p class="rewardMeta">≈ 3 cajas liberadas · guardado en tu álbum</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tokens" style="margin-top:26px">
+      <div class="tok"><div class="sw" style="background:#1B1E20"></div><p class="tokName">surface-base</p><p class="tokHex">#1B1E20</p><p class="tokEs">oscuro · neutro profundo</p></div>
+      <div class="tok"><div class="sw" style="background:#24282A"></div><p class="tokName">surface-raised</p><p class="tokHex">#24282A</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#ECEAE4"></div><p class="tokName">ink-primary</p><p class="tokHex">#ECEAE4</p><p class="tokEs">oscuro · blanco roto cálido</p></div>
+      <div class="tok"><div class="sw" style="background:#99A0A3"></div><p class="tokName">ink-secondary</p><p class="tokHex">#99A0A3</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#343A3D"></div><p class="tokName">border-hairline</p><p class="tokHex">#343A3D</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#313E3B"></div><p class="tokName">accent-soft</p><p class="tokHex">#313E3B</p><p class="tokEs">oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#7A9A8E"></div><p class="tokName">dest-keep</p><p class="tokHex">#7A9A8E</p><p class="tokEs">oscuro · acento</p></div>
+      <div class="tok"><div class="sw" style="background:#8683A6"></div><p class="tokName">dest-donate</p><p class="tokHex">#8683A6</p><p class="tokEs">oscuro · acento</p></div>
+      <div class="tok"><div class="sw" style="background:#98937E"></div><p class="tokName">dest-trash</p><p class="tokHex">#98937E</p><p class="tokEs">oscuro · acento</p></div>
+    </div>
+  </section>
+  <hr class="rule">
+
+  <!-- ============================ V5 ============================ -->
+  <section class="variation v5">
+    <p class="vnum">Variación 5</p>
+    <h2>Yeso rosado</h2>
+    <p class="register">Una pared encalada con un rubor apenas visible: el más doméstico y el más amable de los cinco.</p>
+    <ul class="axes">
+      <li><b>Fondo:</b> cálido con rubor (el más cálido del conjunto, y sin una gota de rojo)</li>
+      <li><b>Registro:</b> suave — el más blando, esquinas de 18px, todo respirando</li>
+      <li><b>Modos:</b> solo claro</li>
+    </ul>
+    <p class="modeTag">Solo claro</p>
+
+    <p class="tokGroup">Fondos y tinta</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#F6EFEC"></div><p class="tokName">surface-base</p><p class="tokHex">#F6EFEC</p><p class="tokEs">yeso con rubor</p></div>
+      <div class="tok"><div class="sw" style="background:#FDF8F6"></div><p class="tokName">surface-raised</p><p class="tokHex">#FDF8F6</p><p class="tokEs">cal clara</p></div>
+      <div class="tok"><div class="sw" style="background:#241F1F"></div><p class="tokName">ink-primary</p><p class="tokHex">#241F1F</p><p class="tokEs">tinta casi negra cálida</p></div>
+      <div class="tok"><div class="sw" style="background:#635654"></div><p class="tokName">ink-secondary</p><p class="tokHex">#635654</p><p class="tokEs">gris malva oscuro</p></div>
+      <div class="tok"><div class="sw" style="background:#E0D0CA"></div><p class="tokName">border-hairline</p><p class="tokHex">#E0D0CA</p><p class="tokEs">filete suave</p></div>
+      <div class="tok"><div class="sw" style="background:#E9D5CE"></div><p class="tokName">accent-soft</p><p class="tokHex">#E9D5CE</p><p class="tokEs">yeso rosado · relleno de Hecho</p></div>
+    </div>
+
+    <p class="tokGroup">Tres destinos · mismo peso</p>
+    <div class="tokens">
+      <div class="tok"><div class="sw" style="background:#C9D5C2"></div><p class="tokName">dest-keep</p><p class="tokHex">#C9D5C2</p><p class="tokEs">verde tiza</p></div>
+      <div class="tok"><div class="sw" style="background:#E3D0AF"></div><p class="tokName">dest-donate</p><p class="tokHex">#E3D0AF</p><p class="tokEs">mantequilla</p></div>
+      <div class="tok"><div class="sw" style="background:#C6CBDA"></div><p class="tokName">dest-trash</p><p class="tokHex">#C6CBDA</p><p class="tokEs">azul yeso</p></div>
+    </div>
+    <p class="destNote">El rubor del fondo es rosa polvo, no rojo: no hay ningún matiz de alarma en la paleta. Los tres destinos se separan del fondo lo justo y entre ellos lo suficiente.</p>
+
+    <div class="snips">
+      <div class="snip">
+        <p class="snipTitle">1 · Dispensador</p>
+        <div class="phone">
+          <div class="phoneTop">Tengo 15 minutos ahora</div>
+          <div class="phoneMid">
+            <div class="card">
+              <p class="cardKicker">Salón</p>
+              <h4 class="cardTask">Despeja la mesa del salón</h4>
+              <p class="cardDur"><span class="durChip">10–15 min</span></p>
+            </div>
+            <div class="acts">
+              <div class="btnPri">Hecho</div>
+              <div class="btnGho">Otra más fácil / Ahora no</div>
+            </div>
+          </div>
+          <p class="phoneFoot">Una sola cosa. Nada más ahora mismo.</p>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">2 · Flujo de 3 destinos</p>
+        <div class="flow">
+          <p class="flowQ">Este objeto, ¿a dónde va?</p>
+          <p class="flowSub">Cualquiera de los tres está bien.</p>
+          <div class="dest dKeep"><p class="destName">Quedármelo</p><p class="destWhat">vuelve a su sitio</p></div>
+          <div class="dest dDon"><p class="destName">Donar o vender</p><p class="destWhat">sale de casa y le sirve a alguien</p></div>
+          <div class="dest dTra"><p class="destName">Tirar o reciclar</p><p class="destWhat">sale de casa y cierra su ciclo</p></div>
+        </div>
+      </div>
+
+      <div class="snip">
+        <p class="snipTitle">3 · Recompensa antes / después</p>
+        <div class="reward">
+          <div class="shots">
+            <div class="shot">
+              <p class="shotLab">Antes</p>
+              <div class="plate pA">
+                <span class="o" style="left:8px;top:12px;width:44px;height:30px"></span>
+                <span class="o" style="left:60px;top:34px;width:34px;height:44px"></span>
+                <span class="o" style="left:20px;top:62px;width:52px;height:22px"></span>
+                <span class="o" style="left:74px;top:92px;width:40px;height:26px"></span>
+                <span class="o" style="left:12px;top:96px;width:28px;height:24px"></span>
+              </div>
+            </div>
+            <div class="shot">
+              <p class="shotLab">Después</p>
+              <div class="plate pB">
+                <span class="o" style="left:14px;top:86px;width:44px;height:30px"></span>
+                <span class="o" style="left:66px;top:86px;width:44px;height:30px"></span>
+              </div>
+            </div>
+          </div>
+          <p class="rewardCap">Tu trastero, hace un rato y ahora. Se queda así de tranquilo.</p>
+          <p class="rewardMeta">≈ 3 cajas liberadas · guardado en tu álbum</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

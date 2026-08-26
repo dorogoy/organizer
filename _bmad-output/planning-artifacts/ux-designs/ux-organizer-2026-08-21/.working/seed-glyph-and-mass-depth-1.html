@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Semilla en vuelo · profundidad de masa · Aliento</title>
+<style>
+/* =====================================================================
+   SEMILLA EN VUELO · PROFUNDIDAD DE MASA · AJUSTES SIN DETALLE FINO
+   Sesion UX BMad · Organizador anti-agobio · 2026-08-21
+   Paleta base: VARIACION 4 "ALIENTO" de color-themes-1.html (clase .v4)
+   =====================================================================
+
+   -------------------------------------------------------------------
+   1. TOKENS DE ALIENTO EXTRAIDOS TAL CUAL, CON SU L* CIE (D65, sRGB)
+   -------------------------------------------------------------------
+   surface-base     #F7F8F9   L* 97.5   a  -0.4  b  -0.9
+   surface-raised   #FFFFFF   L* 100.0  a   0.0  b   0.0
+   ink-primary      #1E2124   L* 12.6
+   ink-secondary    #5C6368   L* 41.5
+   border-hairline  #E1E5E8   L* 90.7
+   accent-soft      #D5E0DC   L* 88.3   a  -4.4  b   0.7   (agua clara)
+   dest-keep        #C4D6CE   L* 84.1   a  -7.5  b   1.9   (menta polvo)
+   dest-donate      #D3D0E4   L* 84.3   a   4.8  b  -9.5   (glicina)
+   dest-trash       #DCD6C8   L* 85.7   a  -0.3  b   7.6   (arena clara)
+   radius           14px
+
+   Separaciones de luminosidad contra el fondo (surface-base, L* 97.5):
+     accent-soft   dL* 9.2
+     dest-keep     dL* 13.4
+     dest-donate   dL* 13.2
+     dest-trash    dL* 11.8      <-- la mas debil de los tres destinos
+   Aliento es la paleta mas aireada de las cinco justamente porque
+   ninguna masa baja de L* 84. Ese es el conflicto de esta pagina.
+
+   -------------------------------------------------------------------
+   2. REGLA DE DESPLAZAMIENTO (variante A, registro desplazado)
+   -------------------------------------------------------------------
+   |desplazamiento| = 0.08 x lado renderizado del icono.
+   El viewBox es SIEMPRE "0 0 24 24" a cualquier tamano de render, asi
+   que en unidades de usuario la regla es una constante:
+
+       24 u x 0.08 = 1.92 u
+
+   En pixeles de pantalla:
+       24px -> 1.92px      36px -> 2.88px      48px -> 3.84px
+   Trazo: stroke-width="1" en unidades de viewBox
+       24px -> 1.00px      36px -> 1.50px      48px -> 2.00px
+
+   DESCOMPOSICION POR EJES. El 8% es la MAGNITUD del vector, no el
+   valor por eje. Para un desplazamiento diagonal a 45 grados:
+       dx = dy = 1.92 / raiz(2) = 1.3576 u   (se escribe 1.358)
+   Para un desplazamiento axial (un solo eje):
+       1.92 u en ese eje, 0 en el otro.
+
+   CORRECCION RESPECTO A icon-treatment-1.html. Alli se escribio
+   x="1.92" y="1.92", que es un vector de magnitud 2.716 u = 11.3% del
+   lado, no 8%. Eso explica en parte por que Ajustes reventó: sobre un
+   disco de r=2.7 (5.4 u de diametro) un desplazamiento de 2.716 u es
+   el 50.3% del diametro; con la regla correcta de 1.92 u sigue siendo
+   el 35.6%. Es decir: el bug de descomposicion empeoró el sintoma,
+   pero la construccion de tres perillas r=2.7 falla igual con la
+   regla correcta. Se documenta para no volver a culpar al valor.
+
+   -------------------------------------------------------------------
+   3. TOKENS NUEVOS INTRODUCIDOS EN ESTA PAGINA
+   -------------------------------------------------------------------
+   Banda profunda, L* objetivo 76.0 (dL* 21.6 contra el fondo).
+   Se obtiene fijando L* = 76 en CIELAB y conservando a y b del token
+   original, luego reconvirtiendo a sRGB:
+
+     icon-mass-keep    #AEBFB8  L* 75.9  a  -7.2  b   1.5  C  7.3
+     icon-mass-donate  #BCB9CD  L* 75.9  a   4.9  b  -9.7  C 10.8
+     icon-mass-accent  #B3BEBA  L* 76.0  a  -4.6  b   0.7  C  4.7
+     (arena profunda)  #C1BBAD  L* 76.0  a  -0.3  b   7.8  C  7.8
+        ^ solo para el esquema B de la seccion 1; se descarta despues.
+
+   CANDIDATOS DE RECAMBIO PARA dest-trash (todos a L* 76.0):
+     cielo lavado      #A6BFCC  L* 75.9  a  -5.7  b  -9.4  C 11.0
+     cielo abierto     #97C2D4  L* 76.0  a -10.0  b -13.6  C 16.9
+     piedra fria       #B6BCC1  L* 75.9  a  -1.1  b  -3.2  C  3.4
+     (descartado)
+     aguamarina polvo  #9FC2C0  L* 75.9  a -12.1  b  -2.9  C 12.4
+     (prohibido)
+     rosa polvo        #D9B1B8  L* 75.9  a  15.6  b   1.9  C 15.7
+
+   TRIO REVISADO FINAL (el que se usa en la seccion 5):
+     dest-keep    #AEBFB8  L* 75.9
+     dest-donate  #BCB9CD  L* 75.9
+     dest-trash   #A6BFCC  L* 75.9
+   Los tres a L* 75.9 +/- 0.1. dL* contra el fondo: 21.6 en los tres.
+
+   -------------------------------------------------------------------
+   4. AREAS DE MASA MEDIDAS (u^2, viewBox de 24; curvas aplanadas a
+      60 segmentos por Bezier y area por formula del cordon)
+   -------------------------------------------------------------------
+     Semilla: corona 77.5 + aquenio 7.5 = 85.0   <-- peso de referencia
+     Caja A:  tapa 79.2 + cuerpo 150.0 = 229.2   2.70x
+     Bolsa A: cuerpo 144.0                       1.69x
+     Caja B:  solo tapa 79.2                     0.93x
+     Bolsa B: solo banda 80.2                    0.94x
+     Hoja 128.1 (1.51x) · Camara 191.5 · Album 182.3
+     Reloj 211.2 (2.48x, el mas pesado del set) · Ajustes 130.3
+     Lapiz 94.5 (1.11x)
+   Perimetro de linea (tinta de contorno, u):
+     Semilla ~42.5 · Caja B abierta 78.6 (1.85x) · Bolsa B abierta 46.0
+     (1.08x) · Caja A cerrada 99.2 (2.33x)
+   ===================================================================== */
+
+:root{
+  /* Aliento, tal cual */
+  --sb:#F7F8F9; --sr:#FFFFFF;
+  --ink:#1E2124; --ink2:#5C6368;
+  --hair:#E1E5E8;
+  --acc:#D5E0DC;
+  --keep:#C4D6CE; --don:#D3D0E4; --tra:#DCD6C8;
+  /* banda profunda L* 76 */
+  --keepD:#AEBFB8; --donD:#BCB9CD; --accD:#B3BEBA; --sandD:#C1BBAD;
+  /* candidatos de recambio */
+  --c1:#A6BFCC; --c2:#97C2D4; --c3:#B6BCC1; --cx:#9FC2C0; --cr:#D9B1B8;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--sb); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:15px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.head{
+  padding:44px 32px 30px; border-bottom:1px solid var(--hair);
+  background:var(--sr);
+}
+.head h1{margin:0 0 8px; font-size:1.32rem; font-weight:620; letter-spacing:-.012em}
+.head p{margin:0; color:var(--ink2); font-size:.86rem; max-width:70ch}
+.wrap{max-width:1080px; margin:0 auto; padding:0 32px 96px}
+section{padding:56px 0 8px; border-bottom:1px solid var(--hair)}
+section:last-of-type{border-bottom:0}
+.snum{
+  margin:0 0 6px; font-size:.7rem; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink2); font-weight:600;
+}
+h2{margin:0 0 12px; font-size:1.08rem; font-weight:620; letter-spacing:-.006em}
+h3{margin:36px 0 10px; font-size:.94rem; font-weight:620}
+h4{margin:0 0 4px; font-size:.82rem; font-weight:620}
+.lede{margin:0 0 28px; max-width:78ch; color:var(--ink2); font-size:.9rem}
+p{max-width:80ch}
+.note{
+  background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:18px 22px; margin:26px 0 0; font-size:.86rem;
+}
+.note p{margin:0 0 10px}
+.note p:last-child{margin:0}
+.note.verdict{border-left:3px solid var(--ink2)}
+.card{
+  background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:22px 24px; margin:0 0 18px;
+}
+.cap{font-size:.7rem; color:var(--ink2); letter-spacing:.02em; text-align:center}
+.sub{font-size:.8rem; color:var(--ink2); margin:0 0 16px}
+.row{display:flex; flex-wrap:wrap; gap:34px; align-items:flex-end}
+.cell{display:flex; flex-direction:column; align-items:center; gap:8px}
+svg{display:block; overflow:visible}
+.tiles{display:flex; flex-wrap:wrap; gap:12px; margin:14px 0 0}
+.chip{
+  border:1px solid var(--hair); border-radius:10px; padding:10px 12px;
+  display:flex; align-items:center; gap:10px; font-size:.76rem; background:var(--sr);
+}
+.sw{width:34px; height:34px; border-radius:8px; border:1px solid rgba(30,33,36,.10)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.76rem}
+table{border-collapse:collapse; width:100%; font-size:.8rem; margin:14px 0 0}
+th,td{text-align:left; padding:8px 12px; border-bottom:1px solid var(--hair)}
+th{font-weight:620; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink2)}
+td.n{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.grid3{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px}
+.field{border-radius:12px; padding:16px; display:flex; align-items:center; justify-content:center}
+.setrow{display:flex; flex-wrap:wrap; gap:26px; margin:8px 0 0}
+.setrow .cell{width:76px}
+.destrow{display:flex; gap:14px; align-items:stretch}
+.dest{
+  flex:1; background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:20px 12px 16px; display:flex; flex-direction:column; align-items:center; gap:12px;
+  text-align:center;
+}
+.dest span{font-size:.82rem; line-height:1.35}
+.phone{
+  width:340px; border:1px solid var(--hair); border-radius:26px; background:var(--sb);
+  padding:16px 14px 22px; margin:0;
+}
+.phone .bar{height:5px; width:70px; border-radius:3px; background:var(--hair); margin:2px auto 26px}
+.zone{display:flex; align-items:center; gap:8px; font-size:.74rem; color:var(--ink2); margin:0 0 auto; padding:0 6px}
+.dcard{
+  background:var(--sr); border:1px solid var(--hair); border-radius:var(--r);
+  padding:26px 22px 22px; margin:120px 0 0;
+}
+.dcard .dur{font-size:.72rem; color:var(--ink2); letter-spacing:.04em}
+.dcard .task{font-size:1.16rem; font-weight:600; margin:8px 0 26px; line-height:1.34; letter-spacing:-.01em}
+.btn{
+  display:block; width:100%; text-align:center; padding:14px; border-radius:11px;
+  background:var(--acc); color:var(--ink); font-size:.94rem; font-weight:600; border:0;
+}
+.qrow{display:flex; gap:10px; margin:10px 0 0}
+.q{
+  flex:1; text-align:center; padding:11px; border-radius:11px; border:1px solid var(--hair);
+  color:var(--ink2); font-size:.8rem; background:var(--sr);
+}
+.tag{
+  display:inline-block; font-size:.66rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink2); border:1px solid var(--hair); border-radius:999px; padding:2px 9px;
+}
+.bad{opacity:.999}
+ul{max-width:80ch; padding-left:1.15rem}
+li{margin:0 0 6px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Semilla en vuelo · profundidad de masa · registro desplazado</h1>
+  <p>Sesión UX · Organizador anti-agobio · paleta Aliento (variación 4). Cinco preguntas: ¿a qué profundidad de masa se lee el mal registro a 24px, en qué dirección debe desplazarse la masa de una semilla que vuela, pesan lo mismo los tres destinos, qué reemplaza a la arena clara, y de qué se dibuja Ajustes cuando no puede ser un engranaje.</p>
+</div>
+
+<!-- =================== DEFINICIONES DE GLIFOS =================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+
+  <!-- SEMILLA EN VUELO, dibujada en vertical; el vuelo se aplica con rotate().
+       Corona de vilano de tres lóbulos (una sola masa conectada, 9.6u de ancho),
+       tallo de una línea, aquenio en husillo. Ningún filamento suelto. -->
+  <g id="m-sem">
+    <path d="M7.2 11.4 C6.9 7.9 7.4 5.0 8.8 5.0 C9.9 5.0 10.5 5.9 10.5 6.9 C10.5 5.5 11.0 4.6 12 4.6 C13.0 4.6 13.5 5.5 13.5 6.9 C13.5 5.9 14.1 5.0 15.2 5.0 C16.6 5.0 17.1 7.9 16.8 11.4 L16.8 13.4 L7.2 13.4 Z"/>
+    <path d="M12 14.6 C13.4 15.5 13.5 18.4 12 19.4 C10.5 18.4 10.6 15.5 12 14.6 Z"/>
+  </g>
+  <g id="l-sem">
+    <path d="M7.2 11.4 C6.9 7.9 7.4 5.0 8.8 5.0 C9.9 5.0 10.5 5.9 10.5 6.9 C10.5 5.5 11.0 4.6 12 4.6 C13.0 4.6 13.5 5.5 13.5 6.9 C13.5 5.9 14.1 5.0 15.2 5.0 C16.6 5.0 17.1 7.9 16.8 11.4"/>
+    <path d="M12 11.2 L12 14.7"/>
+    <path d="M12 14.6 C13.4 15.5 13.5 18.4 12 19.4 C10.5 18.4 10.6 15.5 12 14.6 Z"/>
+  </g>
+
+  <!-- CAJA · trío A (peso natural, sólida) -->
+  <g id="m-cajA">
+    <rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/>
+    <rect x="4.5" y="10" width="15" height="10" rx="1.4"/>
+  </g>
+  <g id="l-cajA">
+    <rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/>
+    <rect x="4.5" y="10" width="15" height="10" rx="1.4"/>
+    <path d="M12 6.4 L12 10.4"/>
+  </g>
+  <!-- CAJA · trío B (aligerada: masa solo en la tapa, cuerpo abierto de tres lados) -->
+  <g id="m-cajB"><rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/></g>
+  <g id="l-cajB">
+    <rect x="3" y="6.2" width="18" height="4.4" rx="1.2"/>
+    <path d="M4.9 10.6 L4.9 20 L19.1 20 L19.1 10.6"/>
+  </g>
+
+  <!-- BOLSA · trío A -->
+  <g id="m-bolA"><path d="M5.6 9.4 L18.4 9.4 L19.3 20 L4.7 20 Z"/></g>
+  <g id="l-bolA">
+    <path d="M5.6 9.4 L18.4 9.4 L19.3 20 L4.7 20 Z"/>
+    <path d="M9.2 9.4 V7.8 A2.8 2.8 0 0 1 14.8 7.8 V9.4"/>
+  </g>
+  <!-- BOLSA · trío B (masa solo en la banda baja, cuerpo abierto arriba) -->
+  <g id="m-bolB"><path d="M5.15 14.1 L18.85 14.1 L19.3 20 L4.7 20 Z"/></g>
+  <g id="l-bolB">
+    <path d="M5.6 9.4 L4.7 20 L19.3 20 L18.4 9.4"/>
+    <path d="M9.2 9.4 V7.8 A2.8 2.8 0 0 1 14.8 7.8 V9.4"/>
+  </g>
+
+  <!-- CAMARA -->
+  <g id="m-cam">
+    <rect x="3" y="8.4" width="18" height="11.4" rx="2.4"/>
+    <rect x="8.8" y="5.4" width="6.4" height="3.4" rx="1"/>
+  </g>
+  <g id="l-cam">
+    <rect x="3" y="8.4" width="18" height="11.4" rx="2.4"/>
+    <rect x="8.8" y="5.4" width="6.4" height="3.4" rx="1"/>
+    <circle cx="12" cy="14.1" r="3.6"/>
+  </g>
+
+  <!-- ALBUM -->
+  <g id="m-alb"><rect x="3" y="7" width="14" height="14" rx="2"/></g>
+  <g id="l-alb">
+    <rect x="7" y="3" width="14" height="14" rx="2"/>
+    <rect x="3" y="7" width="14" height="14" rx="2"/>
+    <path d="M4.4 18.6 L8.2 13.8 L11 17 L13.4 14.2 L15.6 18.6"/>
+  </g>
+
+  <!-- RELOJ -->
+  <g id="m-rel"><circle cx="12" cy="12" r="8.2"/></g>
+  <g id="l-rel">
+    <circle cx="12" cy="12" r="8.2"/>
+    <path d="M12 7.2 L12 12 L15.4 13.8"/>
+  </g>
+
+  <!-- HOJA · marcador de zona FlyLady -->
+  <g id="m-hoj"><path d="M5 19.4 C5 10.6 11 4.2 19.2 4.2 C19.2 13 13.2 19.4 5 19.4 Z"/></g>
+  <g id="l-hoj">
+    <path d="M5 19.4 C5 10.6 11 4.2 19.2 4.2 C19.2 13 13.2 19.4 5 19.4 Z"/>
+    <path d="M6.2 18.2 C10 14.4 14.4 10 18.4 5.2"/>
+  </g>
+
+  <!-- LAPIZ · el eje del lápiz corre a 45 grados arriba-derecha, el mismo
+       eje que el desplazamiento global: la masa se desliza a lo largo de su
+       dimensión larga (20u) y no cruza su ancho (5u). -->
+  <g id="m-lap"><path d="M3.4 20.6 L4.60 15.86 L16.48 3.98 L20.02 7.52 L8.14 19.40 Z"/></g>
+  <g id="l-lap">
+    <path d="M3.4 20.6 L4.60 15.86 L16.48 3.98 L20.02 7.52 L8.14 19.40 Z"/>
+    <path d="M4.60 15.86 L8.14 19.40"/>
+    <path d="M14.01 6.45 L17.55 9.99"/>
+  </g>
+
+  <!-- AJUSTES · A · dial único (un solo disco grande) -->
+  <g id="m-ajA"><circle cx="12" cy="12" r="8"/></g>
+  <g id="l-ajA">
+    <circle cx="12" cy="12" r="8"/>
+    <path d="M12 4.4 L12 8.2"/>
+  </g>
+  <!-- AJUSTES · B · conmutador (cápsula grande + perilla grande) -->
+  <g id="m-ajB"><rect x="3" y="8" width="18" height="8" rx="4"/></g>
+  <g id="l-ajB">
+    <rect x="3" y="8" width="18" height="8" rx="4"/>
+    <circle cx="16.4" cy="12" r="2.9"/>
+  </g>
+  <!-- AJUSTES · C · deslizador de un solo tirador grande -->
+  <g id="m-ajC"><circle cx="14.6" cy="12" r="4"/></g>
+  <g id="l-ajC">
+    <path d="M3.4 12 L19.6 12"/>
+    <circle cx="14.6" cy="12" r="4"/>
+  </g>
+  <!-- AJUSTES · rechazado · rejilla de tres perillas r=2.7 (para ver el fallo) -->
+  <g id="m-ajX">
+    <circle cx="8.2" cy="6.4" r="2.7"/><circle cx="15.4" cy="12" r="2.7"/><circle cx="9.6" cy="17.6" r="2.7"/>
+  </g>
+  <g id="l-ajX">
+    <path d="M3.2 6.4 H20.8"/><path d="M3.2 12 H20.8"/><path d="M3.2 17.6 H20.8"/>
+    <circle cx="8.2" cy="6.4" r="2.7"/><circle cx="15.4" cy="12" r="2.7"/><circle cx="9.6" cy="17.6" r="2.7"/>
+  </g>
+
+</defs></svg>
+
+<div class="wrap">
+
+<!-- ============================ 0 ============================ -->
+<section>
+  <p class="snum">Punto de partida</p>
+  <h2>Aliento, medida</h2>
+  <p class="lede">Los nueve tokens de la variación 4 tal como están escritos en <span class="mono">color-themes-1.html</span>, con su L* CIE calculado (D65, sRGB). Sin retoques. El argumento de luminosidad de toda la página se apoya en estos números.</p>
+
+  <div class="card">
+    <table>
+      <tr><th>token</th><th>hex</th><th>L*</th><th>dL* vs fondo</th><th>nota</th></tr>
+      <tr><td>surface-base</td><td class="n">#F7F8F9</td><td class="n">97.5</td><td class="n">—</td><td>el suelo</td></tr>
+      <tr><td>surface-raised</td><td class="n">#FFFFFF</td><td class="n">100.0</td><td class="n">—</td><td>tarjeta</td></tr>
+      <tr><td>ink-primary</td><td class="n">#1E2124</td><td class="n">12.6</td><td class="n">84.9</td><td>línea y texto</td></tr>
+      <tr><td>ink-secondary</td><td class="n">#5C6368</td><td class="n">41.5</td><td class="n">56.0</td><td>línea más clara</td></tr>
+      <tr><td>border-hairline</td><td class="n">#E1E5E8</td><td class="n">90.7</td><td class="n">6.8</td><td>filete</td></tr>
+      <tr><td>accent-soft</td><td class="n">#D5E0DC</td><td class="n">88.3</td><td class="n">9.2</td><td>agua clara · lleva texto</td></tr>
+      <tr><td>dest-keep</td><td class="n">#C4D6CE</td><td class="n">84.1</td><td class="n">13.4</td><td>menta polvo</td></tr>
+      <tr><td>dest-donate</td><td class="n">#D3D0E4</td><td class="n">84.3</td><td class="n">13.2</td><td>glicina</td></tr>
+      <tr><td>dest-trash</td><td class="n">#DCD6C8</td><td class="n">85.7</td><td class="n">11.8</td><td>arena clara · la más débil</td></tr>
+    </table>
+    <div class="tiles">
+      <div class="chip"><span class="sw" style="background:#F7F8F9"></span>base 97.5</div>
+      <div class="chip"><span class="sw" style="background:#D5E0DC"></span>accent 88.3</div>
+      <div class="chip"><span class="sw" style="background:#C4D6CE"></span>keep 84.1</div>
+      <div class="chip"><span class="sw" style="background:#D3D0E4"></span>donate 84.3</div>
+      <div class="chip"><span class="sw" style="background:#DCD6C8"></span>trash 85.7</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><b>La regla de desplazamiento, con sus números.</b> <span class="mono">|d| = 0.08 x lado</span>. El viewBox es siempre <span class="mono">0 0 24 24</span>, así que en unidades de usuario es una constante: <span class="mono">24 x 0.08 = 1.92 u</span>, idéntica a 24, 36 y 48px (1.92px / 2.88px / 3.84px en pantalla). El trazo es <span class="mono">stroke-width="1"</span> en unidades de viewBox: 1.00px a 24px, 1.50px a 36px, 2.00px a 48px.</p>
+    <p><b>El 8% es la magnitud del vector, no el valor por eje.</b> Diagonal a 45°: <span class="mono">dx = dy = 1.92 / √2 = 1.358 u</span>. Axial: <span class="mono">1.92 u</span> en un eje, 0 en el otro. En <span class="mono">icon-treatment-1.html</span> se escribió <span class="mono">x="1.92" y="1.92"</span>, que es un vector de magnitud 2.716 u, el 11.3% del lado. Ese error de descomposición empeoró el fallo de Ajustes (2.716 u sobre un disco de 5.4 u de diámetro es el 50.3% del diámetro), pero con la regla correcta sigue siendo el 35.6%: la construcción de tres perillas r=2.7 falla igual. El valor no era el culpable, la construcción sí.</p>
+  </div>
+</section>
+
+<!-- ============================ 1 ============================ -->
+<section>
+  <p class="snum">Sección 1</p>
+  <h2>La semilla a tres profundidades de masa</h2>
+  <p class="lede">Una sola semilla de diente de león en vuelo: corona de vilano de tres lóbulos (una masa conectada de 9.6 u de ancho), tallo de una línea, aquenio en husillo. Ningún filamento suelto, ninguna semilla de 1 u. Inclinada 45° arriba-derecha, con desplazamiento axial: la masa se desliza a lo largo del eje de vuelo. A 24 / 36 / 48px bajo tres esquemas.</p>
+
+  <div class="card">
+    <h4>A · Aliento tal cual</h4>
+    <p class="sub">Masa <span class="mono">#DCD6C8</span> · L* 85.7 · dL* 11.8 contra el fondo. Sin compensar nada.</p>
+    <div class="row">
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--tra)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">24px</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="36" height="36">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--tra)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">36px</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="48" height="48">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--tra)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">48px</span>
+      </div>
+      <div class="cell" style="align-self:center">
+        <div class="field" style="background:var(--tra); width:120px; height:44px; border:1px solid rgba(30,33,36,.08)"><span class="cap" style="color:var(--ink)">campo L* 85.7</span></div>
+        <span class="cap">aireado, sí</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:22px"><b>Lo que pasa.</b> A 24px la media luna asomada mide 1.92px de ancho y tiene 11.8 puntos de L* de diferencia con el papel. No desaparece del todo: se ve como un temblor. Pero deja de leerse como <em>segunda plancha de tinta</em> y pasa a leerse como antialias, un borde sucio. A 36px empieza a haber gesto y a 48px funciona. El problema es real y es exactamente donde vive la app: la barra de navegación y los iconos junto al texto son de 20-24px.</p>
+  </div>
+
+  <div class="card">
+    <h4>B · Masas oscurecidas</h4>
+    <p class="sub">Todos los pasteles bajados a L* 76.0 conservando a y b. Arena profunda <span class="mono">#C1BBAD</span> · dL* 21.6. <b>Delta necesario: −9.7 puntos de L*</b> (de 85.7 a 76.0), es decir casi el doble de separación contra el fondo.</p>
+    <div class="row">
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">24px</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="36" height="36">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">36px</span>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="48" height="48">
+          <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+          <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+        </svg><span class="cap">48px</span>
+      </div>
+      <div class="cell" style="align-self:center">
+        <div class="field" style="background:var(--sandD); width:120px; height:44px; border:1px solid rgba(30,33,36,.08)"><span class="cap" style="color:var(--ink)">campo L* 76.0</span></div>
+        <span class="cap">esto ya no es Aliento</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:22px"><b>El coste, sin adornos.</b> A 24px la media luna se lee: hay dos planchas. Pero mirad la muestra de campo de la derecha comparada con la de arriba. Si el token oscurecido se usa también como campo —chip de destino, relleno de botón, banda— la paleta deja de ser la más aireada de las cinco y se convierte en algo del registro de la variación 1 o 3. Sergio eligió Aliento <em>por</em> el aire. Este esquema resuelve el icono cobrándose la razón de la elección.</p>
+  </div>
+
+  <div class="card">
+    <h4>C · Dos niveles de token</h4>
+    <p class="sub">Campos a la línea base de Aliento (L* 84-88). Masas de icono desde un set aparte: <span class="mono">icon-mass-*</span> a L* 76.0. Aquí la semilla lleva <span class="mono">#C1BBAD</span> (L* 76.0) y está sentada sobre un campo <span class="mono">#DCD6C8</span> (L* 85.7).</p>
+    <div class="row">
+      <div class="cell">
+        <div class="field" style="background:var(--tra); border:1px solid rgba(30,33,36,.08)">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+          </svg>
+        </div><span class="cap">24px sobre campo</span>
+      </div>
+      <div class="cell">
+        <div class="field" style="background:var(--tra); border:1px solid rgba(30,33,36,.08)">
+          <svg viewBox="0 0 24 24" width="36" height="36">
+            <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+          </svg>
+        </div><span class="cap">36px sobre campo</span>
+      </div>
+      <div class="cell">
+        <div class="field" style="background:var(--tra); border:1px solid rgba(30,33,36,.08)">
+          <svg viewBox="0 0 24 24" width="48" height="48">
+            <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--sandD)"/></g></g>
+            <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+          </svg>
+        </div><span class="cap">48px sobre campo</span>
+      </div>
+      <div class="cell" style="align-self:center">
+        <div class="field" style="background:var(--tra); width:120px; height:44px; border:1px solid rgba(30,33,36,.08)"><span class="cap" style="color:var(--ink)">campo L* 85.7</span></div>
+        <span class="cap">el aire se conserva</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:22px"><b>La costura, a la vista.</b> La masa de la semilla y el campo en el que se sienta son la misma familia de color y ya no son el mismo color: 9.7 puntos de L* de diferencia. El glifo parece una pegatina puesta encima, no algo impreso en la misma pasada. Además son ocho tokens nuevos que mantener y una regla que alguien romperá dentro de tres pantallas: <em>las masas usan <span class="mono">icon-mass-*</span>, los campos usan <span class="mono">dest-*</span></em>.</p>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Qué hace legible el mal registro a 24px.</b> B y C, exactamente igual, porque la masa del icono es el mismo valor en las dos (L* 76.0, dL* 21.6). A no lo consigue: 11.8 puntos de L* sobre 1.92px de media luna es un temblor, no una plancha. El umbral que encontré en esta página está entre <b>dL* 18 y dL* 20</b>; por debajo de 18 el gesto se pierde a 24px con trazo de 1px.</p>
+    <p><b>Qué cuesta cada uno.</b> A no cuesta nada y no resuelve nada. B resuelve y cobra la propiedad por la que se eligió Aliento: los campos grandes bajan a L* 76 y el registro de la paleta cambia de aireado a impreso. C resuelve y cobra dos cosas menos visibles pero permanentes: una costura de 9.7 L* siempre que un glifo se apoya en un campo de su misma familia, y una disciplina de dos niveles de token que se degradará con el tiempo.</p>
+    <p><b>Recomendación, con su trampa.</b> Gana <b>C</b>, por una razón de área: los campos ocupan miles de píxeles y son lo que produce la sensación de aire; las masas de icono ocupan del orden de 200 px de dispositivo a 24px, así que oscurecerlas no se percibe como pérdida de aire. Y la costura de C se puede <em>eliminar</em> en vez de tolerar: si el flujo de tres destinos deja de tener baldosas de color y el pastel vive solo dentro del glifo, los dos niveles nunca se tocan. Eso es lo que hace la sección 5. La trampa: con esa decisión los destinos pierden sus manchas grandes de color, así que la identidad cromática pasa a descansar en ~200 px de masa por icono. Para alguien con visión de color reducida el color deja de aportar casi nada y todo el peso recae en la forma. Es un coste real, no un detalle.</p>
+  </div>
+</section>
+
+<!-- ============================ 2 ============================ -->
+<section>
+  <p class="snum">Sección 2</p>
+  <h2>Dirección de vuelo contra dirección de desplazamiento</h2>
+  <p class="lede">La semilla tiene un eje y viaja en su dirección. La masa se desplaza en <em>alguna</em> dirección. Cuatro combinaciones a 36px, con la masa a L* 76. La geometría que importa: el aquenio mide 2.8 u de ancho y 4.8 u de largo. Un desplazamiento de 1.92 u <b>a lo largo</b> del eje es el 40% de su longitud y el 0% de su ancho. El mismo desplazamiento <b>de través</b> son 1.358 u sobre 2.8 u de ancho: el 49% del ancho, la masa se sale por un lado.</p>
+
+  <div class="row" style="gap:40px">
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="36" height="36">
+        <g transform="translate(1.358,1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span class="cap">1 · vuelo ↗ · offset ↘<br>no coinciden</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="36" height="36">
+        <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span class="cap">2 · vuelo ↗ · offset ↗<br>coinciden</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="36" height="36">
+        <g transform="translate(-1.358,-1.358)"><g transform="translate(12,12) rotate(-45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(-45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span class="cap">3 · vuelo ↖ · offset ↖<br>coinciden, espejo</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="36" height="36">
+        <g transform="translate(0,1.92)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span class="cap">4 · vuelo ↗ · offset ↓<br>recto abajo</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="36" height="36">
+        <g transform="translate(-1.358,1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span class="cap">+ · vuelo ↗ · offset ↙<br><span class="tag">añadido</span></span>
+    </div>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Leen como rastro de movimiento: 2, 3 y el añadido.</b> Los tres comparten una sola propiedad: el desplazamiento es <em>axial</em>, va por el mismo eje que el vuelo. La masa se desliza a lo largo de la forma en vez de cruzarla. La corona conserva sus 9.6 u de ancho intactos y asoma una media luna limpia de 1.92 u en un extremo; el aquenio se mueve el 40% de su largo y el 0% de su ancho. El ojo lee un desenfoque de movimiento, y en Aliento eso lee además como risografía mal registrada: las dos lecturas apuntan al mismo sitio.</p>
+    <p><b>Leen como error de impresión: 1 y 4.</b> En las dos el desplazamiento es <em>transversal</em>. Sobre el aquenio, 1.358 u de componente perpendicular es el 49% de sus 2.8 u de ancho: casi la mitad de la masa sale del contorno por un costado y queda una mancha sin línea al lado del husillo. La corona, que es ancha, aguanta; el aquenio, que es la parte estrecha, no. El caso 4 es el peor: el offset recto abajo mientras el vuelo va arriba-derecha produce un vector de desplazamiento a 135° del eje, la masa contradice el movimiento y el resultado no dice «vuela», dice «la plancha se movió».</p>
+    <p><b>El hallazgo no es el sentido, es el eje.</b> Entre el caso 2 (offset por delante, la masa adelanta al dibujo) y el añadido (offset por detrás, la masa se queda atrás) la diferencia es de matiz: el añadido es literalmente lo que hace un rastro y es el más «físico»; el 2 lee como la tinta empujando hacia delante y es igual de defendible. Lo que separa un rastro de un error es que el vector sea paralelo al eje del glifo, no su sentido.</p>
+    <p><b>Consecuencia práctica que simplifica todo.</b> Si la semilla se inclina exactamente 45° arriba-derecha, su eje local coincide con el vector diagonal global <span class="mono">(+1.358, −1.358)</span>. Es decir: <b>un único desplazamiento global de pantalla sirve para todo el set y además satisface la exigencia axial de la semilla.</b> No hace falta un offset por icono. El resto de la página usa ese único vector.</p>
+  </div>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<section>
+  <p class="snum">Sección 3</p>
+  <h2>El trío a peso óptico igualado</h2>
+  <p class="lede">Los tres destinos no pueden tener jerarquía. La semilla tiene 85.0 u² de masa medidos. Una caja sólida tiene 229.2 y una bolsa sólida 144.0. Si se dejan así, el tercer destino pesa la tercera parte que el primero y la app está juzgando la elección en silencio, sin decir una palabra.</p>
+
+  <h3>Trío A · caja y bolsa a su peso natural</h3>
+  <div class="destrow">
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><use href="#m-cajA" fill="var(--keepD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajA"/></g>
+      </svg>
+      <span>Quedármelo</span><span class="cap">masa 229.2 u² · 2.70×</span>
+    </div>
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><use href="#m-bolA" fill="var(--donD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolA"/></g>
+      </svg>
+      <span>Donar o vender</span><span class="cap">masa 144.0 u² · 1.69×</span>
+    </div>
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span>Tirar o soltar</span><span class="cap">masa 85.0 u² · 1.00×</span>
+    </div>
+  </div>
+  <p class="note"><b>El desequilibrio no hay que buscarlo.</b> A 40px la caja es un bloque, la bolsa un cuerpo y la semilla una cosa fina que se va. Leídos en fila, el ojo los ordena: mucho, bastante, poco. Y como los tres son opciones, ese orden se lee como preferencia. Es el fallo más grave de la página, porque es el único que contradice el propósito del producto.</p>
+
+  <h3>Trío B · caja y bolsa aligeradas al peso de la semilla</h3>
+  <div class="destrow">
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keepD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+      </svg>
+      <span>Quedármelo</span><span class="cap">masa 79.2 u² · 0.93×</span>
+    </div>
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--donD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+      </svg>
+      <span>Donar o vender</span><span class="cap">masa 80.2 u² · 0.94×</span>
+    </div>
+    <div class="dest">
+      <svg viewBox="0 0 24 24" width="40" height="40">
+        <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg>
+      <span>Tirar o soltar</span><span class="cap">masa 85.0 u² · 1.00×</span>
+    </div>
+  </div>
+  <div class="row" style="margin-top:20px; gap:34px">
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keepD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+      </svg><span class="cap">24px</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--donD)"/></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+      </svg><span class="cap">24px</span>
+    </div>
+    <div class="cell">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+        <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+      </svg><span class="cap">24px</span>
+    </div>
+  </div>
+
+  <div class="note verdict">
+    <p><b>¿Consigue el trío B la paridad? No. Reduce el hueco casi del todo en masa y lo traslada a la línea.</b> En masa la paridad es real y medida: 0.93 / 0.94 / 1.00, dentro de un 7%. La caja pierde el cuerpo relleno y se queda con la tapa como única plancha, con el cuerpo abierto de tres lados; la bolsa pierde el cuerpo relleno y se queda con una banda baja. Las dos son más aireadas y las dos siguen leyéndose a 24px.</p>
+    <p><b>Donde no llega.</b> El perímetro de contorno —la tinta de línea— no se iguala: semilla ~42.5 u, bolsa B abierta 46.0 u (1.08×), caja B abierta 78.6 u (<b>1.85×</b>). La bolsa sí alcanza paridad de línea; la caja no. Un rectángulo tiene más borde que cualquier forma orgánica de la misma área, y eso no se arregla sin dejar de ser un rectángulo. Además, a igual tinta, una banda compacta y centrada pesa más a la vista que la misma tinta partida en dos trozos y colocada fuera del centro, que es lo que hace la semilla. Con lo cual: <b>la paridad de masa está lograda, la paridad percibida está mejorada de forma grande pero no cerrada, y el residuo apunta a la caja.</b></p>
+    <p><b>Lo que costó.</b> Cambian los tres glifos, no uno. La caja abierta de tres lados con la tapa flotando encima es menos inmediatamente «caja» que la caja sólida; a 24px se sostiene, pero es una caja más frágil semánticamente. Si hay que elegir entre una caja algo más ambigua y un trío que juzga, elijo la caja ambigua, pero conviene decir en voz alta que se ha pagado con reconocibilidad.</p>
+  </div>
+
+  <h3>Recambio de <span class="mono">dest-trash</span></h3>
+  <p>La arena clara <span class="mono">#DCD6C8</span> se descarta por dos razones independientes: L* 85.7 sólo da dL* 11.8 contra el fondo (insuficiente para la media luna a 24px) y su <span class="mono">b*</span> de +7.6 es el más amarillo de la paleta, que es exactamente la coordenada que produce la lectura «apagado / amarilleado / sobras». Tres candidatos, todos a <b>L* 76.0</b> para quedar en la misma banda que <span class="mono">dest-keep</span> y <span class="mono">dest-donate</span> revisados.</p>
+
+  <div class="grid3" style="margin-top:20px">
+    <div class="card">
+      <h4>1 · Cielo lavado <span class="mono">#A6BFCC</span></h4>
+      <p class="sub">L* 75.9 · a −5.7 · b −9.4 · C 11.0 · dL* 21.6</p>
+      <div class="row" style="justify-content:center; gap:26px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><span class="sw" style="background:#A6BFCC; width:56px; height:56px"></span></div>
+      </div>
+      <p style="font-size:.82rem; margin:16px 0 0"><b>A favor:</b> croma 11.0, exactamente el de la glicina (10.8) y por tanto la misma saturación aparente que el resto del trío; nada amarillo (b negativo); azul limpio de aire, no de agua sucia. Semánticamente es el cielo al que se va la semilla. <b>En contra:</b> separación cromática mínima 10.7 contra la glicina, frente a los 16.5 que se separan entre sí keep y donate. Es el más cercano a un vecino de los tres.</p>
+    </div>
+
+    <div class="card">
+      <h4>2 · Cielo abierto <span class="mono">#97C2D4</span></h4>
+      <p class="sub">L* 76.0 · a −10.0 · b −13.6 · C 16.9 · dL* 21.6</p>
+      <div class="row" style="justify-content:center; gap:26px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c2)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c2)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><span class="sw" style="background:#97C2D4; width:56px; height:56px"></span></div>
+      </div>
+      <p style="font-size:.82rem; margin:16px 0 0"><b>A favor:</b> separación cromática mínima 15.3, prácticamente la misma que hay entre keep y donate (16.5). Es el único candidato que iguala el espaciado interno del trío. <b>En contra:</b> croma 16.9 contra 7.3 y 10.8 de sus compañeros: sería el más saturado de los tres con diferencia y el destino «Tirar o soltar» se convertiría en el más llamativo de la fila. Se arregla la separación de matiz rompiendo la igualdad de saturación, que es otra forma de jerarquía.</p>
+    </div>
+
+    <div class="card">
+      <h4>3 · Piedra fría <span class="mono">#B6BCC1</span></h4>
+      <p class="sub">L* 75.9 · a −1.1 · b −3.2 · C 3.4 · dL* 21.6</p>
+      <div class="row" style="justify-content:center; gap:26px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c3)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c3)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">48px</span></div>
+        <div class="cell" style="align-self:center"><span class="sw" style="background:#B6BCC1; width:56px; height:56px"></span></div>
+      </div>
+      <p style="font-size:.82rem; margin:16px 0 0"><b>A favor:</b> gris frío casi neutro. Es la única opción que no opina nada en absoluto sobre el destino, y eso es literalmente el requisito del producto. Nada amarillo, nada sucio. <b>En contra:</b> separación mínima 9.4, la peor de los tres, porque un neutro está a medio camino de todo. Y el riesgo grande: un gris neutro al lado de dos colores puede leerse como «el que no tiene color», que es la vecina exacta del defecto que mató a la arena («sobras»). Hay que probarlo con gente antes de creerse el argumento de neutralidad.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><b>Descartado y por qué.</b> <span class="mono">#9FC2C0</span> aguamarina polvo (L* 75.9, a −12.1, b −2.9): separación de sólo <b>6.6</b> contra la menta polvo. A 24px, con 85 u² de masa, se confundiría con «Quedármelo». Medido, no intuido.</p>
+    <p><b>Un resultado incómodo que conviene decir.</b> Buscando por fuerza bruta en el plano a·b, a L* 76 y con croma ≤ 16, el tercer matiz que <em>maximiza</em> la separación mínima contra menta y glicina es <span class="mono">#D9B1B8</span> (a +15.6, b +1.9): separación mínima 15.8. Es un rosa polvo. Está prohibido por la regla de «sin rojo», y la regla se respeta. Pero el número explica la tensión de esta sección: una vez excluido el cuadrante rojo-rosa, en la banda de L* 76 sólo queda el cuadrante azul-verde, y ahí <b>no se pueden cumplir a la vez las tres cosas</b> —misma L*, mismo croma, y separación de matiz equivalente a la que ya tienen keep y donate. Con croma limitado a 11 (paridad con el trío) el máximo alcanzable es 10.7. Para llegar a ~15 hay que subir a croma ~17. Es un trilema, no un problema de gusto.</p>
+  </div>
+
+  <h3>Trío de destinos revisado, entero</h3>
+  <p>Honrar la banda obliga a bajar los tres juntos, no sólo el tercero. Los tres a L* 75.9, dL* 21.6 contra el fondo:</p>
+  <div class="tiles">
+    <div class="chip"><span class="sw" style="background:#AEBFB8"></span><span><b>dest-keep</b> <span class="mono">#AEBFB8</span><br><span class="cap" style="text-align:left">menta polvo · L* 75.9 · C 7.3</span></span></div>
+    <div class="chip"><span class="sw" style="background:#BCB9CD"></span><span><b>dest-donate</b> <span class="mono">#BCB9CD</span><br><span class="cap" style="text-align:left">glicina · L* 75.9 · C 10.8</span></span></div>
+    <div class="chip"><span class="sw" style="background:#A6BFCC"></span><span><b>dest-trash</b> <span class="mono">#A6BFCC</span><br><span class="cap" style="text-align:left">cielo lavado · L* 75.9 · C 11.0</span></span></div>
+  </div>
+  <table>
+    <tr><th>par</th><th>separación en a·b</th><th>lectura</th></tr>
+    <tr><td>keep ↔ donate</td><td class="n">16.5</td><td>referencia de la casa</td></tr>
+    <tr><td>donate ↔ trash (cielo lavado)</td><td class="n">10.7</td><td>el eslabón flojo</td></tr>
+    <tr><td>keep ↔ trash (cielo lavado)</td><td class="n">15.9</td><td>bien</td></tr>
+  </table>
+  <p class="note">Los tres comparten L* y ahora también croma (7.3 / 10.8 / 11.0), así que ninguno destaca por saturación. El precio es que glicina y cielo lavado están más cerca en matiz de lo que están menta y glicina. A 24px, con masas de ~85 u², eso se compensa por la forma —caja, bolsa y semilla no se parecen en nada— pero deja de compensarse si alguna vez estos tres colores aparecen como manchas planas sin glifo. Regla que se deriva de esto: <b>estos tres hues nunca aparecen como campo sin su glifo dentro</b>.</p>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<section>
+  <p class="snum">Sección 4</p>
+  <h2>Ajustes, redibujado sin detalle fino</h2>
+  <p class="lede">Nada obliga a que Ajustes sea un engranaje. Tres construcciones hechas de masas grandes y simples, a 24 y 48px, con el desplazamiento global de 1.92 u. Al final, el fallo original para comparar.</p>
+
+  <div class="grid3">
+    <div class="card">
+      <h4>A · Dial único</h4>
+      <p class="sub">Un disco de r=8 (16 u de diámetro). Desplazamiento 1.92 u = <b>12.0%</b> del diámetro.</p>
+      <div class="row" style="justify-content:center; gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajA"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-ajA" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajA"/></g></svg><span class="cap">48px</span></div>
+      </div>
+      <p style="font-size:.82rem; margin:14px 0 0"><b>Sobrevive:</b> sí, y es el que produce la media luna más limpia de toda la página, porque un círculo desplazado da un creciente perfecto. <b>Lee «ajustes»:</b> no. Un disco con una muesca arriba es un mando de cocina, un reloj sin agujas o un control de volumen. Es el más robusto y el más ambiguo.</p>
+    </div>
+
+    <div class="card">
+      <h4>B · Conmutador</h4>
+      <p class="sub">Cápsula de 18 × 8 (r=4) + perilla de r=2.9. Desplazamiento 1.92 u = <b>24.0%</b> del alto de la cápsula, <b>10.7%</b> de su ancho.</p>
+      <div class="row" style="justify-content:center; gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg><span class="cap">48px</span></div>
+      </div>
+      <p style="font-size:.82rem; margin:14px 0 0"><b>Sobrevive:</b> sí. La cápsula es una masa de 130 u², la más grande y simple del set después del reloj, y el creciente asoma a lo largo del borde superior sin tocar la perilla. <b>Lee «ajustes»:</b> lo más cerca de los tres. Un conmutador es la forma aprendida de «preferencia» en Android. Riesgo real: puede leerse como «encender esto» y no como «la pantalla de ajustes».</p>
+    </div>
+
+    <div class="card">
+      <h4>C · Deslizador de un tirador</h4>
+      <p class="sub">Un raíl de línea + un tirador de r=4 (8 u). Desplazamiento 1.92 u = <b>24.0%</b> del diámetro del tirador.</p>
+      <div class="row" style="justify-content:center; gap:30px">
+        <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajC"/></g></svg><span class="cap">24px</span></div>
+        <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-ajC" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajC"/></g></svg><span class="cap">48px</span></div>
+      </div>
+      <p style="font-size:.82rem; margin:14px 0 0"><b>Sobrevive:</b> sí, geométricamente. Pero el creciente del tirador cruza el raíl y a 24px queda una mancha de 1.9px pegada a una línea de 1px: el punto más débil de los tres. <b>Lee «ajustes»:</b> «ajustar», sí; «pantalla de ajustes», a medias. Un solo tirador se parece más a un control de brillo que a un menú.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h4>Para comparar · la rejilla de tres perillas que reventó</h4>
+    <p class="sub">Tres discos de r=2.7 (5.4 u de diámetro) sobre tres raíles separados 5.6 u. Con la regla correcta de 1.92 u, cada masa se mueve el <b>35.6%</b> de su diámetro y el <b>34.3%</b> de la distancia al raíl vecino.</p>
+    <div class="row" style="gap:30px">
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajX" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajX"/></g></svg><span class="cap">24px · regla correcta</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-ajX" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajX"/></g></svg><span class="cap">48px</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.92,1.92)"><use href="#m-ajX" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajX"/></g></svg><span class="cap">48px · regla vieja (2.716 u)</span></div>
+    </div>
+    <p style="font-size:.82rem; margin:14px 0 0">Con la regla correcta el fallo es menos brutal pero es el mismo fallo: cada masa sale de su círculo por un tercio de su radio y se acerca al raíl de arriba. Con la regla vieja lo cruza y deja manchas huérfanas. <b>La conclusión no cambia: la construcción es el problema, no el número.</b></p>
+  </div>
+
+  <div class="note verdict">
+    <p><b>Sobreviven las tres.</b> A, B y C aguantan el desplazamiento a 24px porque las tres tienen una única masa de diámetro o alto ≥ 8 u, y 1.92 u sobre 8 u es el 24%: la masa se mueve pero no sale. El umbral que se deduce de esta página: <b>ninguna masa de icono por debajo de 8 u en su dimensión menor</b>. Eso descarta de un golpe engranajes, rejillas de perillas, ecualizadores de tres barras (barras de 3.4 u de ancho: la componente horizontal de 1.358 u es el 40% del ancho y la masa se mete en el canal vecino de 1.8 u) y cualquier cosa con más de dos masas.</p>
+    <p><b>Ninguna lee «ajustes» sin ambigüedad, y eso hay que decirlo.</b> El engranaje es el único icono de esta lista que está aprendido universalmente, y es justo el que la técnica prohíbe. Gana <b>B, el conmutador</b>, por ser el que más se acerca en una app Android y el más limpio bajo el desplazamiento. Pero el residuo de ambigüedad no se arregla dibujando mejor: se arregla con una etiqueta de texto al lado, o aceptando que el engranaje viva como excepción documentada <em>de una sola tinta</em> (línea sin masa), igual que se hizo con las semillas sueltas en la página anterior. Las dos salidas son legítimas; ninguna es un dibujo más listo.</p>
+  </div>
+
+  <h3>El set de utilidad completo a 24px</h3>
+  <p class="sub">Esquema C: masas a L* 76, campos a la línea base. Desplazamiento global <span class="mono">(+1.358, −1.358)</span>, trazo 1 u. Los ocho juntos, para juzgarlos como conjunto y no de uno en uno.</p>
+  <div class="card">
+    <div class="setrow">
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg><span class="cap">Cámara</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg><span class="cap">Álbum</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keepD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg><span class="cap">Caja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--donD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span class="cap">Bolsa</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-rel" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-rel"/></g></svg><span class="cap">Reloj</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--keepD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g></svg><span class="cap">Hoja</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg><span class="cap">Ajustes</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><use href="#m-lap" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-lap"/></g></svg><span class="cap">Lápiz</span></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg><span class="cap">Semilla</span></div>
+    </div>
+    <div class="setrow" style="margin-top:30px">
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-cam" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cam"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-alb" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-alb"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keepD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--donD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-rel" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-rel"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--keepD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-ajB" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-ajB"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><use href="#m-lap" fill="var(--accD)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-lap"/></g></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="48" height="48"><g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g><g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g></svg></div>
+    </div>
+  </div>
+  <div class="note">
+    <p><b>Lo que se ve juzgando el conjunto y no las piezas.</b> El reloj es el más pesado con diferencia: 211.2 u² de masa, 2.5 veces la semilla. En el set de utilidad eso no viola ninguna regla —sólo el trío de destinos tiene que pesar igual— pero en una barra de navegación donde reloj y semilla convivan, el reloj mandará. Si eso molesta, la salida es vaciar el disco a un anillo, y entonces el reloj pierde su masa y deja de llevar el tratamiento. Es un intercambio, no un arreglo.</p>
+    <p><b>El lápiz sale gratis.</b> Su eje corre a 45° arriba-derecha, el mismo del desplazamiento global, así que la masa se desliza por sus 20 u de largo (9.6%) y no cruza sus 5 u de ancho (0%). Es el glifo mejor alineado con el tratamiento de toda la página, y es un accidente afortunado de la orientación natural de un lápiz.</p>
+    <p><b>El trazo de 1px es una decisión bloqueada que sigue incómoda.</b> <span class="mono">icon-treatment-1.html</span> concluyó que a 1px «la línea se afina tanto que el pastel manda y el icono pierde contorno a 24px», y recomendó 1.5px. Aquí el trazo es 1px por decisión cerrada. Con las masas a L* 76 en vez de L* 85 el problema empeora, no mejora: masa más oscura contra línea más fina. En el álbum y en la cámara —los dos con detalle interno de línea y sin masa que lo respalde— es donde se nota. No lo revisito, pero queda anotado: si algo se rompe en revisión visual, el primer sospechoso es el 1px, no el color.</p>
+  </div>
+</section>
+
+<!-- ============================ 5 ============================ -->
+<section>
+  <p class="snum">Sección 5</p>
+  <h2>En situación</h2>
+  <p class="lede">El esquema ganador puesto en las dos pantallas que existen de verdad. Sin baldosas de color: los tres hues de destino viven sólo dentro del glifo, así que los dos niveles de token nunca se tocan y la costura del esquema C desaparece. Todo el texto es tinta oscura sobre fondo claro.</p>
+
+  <div class="row" style="align-items:flex-start; gap:48px">
+    <div>
+      <h4>Dispensador</h4>
+      <p class="sub">Una tarjeta. Casi todo vacío.</p>
+      <div class="phone">
+        <div class="bar"></div>
+        <div class="zone">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <g transform="translate(1.358,-1.358)"><use href="#m-hoj" fill="var(--keepD)"/></g>
+            <g fill="none" stroke="var(--ink2)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-hoj"/></g>
+          </svg>
+          <span>Zona 2 · Cocina y salón</span>
+        </div>
+        <div class="dcard">
+          <div class="dur">10-15 min</div>
+          <div class="task">Despeja la mesa del salón</div>
+          <div class="btn">Hecho</div>
+          <div class="qrow">
+            <div class="q">Otra más fácil</div>
+            <div class="q">Ahora no</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1; min-width:320px">
+      <h4>Flujo de tres destinos</h4>
+      <p class="sub">Trío B, masas a L* 75.9, <span class="mono">dest-trash</span> = cielo lavado <span class="mono">#A6BFCC</span>. Glifos a 40px, etiquetas sobre fondo claro.</p>
+      <div style="background:var(--sb); border:1px solid var(--hair); border-radius:var(--r); padding:26px 20px">
+        <p style="margin:0 0 22px; font-size:.94rem; font-weight:600">Este cuenco de la entrada, ¿dónde va?</p>
+        <div class="destrow">
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="40" height="40">
+              <g transform="translate(1.358,-1.358)"><use href="#m-cajB" fill="var(--keepD)"/></g>
+              <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajB"/></g>
+            </svg>
+            <span>Quedármelo</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="40" height="40">
+              <g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--donD)"/></g>
+              <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g>
+            </svg>
+            <span>Donar o vender</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="40" height="40">
+              <g transform="translate(1.358,-1.358)"><g transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#m-sem" fill="var(--c1)"/></g></g>
+              <g fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" transform="translate(12,12) rotate(45) translate(-12,-12)"><use href="#l-sem"/></g>
+            </svg>
+            <span>Tirar o soltar</span>
+          </div>
+        </div>
+        <p style="margin:22px 0 0; font-size:.78rem; color:var(--ink2)">Mismo tamaño, misma L*, mismo croma aproximado, misma masa dentro de un 7%, mismo marco, mismo orden visual. Ninguno lleva más tinta que otro.</p>
+      </div>
+
+      <div class="note">
+        <p><b>Lo que sigue sin resolver en la tarjeta.</b> El botón «Hecho» va relleno de <span class="mono">accent-soft #D5E0DC</span>, L* 88.3, en la línea base de Aliento, porque lleva texto y el texto necesita fondo claro. Eso significa que en esta pantalla conviven un campo a L* 88.3 y masas de icono a L* 75.9. Es la costura del esquema C, viva y visible: la hoja de la esquina superior es notablemente más oscura que el botón principal. Aquí no molesta porque están separadas y no comparten familia de color, pero es la grieta por donde el sistema se romperá si alguien pone un glifo dentro del botón.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lexend o Lora &middot; la tipografía es la interfaz</title>
+
+<!-- ÚNICA PETICIÓN EXTERNA DE TODA LA SESIÓN, Y A PROPÓSITO:
+     el objeto de la decisión son estas dos caras concretas, así que
+     sustituirlas por tipografías de sistema anularía la página. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&family=Lora:ital,wght@0,400..700;1,400&display=swap">
+
+<style>
+/* =====================================================================
+   LEXEND o LORA · DECISIÓN TIPOGRÁFICA DEL DISPENSADOR
+   Sesión UX BMad · Organizador anti-agobio · 2026-08-21
+   Hereda: color-themes-1.html variación 4 «Aliento» (paleta elegida)
+   Sin JavaScript. Sin imágenes. Sin degradados. Sin sombras.
+   =====================================================================
+
+   ---------------------------------------------------------------------
+   1. PALETA «ALIENTO» (variación 4) · HEX EXACTOS, COPIADOS SIN TOCAR
+   ---------------------------------------------------------------------
+     surface-base      #F7F8F9   el suelo de la pantalla, casi blanco frío
+     surface-raised    #FFFFFF   la tarjeta del dispensador
+     ink-primary       #1E2124   texto de tarea, acción primaria, duración
+     ink-secondary     #5C6368   acción secundaria, copy de apoyo
+     border-hairline   #E1E5E8   filete de tarjeta, de botón y del chip
+     accent-soft       #D5E0DC   agua clara · relleno de «Hecho» y del chip
+     radius            14px      el registro más aireado de las cinco
+
+   No hay rojo en la página. No hay contador, ni racha, ni insignia, ni
+   nada enmarcado como debido o tarde. Aliento autoriza accent-soft como
+   el único pastel que puede llevar texto encima; esta página añade un
+   segundo uso de ese mismo pastel (el chip de duración) y la sección 3
+   argumenta por qué ese parentesco es exactamente el punto.
+
+   ---------------------------------------------------------------------
+   2. LAS DOS CANDIDATAS
+   ---------------------------------------------------------------------
+     Lexend  sans, variable 300..700. Diseñada para reducir el estrés
+             visual: aperturas anchas, espaciado generoso, formas poco
+             ambiguas. Es la preferencia declarada del usuario.
+     Lora    serif, variable 400..700 + itálica 400. «Da una imagen más
+             cercana a texto de libro» (palabras del usuario).
+
+   METODOLOGÍA: el peso del texto de tarea se mantiene en 500 en las tres
+   configuraciones, y los tamaños son idénticos. Lo único que cambia es la
+   cara. Si una gana, gana por la cara y no por el ajuste.
+
+   ---------------------------------------------------------------------
+   3. RAMPA TIPOGRÁFICA PROPUESTA · CINCO ROLES, NI UNO MÁS
+   ---------------------------------------------------------------------
+   rol              cara     tamaño  peso  interlínea  tracking  tinta
+   ---------------  -------  ------  ----  ----------  --------  --------------
+   task             Lora      26sp   500      1.32       0        ink-primary
+   duration         Lexend    15sp   500      1.40     +0.01em    ink-primary
+   action-primary   Lexend    19sp   600      1.00     +0.01em    ink-primary
+                                                                 sobre accent-soft
+   action-secondary Lexend    15sp   400      1.35     +0.01em    ink-secondary
+   support          Lexend    13sp   400      1.45     +0.02em    ink-secondary
+
+   HERENCIA DE PLATAFORMA (lo que NO se fija a un valor):
+   · Los cinco tamaños van en `sp`, nunca en `dp`: el escalado lo decide
+     el ajuste de fuente del sistema, no nosotros. La sección 4 comprueba
+     el caso límite del 200%.
+   · La interlínea va como multiplicador (`lineHeight = 1.32.em`), no como
+     un dp fijo, o al 200% las líneas se solapan.
+   · La altura de los objetivos táctiles va en `dp` y NO escala: 48dp
+     mínimo. El texto crece, la caja crece con él por padding, pero el
+     mínimo táctil es una constante de plataforma.
+   · action-secondary NO lleva maxLines ni ellipsize. El plegado de línea
+     es comportamiento de plataforma y hay que dejarlo trabajar; fijar
+     maxLines=1 es exactamente cómo se rompe esta pantalla al 200%.
+   · La cadena de action-secondary va TAL CUAL, sin espacios duros, sin
+     espacios de ancho cero y sin <br>. Se probaron esos tres trucos para
+     colocar el punto de plegado y los tres salieron igual o peor (uno de
+     ellos produjo TRES líneas en vez de dos). El plegado es del motor de
+     línea de la plataforma. La cadena no se acorta jamás.
+   · action-secondary es 15sp y no 16sp POR EL RESULTADO DEL PLEGADO, no
+     por gusto: a 16sp (32px al 200%) el motor parte delante de la barra y
+     la segunda línea empieza con la barra colgando; a 15sp (30px) parte
+     detrás y sale «Otra más fácil /» + «Ahora no». Ver sección 4.
+   · La itálica de Lora existe en el archivo cargado pero la rampa no la
+     usa en ningún rol. Se carga por si el copy de apoyo la necesita algún
+     día; hoy no la necesita.
+
+   ---------------------------------------------------------------------
+   4. TAMAÑOS AL 200% (exactamente el doble, sin redondeos de conveniencia)
+   ---------------------------------------------------------------------
+     task 26 -> 52    duration 15 -> 30    primary 19 -> 38
+     action-secondary 15 -> 30             support 13 -> 26
+
+   MEDIDO EN RENDER (302px de ancho fijo, no estimado):
+     ancho útil de botón   302 - 18 - 18 = 266px
+     ancho útil de frase   266 - 20 - 20 = 224px
+     task     26px -> 2 lineas    |  52px -> 3 lineas
+     duration 15px -> 1 linea     |  30px -> 1 linea
+     primary  19px -> 1 linea     |  38px -> 1 linea
+     secondary 15px -> 1 linea    |  30px -> 2 lineas  <-- el caso limite
+     support  13px -> 1 linea     |  26px -> 3 lineas
+   Nada se trunca en ninguna de las diez casillas.
+   ===================================================================== */
+
+
+/* ---------------------------------------------------------------------
+   CROMO DE LA PÁGINA (no es la app: es el papel sobre el que se mira)
+   Continúa el gris cálido de las demás páginas de la sesión.
+   --------------------------------------------------------------------- */
+*{box-sizing:border-box}
+body{
+  margin:0; background:#EDEBE6; color:#1E1C19;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.55;
+}
+.wrap{max-width:1400px; margin:0 auto; padding:48px 40px 120px}  /* 1400 - 80 = 1320 de caja útil */
+
+.head{max-width:760px}
+.head h1{font-size:27px; line-height:1.25; font-weight:600; margin:0 0 14px; letter-spacing:-.01em}
+.head p{margin:0 0 12px; color:#4A453E}
+
+.netnote{
+  max-width:760px; margin:26px 0 0;
+  background:#FFFDF7; border:1px solid #DAD3C4; border-left:3px solid #B9AE97;
+  border-radius:4px; padding:14px 16px;
+  font-size:14px; line-height:1.55; color:#4A453E;
+}
+.netnote b{font-weight:600; color:#1E1C19}
+
+section{margin:76px 0 0; padding:0}
+.secnum{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8A8275; font-weight:600; margin:0 0 8px}
+section > h2{font-size:22px; font-weight:600; margin:0 0 12px; letter-spacing:-.005em}
+.lead{max-width:760px; margin:0 0 8px; color:#4A453E}
+.lead + .lead{margin-top:12px}
+
+.finding{
+  max-width:760px; margin:26px 0 0; padding:16px 18px;
+  background:#F5F3ED; border:1px solid #DDD8CC; border-radius:4px;
+  font-size:15px; line-height:1.6; color:#3E3A34;
+}
+.finding p{margin:0 0 10px}
+.finding p:last-child{margin:0}
+.finding strong{font-weight:600; color:#1E1C19}
+.hr{height:1px; background:#DAD5C9; border:0; margin:0}
+
+/* rejilla de maquetas */
+.stage{display:flex; flex-wrap:wrap; gap:44px; margin:34px 0 0; align-items:flex-start}
+.stage4{gap:30px}   /* cuatro unidades de 302px en una sola fila: 4x302 + 3x30 = 1298 */
+.unit{width:302px}
+.unitTitle{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#8A8275; margin:0 0 12px; font-weight:600}
+.cap{font-size:13px; line-height:1.5; color:#5E584F; margin:14px 0 0}
+.cap b{color:#1E1C19; font-weight:600}
+
+
+/* =====================================================================
+   LA APP · todo lee variables. Las caras entran por --face-hero/--face-ui
+   ===================================================================== */
+.aliento{
+  --surface-base:#F7F8F9;
+  --surface-raised:#FFFFFF;
+  --ink-primary:#1E2124;
+  --ink-secondary:#5C6368;
+  --border-hairline:#E1E5E8;
+  --accent-soft:#D5E0DC;
+  --radius:14px;
+
+  --hero-size:26px;
+  --dur-size:15px;
+  --pri-size:19px;
+  --sec-size:15px;
+  --sup-size:13px;
+}
+
+/* pilas con recambio real: si Google Fonts no llega, cae en algo del mismo
+   género, no en lo que toque. */
+.aliento{
+  --stack-lexend:'Lexend','Segoe UI',Roboto,system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
+  --stack-lora:'Lora','Iowan Old Style','Palatino Linotype','Book Antiqua',Georgia,'Times New Roman',serif;
+}
+.cfg-lexend{--face-hero:var(--stack-lexend); --face-ui:var(--stack-lexend)}
+.cfg-lora  {--face-hero:var(--stack-lora);   --face-ui:var(--stack-lora)}
+.cfg-pair  {--face-hero:var(--stack-lora);   --face-ui:var(--stack-lexend)}
+
+.phone{
+  width:302px; min-height:604px;
+  background:var(--surface-base);
+  border:1px solid var(--border-hairline);
+  border-radius:20px;
+  padding:22px 18px 26px;
+  display:flex; flex-direction:column;
+  color:var(--ink-primary);
+}
+.mid{flex:1; display:flex; flex-direction:column; justify-content:center; padding:12px 0}
+
+.card{
+  background:var(--surface-raised);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius);
+  padding:24px 20px 22px;
+}
+
+/* rol task · el héroe. Peso 500 en las tres configuraciones. */
+.task{
+  font-family:var(--face-hero);
+  font-size:var(--hero-size);
+  font-weight:500;
+  line-height:1.32;
+  letter-spacing:0;
+  color:var(--ink-primary);
+  margin:0;
+}
+
+/* rol duration · cuatro lecturas, sección 3 */
+.dur{
+  font-family:var(--face-ui);
+  font-size:var(--dur-size);
+  font-weight:500;
+  line-height:1.4;
+  letter-spacing:.01em;
+  margin:0;
+}
+.dur-below{margin:14px 0 0; color:var(--ink-secondary)}
+.dur-eyebrow{margin:0 0 12px; color:var(--ink-secondary)}
+.dur-peer{
+  margin:12px 0 0;
+  font-family:var(--face-hero);
+  font-size:var(--hero-size);
+  font-weight:500;
+  line-height:1.32;
+  letter-spacing:0;
+  color:var(--ink-primary);
+}
+.chip{
+  display:inline-block;
+  background:var(--accent-soft);
+  color:var(--ink-primary);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius);
+  padding:5px 12px;
+}
+.dur-chip{margin:0 0 14px}
+.dur-chipbelow{margin:16px 0 0}
+
+/* acciones · fuera de la tarjeta, para que la tarjeta sea sólo la tarea */
+.acts{margin:28px 0 0}
+.btnPri{
+  display:block; text-align:center;
+  font-family:var(--face-ui);
+  font-size:var(--pri-size); font-weight:600; letter-spacing:.01em;
+  line-height:1;
+  background:var(--accent-soft); color:var(--ink-primary);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius);
+  padding:18px 16px;
+  min-height:48px;
+}
+.btnGho{
+  display:block; text-align:center; margin-top:12px;
+  font-family:var(--face-ui);
+  font-size:var(--sec-size); font-weight:400; letter-spacing:.01em;
+  line-height:1.35;
+  background:transparent; color:var(--ink-secondary);
+  border:1px solid var(--border-hairline);
+  border-radius:var(--radius);
+  padding:15px 14px;
+  min-height:48px;
+}
+.foot{
+  font-family:var(--face-ui);
+  font-size:var(--sup-size); font-weight:400; letter-spacing:.02em;
+  line-height:1.45;
+  color:var(--ink-secondary); text-align:center;
+  margin:20px 0 0;
+}
+
+/* --- 200% de escala de sistema · exactamente x2 en los cinco roles ---
+   min-height pasa a auto: en el móvil real la pantalla hace scroll, y
+   fingir que cabe en 604px sería mentir sobre el caso límite. */
+.x2{
+  --hero-size:52px;
+  --dur-size:30px;
+  --pri-size:38px;
+  --sec-size:30px;
+  --sup-size:26px;
+}
+.x2.phone{min-height:auto}
+.x2 .btnPri{padding:20px 14px}
+.x2 .btnGho{padding:18px 12px}
+
+/* tamaños del héroe · sección 2 */
+.h20{--hero-size:20px}
+.h26{--hero-size:26px}
+.h32{--hero-size:32px}
+
+/* tarjeta suelta para la sección 3 (sin teléfono alrededor) */
+.loose{
+  width:302px; background:var(--surface-base);
+  border:1px solid var(--border-hairline); border-radius:20px;
+  padding:22px 18px;
+}
+
+/* =====================================================================
+   TABLA DE LA RAMPA
+   ===================================================================== */
+table.ramp{
+  border-collapse:collapse; margin:30px 0 0; font-size:14px;
+  background:#FBFAF6; border:1px solid #DAD5C9;
+}
+table.ramp caption{
+  caption-side:top; text-align:left; font-size:13px; color:#7E766A;
+  padding:0 0 10px;
+}
+table.ramp th, table.ramp td{
+  border-bottom:1px solid #E5E1D6; padding:11px 14px; text-align:left;
+  vertical-align:top;
+}
+table.ramp thead th{
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:#8A8275; font-weight:600; border-bottom:1px solid #CFC9BB;
+}
+table.ramp tbody tr:last-child th, table.ramp tbody tr:last-child td{border-bottom:0}
+table.ramp tbody th{font-weight:600; color:#1E1C19; white-space:nowrap}
+table.ramp td.mono{font-variant-numeric:tabular-nums; white-space:nowrap}
+.tblwrap{overflow-x:auto}
+.notes{max-width:760px; margin:24px 0 0; padding-left:20px; color:#4A453E; font-size:15px}
+.notes li{margin:0 0 9px}
+
+/* muestras de cara para el pie de la sección 1 */
+.specimen{max-width:760px; margin:30px 0 0; display:flex; flex-wrap:wrap; gap:34px}
+.specimen div{flex:1 1 300px}
+.specimen p{margin:0 0 6px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#8A8275; font-weight:600}
+.specLex{font-family:'Lexend','Segoe UI',Roboto,system-ui,sans-serif; font-size:19px; line-height:1.4; color:#1E2124; font-weight:400}
+.specLor{font-family:'Lora',Georgia,serif; font-size:19px; line-height:1.4; color:#1E2124; font-weight:400}
+
+.verdict{max-width:760px}
+.verdict h3{font-size:16px; font-weight:600; margin:26px 0 8px}
+.verdict p{margin:0 0 12px; color:#3E3A34}
+.verdict p.answer{
+  font-size:17px; color:#1E1C19;
+  border-left:3px solid #B9AE97; padding-left:14px; margin:0 0 18px;
+}
+</style>
+</head>
+<body>
+<div style="max-width:980px;margin:0 auto 8px;padding:18px 20px;border:1px solid #E1E5E8;border-left:6px solid #CAB9A0;border-radius:14px;background:#FFFFFF;color:#1E2124;font:400 14px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif"><p style="margin:0 0 10px;font-weight:600;letter-spacing:.01em;text-transform:uppercase;font-size:12px;color:#5C6368">Promoted artifact — supersession note</p><p style="margin:0 0 10px"><b>The spines win on conflict</b> — <code>../DESIGN.md</code> and <code>../EXPERIENCE.md</code>. This page is promoted as the rationale for the type ramp.</p>
+<p style="margin:0 0 10px"><b>Current:</b> the paired rule (Lora for the task text only, Lexend for every other role) and why it is structural rather than aesthetic; the hero-size measurement and the shouting slope crossed around 30px; the duration chip at 15sp, above the task, in primary ink, sharing <code>accent-soft</code> with <code>Hecho</code>; the 200&nbsp;% fold of <code>Otra m&aacute;s f&aacute;cil / Ahora no</code> at 15sp.</p>
+<p style="margin:0"><b>Superseded: the ramp&rsquo;s count.</b> This page argues &laquo;Cinco roles, no quince&raquo; and reads a sixth role as evidence that a screen should not exist. The ramp is now <b>eight roles</b> &mdash; <code>screen-heading</code>, <code>metric-numeral</code> and <code>caption-warm</code> were added by the key-screens pass &mdash; and the count is retired in favour of the rule that produced it: <b>a role is added only when an existing role would otherwise carry a meaning that is not its own</b>.</p></div>
+
+<div class="wrap">
+
+<div class="head">
+  <h1>Lexend o Lora &middot; la tipografía es la interfaz</h1>
+  <p>Sesión UX &middot; Organizador anti-agobio &middot; paleta Aliento (variación&nbsp;4). En el Dispensador no hay ilustración ni densidad detrás de la que esconderse: hay una tarjeta, una frase, una duración y dos acciones sobre mucho espacio vacío. La tipografía no decora esta pantalla, la sostiene.</p>
+  <p>Seis preguntas cerradas: qué registro dan las tres configuraciones posibles, de qué tamaño es el héroe, si la duración es tranquilidad o es un reloj mirándote, qué pasa al 200% con la cadena más larga de la superficie, cuál es la rampa completa y con qué me presentaría delante del usuario.</p>
+</div>
+
+<div class="netnote">
+  <b>Esta página necesita red.</b> Compara dos tipografías web concretas &mdash; Lexend y Lora &mdash; cargadas desde Google Fonts, y <b>ninguna de las dos está instalada en este equipo</b>: <code>fc-list | grep -i lexend</code> y <code>fc-list | grep -i lora</code> no devuelven nada. Sin conexión verás las de recambio (Segoe&nbsp;UI/Roboto y Georgia) y la comparación no vale de nada. Es la única página de la sesión con una petición externa, y el motivo es que el objeto de la decisión son estas dos caras.
+</div>
+
+<!-- ===================================================================
+     SECCIÓN 1 · TRES CONFIGURACIONES CARA A CARA
+     =================================================================== -->
+<section class="aliento">
+  <p class="secnum">Sección 1</p>
+  <h2>Tres configuraciones, cara a cara</h2>
+  <p class="lead">El mismo Dispensador tres veces: todo Lexend, todo Lora, y emparejado &mdash; Lora para el texto de la tarea (el héroe, lo que más se parece a prosa) y Lexend para el mobiliario de interfaz (duración, acciones, etiquetas). Tamaños y pesos idénticos en las tres. Lo único que cambia es la cara.</p>
+
+  <div class="stage">
+
+    <div class="unit cfg-lexend">
+      <p class="unitTitle">A &middot; Todo Lexend</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Registro: herramienta amable.</b> Limpia, sin fricción, ligeramente clínica. Suena a app bien hecha; no suena a nadie hablándote.</p>
+    </div>
+
+    <div class="unit cfg-lora">
+      <p class="unitTitle">B &middot; Todo Lora</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Registro: nota escrita a mano, casi ceremonia.</b> La frase gana calor, pero «Hecho» con serif dentro de un botón relleno se vuelve formal &mdash; parece una invitación, no un interruptor.</p>
+    </div>
+
+    <div class="unit cfg-pair">
+      <p class="unitTitle">C &middot; Emparejado</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Registro: alguien te dice una frase, la máquina se queda quieta detrás.</b> La tarea es prosa; los controles no compiten con ella y no piden turno.</p>
+    </div>
+
+  </div>
+
+  <div class="specimen">
+    <div>
+      <p>Lexend 400</p>
+      <div class="specLex">Despeja la mesa del salón &middot; 10&ndash;15 min<br>Otra más fácil / Ahora no<br>aeoscgil&nbsp;&nbsp;1 0 &ndash; 1 5</div>
+    </div>
+    <div>
+      <p>Lora 400</p>
+      <div class="specLor">Despeja la mesa del salón &middot; 10&ndash;15 min<br>Otra más fácil / Ahora no<br>aeoscgil&nbsp;&nbsp;1 0 &ndash; 1 5</div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <p><strong>Lo que se ve.</strong> Lexend hace bien exactamente lo que promete: aperturas anchas, nada ambiguo, ninguna letra que haya que descifrar. Su problema aquí no es legibilidad, es <em>tono</em>: en una pantalla casi vacía, una sans muy regular suena a formulario. Lora resuelve el tono en la frase y lo estropea en los botones: una serif dentro de una superficie rellena de color arrastra un registro editorial que no le pega a un interruptor que se pulsa veinte veces a la semana.</p>
+    <p><strong>Nota de acentos.</strong> La cadena secundaria lleva tilde en «más» y en «fácil», y el eyebrow lleva un guion corto. En Lora los acentos son más finos y al tamaño de la acción secundaria (15px) sobre blanco pierden algo de cuerpo; en Lexend aguantan. Es un argumento pequeño pero real a favor de que el mobiliario sea Lexend.</p>
+  </div>
+</section>
+
+<hr class="hr" style="margin-top:56px">
+
+<!-- ===================================================================
+     SECCIÓN 2 · EL TAMAÑO DEL HÉROE
+     =================================================================== -->
+<section class="aliento">
+  <p class="secnum">Sección 2</p>
+  <h2>¿De qué tamaño es el héroe?</h2>
+  <p class="lead">El texto de la tarea es prácticamente el único contenido del Dispensador, así que su tamaño es la decisión tipográfica más grande de la app. Aquí está en la configuración emparejada (la más fuerte de la sección&nbsp;1) a tres tamaños, con todo lo demás congelado: 20px, 26px y 32px.</p>
+  <p class="lead">La tensión: <strong>tipo grande en mucho vacío se lee como confianza y calma; tipo pequeño en el mismo vacío se lee como timidez o preciosismo.</strong> El vacío no es neutral &mdash; amplifica lo que pongas dentro.</p>
+
+  <div class="stage">
+
+    <div class="unit cfg-pair h20">
+      <p class="unitTitle">20px</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Timidez.</b> La frase es más pequeña que el botón que la ejecuta: la tarjeta parece un elemento de lista que se ha quedado sin lista. Y el reparto sale mal &mdash; «salón» queda huérfano al final. El vacío deja de leerse como calma y empieza a leerse como una tarjeta a medio llenar.</p>
+    </div>
+
+    <div class="unit cfg-pair h26">
+      <p class="unitTitle">26px</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Confianza sin volumen.</b> Es lo más grande de la pantalla, por delante de «Hecho», y cae en dos líneas con un corte natural. Afirma sin levantar la voz. Aquí es donde el vacío empieza a trabajar a favor.</p>
+    </div>
+
+    <div class="unit cfg-pair h32">
+      <p class="unitTitle">32px</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-eyebrow">10&ndash;15 min</p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap"><b>Declamación.</b> Todavía es bonito, pero ya no informa: proclama. Sigue cayendo en dos líneas, pero la segunda llega de borde a borde de la medida y el corte se desplaza a un sitio peor: <em>«Despeja la / mesa del salón»</em>, partiendo detrás de un artículo. Y se come el vacío que sostiene la calma &mdash; la tarjeta se llena, el aire desaparece y una tarea doméstica adquiere la escala de un titular.</p>
+    </div>
+
+  </div>
+
+  <div class="finding">
+    <p><strong>Dónde cae cada uno.</strong> 20px = timidez. 26px = confianza. 32px = declamación. El punto en que empieza a parecer que grita no es un salto, es una pendiente que se cruza <strong>alrededor de 30px</strong>, y lo que la delata no es el número de líneas: los tres tamaños caen en dos. Lo que la delata es <strong>cuánto vacío queda alrededor y dónde cae el corte</strong>. A 20px el corte deja «salón» huérfano; a 26px cae limpio entre «mesa» y «del»; a 32px la línea toca los dos bordes de la medida y el corte se va detrás de «la». En cuanto el texto llega al borde, el registro cambia de «te digo una cosa» a «atención». Con una tarea de nombre más largo que ésta, 32px ya se parte en tres y está fuera.</p>
+    <p><strong>Y hay un segundo motivo, aritmético.</strong> 26px al 200% son 52px; 32px al 200% son 64px, y a 64px casi cualquier nombre de tarea se parte en cuatro o cinco líneas dentro de 302px. El héroe hay que elegirlo pensando en su doble, no en su tamaño de reposo. <strong>26px.</strong></p>
+  </div>
+</section>
+
+<hr class="hr" style="margin-top:56px">
+
+<!-- ===================================================================
+     SECCIÓN 3 · LA DURACIÓN ES TRANQUILIDAD, NO METADATO
+     =================================================================== -->
+<section class="aliento">
+  <p class="secnum">Sección 3</p>
+  <h2>La duración es tranquilidad, no metadato</h2>
+  <p class="lead">El instinto es poner la duración pequeña, en tinta secundaria, como metadato. Pero en este producto la duración es <strong>lo que hace que la tarjeta se pueda aceptar</strong>: todo el mecanismo anti-agobio depende de que el usuario sepa que es pequeña <em>antes</em> de comprometerse. «10&ndash;15 min» es lo que permite decir sí a las 21:50 estando agotado. No es un dato de la tarea; es la garantía que la acompaña.</p>
+  <p class="lead">Cuatro lecturas sobre la misma tarjeta. La distinción que importa: cuáles entregan <em>tranquilidad</em> y cuáles se leen como <em>un reloj mirándote</em>.</p>
+
+  <div class="stage stage4 cfg-pair">
+
+    <div class="unit">
+      <p class="unitTitle">a &middot; pequeña, tinta secundaria, debajo</p>
+      <div class="loose">
+        <div class="card">
+          <p class="task">Despeja la mesa del salón</p>
+          <p class="dur dur-below">10&ndash;15 min</p>
+        </div>
+      </div>
+      <p class="cap"><b>Se pierde la garantía.</b> Metadato de libro de texto. Llegas primero a la petición y sólo después, si bajas la vista, al alivio. Está ahí, pero hay que ir a buscarlo &mdash; y a las 21:50 nadie va a buscar nada.</p>
+    </div>
+
+    <div class="unit">
+      <p class="unitTitle">b &middot; pequeña, secundaria, eyebrow arriba</p>
+      <div class="loose">
+        <div class="card">
+          <p class="dur dur-eyebrow">10&ndash;15 min</p>
+          <p class="task">Despeja la mesa del salón</p>
+        </div>
+      </div>
+      <p class="cap"><b>Posición correcta, voz equivocada.</b> El orden de lectura ya es el bueno: sabes el coste antes de la petición. Pero en gris pequeño se lee como una etiqueta de categoría, como pondría «Salón». Media victoria.</p>
+    </div>
+
+    <div class="unit">
+      <p class="unitTitle">c &middot; al mismo tamaño que la tarea</p>
+      <div class="loose">
+        <div class="card">
+          <p class="task">Despeja la mesa del salón</p>
+          <p class="dur dur-peer">10&ndash;15 min</p>
+        </div>
+      </div>
+      <p class="cap"><b>Reloj mirándote.</b> Dos voces al mismo volumen: el ojo va y vuelve, y ya hay <em>dos</em> cosas en la pantalla, lo que rompe la regla de una sola. Una duración tan alta como la tarea deja de ser una garantía y se convierte en una especificación &mdash; y una especificación es un plazo.</p>
+    </div>
+
+    <div class="unit">
+      <p class="unitTitle">d &middot; chip con accent-soft detrás</p>
+      <div class="loose">
+        <div class="card">
+          <p class="dur dur-chip"><span class="chip">10&ndash;15 min</span></p>
+          <p class="task">Despeja la mesa del salón</p>
+        </div>
+      </div>
+      <p class="cap"><b>Tranquilidad.</b> Pequeña pero en tinta primaria, contenida en una forma cerrada &mdash; una cantidad de tiempo con bordes &mdash; y con <em>el mismo relleno que «Hecho»</em>. Ese parentesco es el hallazgo: el chip pertenece a la familia de lo que se te invita a hacer, no a la de lo que se te mide.</p>
+    </div>
+
+  </div>
+
+  <div class="finding">
+    <p><strong>Entregan tranquilidad:</strong> (d) del todo, (b) a medias. <strong>Se leen como un reloj:</strong> (c) claramente. Y (a) falla por el otro lado: no vigila, simplemente desaparece, y con ella la garantía. Los dos modos de fallo son opuestos y los dos son fatales &mdash; demasiado callado y se pierde la promesa, demasiado alto y se convierte en una exigencia.</p>
+    <p><strong>La síntesis es (d) en la posición de (b):</strong> chip con <code>accent-soft</code>, tinta primaria, 15sp, arriba, como eyebrow. Posición de (b), voz de (d). Es lo que está en la rampa y lo que va a la sección&nbsp;4. Dos detalles que lo sostienen: el guion es un guion corto de rango (10&ndash;15), nunca un signo menos ni un «a»; y el radio del chip es el mismo 14px de la tarjeta y del botón, para que no se lea como una insignia &mdash; en esta app no hay insignias.</p>
+  </div>
+</section>
+
+<hr class="hr" style="margin-top:56px">
+
+<!-- ===================================================================
+     SECCIÓN 4 · ESCALA DE FUENTE AL 200%
+     =================================================================== -->
+<section class="aliento">
+  <p class="secnum">Sección 4</p>
+  <h2>Escala de fuente al 200%</h2>
+  <p class="lead">Restricción dura, reafirmada por el usuario: legible al 200% de escala de sistema sin truncamiento. La configuración ganadora en reposo y al doble, en un teléfono de ancho fijo (302px en las dos). Los cinco roles se multiplican exactamente por dos; nada se ha reducido para que quepa.</p>
+  <p class="lead">El punto crítico es <strong>«Otra más fácil / Ahora no»</strong>: 25 caracteres, la cadena más larga de la superficie y la primera que se rompe. Todo lo de esta sección está medido en el render, no estimado.</p>
+
+  <div class="stage">
+
+    <div class="unit cfg-pair">
+      <p class="unitTitle">100% &middot; escala normal</p>
+      <div class="phone">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-chip"><span class="chip">10&ndash;15 min</span></p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap">Lora 26 / Lexend 19 / Lexend 15. La cadena secundaria entra en una línea con holgura: 156px de texto en 234px de caja.</p>
+    </div>
+
+    <div class="unit cfg-pair">
+      <p class="unitTitle">200% &middot; mismo ancho, sin recortar nada</p>
+      <div class="phone x2">
+        <div class="mid">
+          <div class="card">
+            <p class="dur dur-chip"><span class="chip">10&ndash;15 min</span></p>
+            <p class="task">Despeja la mesa del salón</p>
+          </div>
+          <div class="acts">
+            <div class="btnPri">Hecho</div>
+            <div class="btnGho">Otra más fácil / Ahora no</div>
+          </div>
+        </div>
+        <p class="foot">Una sola cosa. Nada más ahora mismo.</p>
+      </div>
+      <p class="cap">Lora 52 / Lexend 38 / Lexend 30. La tarea en tres líneas («Despeja / la mesa / del salón»), la acción secundaria en dos («Otra más fácil /» &divide; «Ahora no»), el chip en una. Nada truncado, nada con puntos suspensivos, nada desbordado en horizontal. La altura crece muy por encima de los 604px de reposo y la pantalla pasa a hacer scroll: eso es correcto, no es un fallo.</p>
+    </div>
+
+  </div>
+
+  <div class="finding">
+    <p><strong>Qué pasa de verdad.</strong> Ancho de texto útil dentro del teléfono: 302 &minus; 18&minus;18 de padding = <strong>266px</strong> para los botones, y 266 &minus; 20&minus;20 de padding de tarjeta = <strong>224px</strong> para la frase. Al 200%:</p>
+    <p>&middot; <strong>La tarea</strong> (Lora 52px) pasa de dos líneas a <strong>tres</strong>: «Despeja / la mesa / del salón». Cabe, porque la interlínea es un multiplicador (1.32) y no un dp fijo; con interlínea fija a 34dp las líneas se solaparían.<br>
+       &middot; <strong>El chip</strong> (Lexend 30px) sigue siendo un bloque en una línea; «10&ndash;15 min» son 10 caracteres y no llega al borde.<br>
+       &middot; <strong>«Hecho»</strong> (Lexend 38px) sobra ancho. Nunca es el problema.<br>
+       &middot; <strong>«Otra más fácil / Ahora no»</strong> (Lexend 30px) <strong>no cabe en una línea y se pliega en dos:</strong> «Otra más fácil /» &divide; «Ahora no». Nada recortado, nada abreviado. La única concesión de la página es <code>line-height:1.35</code> en la acción secundaria, en vez del 1.0 de la primaria: el botón deja de ser una caja de una línea y pasa a ser una caja de dos.</p>
+    <p><strong>Y aquí está la parte incómoda, que es la que de verdad hay que contar.</strong> El primer valor que puse en <code>action-secondary</code> fue 16sp. A 16sp el 200% son 32px, y a 32px el motor de línea <strong>parte por delante de la barra</strong>: sale «Otra más fácil» &divide; «/ Ahora no», con la barra colgando al principio de la segunda línea. Y no es un problema de ancho: a 32px la línea «Otra más fácil /» mide 203px y hay 238px disponibles. <strong>Cabe, y aun así el motor no la pone ahí.</strong> Es el algoritmo de plegado, no la medida.</p>
+    <p><strong>Intenté forzarlo y salió peor.</strong> Espacio duro antes de la barra: <strong>tres líneas</strong> en vez de dos («Otra más» &divide; «fácil / Ahora» &divide; «no»). Espacio de ancho cero: sin efecto. <code>text-wrap:&nbsp;balance</code>: parte delante de la barra a <em>todos</em> los tamaños, incluso a los que sin él salían bien. <code>pretty</code> y <code>stable</code>: sin efecto. Lo único que mueve el corte al sitio bueno es <strong>bajar el rol a 15sp</strong>, y por eso la rampa dice 15 y no 16: a 30px y por debajo el motor parte detrás de la barra y sale «Otra más fácil /» &divide; «Ahora no». Un punto de tamaño, comprado con una medición y no con una opinión.</p>
+    <p><strong>Con la honestidad que toca:</strong> esto está medido en Blink, el motor del navegador con el que se mira esta página, y el de Android no es el mismo. La regla que sobrevive al cambio de motor no es «15sp»; es que <em>no hay ninguna anchura a la que esta cadena sobreviva entera al 200%, así que el plegado hay que aceptarlo y verificarlo en dispositivo</em>. Lo que 15sp compra es que el caso bueno sea el probable, no que sea seguro.</p>
+    <p><strong>Lo que hay que prohibir en implementación</strong>, porque es exactamente cómo se rompe esto: <code>maxLines=1</code>, <code>ellipsize</code>, <code>singleLine</code>, alto fijo en dp en el botón secundario, y <code>autoSizeTextType</code> (encoger el texto para que quepa es truncar por otra vía &mdash; contradice la restricción). El botón crece en alto; el texto no se toca.</p>
+    <p><strong>Y hay una decisión de producto escondida ahí.</strong> Si el plegado en dos líneas molesta, la salida correcta <em>no</em> es acortar la cadena: es separar las dos ofertas en dos controles &mdash; «Otra más fácil» y «Ahora no» &mdash; que es lo que semánticamente ya son. Una barra oblicua entre dos opciones distintas es un atajo de maqueta, no un componente. Eso queda anotado como pregunta para el usuario; esta página no lo decide sola.</p>
+  </div>
+</section>
+
+<hr class="hr" style="margin-top:56px">
+
+<!-- ===================================================================
+     SECCIÓN 5 · LA RAMPA
+     =================================================================== -->
+<section>
+  <p class="secnum">Sección 5</p>
+  <h2>La rampa</h2>
+  <p class="lead">Cinco roles, no quince. La app no tiene más superficies que las que hay: si aparece un sexto rol, la pregunta correcta es si esa pantalla debería existir.</p>
+
+  <div class="tblwrap">
+  <table class="ramp">
+    <caption>Tamaños en <code>sp</code> (escalan con el ajuste del sistema). Interlínea como multiplicador, nunca dp fijo.</caption>
+    <thead>
+      <tr><th>Rol</th><th>Cara</th><th>Tamaño</th><th>Peso</th><th>Interlínea</th><th>Tracking</th><th>Tinta</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>task</th>
+        <td>Lora</td><td class="mono">26 sp</td><td class="mono">500</td><td class="mono">1.32</td><td class="mono">0</td>
+        <td><code>ink-primary</code> #1E2124</td>
+      </tr>
+      <tr>
+        <th>duration</th>
+        <td>Lexend</td><td class="mono">15 sp</td><td class="mono">500</td><td class="mono">1.40</td><td class="mono">+0.01em</td>
+        <td><code>ink-primary</code> sobre chip <code>accent-soft</code> #D5E0DC</td>
+      </tr>
+      <tr>
+        <th>action&#8209;primary</th>
+        <td>Lexend</td><td class="mono">19 sp</td><td class="mono">600</td><td class="mono">1.00</td><td class="mono">+0.01em</td>
+        <td><code>ink-primary</code> sobre <code>accent-soft</code></td>
+      </tr>
+      <tr>
+        <th>action&#8209;secondary</th>
+        <td>Lexend</td><td class="mono">15 sp</td><td class="mono">400</td><td class="mono">1.35</td><td class="mono">+0.01em</td>
+        <td><code>ink-secondary</code> #5C6368</td>
+      </tr>
+      <tr>
+        <th>support</th>
+        <td>Lexend</td><td class="mono">13 sp</td><td class="mono">400</td><td class="mono">1.45</td><td class="mono">+0.02em</td>
+        <td><code>ink-secondary</code> #5C6368</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <ul class="notes">
+    <li><strong>Los cinco tamaños heredan plataforma.</strong> Van en <code>sp</code>: el factor de escala lo pone el usuario en Ajustes, no la rampa. Ningún valor de esta tabla se convierte nunca a <code>dp</code>.</li>
+    <li><strong>La interlínea también hereda.</strong> Multiplicador, no altura fija. Es lo que hace que la sección&nbsp;4 funcione.</li>
+    <li><strong>El plegado de <code>action-secondary</code> es de plataforma</strong> y hay que dejarlo trabajar: sin <code>maxLines</code>, sin <code>ellipsize</code>, sin <code>autoSize</code>, sin alto fijo, y sin espacios duros ni <code>&lt;br&gt;</code> para dirigir el corte &mdash; probado, empeora. Es el único rol con interlínea &gt;&nbsp;1 en un botón, y es a propósito.</li>
+    <li><strong>15sp en <code>action-secondary</code> es el único valor de la tabla elegido por una medición y no por criterio:</strong> es el mayor tamaño al que la cadena larga, al 200%, se dobla detrás de la barra en vez de delante. Sección&nbsp;4.</li>
+    <li><strong>Los mínimos táctiles NO escalan:</strong> 48dp de alto mínimo en los dos botones, en <code>dp</code>. El texto crece y arrastra la caja por padding; el mínimo se queda quieto.</li>
+    <li><strong>Peso 500 en <code>task</code> por Lora, no por gusto.</strong> El 400 de Lora adelgaza los remates y los acentos sobre blanco puro; 500 los sostiene sin que la frase se ponga enfática.</li>
+    <li><strong>Tracking 0 en <code>task</code>.</strong> Una serif a 26px no quiere tracking negativo: cerrar el espaciado le come las aperturas, que es justo lo que la hace leerse como texto de libro.</li>
+    <li><strong>El sistema numérico manda dentro de <code>duration</code>:</strong> cifras tabulares y guion corto de rango (10&ndash;15), para que el chip no cambie de ancho entre «5&ndash;10» y «10&ndash;15».</li>
+    <li><strong>La itálica de Lora se carga pero no se usa</strong> en ningún rol. Si un día se usa, será en <code>support</code> y nunca en <code>task</code>: una tarea en cursiva se lee como énfasis, y aquí no se enfatiza nada.</li>
+  </ul>
+</section>
+
+<hr class="hr" style="margin-top:56px">
+
+<!-- ===================================================================
+     SECCIÓN 6 · VEREDICTO
+     =================================================================== -->
+<section class="verdict">
+  <p class="secnum">Sección 6</p>
+  <h2>Veredicto</h2>
+
+  <h3>Con qué me presentaría delante del usuario</h3>
+  <p class="answer">La <strong>emparejada (C)</strong>: Lora para la tarea, Lexend para todo lo demás.</p>
+  <p>Porque es la única de las tres que hace las dos cosas que la pantalla necesita a la vez. La frase tiene que sonar a alguien diciéndote algo pequeño y razonable &mdash; eso lo da la serif, y es exactamente lo que el usuario describió al decir «texto de libro». Los controles tienen que sonar a nada: quietos, sin voz, disponibles. Eso lo da Lexend, que es literalmente para lo que fue diseñada. Todo Lora falla en los botones (una serif dentro de un relleno de color se pone solemne, y «Hecho» no puede ser solemne cuando se pulsa veinte veces por semana). Todo Lexend no falla en nada &mdash; simplemente no tiene calor, y en una pantalla con una sola frase la falta de calor es el defecto.</p>
+  <p>Y una nota sobre cómo presentarla: la preferencia declarada del usuario es Lexend, y esta propuesta <em>no</em> la contradice. Lexend se queda con cuatro de los cinco roles. Lo que se le quita es exactamente uno: la frase.</p>
+
+  <h3>¿Se gana la segunda cara su sitio, con sólo cinco roles?</h3>
+  <p class="answer">Sí, pero por poco &mdash; y sólo porque cae limpia en la única frontera que tiene la app.</p>
+  <p>Voy a ser honesto con la objeción, porque es buena: dos caras para cinco roles suena a sobreingeniería, y normalmente lo es. Aquí sobrevive por un motivo estructural: la frontera no la dibuja el diseñador, ya está en el producto. <strong>Un rol es contenido</strong> (la tarea, que es prosa escrita por una persona) <strong>y cuatro son mecanismo</strong> (duración, dos acciones, copy de apoyo). Una cara por lado, sin excepciones, sin casos intermedios y sin que nadie tenga que decidir nunca cuál usar. Eso no es una paleta de dos caras: es una regla de una línea.</p>
+  <p>Dónde sí sería sobreingeniería, y hay que decirlo: si el emparejamiento empieza a necesitar Lora en un segundo rol, o Lexend en la tarea «según el caso», la regla se ha roto y entonces la respuesta correcta pasa a ser todo Lexend. También hay un coste real que no aparece en esta página: dos familias variables en el APK, y en Android el fallback tipográfico de una serif embebida es menos predecible que el de una sans. Si eso se convierte en un problema de peso o de renderizado en dispositivo, <strong>todo Lexend es un repliegue perfectamente digno</strong> &mdash; pierde calor, no pierde nada más. Lo que no recomiendo en ningún caso es todo Lora.</p>
+
+  <h3>Tamaño del héroe</h3>
+  <p class="answer">26sp, peso 500, interlínea 1.32.</p>
+  <p>20 se lee timido: la frase queda por debajo del botón que la ejecuta y la tarjeta parece un elemento de lista perdido. 32 todavía es bonito pero ya proclama, se come el vacío del que depende la calma, y al 200% (64px) se deshace en cuatro o cinco líneas. 26 es lo más grande de la pantalla, cae en dos líneas con un corte natural, y al doble sigue siendo manejable. La pendiente hacia el grito se cruza alrededor de 30.</p>
+
+  <h3>Tratamiento de la duración</h3>
+  <p class="answer">Chip con <code>accent-soft</code>, tinta primaria, 15sp, arriba de la tarea como eyebrow. La (d) en la posición de la (b).</p>
+  <p>Arriba porque el orden de lectura es el mecanismo: el coste antes de la petición, o la garantía llega tarde. Tinta primaria porque en secundaria se convierte en metadato y el usuario deja de verla justo la noche en que la necesita. Chip porque una forma cerrada dice «cantidad con bordes», y porque comparte relleno con «Hecho»: la duración pertenece visualmente a la familia de lo que te invitan a hacer, no a la de lo que te miden. Y pequeña &mdash; 15 contra 26 &mdash; porque al mismo tamaño que la tarea deja de ser un permiso y se convierte en un plazo.</p>
+
+  <h3>La tensión que queda abierta</h3>
+  <p>Al 200% «Otra más fácil / Ahora no» se pliega en dos líneas. No se trunca, no se recorta y no se acorta la cadena &mdash; pero el botón secundario deja de ser una caja de una línea, y el sitio por donde dobla no lo decide el diseño: lo decide el motor de línea. A 16sp doblaba por delante de la barra y la dejaba colgando al principio de la segunda línea, aunque hubiera 35px de sitio de sobra; los tres trucos que probé para moverla salieron iguales o peores, uno de ellos con tres líneas. Bajarlo a 15sp lo arregla en Blink y probablemente en Android, y «probablemente» es la palabra honesta: esto hay que verlo en un teléfono.</p>
+</section>
+
+</div>
+</body>
+</html>

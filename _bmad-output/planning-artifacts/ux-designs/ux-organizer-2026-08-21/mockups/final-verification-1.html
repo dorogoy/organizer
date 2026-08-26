@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificación final · círculo del vilano, paridad de tinta, croma y suelo de tamaño</title>
+<style>
+/* =====================================================================
+   VERIFICACIÓN FINAL · SESIÓN UX BMad · Organizador anti-agobio
+   2026-08-23  ·  paleta ALIENTO (variación 4 de color-themes-1.html)
+   Referencia de forma: imports/dandelion-seed-reference.png
+   Geometría heredada de .working/seed-at-scale-1.html (sin redibujar)
+   =====================================================================
+
+   ---------------------------------------------------------------------
+   1. TODOS LOS HEX DE ESTA PÁGINA, CON L* Y CROMA (CIE Lab, D65, sRGB)
+   ---------------------------------------------------------------------
+   ESTRUCTURA · Aliento, intacta
+     surface-base      #F7F8F9   L*  97.51   a  -0.44  b  -0.94   C  1.04
+     surface-raised    #FFFFFF   L* 100.00   a   0.00  b   0.00   C  0.00
+     ink-primary       #1E2124   L*  12.62   a  -0.68  b  -1.29   C  1.46
+     ink-secondary     #5C6368   L*  41.48   a  -1.55  b  -2.60   C  3.03
+     border-hairline   #E1E5E8   L*  90.71   a  -1.18  b  -1.44   C  1.86
+     accent-soft       #D5E0DC   L*  88.31   a  -4.42  b   0.73   C  4.48
+     radius 14px
+
+   MASAS DE ICONO · versión A (actual, croma ~11)
+     dest-keep    #AEBFB8   L* 75.90  a  -7.17  b   1.54   C  7.34  h 167.9
+     dest-donate  #BCB9CD   L* 75.94  a   4.89  b  -9.68   C 10.85  h 296.8
+     dest-trash   #A6BFCC   L* 75.90  a  -5.70  b  -9.37   C 10.97  h 238.7
+     separaciones (distancia en el plano a-b, = dE con L* igual):
+       keep-donate 16.47   keep-trash 11.00   donate-trash 10.60
+       MÍNIMA 10.60
+
+   MASAS DE ICONO · versión B (rosa polvo dentro, los otros dos sin tocar)
+     dest-keep    #AEBFB8   L* 75.90  C  7.34  h 167.9   (sin tocar)
+     dest-donate  #BCB9CD   L* 75.94  C 10.85  h 296.8   (sin tocar)
+     dest-trash   #D9B1B8   L* 75.86  a  15.57  b   1.92   C 15.69  h   7.0
+     separaciones: keep-donate 16.47  keep-trash 22.75  donate-trash 15.76
+       MÍNIMA 15.76   ·   croma DESIGUAL: 7.34 / 10.85 / 15.69
+
+   MASAS DE ICONO · versión C (las tres subidas juntas a croma ~15)
+     dest-keep    #9EC3B5   L* 75.84  a -15.18  b   2.95   C 15.47  h 169.0
+     dest-donate  #BCB8D4   L* 75.90  a   6.86  b -13.55   C 15.19  h 296.9
+     dest-trash   #D9B2B6   L* 76.05  a  14.71  b   3.29   C 15.08  h  12.6
+     separaciones: keep-donate 27.53  keep-trash 29.90  donate-trash 18.57
+       MÍNIMA 18.57   ·   croma spread 0.39   ·   L* spread 0.21
+
+   dL* de todas las masas contra surface-base (97.51): 21.5 - 21.7.
+   NO HAY BALDOSAS DE COLOR. El matiz vive DENTRO del glifo; las
+   etiquetas van sobre el suelo claro; el único pastel que lleva texto
+   es accent-soft en el chip de duración. Sin rojo como alarma. Sin
+   iconografía de aviso. Sin signos de exclamación. Sin gradientes, sin
+   resplandor, sin sombra difusa. SVG en línea a mano, sin librerías,
+   sin red y sin JavaScript.
+
+   ---------------------------------------------------------------------
+   2. REGLA DE TRAZO · stroke-width(u) = px_objetivo x 24 / px_render
+      objetivo 1.5px. Valores calculados usados en esta página:
+   ---------------------------------------------------------------------
+      render 168px -> sw 0.2143 u    1 u = 7.0000 px
+      render 150px -> sw 0.2400 u    1 u = 6.2500 px
+      render  96px -> sw 0.3750 u    1 u = 4.0000 px
+      render  72px -> sw 0.5000 u    1 u = 3.0000 px
+      render  64px -> sw 0.5625 u    1 u = 2.6667 px
+      render  48px -> sw 0.7500 u    1 u = 2.0000 px
+      render  36px -> sw 1.0000 u    1 u = 1.5000 px
+      render  24px -> sw 1.5000 u    1 u = 1.0000 px
+
+   ---------------------------------------------------------------------
+   3. VECTOR DE DESPLAZAMIENTO · uno solo, global, para todo el set
+   ---------------------------------------------------------------------
+      |d| = 0.08 x 24 u = 1.92 u
+      dx = +1.92/raiz(2) = +1.358 u
+      dy = -1.92/raiz(2) = -1.358 u
+      transform="translate(1.358,-1.358)"     45 grados arriba-derecha
+   Eje del tallo de la semilla: (6.350,18.250) -> (12.400,10.200),
+   dirección (+0.601,-0.799) = 53.0 grados. Desvío 8.0 grados; componente
+   perpendicular 1.92 x sen(8) = 0.267 u = 13.9% de la magnitud: el
+   desplazamiento corre A LO LARGO del tallo, no de través.
+   El círculo del vilano no tiene eje, así que cualquier dirección le
+   sirve; con este vector se mete hacia dentro del abanico, que es
+   justo donde tiene que estar.
+      centro nominal H (12.400, 10.200)
+      centro efectivo    (13.758,  8.842)
+
+   ---------------------------------------------------------------------
+   4. GEOMETRÍA · SEMILLA FINAL, 8 FILAMENTOS SIEMPRE
+   ---------------------------------------------------------------------
+   cubo del vilano  H  (12.400, 10.200)
+   aquenio alto     A1 ( 6.350, 18.250)     aquenio punta A0 (3.700, 21.550)
+   tallo cuadrático A1 -> (8.900,13.500) -> H     longitud 10.11 u
+   aquenio RELLENO en ink-primary: área medida 6.148 u2, perímetro 9.829 u
+     (dos cúbicas espejadas, aplanado a 400 segmentos, fórmula del cordón)
+   abanico n=8: theta(t) = 152 - 174 x (1-(1-t)^1.25),  t = i/7
+     ángulos:  152.00  121.50   92.26   64.45   38.34   14.35  -6.72  -22.00
+     huecos:    30.50   29.25   27.81   26.11   23.99  21.06  15.28
+     MÍNIMO angular 15.28 grados (par de sotavento, filamentos 6-7)
+     longitudes: 6.800 7.712 8.357 8.561 8.020 7.159 6.073 4.800
+       media 7.185 u  ·  máxima 8.561 u
+     hueco entre puntas vecinas: medio 3.386 u  ·  MÍNIMO 1.919 u
+     tinta de abanico 61.00 u
+   CONTORNO TOTAL n=8 = 61.00 + 10.11 + 9.83 = 80.94 u
+   rasgos de movimiento (opcionales, 5 arcos): 21.78 u — NO en el trío
+
+   ANCHO DEL CUBO (definición usada para el porcentaje del círculo)
+     cubo = cuarto interior del vilano = 2 x 0.25 x L_max = 4.30 u.
+     Es la zona donde los filamentos todavía se leen como haz y no como
+     líneas sueltas. Definición geométrica, independiente del tamaño.
+     Contraste: el núcleo fundido medido a 64px (hueco medio, umbral de
+     fusión 1.4px) da 5.01 u; con el hueco mínimo, 8.16 u. Se usa 4.30 u
+     porque no depende del render.
+
+   ---------------------------------------------------------------------
+   5. TINTA TOTAL = masa + contorno x stroke-width
+      Métrica de gobierno. NUNCA juzgar por masa sola: la semilla es
+      casi toda línea y quien mida masa concluiría que no pesa nada y
+      engordaría el vilano hasta volverlo un pompón.
+   ---------------------------------------------------------------------
+   CANDIDATOS DE CÍRCULO (a 64px, sw 0.5625, trazo del contorno 45.53 u2)
+     r(u)  d(u)   %cubo   área(u2)  %masa cajaC  d@64px   masa   TINTA
+     1.10  2.20   51.2%     3.801      4.8%      5.87px   9.95   55.48
+     1.70  3.40   79.1%     9.079     11.5%      9.07px  15.23   60.76
+     2.30  4.60  107.0%    16.619     21.0%     12.27px  22.77   68.30
+   El círculo NO añade contorno: es relleno, sin trazo, bajo la línea.
+
+   TRÍO A 64px (sw 0.5625)
+     glifo                     masa    contorno  trazo   TINTA TOTAL
+     caja C (recalibrada)      79.21     60.58   34.08     113.29
+     bolsa B                   83.48     47.87   26.93     110.41
+     semilla n=8 + círculo M   15.23     80.94   45.53      60.76
+   Paridad caja C / bolsa B: 2.6%.  Semilla = 53.6% de caja C.
+   NO HAY PARIDAD por tinta total. Déficit de la semilla: 46.4%.
+
+   TRÍO A 24px (sw 1.5000), para trazabilidad
+     caja C     79.21 +  90.87 = 170.08
+     bolsa B    83.48 +  71.81 = 155.29
+     semilla    15.23 + 121.41 = 136.64   (80.3% de caja C)
+   Al reducir, la semilla se acerca: su peso es línea y la línea engorda.
+
+   TINTA PONDERADA POR CONTRASTE (enmienda propuesta, no sustitución)
+     factor de masa pastel = dL*(21.6) / dL*(línea, 84.9) = 0.2544
+     el aquenio va en ink-primary, así que cuenta a factor 1.0
+     caja C    79.21x0.2544 = 20.15  + 34.08 =  54.23
+     bolsa B   83.48x0.2544 = 21.24  + 26.93 =  48.17
+     semilla    6.15x1.0 + 9.08x0.2544 = 8.46 + 45.53 = 53.99
+     semilla = 99.6% de caja C ; bolsa = 88.8% de caja C
+   ---------------------------------------------------------------------
+   6. SUELO DE TAMAÑO · claro entre el par de filamentos más apretado
+      claro_px = 1.919 u x px_por_u - 1.5 px
+        96px  6.18px  cómodo      72px  4.26px  cómodo
+        64px  3.62px  cómodo      48px  2.34px  se tocan, se cuentan
+        36px  1.38px  marginal    24px  0.42px  se funden
+      Umbrales: >=3.0 cómodo · >=1.9 se cuentan · >=1.4 marginal
+   ===================================================================== */
+
+:root{
+  --sb:#F7F8F9; --sr:#FFFFFF; --ink:#1E2124; --ink2:#5C6368;
+  --hair:#E1E5E8; --acc:#D5E0DC; --r:14px;
+  /* A · actual */
+  --a-keep:#AEBFB8; --a-don:#BCB9CD; --a-tra:#A6BFCC;
+  /* B · rosa dentro, los otros sin tocar */
+  --b-keep:#AEBFB8; --b-don:#BCB9CD; --b-tra:#D9B1B8;
+  /* C · las tres subidas juntas */
+  --c-keep:#9EC3B5; --c-don:#BCB8D4; --c-tra:#D9B2B6;
+  /* ganadores en uso */
+  --keep:var(--c-keep); --don:var(--c-don); --tra:var(--c-tra);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--sb); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:15px; line-height:1.62; -webkit-font-smoothing:antialiased;}
+.head{padding:46px 34px 32px; border-bottom:1px solid var(--hair); background:var(--sr)}
+.head h1{margin:0 0 8px; font-size:1.3rem; font-weight:620; letter-spacing:-.012em}
+.head p{margin:0; color:var(--ink2); font-size:.86rem; max-width:80ch}
+.wrap{max-width:1120px; margin:0 auto; padding:0 34px 140px}
+section{padding:70px 0 16px; border-bottom:1px solid var(--hair)}
+section:last-of-type{border-bottom:0}
+.snum{margin:0 0 6px; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); font-weight:600}
+h2{margin:0 0 14px; font-size:1.1rem; font-weight:620; letter-spacing:-.006em}
+h3{margin:52px 0 10px; font-size:.95rem; font-weight:620}
+h4{margin:0 0 16px; font-size:.82rem; font-weight:620}
+.lede{margin:0 0 32px; max-width:86ch; color:var(--ink2); font-size:.9rem}
+p{max-width:88ch}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.86em}
+.note{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:20px 24px; margin:30px 0 0; font-size:.87rem}
+.note p{margin:0 0 12px} .note p:last-child{margin:0}
+.note.verdict{border-left:3px solid var(--ink2)}
+.card{background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:26px 28px; margin:0 0 20px}
+.row{display:flex; flex-wrap:wrap; gap:34px; align-items:flex-end}
+.row.top{align-items:flex-start}
+.cell{display:flex; flex-direction:column; align-items:center; gap:12px; min-width:96px}
+.cap{font-size:.7rem; color:var(--ink2); letter-spacing:.02em; text-align:center; line-height:1.45}
+.cap b{color:var(--ink); font-weight:620; display:block; font-size:.75rem}
+.cap em{font-style:normal; opacity:.78}
+table{border-collapse:collapse; width:100%; font-size:.8rem; margin:22px 0 0;
+  background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); overflow:hidden}
+th,td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--hair)}
+th{font-weight:620; font-size:.72rem; letter-spacing:.05em; text-transform:uppercase; color:var(--ink2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:nth-child(even){background:#FAFBFB}
+td.n,th.n{text-align:right; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+tr.hl td{background:var(--acc)}
+.phones{display:flex; flex-wrap:wrap; gap:38px; margin:30px 0 0}
+.pcol{width:330px}
+.dsurface,.phone{width:330px; height:664px; background:var(--sr); border:1px solid var(--hair);
+  border-radius:26px; padding:0 26px 30px; display:flex; flex-direction:column; overflow:hidden}
+.bar{height:26px; flex:0 0 26px; display:flex; align-items:center; justify-content:center}
+.bar::after{content:""; width:64px; height:5px; border-radius:3px; background:var(--hair)}
+.grow{flex:1 1 auto; min-height:14px}
+.dtop{margin:34px 0 0}
+.dhead{margin:0 0 6px; font-size:1.06rem; font-weight:620; letter-spacing:-.01em}
+.dsub{margin:0; font-size:.86rem; color:var(--ink2)}
+.dopts{display:flex; flex-direction:column; gap:22px}
+.dopt{display:flex; align-items:center; gap:18px}
+.dopt span{font-size:.95rem; font-weight:520}
+.dfoot{margin:0; text-align:center; font-size:.76rem; color:var(--ink2)}
+.pcap{font-size:.76rem; color:var(--ink2); margin:14px 0 0; line-height:1.5}
+.pcap b{color:var(--ink)}
+.trio3{display:flex; flex-wrap:wrap; gap:34px; margin:26px 0 0}
+.trioC{width:330px; background:var(--sr); border:1px solid var(--hair); border-radius:var(--r); padding:26px 24px}
+.ttl{margin:0 0 8px; font-size:1.12rem; font-weight:620; letter-spacing:-.012em}
+.bd{margin:0; font-size:.9rem; color:var(--ink2)}
+.eyebrow{display:inline-block; background:var(--acc); color:var(--ink);
+  font-size:.72rem; font-weight:620; letter-spacing:.06em; text-transform:uppercase;
+  padding:5px 11px; border-radius:999px; margin:0 0 12px}
+.taskline{margin:0; font-size:1.24rem; font-weight:600; letter-spacing:-.014em; line-height:1.34}
+.btn{width:100%; border:0; border-radius:var(--r); background:var(--ink); color:var(--sr);
+  font:inherit; font-size:.96rem; font-weight:600; padding:15px 0; cursor:default; margin:0 0 6px}
+.quiet{width:100%; border:0; background:none; color:var(--ink2); font:inherit;
+  font-size:.84rem; padding:11px 0; cursor:default}
+.zone{display:flex; align-items:center; gap:9px; color:var(--ink2); font-size:.74rem;
+  letter-spacing:.04em}
+.sw{display:flex; gap:0; border-radius:10px; overflow:hidden; border:1px solid var(--hair); width:100%}
+.sw div{flex:1; height:52px}
+.small{font-size:.76rem; color:var(--ink2)}
+</style>
+</head>
+<body>
+<div style="max-width:980px;margin:0 auto 8px;padding:18px 20px;border:1px solid #E1E5E8;border-left:6px solid #CAB9A0;border-radius:14px;background:#FFFFFF;color:#1E2124;font:400 14px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif"><p style="margin:0 0 10px;font-weight:600;letter-spacing:.01em;text-transform:uppercase;font-size:12px;color:#5C6368">Promoted artifact — supersession note</p><p style="margin:0 0 10px"><b>The spines win on conflict</b> — <code>../DESIGN.md</code> and <code>../EXPERIENCE.md</code>. This page is promoted for its measurements &mdash; trio ink parity at 64px, the chroma comparison, the size floor &mdash; and its renders are partly out of date.</p>
+<p style="margin:0 0 10px"><b>Superseded in section 5, <i>In situ</i>, the Dispenser viewport.</b> (1) <code>Hecho</code> is drawn <b>dark ink-filled</b>; it is filled <code>accent-soft</code> #D5E0DC with <code>ink-primary</code> text (11.96:1). (2) &laquo;Otra m&aacute;s f&aacute;cil&raquo; and &laquo;Ahora no&raquo; are drawn as <b>two separate secondaries</b>; they are <b>one unsplit control</b>, <code>Otra m&aacute;s f&aacute;cil / Ahora no</code>. (3) The zone marker is drawn as the <b>seed at 24px in secondary ink</b>; it is the <b>Hoja</b> at 24px carrying <code>icon-mass-ochre</code> #CAB9A0.</p>
+<p style="margin:0"><b>Superseded elsewhere on the page.</b> (4) The pompom circle is presented as settled at <b>r = 1.70 u centred on the hub</b> (&laquo;centro nominal H&raquo;); the decision is <b>larger than 1.70 u and displaced off hub centre toward the leeward (dense) edge</b>, specified as a coverage constraint rather than a number (<code>../DESIGN.md</code> Open Question 2). (5) The construction notes set the seed&rsquo;s stem axis at <b>53.0&deg;</b> and accept the 8.0&deg; deviation and its 0.267 u perpendicular component; the axis is <b>45.0&deg;</b>, equal to the global offset vector, so the transverse component is exactly 0. (6) &laquo;La referencia del usuario tiene doce filamentos&raquo; is wrong: it carries <b>17</b>.</p></div>
+
+<div class="head">
+  <h1>Verificación final</h1>
+  <p>Paleta <b>Aliento</b> · masas a L* 76 · semilla de 8 filamentos, aquenio relleno, círculo de matiz en el cubo bajo la capa de línea · trazo <span class="mono">sw = 1.5 × 24 / px</span> · desplazamiento único global <span class="mono">(+1.358, −1.358)</span> · métrica de gobierno <span class="mono">tinta total = masa + contorno × trazo</span>.</p>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="fan8"><path d="M12.4 10.2 C10.734 8.698 9.275 6.228 6.396 7.008"/><path d="M12.4 10.2 C11.636 7.773 11.632 4.52 8.37 3.624"/><path d="M12.4 10.2 C12.963 7.501 14.681 4.423 12.071 1.849"/><path d="M12.4 10.2 C14.199 8.024 17.228 6.056 16.092 2.477"/><path d="M12.4 10.2 C14.811 9.111 18.17 8.705 18.69 5.226"/><path d="M12.4 10.2 C14.761 10.187 17.649 11.075 19.336 8.426"/><path d="M12.4 10.2 C14.273 10.91 16.288 12.492 18.431 10.91"/><path d="M12.4 10.2 C13.68 11.131 14.887 12.758 16.85 11.998"/></g>
+  <path id="stem" d="M6.35 18.25 Q8.9 13.5 12.4 10.2"/>
+  <path id="ach" d="M6.35 18.25 C4.696 18.55 2.919 19.837 3.7 21.55 C5.541 21.943 6.414 19.93 6.35 18.25 Z"/>
+  <g id="dashes"><path d="M18.6 4.4 Q20.6 3.1 22.3 3.8"/><path d="M19.7 7.7 Q21.4 6.6 22.5 7.4"/><path d="M16.2 2.3 Q18.1 1.25 19.6 1.9"/><path d="M2.4 15.2 Q5.6 12.6 9 13.4"/><path d="M1.7 18.1 Q3.1 16.2 5.1 15.8"/></g>
+  <circle id="pomS" cx="12.4" cy="10.2" r="1.10"/>
+  <circle id="pomM" cx="12.4" cy="10.2" r="1.70"/>
+  <circle id="pomL" cx="12.4" cy="10.2" r="2.30"/>
+  <g id="m-cajC"><rect x="6.9" y="11" width="10.2" height="7.85" rx="1"/></g>
+  <g id="l-cajC"><rect x="4.8" y="7.2" width="14.4" height="3.8" rx="1"/><path d="M6.9 11 L6.9 18.85 L17.1 18.85 L17.1 11"/></g>
+  <g id="m-bolB"><path d="M5.15 14.1 L18.85 14.1 L19.3 20 L4.7 20 Z"/></g>
+  <g id="l-bolB"><path d="M5.6 9.4 L4.7 20 L19.3 20 L18.4 9.4"/><path d="M9.2 9.4 V7.8 A2.8 2.8 0 0 1 14.8 7.8 V9.4"/></g>
+</defs></svg>
+
+<div class="wrap">
+<section>
+<p class="snum">Sección 1</p>
+<h2>El diámetro del círculo del vilano · el último número abierto</h2>
+<p class="lede">Tres diámetros, la misma semilla, 64px, <span class="mono">sw 0.5625 u</span>. El círculo va en <span class="mono">dest-trash</span>, sin trazo, desplazado con el vector global y <b>debajo</b> de la capa de línea: los filamentos le pasan por encima. El «ancho del cubo» es el cuarto interior del vilano, 4.30 u — la zona donde los filamentos aún se leen como haz.</p>
+<div class="card"><h4>Los tres candidatos, y la semilla sin círculo como control</h4>
+<div class="row"><div class="cell"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span class="cap"><b>control</b>sin masa de matiz<br><em>tinta 51.68</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomS" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span class="cap"><b>pequeño</b>r 1.10 u · d 2.20 u<br><em>51.2% del cubo · 3.80 u²</em><br><em>5.87px a 64px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span class="cap"><b>medio</b>r 1.70 u · d 3.40 u<br><em>79.1% del cubo · 9.08 u²</em><br><em>9.07px a 64px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomL" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span class="cap"><b>grande</b>r 2.30 u · d 4.60 u<br><em>107.0% del cubo · 16.62 u²</em><br><em>12.27px a 64px</em></span></div></div></div>
+<div class="card"><h4>Los mismos tres, aislados y ampliados a 168px para ver el cruce de filamentos <span class="mono" style="font-weight:400">(sw 0.2143 u)</span></h4>
+<div class="row"><div class="cell"><svg viewBox="0 0 24 24" width="168" height="168" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomS" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.2143" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.2143" stroke-linejoin="round"/></svg><span class="cap"><b>pequeño</b>r 1.10 u</span></div><div class="cell"><svg viewBox="0 0 24 24" width="168" height="168" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.2143" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.2143" stroke-linejoin="round"/></svg><span class="cap"><b>medio</b>r 1.70 u</span></div><div class="cell"><svg viewBox="0 0 24 24" width="168" height="168" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomL" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.2143" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.2143" stroke-linejoin="round"/></svg><span class="cap"><b>grande</b>r 2.30 u</span></div></div></div>
+<table><thead><tr><th>Candidato</th><th class="n">r (u)</th><th class="n">d (u)</th><th class="n">% del cubo (4.30 u)</th><th class="n">área (u²)</th><th class="n">% masa caja C</th><th class="n">d a 64px</th><th class="n">masa total (u²)</th><th class="n">TINTA TOTAL a 64px</th></tr></thead><tbody><tr class=""><td>pequeño</td><td class="n">1.10</td><td class="n">2.20</td><td class="n">51.2%</td><td class="n">3.801</td><td class="n">4.8%</td><td class="n">5.87px</td><td class="n">9.95</td><td class="n">55.48</td></tr><tr class="hl"><td>medio</td><td class="n">1.70</td><td class="n">3.40</td><td class="n">79.1%</td><td class="n">9.079</td><td class="n">11.5%</td><td class="n">9.07px</td><td class="n">15.23</td><td class="n">60.76</td></tr><tr class=""><td>grande</td><td class="n">2.30</td><td class="n">4.60</td><td class="n">107.0%</td><td class="n">16.619</td><td class="n">21.0%</td><td class="n">12.27px</td><td class="n">22.77</td><td class="n">68.30</td></tr><tr><td>control, sin círculo</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">0.000</td><td class="n">0.0%</td><td class="n">—</td><td class="n">6.15</td><td class="n">51.68</td></tr>
+</tbody></table>
+<h3>¿Color o punto?</h3>
+<p><b>Pequeño (r 1.10 u · 3.80 u² · 5.87px).</b> Es un punto. Y falla por la misma razón que falló el aquenio-como-masa: 3.80 u² son el 4.8&nbsp;% de la masa de la caja, la mitad del 7.8&nbsp;% que ya se descartó. A 64px son 5.9px de disco con dos filamentos y el tallo cruzándolo, o sea unos 4px de pastel visible repartidos en trozos. No se lee «esta opción es rosa»; se lee «hay una mota». Descartado.</p>
+<p><b>Medio (r 1.70 u · 9.08 u² · 9.07px).</b> Se lee como color. Dos cosas lo salvan que el aquenio no tenía: es <em>compacto</em> y está <em>en el centro óptico</em>. El aquenio fallado tenía 6.15 u² repartidos en una astilla de 4.23 u de largo por 2.52 u de ancho, en la punta inferior del dibujo — mucho perímetro por poca mancha, y en el sitio donde la mirada no está. El círculo medio tiene un 48&nbsp;% más de área concentrada en un disco de 9.1px, aproximadamente la altura de una mayúscula de la etiqueta que tiene al lado. Eso es un tamaño que el ojo clasifica como campo de color, no como marca.</p>
+<p><b>Grande (r 2.30 u · 16.62 u² · 12.27px).</b> Se lee como color sin discusión, y empieza a leerse como <em>pelota</em>. El 107&nbsp;% del cubo significa que el disco es más ancho que la zona de haz: su arco de abajo-izquierda sale por donde no hay filamentos —solo el tallo— y ahí el borde del círculo queda desnudo contra el suelo. Un borde curvo desnudo pide ser interpretado como objeto propio. A 168px se ve claramente: hay una bola detrás del dibujo.</p>
+<h3>¿Mal registro de segunda plancha, o mancha ajena?</h3>
+<p>El efecto que se busca es de imprenta: una segunda plancha de color corrida respecto a la de línea. Para que se lea así, el color tiene que estar <b>parcialmente tapado y parcialmente asomado</b> por la línea, y el asomo tiene que ir todo en la misma dirección. Con el círculo desplazado a <span class="mono">(13.758, 8.842)</span> los filamentos 2, 3, 4 y 5 lo cruzan en abanico y el tallo lo roza por abajo: el medio cumple las dos condiciones. El pequeño está tan tapado que casi no asoma —el desplazamiento de 1.92 u es más grande que su propio radio de 1.10 u, así que se sale del haz en vez de correrse dentro de él— y el grande asoma tanto por su lado libre que deja de parecer corrido y parece puesto detrás.</p>
+<div class="note verdict"><p><b>El que le pongo delante primero: r = 1.70 u, diámetro 3.40 u, 79.1&nbsp;% del ancho del cubo.</b> Porque es el único de los tres que resuelve las dos preguntas a la vez. Es la primera área que el ojo clasifica como color y no como punto —9.08 u², 11.5&nbsp;% de la masa de la caja, disco de 9.1px— y sigue siendo más estrecho que la zona de haz, así que todo su borde libre cae bajo filamentos y el desplazamiento se lee como mal registro y no como una pelota mal colocada. El pequeño repite el fracaso de la astilla; el grande gana el color y pierde el idioma.</p></div>
+</section>
+<section>
+<p class="snum">Sección 2</p>
+<h2>Paridad del trío a 64px, medida por tinta total</h2>
+<p class="lede">Pantalla completa, tres opciones y nada más. Caja C recalibrada —la masa se ha mudado de la banda de la tapa al cuerpo, <span class="mono">10.20 × 7.85</span>—, bolsa B, semilla de 8 filamentos con el círculo medio. Sin rasgos de movimiento: el trío no los lleva, y en la tabla se explica por qué.</p>
+<div class="phones"><div class="pcol"><div class="dsurface"><div class="bar"></div>
+<div class="dtop"><p class="dhead">¿Dónde va esto?</p><p class="dsub">Camiseta azul de rayas</p></div>
+<div class="grow"></div>
+<div class="dopts">
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--c-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div>
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--c-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div>
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--c-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div>
+</div>
+<div class="grow"></div>
+<p class="dfoot">Sin prisa. Puedes dejarlo para luego.</p></div>
+<p class="pcap"><b>El trío final.</b> Glifos a 64px, etiquetas sobre el suelo claro, sin baldosas de color. Las tres masas a L* 76 y croma ~15 (versión C de la sección 3), desplazadas con el vector global. En la semilla la masa es el círculo del vilano, bajo la línea.</p></div><div class="pcol"><div class="dsurface"><div class="bar"></div>
+<div class="dtop"><p class="dhead">¿Dónde va esto?</p><p class="dsub">Camiseta azul de rayas</p></div>
+<div class="grow"></div>
+<div class="dopts"><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--c-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--c-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--c-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/><use href="#dashes"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div></div><div class="grow"></div>
+<p class="dfoot">Sin prisa. Puedes dejarlo para luego.</p></div>
+<p class="pcap"><b>Control: la misma fila con rasgos de movimiento.</b> Los 5 arcos suman 21.78 u de contorno, que a 64px son 12.25 u² más de tinta. Miden bien —suben la semilla del 53.6&nbsp;% al 64.4&nbsp;% de la caja— y aun así son un error aquí: los arcos salen del área del glifo, chocan con la etiqueta de al lado y ponderados por contraste dejan la semilla en el 122&nbsp;% de la caja, o sea la más pesada de la fila. Los rasgos son de la clase de ilustración, no del trío.</p></div>
+</div>
+<table><thead><tr><th>Glifo</th><th class="n">masa (u²)</th><th class="n">contorno (u)</th><th class="n">trazo a 64px (u)</th><th class="n">tinta de trazo (u²)</th><th class="n">TINTA TOTAL</th><th class="n">vs caja C</th></tr></thead><tbody><tr class="hl"><td>Quedármelo · caja C</td><td class="n">79.21</td><td class="n">60.58</td><td class="n">0.5625</td><td class="n">34.08</td><td class="n">113.29</td><td class="n">100.0%</td></tr><tr class=""><td>Donar o vender · bolsa B</td><td class="n">83.48</td><td class="n">47.87</td><td class="n">0.5625</td><td class="n">26.93</td><td class="n">110.41</td><td class="n">97.5%</td></tr><tr><td>Tirar o soltar · semilla n=8 + círculo M</td><td class="n">15.23</td><td class="n">80.94</td><td class="n">0.5625</td><td class="n">45.53</td><td class="n">60.76</td><td class="n">53.6%</td></tr><tr><td>· la misma, con rasgos <em>(control)</em></td><td class="n">15.23</td><td class="n">102.72</td><td class="n">0.5625</td><td class="n">57.78</td><td class="n">73.01</td><td class="n">64.4%</td></tr><tr><td>· semilla sin círculo <em>(control)</em></td><td class="n">6.15</td><td class="n">80.94</td><td class="n">0.5625</td><td class="n">45.53</td><td class="n">51.68</td><td class="n">45.6%</td></tr></tbody></table>
+<h3>La respuesta honesta: no hay paridad por tinta total</h3>
+<p>Caja C y bolsa B sí: 113.29 contra 110.41, un 2.6&nbsp;% de diferencia, que es ruido. La semilla se queda en <b>60.76, el 53.6&nbsp;% de la caja y el 55.0&nbsp;% de la bolsa</b>. Dicho como se debe decir: <b>por la métrica de gobierno la semilla pesa un 46.4&nbsp;% menos que la caja.</b> El círculo medio aporta 9.08 u² sobre los 51.68 de la semilla desnuda; sube el total un 17.6&nbsp;% y no cierra ni de lejos una brecha de casi el doble. Ningún diámetro de círculo la cierra: haría falta un radio de 4.43 u —área 61.61 u², un diámetro de 8.86 u, el 206&nbsp;% del ancho del cubo y 23.6px a 64px— y eso ya no es un círculo en el vilano, es un pompón, que es exactamente el error que la métrica existe para prevenir.</p>
+<h3>Dónde cae el ojo primero, que no es lo mismo</h3>
+<p>En la pantalla de arriba el ojo cae primero en <b>la semilla</b>, y hay que explicar la contradicción porque importa para decidir. La tinta total suma masa y trazo como si un u² de pastel a L* 76 y un u² de línea a L* 12.6 valieran igual, y no valen: contra el suelo a L* 97.5, la masa tiene 21.6 de dL* y la línea 84.9. La masa vale 0.2544 de lo que vale la línea. Rehecha la cuenta con ese factor —y contando el aquenio a factor 1.0, porque va en ink-primary, no en pastel—:</p>
+<table><thead><tr><th>Glifo</th><th class="n">masa cruda</th><th class="n">masa ponderada (×0.2544)</th><th class="n">tinta de trazo</th><th class="n">TINTA PONDERADA</th><th class="n">vs caja C</th></tr></thead><tbody>
+<tr class="hl"><td>caja C</td><td class="n">79.21</td><td class="n">20.15</td><td class="n">34.08</td><td class="n">54.23</td><td class="n">100.0%</td></tr>
+<tr><td>bolsa B</td><td class="n">83.48</td><td class="n">21.24</td><td class="n">26.93</td><td class="n">48.17</td><td class="n">88.8%</td></tr>
+<tr><td>semilla n=8 + círculo M</td><td class="n">15.23</td><td class="n">8.46 <em>(6.15 tinta + 2.31 pastel)</em></td><td class="n">45.53</td><td class="n">53.99</td><td class="n">99.6%</td></tr>
+</tbody></table>
+<div class="note verdict"><p><b>Las dos lecturas, sin elegir por el usuario.</b> Por <b>tinta total</b>, la métrica cerrada y la que gobierna: <b>no hay paridad</b>, la semilla está un 46.4&nbsp;% por debajo de la caja, y esto es lo que hay que apuntar en el acta. Por <b>tinta ponderada por contraste</b>: la fila está en paridad —99.6&nbsp;% la semilla, 100&nbsp;% la caja, 88.8&nbsp;% la bolsa— y la más ligera de las tres pasa a ser la bolsa, no la semilla.</p>
+<p><b>Y sí: la semilla se sostiene al lado de dos glifos con masa.</b> No la sostiene la masa, la sostiene el trazo: 45.53 u² de línea negra contra los 34.08 de la caja. Tiene un 34&nbsp;% más de tinta de línea que la caja. La única razón por la que la tabla cruda dice lo contrario es que la caja tiene 79 u² de pastel pálido que la tabla cuenta como si fueran negros.</p>
+<p><b>La tensión que queda, dicha entera.</b> La métrica de gobierno está bien elegida contra el error que se propuso prevenir —impide engordar el vilano— y a la vez sobrevalora los glifos con masa. Propongo <em>añadir</em> el factor de contraste como columna, no sustituir la fórmula: si se sustituye, se pierde el freno que impide el pompón. Con las dos columnas delante, la decisión es del usuario y no de la fórmula.</p></div>
+</section>
+<section>
+<p class="snum">Sección 3</p>
+<h2>La cuestión del croma · rosa polvo admitida, ¿basta con admitirla?</h2>
+<p class="lede">Tres versiones del trío, lado a lado, con los números medidos de cada una. La separación se mide como distancia en el plano a-b, que con L* igual es exactamente el dE. Umbral de trabajo: 15.</p>
+<div class="trio3"><div class="trioC"><h4>A · actual</h4><div class="sw"><div style="background:var(--a-keep)"></div><div style="background:var(--a-don)"></div><div style="background:var(--a-tra)"></div></div><div class="dopts" style="margin:24px 0 20px"><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--a-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--a-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--a-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div></div><table style="margin:0"><thead><tr><th>token</th><th class="n">hex</th><th class="n">L*</th><th class="n">C</th><th class="n">h</th></tr></thead><tbody><tr><td>dest-keep</td><td class="n">#AEBFB8</td><td class="n">75.90</td><td class="n">7.34</td><td class="n">167.9</td></tr><tr><td>dest-donate</td><td class="n">#BCB9CD</td><td class="n">75.94</td><td class="n">10.85</td><td class="n">296.8</td></tr><tr><td>dest-trash</td><td class="n">#A6BFCC</td><td class="n">75.90</td><td class="n">10.97</td><td class="n">238.7</td></tr></tbody></table><table style="margin:10px 0 0"><thead><tr><th>par</th><th class="n">separación</th></tr></thead><tbody><tr><td>keep-donate</td><td class="n">16.47</td></tr><tr><td>keep-trash</td><td class="n">11.00</td></tr><tr class="hl"><td>donate-trash</td><td class="n">10.60</td></tr><tr><td><b>MÍNIMA</b></td><td class="n"><b>10.60</b></td></tr></tbody></table><p class="pcap">Peso igual, separación insuficiente. Los tres a croma 7.3&nbsp;/&nbsp;10.9&nbsp;/&nbsp;11.0: ninguno grita. Pero glicina (h 297) y cielo (h 239) están a 10.60 de distancia y en el glifo, a este tamaño, se leen como el mismo color frío dos veces. La menta se distingue; las otras dos no se distinguen entre sí.</p></div><div class="trioC"><h4>B · rosa dentro, los otros dos sin tocar</h4><div class="sw"><div style="background:var(--b-keep)"></div><div style="background:var(--b-don)"></div><div style="background:var(--b-tra)"></div></div><div class="dopts" style="margin:24px 0 20px"><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--b-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--b-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--b-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div></div><table style="margin:0"><thead><tr><th>token</th><th class="n">hex</th><th class="n">L*</th><th class="n">C</th><th class="n">h</th></tr></thead><tbody><tr><td>dest-keep</td><td class="n">#AEBFB8</td><td class="n">75.90</td><td class="n">7.34</td><td class="n">167.9</td></tr><tr><td>dest-donate</td><td class="n">#BCB9CD</td><td class="n">75.94</td><td class="n">10.85</td><td class="n">296.8</td></tr><tr><td>dest-trash</td><td class="n">#D9B1B8</td><td class="n">75.86</td><td class="n">15.69</td><td class="n">7.0</td></tr></tbody></table><table style="margin:10px 0 0"><thead><tr><th>par</th><th class="n">separación</th></tr></thead><tbody><tr><td>keep-donate</td><td class="n">16.47</td></tr><tr><td>keep-trash</td><td class="n">22.75</td></tr><tr class="hl"><td>donate-trash</td><td class="n">15.76</td></tr><tr><td><b>MÍNIMA</b></td><td class="n"><b>15.76</b></td></tr></tbody></table><p class="pcap">Separación resuelta, peso roto. La mínima sube a 15.76 y el rosa se distingue sin esfuerzo. Y el defecto está ahí, a la vista: el rosa lleva croma 15.69 contra el 7.34 de la menta, 2.1 veces más. En una fila donde ninguna opción debe pesar más que otra, la de soltar es la que canta. Es el mismo defecto que descalificó al candidato anterior, y no lo arregla admitir el matiz.</p></div><div class="trioC"><h4>C · las tres subidas juntas</h4><div class="sw"><div style="background:var(--c-keep)"></div><div style="background:var(--c-don)"></div><div style="background:var(--c-tra)"></div></div><div class="dopts" style="margin:24px 0 20px"><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--c-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--c-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div><div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--c-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div></div><table style="margin:0"><thead><tr><th>token</th><th class="n">hex</th><th class="n">L*</th><th class="n">C</th><th class="n">h</th></tr></thead><tbody><tr><td>dest-keep</td><td class="n">#9EC3B5</td><td class="n">75.84</td><td class="n">15.47</td><td class="n">169.0</td></tr><tr><td>dest-donate</td><td class="n">#BCB8D4</td><td class="n">75.90</td><td class="n">15.19</td><td class="n">296.9</td></tr><tr><td>dest-trash</td><td class="n">#D9B2B6</td><td class="n">76.05</td><td class="n">15.08</td><td class="n">12.6</td></tr></tbody></table><table style="margin:10px 0 0"><thead><tr><th>par</th><th class="n">separación</th></tr></thead><tbody><tr><td>keep-donate</td><td class="n">27.53</td></tr><tr><td>keep-trash</td><td class="n">29.90</td></tr><tr class="hl"><td>donate-trash</td><td class="n">18.57</td></tr><tr><td><b>MÍNIMA</b></td><td class="n"><b>18.57</b></td></tr></tbody></table><p class="pcap">Peso igual y separación de sobra. Croma 15.47&nbsp;/&nbsp;15.19&nbsp;/&nbsp;15.08 —spread 0.39— y L* 75.84&nbsp;/&nbsp;75.90&nbsp;/&nbsp;76.05 —spread 0.21—. Mínima 18.57, un 24&nbsp;% por encima del umbral de 15. Ninguna canta más que otra porque las tres cantan lo mismo.</p></div></div>
+<h3>Lo que revela la medida: el problema nunca fue el croma, era el azul</h3>
+<p>La versión A tiene su mínima entre glicina y cielo, 10.60, y las dos están a croma ~11. Subir el croma de las tres manteniendo esos tres matices no arregla nada proporcionalmente: escala los tres lados del triángulo por igual, así que la mínima sube pero también sube el volumen general, y el par glicina-cielo sigue siendo el par apretado. Lo que abre el triángulo es <b>sacar el cielo de entre la menta y la glicina</b>. Un matiz alrededor de h 13 pone los tres vértices a 169&nbsp;/&nbsp;297&nbsp;/&nbsp;13 grados, o sea separaciones angulares de 128, 116 y 116 grados: casi equilátero.</p>
+<p>Comprobación cruzada, para no atribuir al croma un mérito que es del matiz: <b>un rosa al mismo croma 11 que los demás</b> ya bate a la versión A. A L* 76, croma 11.0 y h 10 sale <span class="mono">#D1B5B8</span>, con mínima 13.13 —mejor que 10.60 y con peso perfectamente igual—, pero por debajo del umbral de 15. Para llegar a 15 con croma clavado en 11 hay que empujar el matiz hasta h 25 (<span class="mono">#D1B5B3</span>, mínima 15.19), y a h 25 con croma 11 el color ya no es un rosa polvo: es un topo arcilloso. <b>Ahí está el papel real del croma:</b> no es lo que da la separación —eso lo da el matiz— sino lo que permite que el rosa siga pareciendo rosa mientras la da.</p>
+<div class="note verdict"><p><b>Gana C, y gana limpio.</b> Es la única de las tres que consigue peso igual <em>y</em> separación suficiente: croma 15.47&nbsp;/&nbsp;15.19&nbsp;/&nbsp;15.08 con spread 0.39, L* 75.84&nbsp;/&nbsp;75.90&nbsp;/&nbsp;76.05 con spread 0.21, y separación mínima 18.57 contra un umbral de 15. La respuesta a la pregunta tal como se planteó —«si C no puede dar croma igual <em>y</em> separación suficiente, dilo»— es que sí puede, con margen, y el resultado negativo esperado no aparece.</p>
+<p><b>Con dos matices, para que quede en acta.</b> Primero: el trilema medido —separación 10.7 como techo a croma 11— era real solo mientras el tercer destino fuese azul cielo. No era una restricción del croma; era la geometría de tres matices mal repartidos. Segundo: C sube el color general de la interfaz de croma ~10 a croma ~15. Sigue siendo pastel —15 de croma a L* 76 es tono suave— pero es medio paso más de saturación en todo el sistema, no solo en la fila de destinos. Si al verlo el conjunto le parece más presente de lo que quiere, la palanca correcta es bajar las tres a croma ~13 (<span class="mono">#A3C2B6</span> / <span class="mono">#BCB9D1</span> / <span class="mono">#D5B3B6</span>, L* 75.91&nbsp;/&nbsp;76.06&nbsp;/&nbsp;75.92, croma 13.08&nbsp;/&nbsp;12.99&nbsp;/&nbsp;13.08), donde la mínima sigue en 16.01 y todavía cumple; lo que no se debe hacer es bajar solo una.</p></div>
+</section>
+<section>
+<p class="snum">Sección 4</p>
+<h2>El suelo de tamaño de la semilla con 8 filamentos</h2>
+<p class="lede">La semilla final —8 filamentos, aquenio relleno, círculo medio en <span class="mono">dest-trash</span>— en la escalera completa. Regla de trazo aplicada tal cual, sin engordar nada para favorecer los pequeños. Criterio: el <b>par más apretado</b>, que en n=8 es el de sotavento con 1.919 u entre puntas; el claro es ese hueco menos los 1.5px de tinta.</p>
+<div class="card"><h4>Escalera</h4><div class="row top"><div class="cell"><svg viewBox="0 0 24 24" width="96" height="96" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.3750" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.3750" stroke-linejoin="round"/></svg><span class="cap"><b>96px</b>sw 0.3750 u<br><em>claro 6.18px · cómodo</em><br><em>círculo 13.6px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="72" height="72" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5000" stroke-linejoin="round"/></svg><span class="cap"><b>72px</b>sw 0.5000 u<br><em>claro 4.26px · cómodo</em><br><em>círculo 10.2px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span class="cap"><b>64px</b>sw 0.5625 u<br><em>claro 3.62px · cómodo</em><br><em>círculo 9.1px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.7500" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.7500" stroke-linejoin="round"/></svg><span class="cap"><b>48px</b>sw 0.7500 u<br><em>claro 2.34px · se tocan, se cuentan</em><br><em>círculo 6.8px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.0000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="1.0000" stroke-linejoin="round"/></svg><span class="cap"><b>36px</b>sw 1.0000 u<br><em>claro 1.38px · marginal</em><br><em>círculo 5.1px</em></span></div><div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="1.5000" stroke-linejoin="round"/></svg><span class="cap"><b>24px</b>sw 1.5000 u<br><em>claro 0.42px · se funden</em><br><em>círculo 3.4px</em></span></div></div></div>
+<table><thead><tr><th class="n">render</th><th class="n">sw (u)</th><th class="n">1 u en px</th><th class="n">hueco mín. (px)</th><th class="n">claro (px)</th><th class="n">d del círculo (px)</th><th class="n">desplazamiento (px)</th><th>lectura</th></tr></thead><tbody><tr><td class="n">96</td><td class="n">0.3750</td><td class="n">4.0000</td><td class="n">7.68</td><td class="n">6.18</td><td class="n">13.60</td><td class="n">7.68</td><td>cómodo</td></tr><tr><td class="n">72</td><td class="n">0.5000</td><td class="n">3.0000</td><td class="n">5.76</td><td class="n">4.26</td><td class="n">10.20</td><td class="n">5.76</td><td>cómodo</td></tr><tr><td class="n">64</td><td class="n">0.5625</td><td class="n">2.6667</td><td class="n">5.12</td><td class="n">3.62</td><td class="n">9.07</td><td class="n">5.12</td><td>cómodo</td></tr><tr><td class="n">48</td><td class="n">0.7500</td><td class="n">2.0000</td><td class="n">3.84</td><td class="n">2.34</td><td class="n">6.80</td><td class="n">3.84</td><td>se tocan, se cuentan</td></tr><tr class="hl"><td class="n">36</td><td class="n">1.0000</td><td class="n">1.5000</td><td class="n">2.88</td><td class="n">1.38</td><td class="n">5.10</td><td class="n">2.88</td><td>marginal</td></tr><tr><td class="n">24</td><td class="n">1.5000</td><td class="n">1.0000</td><td class="n">1.92</td><td class="n">0.42</td><td class="n">3.40</td><td class="n">1.92</td><td>se funden</td></tr></tbody></table>
+<h3>El suelo, y qué se rompe primero</h3>
+<p><b>36px, confirmado, y confirmado como marginal.</b> El hallazgo previo se sostiene: con 8 filamentos el suelo baja de 64px a 36px. A 36px el claro del par de sotavento es 1.38px, justo por debajo del umbral marginal de 1.4 — o sea que el par 6-7 <em>se funde</em> y la semilla se lee con siete filamentos en vez de ocho. Sigue siendo inequívocamente una semilla de diente de león: el peinado en un sentido, el tallo diagonal y el aquenio relleno hacen todo el trabajo, y perder un filamento del borde no rompe el reconocimiento. Pero es el último escalón: es un suelo, no un tamaño de uso.</p>
+<p><b>El primero que falla es el par de sotavento</b>, siempre — filamentos 6 y 7, 15.28 grados de separación angular contra los 30.50 del par de barlovento. Es una consecuencia directa del peinado: el espaciado angular se cierra a sotavento a propósito, y donde el dibujo dice «va en el viento» es también donde el píxel se rinde primero. El segundo que falla, ya a 24px, es el <b>encuentro de tallo y aquenio</b>: con <span class="mono">sw 1.5000 u</span> la línea del tallo y el relleno del aquenio se comen los 2.52 u de ancho del aquenio y la punta deja de tener forma de gota. A 24px el círculo, además, queda en 3.4px con un desplazamiento de 1.92px: es una mota de color al lado de una mancha negra. <b>A 24px la semilla necesita un dibujo distinto, no este más pequeño.</b></p>
+<p><b>Uso recomendado:</b> 48px como mínimo de interfaz —claro 2.34px, se tocan pero se cuentan, y el círculo aún mide 6.8px—; 36px solo si una densidad concreta lo exige; 24px no.</p>
+<h3>Cómo se ve de verdad a lo grande: sí, más rala que la referencia</h3>
+<p class="lede" style="margin-bottom:24px">Ocho filamentos a cada tamaño es una decisión tomada y aquí no se discute. Lo que sí toca es mostrar la consecuencia antes de que se envíe, porque a 96px y por encima se nota y no hay vuelta atrás si se descubre después.</p>
+<div class="card"><h4>96px y 72px, sin rasgos y con rasgos <span class="mono" style="font-weight:400">(sw 0.3750 y 0.5000 u)</span></h4><div class="row"><div class="cell"><svg viewBox="0 0 24 24" width="96" height="96" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.3750" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.3750" stroke-linejoin="round"/></svg><span class="cap"><b>96px</b>sin rasgos</span></div><div class="cell"><svg viewBox="0 0 24 24" width="72" height="72" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5000" stroke-linejoin="round"/></svg><span class="cap"><b>72px</b>sin rasgos</span></div><div class="cell"><svg viewBox="0 0 24 24" width="96" height="96" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.3750" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/><use href="#dashes"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.3750" stroke-linejoin="round"/></svg><span class="cap"><b>96px</b>con rasgos</span></div><div class="cell"><svg viewBox="0 0 24 24" width="72" height="72" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/><use href="#dashes"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5000" stroke-linejoin="round"/></svg><span class="cap"><b>72px</b>con rasgos</span></div></div></div>
+<p>A 96px el hueco medio entre puntas vecinas es de 13.5px y el mínimo de 7.7px, con líneas de 1.5px. Eso es una relación tinta-hueco de cerca de 1 a 9 en el borde ancho del abanico: <b>el vilano se lee como peine, no como pluma.</b> La referencia del usuario tiene doce filamentos y a este tamaño su hueco medio sería de 8.7px, casi la mitad: ahí el abanico se cierra en una superficie continua y es lo que da la sensación de plumón. Con ocho no la hay. Lo que se gana a cambio es que cada filamento se ve entero, con su curva propia y su punta, y el dibujo tiene un aire más gráfico y más de sello que de ilustración botánica.</p>
+<p><b>El único paliativo que no rompe la regla de «un dibujo, escalado»</b> son los rasgos de movimiento: cinco arcos que no tocan la semilla y que rellenan el aire a la derecha del abanico, donde más se nota el vacío. Arriba se ven las dos. A 96px con rasgos el conjunto lee bastante más lleno sin haber añadido ni un filamento. Es la palanca correcta para la clase de ilustración —96px y por encima— y, como se vio en la sección 2, la palanca equivocada dentro del trío.</p>
+</section>
+<section>
+<p class="snum">Sección 5</p>
+<h2>In situ</h2>
+<p class="lede">Dos viewports de teléfono con el círculo ganador (r 1.70 u) y la versión de croma ganadora (C, las tres a croma ~15). Nada más en pantalla de lo que hace falta.</p>
+<div class="phones"><div class="pcol"><div class="dsurface"><div class="bar"></div>
+<div class="dtop"><p class="dhead">¿Dónde va esto?</p><p class="dsub">Camiseta azul de rayas</p></div>
+<div class="grow"></div>
+<div class="dopts">
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-cajC" fill="var(--c-keep)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-cajC"/></g></svg><span>Quedármelo</span></div>
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><g transform="translate(1.358,-1.358)"><use href="#m-bolB" fill="var(--c-don)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#l-bolB"/></g></svg><span>Donar o vender</span></div>
+<div class="dopt"><svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--c-tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="0.5625" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="0.5625" stroke-linejoin="round"/></svg><span>Tirar o soltar</span></div>
+</div>
+<div class="grow"></div>
+<p class="dfoot">Sin prisa. Puedes dejarlo para luego.</p></div>
+<p class="pcap"><b>1 · Flujo de 3 destinos.</b> Pantalla completa, tres opciones y nada más: sin barra de progreso, sin contador, sin «te quedan N». Los glifos a 64px, las etiquetas sobre el suelo claro, ninguna baldosa de color. La única frase de más es el permiso para no decidir.</p></div><div class="pcol"><div class="phone"><div class="bar"></div>
+<div class="grow"></div>
+<div style="margin:0 0 30px">
+  <span class="eyebrow">Quince minutos</span>
+  <p class="taskline">Despeja la mesa del salón</p>
+</div>
+<div class="grow"></div>
+<div style="margin:0 0 26px" class="zone"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" ><g transform="translate(1.358,-1.358)"><use href="#pomM" fill="var(--tra)"/></g><g fill="none" stroke="var(--ink)" stroke-width="1.5000" stroke-linecap="round" stroke-linejoin="round"><use href="#fan8"/><use href="#stem"/></g><use href="#ach" fill="var(--ink)" stroke="var(--ink)" stroke-width="1.5000" stroke-linejoin="round"/></svg><span>Hoja&nbsp;·&nbsp;soltar</span></div>
+<button class="btn">Hecho</button>
+<button class="quiet">Otra más fácil</button>
+<button class="quiet">Ahora no</button>
+</div>
+<p class="pcap"><b>2 · Tarjeta del dispensador.</b> La duración va arriba, como antetítulo, en un chip de <span class="mono">accent-soft</span> (#D5E0DC, L* 88.31) con texto en ink-primary — el único pastel del sistema que lleva texto. Debajo, la tarea sola. «Hecho» es el botón; «Otra más fácil» y «Ahora no» son texto sin caja, sin color, sin subrayado y sin animación: disponibles y jamás sugeridos. La Hoja va abajo como marcador de zona callado, la semilla a 24px en gris secundario — a ese tamaño no es un glifo que haya que leer, es una marca de sitio. Lo que más hay en la pantalla es espacio.</p></div>
+</div>
+<div class="note"><p><b>Nota sobre la semilla a 24px en la tarjeta.</b> La sección 4 concluye que 24px no vale para la semilla como glifo. Aquí se usa igualmente, y a propósito: como marcador de zona no tiene que leerse como semilla, tiene que emparejarse con la palabra que lleva al lado. Es el mismo caso que un cuadradito de color en una leyenda. Si en algún sitio esa marca tiene que sostenerse sola, sube a 48px o se queda solo el texto.</p></div>
+</section>
+<section>
+<p class="snum">Sección 6</p>
+<h2>Veredicto</h2>
+<div class="note verdict">
+<p><b>El círculo: radio 1.70 u, diámetro 3.40 u.</b> Es el 79&nbsp;% del ancho del cubo, 9.08 u² de área, 9.1px de disco a 64px. Es el primer tamaño que el ojo clasifica como color y no como punto, y el último que cabe entero dentro de la zona de haz, así que todo su borde libre queda bajo filamentos y el desplazamiento se lee como mal registro de segunda plancha. El pequeño (1.10 u) repite el fracaso de la astilla del aquenio. El grande (2.30 u) gana el color y pierde el idioma: se convierte en una pelota detrás del dibujo.</p>
+<p><b>Paridad del trío: no, por tinta total.</b> Caja C 113.29, bolsa B 110.41, semilla 60.76. La semilla está un 46.4&nbsp;% por debajo de la caja y ningún diámetro de círculo lo arregla sin convertir el vilano en un pompón. Pero el ojo cae primero en la semilla, y la razón es medible: la fórmula cuenta un u² de pastel a L* 76 igual que un u² de línea a L* 12.6, cuando vale 0.2544 de eso. Ponderada por contraste la fila está en paridad —semilla 53.99, caja 54.23, bolsa 48.17— y la más ligera pasa a ser la bolsa. La semilla se sostiene, y la sostiene su trazo: 45.53 u² de línea negra contra 34.08 de la caja, un 34&nbsp;% más.</p>
+<p><b>Croma: gana C.</b> <span class="mono">#9EC3B5</span> / <span class="mono">#BCB8D4</span> / <span class="mono">#D9B2B6</span>. L* 75.84&nbsp;/&nbsp;75.90&nbsp;/&nbsp;76.05 (spread 0.21), croma 15.47&nbsp;/&nbsp;15.19&nbsp;/&nbsp;15.08 (spread 0.39), separación mínima 18.57 contra un umbral de 15. A (mínima 10.60) tiene peso igual y no separa. B (mínima 15.76) separa y rompe el peso: el rosa a croma 15.69 contra la menta a 7.34 canta más que sus vecinos. El resultado negativo que se pedía por si acaso no aparece: C da croma igual y separación de sobra.</p>
+<p><b>Suelo de tamaño: 36px, y marginal.</b> Confirmado. Lo primero que se rompe es el par de filamentos de sotavento (6-7, 15.28 grados de separación angular): a 36px su claro es de 1.38px y se funde, así que la semilla se lee con siete. Sigue siendo reconocible. Recomendación de uso: 48px como mínimo de interfaz, 36px solo si hace falta, 24px solo como marca de zona junto a una palabra.</p>
+<p><b>A lo grande, con ocho, se ve rala.</b> A 96px el hueco medio entre puntas es de 13.5px contra líneas de 1.5px: el vilano lee como peine, no como pluma. Con doce filamentos ese hueco sería de 8.7px y ahí sí se cierra en plumón. La decisión de ocho está tomada y no se discute; lo que se gana a cambio es un dibujo más gráfico, con cada filamento entero y su punta visible. El único paliativo compatible con «un dibujo, escalado» son los rasgos de movimiento en la clase de ilustración (96px y arriba), que no valen dentro del trío.</p>
+<p><b>Sin resolver, tres cosas.</b> Una: la métrica de gobierno y la ponderada por contraste dan veredictos opuestos sobre la misma fila, y hay que decidir qué se apunta como cerrado. Mi propuesta es añadir la columna ponderada y conservar la fórmula cruda como freno contra el pompón, pero es decisión del usuario y no de la fórmula. Dos: la versión C sube el croma de todo el sistema de ~10 a ~15, no solo el de la fila de destinos; si al verlo el conjunto resulta más presente de lo deseado, la palanca es bajar las tres a croma ~13 —mínima 16.01, todavía cumple— y nunca bajar solo una. Tres: el rosa polvo se ha admitido porque «nada de rojo» apuntaba a alarma, atraso y culpa y no a una familia de matiz; a L* 76 y croma 15 está claramente fuera de ese registro, pero conviene mirarlo una vez al lado del botón oscuro y del chip de <span class="mono">accent-soft</span> antes de cerrarlo, porque es el único matiz cálido del set.</p>
+</div>
+</section>
+</div>
+</body>
+</html>

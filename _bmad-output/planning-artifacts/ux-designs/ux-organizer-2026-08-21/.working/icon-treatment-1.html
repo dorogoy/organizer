@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tratamiento de iconos — Variante A vs B</title>
+<style>
+/* ==========================================================================
+   TRATAMIENTO DE ICONOS — comparativa A / B
+   --------------------------------------------------------------------------
+   PALETA PROVISIONAL (placeholders — el tema de color aun NO esta elegido).
+   Esta pagina compara el TRATAMIENTO (linea + masa), no la paleta.
+
+     --ground   #FAF7F2   blanco roto calido (fondo de pagina)
+     --card     #FFFDFA   superficie de tarjeta
+     --ink      #1F1D1A   tinta casi negra, gris calido (texto y linea)
+     --ink-2    #6B655C   tinta secundaria, gris medio calido
+     --hair     #E7E1D8   filete / borde de 1px
+     --sage     #C7D2C0   verde salvia apagado
+     --clay     #D9B7A6   arcilla / terracota apagada  (NO es rojo)
+     --blue     #BFCBD6   azul apagado
+     --ochre    #E3D2A8   ocre suave
+
+   Sin rojo. Sin iconografia de advertencia. Sin signos de exclamacion.
+   La tinta es siempre oscura; el pastel solo es fondo o relleno.
+   --------------------------------------------------------------------------
+   REGLA DE DESPLAZAMIENTO (variante A)
+   El eje es siempre el mismo: hacia abajo-derecha (+x, +y).
+
+     OFFSET FIJO (lo que NO funciona)
+       desplazamiento = 2px de pantalla, constante a cualquier tamano.
+       Implementado como x/y = 2 * (24 / tamano_render) en unidades del
+       viewBox: 2.000u a 24px, 1.333u a 36px, 1.000u a 48px.
+       Equivale a un `Modifier.offset(2.dp)` fijo aplicado a la capa de
+       masa mientras el icono escala.
+
+     OFFSET PROPORCIONAL (lo que SI funciona)  <-- regla recomendada
+       desplazamiento = 8% del lado del icono, en ambos ejes.
+       En un viewBox de 24 esto es una constante: 24 * 0.08 = 1.92u,
+       identica a 24px, 36px y 48px. 8% de 24px = 1.92px;
+       8% de 48px = 3.84px. La proporcion linea/masa/hueco no cambia.
+       Nota: 1.92u ~= 2u, por eso a 24px fijo y proporcional se ven
+       casi iguales. Solo divergen al crecer.
+
+     Grosor de linea por defecto en esta pagina: 1.5u (escala con el icono).
+   ========================================================================== */
+
+:root{
+  --ground:#FAF7F2; --card:#FFFDFA;
+  --ink:#1F1D1A; --ink-2:#6B655C; --hair:#E7E1D8;
+  --sage:#C7D2C0; --clay:#D9B7A6; --blue:#BFCBD6; --ochre:#E3D2A8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:56px 28px 120px}
+header.pg{border-bottom:1px solid var(--hair);padding-bottom:28px;margin-bottom:8px}
+header.pg .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2);margin:0 0 10px}
+header.pg h1{font-size:26px;line-height:1.25;margin:0 0 12px;font-weight:600;letter-spacing:-.01em}
+header.pg p{margin:0;max-width:64ch;color:var(--ink-2);font-size:14.5px}
+section{margin-top:72px}
+h2{font-size:13px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);font-weight:600;margin:0 0 6px}
+h2 .n{color:var(--ink);opacity:.35;margin-right:10px}
+.lede{margin:0 0 30px;max-width:66ch;font-size:14.5px;color:var(--ink-2)}
+.note{margin:26px 0 0;max-width:70ch;font-size:13.5px;color:var(--ink-2);
+  border-left:2px solid var(--hair);padding:2px 0 2px 16px}
+.note b{color:var(--ink);font-weight:600}
+.panel{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:28px}
+.vlabel{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.vlabel b{color:var(--ink);font-weight:600;letter-spacing:.06em}
+.cap{font-size:11.5px;color:var(--ink-2);text-align:center}
+
+/* ---- seccion 1: rejilla comparativa ---- */
+.grid8{display:grid;grid-template-columns:150px repeat(8,1fr);align-items:center;gap:0 4px}
+.grid8 > div{padding:16px 0}
+.grid8 .cell{display:flex;justify-content:center}
+.grid8 .rowlab{padding-right:18px}
+.rowsep{grid-column:1/-1;height:1px;background:var(--hair);padding:0!important}
+.grid8 .name{font-size:11.5px;color:var(--ink-2);text-align:center;padding-top:6px!important}
+
+/* ---- seccion 2: escalado ---- */
+.scaleblock{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:22px 26px;margin-bottom:16px;
+  display:flex;align-items:center;gap:34px;flex-wrap:wrap}
+.scaleblock .head{min-width:240px}
+.scaleblock .head .t{font-size:14px;font-weight:600}
+.scaleblock .head .s{font-size:12.5px;color:var(--ink-2)}
+.sizes{display:flex;align-items:flex-end;gap:38px}
+.sizes .u{display:flex;flex-direction:column;align-items:center;gap:10px}
+.badge{display:inline-block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--hair);color:var(--ink-2)}
+.badge.fail{border-color:#D8CFC2;background:#F2ECE2;color:#5B554C}
+.badge.ok{border-color:#CBD6C4;background:#EBF0E7;color:#4E5A48}
+
+/* ---- seccion 3: contexto ---- */
+.ctxgrid{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+.ctxcol > .vlabel{margin-bottom:14px;display:block}
+.phone{background:var(--card);border:1px solid var(--hair);border-radius:20px;padding:26px 22px}
+.disp{min-height:230px;display:flex;flex-direction:column}
+.disp .zone{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.disp h3{font-size:21px;line-height:1.3;font-weight:600;margin:26px 0 14px;letter-spacing:-.01em}
+.disp .dur{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2)}
+.disp .sp{flex:1;min-height:34px}
+.btn{display:block;width:100%;text-align:center;background:var(--sage);color:var(--ink);
+  border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:600;font-family:inherit}
+.quiet{display:flex;gap:20px;justify-content:center;margin-top:14px}
+.quiet span{font-size:13px;color:var(--ink-2)}
+.flow{margin-top:22px}
+.flow .q{font-size:15px;font-weight:600;margin:0 0 16px}
+.dests{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.dest{border:1px solid var(--hair);border-radius:12px;padding:16px 8px;text-align:center;background:var(--ground)}
+.dest .l{display:block;margin-top:10px;font-size:12.5px;color:var(--ink)}
+
+/* ---- seccion 4: grosores ---- */
+.weights{display:grid;grid-template-columns:150px repeat(3,1fr);align-items:center;gap:0 4px}
+.weights > div{padding:18px 0}
+.weights .cell{display:flex;justify-content:center;gap:26px;align-items:flex-end}
+@media (max-width:860px){
+  .ctxgrid{grid-template-columns:1fr}
+  .grid8{grid-template-columns:110px repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== DEFINICIONES DE ICONO =====================
+     Cada icono son dos grupos: L-* (capa de linea, hereda stroke)
+     y M-* (capa de masa, relleno plano, sin stroke).
+     Todo dibujado a mano en un lienzo de 24x24. Sin librerias.
+================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+
+  <!-- 1 Camara -->
+  <g id="M-cam"><rect x="3" y="7" width="18" height="13" rx="2.6" stroke="none"/></g>
+  <g id="L-cam">
+    <rect x="3" y="7" width="18" height="13" rx="2.6"/>
+    <path d="M8.2 7 L9.8 4.4 H14.2 L15.8 7"/>
+    <circle cx="12" cy="13.5" r="3.6"/>
+  </g>
+
+  <!-- 2 Album -->
+  <g id="M-alb"><rect x="3" y="7" width="14" height="14" rx="2.2" stroke="none"/></g>
+  <g id="L-alb">
+    <path d="M8 7 V5.2 A2.2 2.2 0 0 1 10.2 3 H18.8 A2.2 2.2 0 0 1 21 5.2 V15.6"/>
+    <rect x="3" y="7" width="14" height="14" rx="2.2"/>
+    <path d="M5.4 18 L8.6 14.4 L11.2 16.8 L13.4 14.9"/>
+  </g>
+
+  <!-- 3 Caja -->
+  <g id="M-caj">
+    <rect x="3" y="4.6" width="18" height="3.6" rx="1.1" stroke="none"/>
+    <rect x="4.4" y="8.2" width="15.2" height="11.8" rx="1.4" stroke="none"/>
+  </g>
+  <g id="L-caj">
+    <rect x="3" y="4.6" width="18" height="3.6" rx="1.1"/>
+    <rect x="4.4" y="8.2" width="15.2" height="11.8" rx="1.4"/>
+    <path d="M12 4.6 V20"/>
+  </g>
+
+  <!-- 4 Bolsa -->
+  <g id="M-bol"><path d="M5.2 8.2 H18.8 L19.6 19.6 A1.4 1.4 0 0 1 18.2 21 H5.8 A1.4 1.4 0 0 1 4.4 19.6 Z" stroke="none"/></g>
+  <g id="L-bol">
+    <path d="M5.2 8.2 H18.8 L19.6 19.6 A1.4 1.4 0 0 1 18.2 21 H5.8 A1.4 1.4 0 0 1 4.4 19.6 Z"/>
+    <path d="M9 8.2 V6.4 A3 3 0 0 1 15 6.4 V8.2"/>
+  </g>
+
+  <!-- 5 Reloj / tiempo -->
+  <g id="M-rel"><circle cx="12" cy="12" r="8.4" stroke="none"/></g>
+  <g id="L-rel">
+    <circle cx="12" cy="12" r="8.4"/>
+    <path d="M12 7.2 V12 L15.6 14.2"/>
+  </g>
+
+  <!-- 6 Hoja / zona -->
+  <g id="M-hoj"><path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z" stroke="none"/></g>
+  <g id="L-hoj">
+    <path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z"/>
+    <path d="M12 20.4 V6.2"/>
+  </g>
+
+  <!-- 7 Ajustes -->
+  <g id="M-aju">
+    <circle cx="8.6" cy="7" r="2.7" stroke="none"/>
+    <circle cx="15.2" cy="12" r="2.7" stroke="none"/>
+    <circle cx="9.6" cy="17" r="2.7" stroke="none"/>
+  </g>
+  <g id="L-aju">
+    <path d="M3.6 7 H20.4"/><path d="M3.6 12 H20.4"/><path d="M3.6 17 H20.4"/>
+    <circle cx="8.6" cy="7" r="2.7"/><circle cx="15.2" cy="12" r="2.7"/><circle cx="9.6" cy="17" r="2.7"/>
+  </g>
+
+  <!-- 8 Lapiz -->
+  <g id="M-lap"><path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z" stroke="none"/></g>
+  <g id="L-lap">
+    <path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z"/>
+    <path d="M14.2 7.2 L17.1 10.1"/>
+    <path d="M5.9 15.5 L8.8 18.4"/>
+  </g>
+
+</defs></svg>
+
+<div class="wrap">
+
+<header class="pg">
+  <p class="kicker">Sesion UX · Organizador · 21 ago 2026</p>
+  <h1>Tratamiento de iconos: linea negra sobre masa pastel</h1>
+  <p>Dos lecturas posibles de la misma descripcion: <em>&ldquo;lineas negras o gris con masas de color suave y liso por debajo de las lineas como en una segunda capa&rdquo;</em>. La <b>Variante A (registro desplazado)</b> deja asomar la masa por un lado, como una risografia mal registrada. La <b>Variante B (encajado)</b> mete la masa dentro del contorno, sin que asome nada. Hay que elegir una.</p>
+</header>
+
+<div class="note" style="margin-top:26px">
+  <b>Los colores de esta pagina son provisionales.</b> Salvia, arcilla, azul y ocre apagados son solo marcadores de posicion hasta que se elija el tema de color. Lo que se decide aqui es el <b>tratamiento</b> (relacion linea / masa / desplazamiento), no la paleta. Sin rojo en ningun sitio, ni en &ldquo;Tirar o reciclar&rdquo;.
+</div>
+
+<!-- ============================== SECCION 1 ============================== -->
+<section>
+  <h2><span class="n">01</span>Lado a lado, tamano normal (24px)</h2>
+  <p class="lede">Los 8 iconos que la app necesita de verdad. Misma columna = mismo icono, para comparar directo. Grosor de linea 1.5px en ambas filas.</p>
+
+  <div class="panel">
+    <div class="grid8">
+
+      <!-- FILA A -->
+      <div class="rowlab vlabel"><b>A</b> · desplazado</div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="2" y="2" fill="var(--blue)"/><use href="#L-cam"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-alb" x="2" y="2" fill="var(--sage)"/><use href="#L-alb"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="2" y="2" fill="var(--ochre)"/><use href="#L-caj"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="2" y="2" fill="var(--clay)"/><use href="#L-bol"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="2" y="2" fill="var(--blue)"/><use href="#L-rel"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="2" y="2" fill="var(--sage)"/><use href="#L-hoj"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-aju" x="2" y="2" fill="var(--clay)"/><use href="#L-aju"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-lap" x="2" y="2" fill="var(--ochre)"/><use href="#L-lap"/></svg></div>
+
+      <div class="rowsep"></div>
+
+      <!-- FILA B -->
+      <div class="rowlab vlabel"><b>B</b> · encajado</div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--blue)"/><use href="#L-cam"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-alb" fill="var(--sage)"/><use href="#L-alb"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" fill="var(--ochre)"/><use href="#L-caj"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" fill="var(--clay)"/><use href="#L-bol"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" fill="var(--blue)"/><use href="#L-rel"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" fill="var(--sage)"/><use href="#L-hoj"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-aju" fill="var(--clay)"/><use href="#L-aju"/></svg></div>
+      <div class="cell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-lap" fill="var(--ochre)"/><use href="#L-lap"/></svg></div>
+
+      <div></div>
+      <div class="name">Camara</div>
+      <div class="name">Album</div>
+      <div class="name">Caja</div>
+      <div class="name">Bolsa</div>
+      <div class="name">Reloj</div>
+      <div class="name">Hoja</div>
+      <div class="name">Ajustes</div>
+      <div class="name">Lapiz</div>
+    </div>
+  </div>
+
+  <p class="note">A 24px la diferencia es de un pelo: el desplazamiento de 2px cabe justo. En Ajustes (masas pequenas, r=2.7) el desplazamiento se come casi la mitad del disco &mdash; es el icono que peor tolera la variante A. En Hoja y Reloj (masas grandes y unicas) es donde se lee mejor.</p>
+</section>
+
+<!-- ============================== SECCION 2 ============================== -->
+<section>
+  <h2><span class="n">02</span>El problema del 200%</h2>
+  <p class="lede">Mismo icono (Reloj) a 24px, 36px y 48px. La linea escala con el icono en los tres bloques; lo que cambia es como se calcula el desplazamiento de la masa.</p>
+
+  <div class="scaleblock">
+    <div class="head">
+      <div class="t">A · Offset fijo (2px)</div>
+      <div class="s">2px de pantalla siempre, sin importar el tamano</div>
+      <div style="margin-top:8px"><span class="badge fail">se rompe al escalar</span></div>
+    </div>
+    <div class="sizes">
+      <div class="u"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="2" y="2" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">24px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.333" y="1.333" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">36px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1" y="1" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">48px</span></div>
+    </div>
+  </div>
+
+  <div class="scaleblock">
+    <div class="head">
+      <div class="t">A · Offset proporcional (8%)</div>
+      <div class="s">8% del lado: 1.92px a 24px, 3.84px a 48px</div>
+      <div style="margin-top:8px"><span class="badge ok">aguanta a cualquier tamano</span></div>
+    </div>
+    <div class="sizes">
+      <div class="u"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">24px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">36px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">48px</span></div>
+    </div>
+  </div>
+
+  <div class="scaleblock">
+    <div class="head">
+      <div class="t">B · Encajado (control)</div>
+      <div class="s">sin desplazamiento, nada que romperse</div>
+      <div style="margin-top:8px"><span class="badge ok">neutro al escalar</span></div>
+    </div>
+    <div class="sizes">
+      <div class="u"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">24px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">36px</span></div>
+      <div class="u"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" fill="var(--blue)"/><use href="#L-rel"/></svg><span class="cap">48px</span></div>
+    </div>
+  </div>
+
+  <p class="note"><b>Lo que se ve, sin adornos:</b> el offset fijo solo sobrevive a 24px. A 36px ya es dudoso y a 48px el desplazamiento (2px) es menor que el propio grosor de linea (3px a ese tamano): la masa queda medio tragada por el trazo, asoma un creciente irregular y deja de leerse como una segunda capa intencionada &mdash; parece un error de renderizado. Es el peor de los dos mundos, ni desplazado ni encajado. El offset proporcional al 8% mantiene la misma proporcion linea/masa/hueco en los tres tamanos: a 48px es mas visible el gesto, pero sigue siendo el mismo gesto. <b>La regla que sobrevive al 200% es la proporcional: desplazamiento = 8% del lado del icono, nunca un valor en dp fijo.</b> La variante B, por definicion, no tiene nada que se rompa.</p>
+</section>
+
+<!-- ============================== SECCION 3 ============================== -->
+<section>
+  <h2><span class="n">03</span>En contexto</h2>
+  <p class="lede">Los mismos iconos juzgados dentro de pantalla, no en rejilla. Iconos a 20px en la tarjeta (junto a texto) y a 32px en el flujo de tres destinos. Variante A con offset proporcional al 8%.</p>
+
+  <div class="ctxgrid">
+
+    <!-- ---------- COLUMNA A ---------- -->
+    <div class="ctxcol">
+      <span class="vlabel"><b>Variante A</b> &nbsp;registro desplazado</span>
+
+      <div class="phone disp">
+        <div class="zone">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--sage)"/><use href="#L-hoj"/></svg>
+          <span>Salon</span>
+        </div>
+        <h3>Despeja la mesa del salon</h3>
+        <div class="dur">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--blue)"/><use href="#L-rel"/></svg>
+          <span>10-15 min</span>
+        </div>
+        <div class="sp"></div>
+        <div class="btn">Hecho</div>
+        <div class="quiet"><span>Otra mas facil</span><span>Ahora no</span></div>
+      </div>
+
+      <div class="phone flow">
+        <p class="q">Y esto, &iquest;donde va?</p>
+        <div class="dests">
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="1.92" y="1.92" fill="var(--blue)"/><use href="#L-caj"/></svg>
+            <span class="l">Quedarmelo</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="1.92" y="1.92" fill="var(--sage)"/><use href="#L-bol"/></svg>
+            <span class="l">Donar o vender</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--ochre)"/><use href="#L-hoj"/></svg>
+            <span class="l">Tirar o reciclar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- COLUMNA B ---------- -->
+    <div class="ctxcol">
+      <span class="vlabel"><b>Variante B</b> &nbsp;encajado</span>
+
+      <div class="phone disp">
+        <div class="zone">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" fill="var(--sage)"/><use href="#L-hoj"/></svg>
+          <span>Salon</span>
+        </div>
+        <h3>Despeja la mesa del salon</h3>
+        <div class="dur">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" fill="var(--blue)"/><use href="#L-rel"/></svg>
+          <span>10-15 min</span>
+        </div>
+        <div class="sp"></div>
+        <div class="btn">Hecho</div>
+        <div class="quiet"><span>Otra mas facil</span><span>Ahora no</span></div>
+      </div>
+
+      <div class="phone flow">
+        <p class="q">Y esto, &iquest;donde va?</p>
+        <div class="dests">
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" fill="var(--blue)"/><use href="#L-caj"/></svg>
+            <span class="l">Quedarmelo</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" fill="var(--sage)"/><use href="#L-bol"/></svg>
+            <span class="l">Donar o vender</span>
+          </div>
+          <div class="dest">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" fill="var(--ochre)"/><use href="#L-hoj"/></svg>
+            <span class="l">Tirar o reciclar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="note">Los tres destinos llevan el mismo marco, el mismo peso de linea, el mismo tamano y pasteles de claridad equivalente: ninguno pesa mas ni suena peor. &ldquo;Tirar o reciclar&rdquo; usa hoja y ocre, sin rojo y sin cubo de basura. <b>Pendiente:</b> la hoja hace doble trabajo (marcador de zona en la tarjeta y reciclaje en el flujo) &mdash; conviene separarlos, o el mismo dibujo significara dos cosas en la misma sesion de uso. En la tarjeta del dispensador, con solo dos iconos pequenos junto al texto, la variante A se lee como textura calida; la B casi no se distingue de un icono corriente de una capa.</p>
+</section>
+
+<!-- ============================== SECCION 4 ============================== -->
+<section>
+  <h2><span class="n">04</span>Grosor de linea</h2>
+  <p class="lede">Camara a 24px y 40px con tres grosores, sobre masa pastel. La pregunta es cuanta linea aguanta el pastel apagado sin que el icono se vuelva pesado.</p>
+
+  <div class="panel">
+    <div class="weights">
+      <div class="rowlab vlabel"><b>A</b> · desplazado</div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+
+      <div class="rowsep"></div>
+
+      <div class="rowlab vlabel"><b>B</b> · encajado</div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+      <div class="cell">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" fill="var(--clay)"/><use href="#L-cam"/></svg>
+      </div>
+
+      <div></div>
+      <div class="name">1px &mdash; filete</div>
+      <div class="name">1.5px &mdash; medio</div>
+      <div class="name">2px &mdash; grueso</div>
+    </div>
+  </div>
+
+  <p class="note">A 1px la linea se afina tanto que el pastel manda y el icono pierde contorno a 24px. A 2px la linea domina y el pastel se convierte en un relleno secundario &mdash; y en la variante A el desplazamiento queda absorbido por el trazo. <b>1.5px es el punto donde linea y masa se sostienen mutuamente</b> en los dos tratamientos.</p>
+</section>
+
+<div class="note" style="margin-top:76px">
+  Todo dibujado a mano en SVG inline, 8 iconos en lienzo de 24x24, sin librerias, sin red, sin JavaScript. Tinta <b>#1F1D1A</b> / secundaria <b>#6B655C</b>; pasteles provisionales salvia <b>#C7D2C0</b>, arcilla <b>#D9B7A6</b>, azul <b>#BFCBD6</b>, ocre <b>#E3D2A8</b> sobre fondo <b>#FAF7F2</b>.
+</div>
+
+</div>
+</body>
+</html>

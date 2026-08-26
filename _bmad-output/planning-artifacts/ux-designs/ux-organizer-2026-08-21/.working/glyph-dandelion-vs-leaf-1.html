@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glifo del tercer destino — hoja vs diente de leon</title>
+<style>
+/* =====================================================================
+   PALETA — VARIACION 4 · "ALIENTO"
+   Extraida literalmente de color-themes-1.html (bloque .v4).
+   Fondo casi blanco FRIO. No se ha inventado ni retocado ningun valor.
+
+     surface-base     #F7F8F9   casi blanco frio
+     surface-raised   #FFFFFF   blanco
+     ink-primary      #1E2124   tinta casi negra
+     ink-secondary    #5C6368   gris acero
+     border-hairline  #E1E5E8   filete muy leve
+     accent-soft      #D5E0DC   agua clara  (relleno de "Hecho")
+
+   Tres destinos · mismo peso (banda mas clara de las cinco, L* ~ 84-86)
+     dest-keep        #C4D6CE   menta polvo
+     dest-donate      #D3D0E4   glicina
+     dest-trash       #DCD6C8   arena clara   <-- hue bajo sospecha
+
+   Radio de esquina de Aliento: 14px.
+   Modo oscuro de Aliento existe y esta autorizado aparte; esta pagina
+   solo juzga el modo claro, que es donde el registro desplazado esta
+   mas expuesto.
+
+   NO se usa ningun hex de la pagina anterior de iconos (salvia, ocre,
+   arcilla, azul sobre blanco roto CALIDO). Aquellas eran masas de
+   relleno provisionales sobre fondo calido.
+   ---------------------------------------------------------------------
+
+   TRATAMIENTO BLOQUEADO — Variante A, registro desplazado
+   ---------------------------------------------------------------------
+   Cada icono son dos capas dibujadas a mano en un lienzo de 24x24:
+       M-*  masa pastel, relleno plano, sin trazo   (capa INFERIOR)
+       L-*  linea, hereda stroke de ink-primary     (capa SUPERIOR)
+   La masa se desplaza en +x/+y para que asome por el lado inferior
+   derecho, como una risografia mal registrada.
+
+   REGLA DE OFFSET — 8% DEL LADO RENDERIZADO, nunca un dp fijo.
+   Todos los iconos comparten viewBox="0 0 24 24", asi que el offset
+   en unidades de usuario es una constante:
+       24u * 0.08 = 1.92u   ->  <use x="1.92" y="1.92">
+   y al escalar con width/height sale proporcional por construccion:
+
+       lado renderizado    viewBox   offset en u   offset en px reales
+       ----------------    -------   -----------   -------------------
+       24 px               0 0 24 24     1.92          1.92 px
+       36 px               0 0 24 24     1.92          2.88 px
+       48 px               0 0 24 24     1.92          3.84 px
+       20 px (en tarjeta)  0 0 24 24     1.92          1.60 px
+       32 px (en flujo)    0 0 24 24     1.92          2.56 px
+
+   Un offset fijo de 2 dp ya se descarto: a 48px queda por debajo del
+   grosor del trazo y se lee como error de renderizado.
+
+   TRAZO — filete de 1px a 24px nominal, proporcional.
+       stroke-width="1" en un viewBox de 24u
+       ->  1.00 px a 24px · 1.50 px a 36px · 2.00 px a 48px
+   Los glifos dentro de la tarjeta usan stroke-width 1.15 porque van a
+   20px junto a texto; es el mismo filete relativo redondeado a arriba.
+
+   REGLAS DURAS: la linea siempre es ink-primary (o ink-secondary donde
+   se pide linea mas ligera). El texto SIEMPRE es tinta oscura sobre
+   fondo claro. El pastel nunca lleva texto encima: solo es fondo o
+   relleno. Nada de rojo, nada de iconografia de aviso, ningun signo de
+   exclamacion, ningun degradado, ningun resplandor, ninguna sombra
+   difusa.
+   ===================================================================== */
+
+:root{
+  --surface-base:#F7F8F9;
+  --surface-raised:#FFFFFF;
+  --ink-primary:#1E2124;
+  --ink-secondary:#5C6368;
+  --border-hairline:#E1E5E8;
+  --accent-soft:#D5E0DC;
+  --dest-keep:#C4D6CE;
+  --dest-donate:#D3D0E4;
+  --dest-trash:#DCD6C8;
+  --radius:14px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--surface-base);
+  color:var(--ink-primary);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px;margin:0 auto;padding:56px 28px 120px}
+
+/* ---------- cabecera ---------- */
+header.pg{margin-bottom:64px}
+.kicker{
+  margin:0 0 10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-secondary);
+}
+header.pg h1{
+  margin:0 0 14px;font-size:30px;line-height:1.25;font-weight:600;
+  letter-spacing:-.015em;
+}
+header.pg p{margin:0;max-width:62ch;color:var(--ink-secondary);font-size:15px}
+
+/* ---------- secciones ---------- */
+section{margin:0 0 96px}
+.snum{
+  margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-secondary);
+}
+h2{margin:0 0 12px;font-size:22px;font-weight:600;letter-spacing:-.01em}
+h3{margin:40px 0 14px;font-size:15px;font-weight:600}
+.lede{margin:0 0 28px;max-width:64ch;font-size:15px;color:var(--ink-secondary)}
+.rule{border:0;border-top:1px solid var(--border-hairline);margin:0 0 56px}
+
+/* ---------- rejilla de candidatos ---------- */
+.cands{display:flex;flex-wrap:wrap;gap:22px}
+.cand{
+  flex:1 1 240px;background:var(--surface-raised);
+  border:1px solid var(--border-hairline);border-radius:var(--radius);
+  padding:22px 20px 18px;
+}
+.cand h4{margin:0 0 4px;font-size:15px;font-weight:600}
+.cand .gloss{margin:0 0 18px;font-size:13px;color:var(--ink-secondary);line-height:1.5}
+.sizes{display:flex;align-items:flex-end;gap:26px;min-height:64px}
+.szu{display:flex;flex-direction:column;align-items:center;gap:8px}
+.szu .cap{font-size:11px;color:var(--ink-secondary);letter-spacing:.03em}
+.tag{
+  display:inline-block;margin:0 0 14px;padding:2px 9px;border-radius:999px;
+  border:1px solid var(--border-hairline);
+  font-size:11px;letter-spacing:.05em;color:var(--ink-secondary);
+}
+
+/* ---------- nota honesta ---------- */
+.note{
+  margin:32px 0 0;padding:20px 22px;background:var(--surface-raised);
+  border:1px solid var(--border-hairline);border-left:3px solid var(--ink-secondary);
+  border-radius:var(--radius);
+  font-size:14px;line-height:1.65;max-width:72ch;
+}
+.note b{font-weight:600}
+.note p{margin:0 0 10px}
+.note p:last-child{margin:0}
+
+/* ---------- flujo de tres destinos ---------- */
+.flowpair{display:flex;flex-wrap:wrap;gap:28px}
+.flowcol{flex:1 1 300px}
+.flowlab{margin:0 0 12px;font-size:13px;font-weight:600}
+.flow{
+  background:var(--surface-raised);border:1px solid var(--border-hairline);
+  border-radius:var(--radius);padding:22px 18px;
+}
+.flowq{margin:0 0 18px;font-size:14px;text-align:center;color:var(--ink-primary)}
+.three{display:flex;gap:10px}
+.dest{flex:1 1 0;min-width:0;text-align:center}
+/* La masa pastel es SOLO fondo del glifo. Nunca lleva texto encima:
+   la etiqueta baja al fondo claro de la tarjeta, en tinta oscura. */
+.tile{
+  border-radius:var(--radius);border:1px solid var(--border-hairline);
+  padding:18px 8px;display:flex;justify-content:center;
+}
+.dk .tile{background:var(--dest-keep)}
+.dd .tile{background:var(--dest-donate)}
+.dt .tile{background:var(--dest-trash)}
+.dest .dlab{
+  margin:10px 0 0;font-size:12px;line-height:1.35;font-weight:500;
+  color:var(--ink-primary);
+}
+.footcap{margin:14px 0 0;font-size:12px;color:var(--ink-secondary);text-align:center}
+
+.flags{margin:34px 0 0;display:flex;flex-wrap:wrap;gap:20px}
+.flag{
+  flex:1 1 280px;background:var(--surface-raised);
+  border:1px solid var(--border-hairline);border-radius:var(--radius);
+  padding:18px 20px;font-size:13.5px;line-height:1.6;
+}
+.flag .fh{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-secondary)}
+.flag p{margin:0}
+.swatchline{display:flex;align-items:center;gap:10px;margin:12px 0 0}
+.swatchline .sw{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-hairline)}
+.swatchline code{font-size:12px;color:var(--ink-secondary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* ---------- set de utilidad ---------- */
+.utable{
+  background:var(--surface-raised);border:1px solid var(--border-hairline);
+  border-radius:var(--radius);padding:26px 22px;
+}
+.urow{display:flex;flex-wrap:wrap;gap:6px 4px}
+.ucell{
+  flex:1 1 100px;min-width:96px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:16px 6px 12px;
+}
+.ucell .un{font-size:11.5px;color:var(--ink-secondary);text-align:center;letter-spacing:.02em}
+.usep{border:0;border-top:1px solid var(--border-hairline);margin:20px 0}
+.uhdr{margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-secondary)}
+
+/* ---------- viewport de telefono ---------- */
+.stage{
+  display:flex;justify-content:center;padding:34px 0 0;
+}
+.phone{
+  width:330px;background:var(--surface-base);
+  border:1px solid var(--border-hairline);border-radius:26px;
+  padding:26px 20px 22px;
+  display:flex;flex-direction:column;min-height:520px;
+}
+.phTop{margin:0 0 auto;font-size:12.5px;color:var(--ink-secondary);text-align:center;letter-spacing:.02em}
+.phMid{padding:32px 0}
+.card{
+  background:var(--surface-raised);border:1px solid var(--border-hairline);
+  border-radius:var(--radius);padding:22px 20px 20px;
+}
+.cardHead{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.cardZone{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-secondary)}
+.cardTask{margin:0 0 14px;font-size:19px;line-height:1.3;font-weight:600;letter-spacing:-.01em}
+.durChip{
+  display:inline-block;padding:4px 11px;border-radius:999px;
+  border:1px solid var(--border-hairline);background:var(--surface-base);
+  font-size:12.5px;color:var(--ink-primary);
+}
+.acts{margin:22px 0 0}
+.btnPri{
+  background:var(--accent-soft);color:var(--ink-primary);
+  border:1px solid var(--border-hairline);border-radius:var(--radius);
+  padding:15px 16px;text-align:center;font-size:16px;font-weight:600;
+}
+.btnGho{
+  margin:12px 0 0;padding:13px 16px;text-align:center;
+  font-size:13.5px;color:var(--ink-secondary);
+}
+.phFoot{margin:auto 0 0;font-size:12px;color:var(--ink-secondary);text-align:center}
+.stagecap{margin:18px 0 0;text-align:center;font-size:12px;color:var(--ink-secondary)}
+
+footer.pg{
+  border-top:1px solid var(--border-hairline);padding-top:22px;
+  font-size:12.5px;color:var(--ink-secondary);
+}
+footer.pg p{margin:0 0 6px;max-width:70ch}
+</style>
+</head>
+<body>
+
+<!-- ==================================================================
+     DEFINICIONES DE ICONO — todo dibujado a mano, lienzo 24x24.
+     M-* = masa (fill plano, sin trazo).  L-* = linea (hereda stroke).
+     ================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+
+  <!-- filamento de vilano: un rayo con su penacho de tres puntas.
+       Se rota alrededor del centro de la cabeza (12, 8.6). -->
+  <g id="fil">
+    <path d="M12 7.7 V4.2"/>
+    <path d="M12 4.2 l-0.95 -1.35"/>
+    <path d="M12 4.2 V2.8"/>
+    <path d="M12 4.2 l0.95 -1.35"/>
+  </g>
+
+  <!-- === HOJA (candidata 1 / luego marcador de zona FlyLady) === -->
+  <g id="M-hoj"><path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z" stroke="none"/></g>
+  <g id="L-hoj">
+    <path d="M12 21 C6 17 5.6 9 12 3 C18.4 9 18 17 12 21 Z"/>
+    <path d="M12 20.4 V6.2"/>
+  </g>
+
+  <!-- === DIENTE DE LEON 1 · BOTANICO ===
+       13 filamentos reales radiando (hueco de 60 grados abajo para el
+       tallo). Masa = disco de la cabeza. Se dibuja sin piedad: es el
+       caso que se espera que se empaste. -->
+  <g id="M-d1"><circle cx="12" cy="8.6" r="4.9" stroke="none"/></g>
+  <g id="L-d1">
+    <use href="#fil" transform="rotate(-150 12 8.6)"/>
+    <use href="#fil" transform="rotate(-125 12 8.6)"/>
+    <use href="#fil" transform="rotate(-100 12 8.6)"/>
+    <use href="#fil" transform="rotate(-75 12 8.6)"/>
+    <use href="#fil" transform="rotate(-50 12 8.6)"/>
+    <use href="#fil" transform="rotate(-25 12 8.6)"/>
+    <use href="#fil"/>
+    <use href="#fil" transform="rotate(25 12 8.6)"/>
+    <use href="#fil" transform="rotate(50 12 8.6)"/>
+    <use href="#fil" transform="rotate(75 12 8.6)"/>
+    <use href="#fil" transform="rotate(100 12 8.6)"/>
+    <use href="#fil" transform="rotate(125 12 8.6)"/>
+    <use href="#fil" transform="rotate(150 12 8.6)"/>
+    <path d="M11.9 13.4 C11.6 16.5 11.2 18.9 10.5 21.4"/>
+  </g>
+
+  <!-- === DIENTE DE LEON 2 · SILUETA SIMPLE ===
+       Un vilano redondo, tallo, y tres semillas suertas que se van.
+       Solo masas grandes; ningun filamento.
+       Nota de registro: las semillas NO estan en la plancha de masa.
+       Con r ~1u, un offset de 1.92u las separaria por completo del
+       contorno y eso se lee como error, no como mal registro. En
+       risografia real el detalle diminuto va a una sola tinta. -->
+  <g id="M-d2"><circle cx="10.4" cy="9" r="5.2" stroke="none"/></g>
+  <g id="L-d2">
+    <circle cx="10.4" cy="9" r="5.2"/>
+    <path d="M10.2 14.2 C9.9 17.2 9.6 19.4 9 21.6"/>
+    <circle cx="17.9" cy="5.4" r="1.1"/>
+    <path d="M17.1 6.2 L16.1 7.2"/>
+    <circle cx="20.6" cy="9.1" r="1"/>
+    <path d="M19.9 9.8 L19 10.7"/>
+    <circle cx="20.2" cy="2.7" r="1"/>
+    <path d="M19.5 3.4 L18.6 4.3"/>
+  </g>
+
+  <!-- === DIENTE DE LEON 3 · SILUETA SIN SEMILLAS ===
+       Identico al anterior menos las semillas suertas. Sirve para
+       probar una sola cosa: sin ellas, esto es solo una bola en un
+       palo? -->
+  <g id="M-d3"><circle cx="10.4" cy="9" r="5.2" stroke="none"/></g>
+  <g id="L-d3">
+    <circle cx="10.4" cy="9" r="5.2"/>
+    <path d="M10.2 14.2 C9.9 17.2 9.6 19.4 9 21.6"/>
+  </g>
+
+  <!-- === CAMARA (escaneo por foto) === -->
+  <g id="M-cam"><rect x="3" y="7" width="18" height="13" rx="2.6" stroke="none"/></g>
+  <g id="L-cam">
+    <rect x="3" y="7" width="18" height="13" rx="2.6"/>
+    <path d="M8.2 7 L9.8 4.4 H14.2 L15.8 7"/>
+    <circle cx="12" cy="13.5" r="3.6"/>
+  </g>
+
+  <!-- === ALBUM (galeria antes/despues) === -->
+  <g id="M-alb"><rect x="3" y="7" width="14" height="14" rx="2.2" stroke="none"/></g>
+  <g id="L-alb">
+    <path d="M8 7 V5.2 A2.2 2.2 0 0 1 10.2 3 H18.8 A2.2 2.2 0 0 1 21 5.2 V15.6"/>
+    <rect x="3" y="7" width="14" height="14" rx="2.2"/>
+    <path d="M5.4 18 L8.6 14.4 L11.2 16.8 L13.4 14.9"/>
+  </g>
+
+  <!-- === CAJA (Caja de Cuarentena) === -->
+  <g id="M-caj">
+    <rect x="3" y="4.6" width="18" height="3.6" rx="1.1" stroke="none"/>
+    <rect x="4.4" y="8.2" width="15.2" height="11.8" rx="1.4" stroke="none"/>
+  </g>
+  <g id="L-caj">
+    <rect x="3" y="4.6" width="18" height="3.6" rx="1.1"/>
+    <rect x="4.4" y="8.2" width="15.2" height="11.8" rx="1.4"/>
+    <path d="M12 4.6 V20"/>
+  </g>
+
+  <!-- === BOLSA (unidad de volumen de descarga) === -->
+  <g id="M-bol"><path d="M5.2 8.2 H18.8 L19.6 19.6 A1.4 1.4 0 0 1 18.2 21 H5.8 A1.4 1.4 0 0 1 4.4 19.6 Z" stroke="none"/></g>
+  <g id="L-bol">
+    <path d="M5.2 8.2 H18.8 L19.6 19.6 A1.4 1.4 0 0 1 18.2 21 H5.8 A1.4 1.4 0 0 1 4.4 19.6 Z"/>
+    <path d="M9 8.2 V6.4 A3 3 0 0 1 15 6.4 V8.2"/>
+  </g>
+
+  <!-- === RELOJ (Bolsa de Tiempo, minutos) === -->
+  <g id="M-rel"><circle cx="12" cy="12" r="8.4" stroke="none"/></g>
+  <g id="L-rel">
+    <circle cx="12" cy="12" r="8.4"/>
+    <path d="M12 7.2 V12 L15.6 14.2"/>
+  </g>
+
+  <!-- === AJUSTES === -->
+  <g id="M-aju">
+    <circle cx="8.6" cy="7" r="2.7" stroke="none"/>
+    <circle cx="15.2" cy="12" r="2.7" stroke="none"/>
+    <circle cx="9.6" cy="17" r="2.7" stroke="none"/>
+  </g>
+  <g id="L-aju">
+    <path d="M3.6 7 H20.4"/><path d="M3.6 12 H20.4"/><path d="M3.6 17 H20.4"/>
+    <circle cx="8.6" cy="7" r="2.7"/><circle cx="15.2" cy="12" r="2.7"/><circle cx="9.6" cy="17" r="2.7"/>
+  </g>
+
+  <!-- === LAPIZ (captura manual) === -->
+  <g id="M-lap"><path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z" stroke="none"/></g>
+  <g id="L-lap">
+    <path d="M5 19.2 L5.9 15.5 L16.1 5.3 A2.05 2.05 0 0 1 19 8.2 L8.8 18.4 Z"/>
+    <path d="M14.2 7.2 L17.1 10.1"/>
+    <path d="M5.9 15.5 L8.8 18.4"/>
+  </g>
+
+</defs></svg>
+
+
+<div class="wrap">
+
+<header class="pg">
+  <p class="kicker">Sesion UX &middot; Organizador &middot; 21 ago 2026</p>
+  <h1>El glifo del tercer destino: hoja o diente de leon</h1>
+  <p>Papelera y flechas de reciclaje quedan descartadas: leen como imposicion, borrado y senaletica institucional. Dos candidatas para &ldquo;tirar o soltar&rdquo;, dibujadas en el tratamiento ya cerrado (Variante A, registro desplazado, offset del 8%, filete de 1px) y sobre la paleta ya elegida, <b>Aliento</b>. La pagina hace dos trabajos: decidir el glifo y comprobar si las masas pastel aguantan sobre un fondo casi blanco <i>frio</i>.</p>
+</header>
+
+<hr class="rule">
+
+
+<!-- ============================ 1 ============================ -->
+<section>
+  <p class="snum">Seccion 1</p>
+  <h2>La decision: diente de leon vs hoja</h2>
+  <p class="lede">La hoja se cae: se desprende, es pasiva, no pide nada. El diente de leon lo soplas tu: las semillas se dispersan y siguen vivas en otro sitio, y el gesto de soltar es tu propio aliento. Las dos a 24 / 36 / 48px. El caso de 48px no es un lujo: la app tiene que seguir legible al 200% de escala de fuente del sistema, asi que ese es el tamano de estres real.</p>
+
+  <div class="cands">
+
+    <div class="cand">
+      <span class="tag">Candidata A</span>
+      <h4>Hoja</h4>
+      <p class="gloss">Se desprende y cae. Calma, pasiva, sin agente. Ya conocida: es la forma que la pagina anterior usaba de marcador de zona.</p>
+      <div class="sizes">
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-hoj"/></svg>
+          <span class="cap">24px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-hoj"/></svg>
+          <span class="cap">36px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-hoj"/></svg>
+          <span class="cap">48px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cand">
+      <span class="tag">Candidata B &middot; 1 de 3</span>
+      <h4>Diente de leon &middot; botanico</h4>
+      <p class="gloss">Filamentos finos de verdad radiando desde la cabeza. Se dibuja sin simplificar nada para que el fallo se vea, no se cuente.</p>
+      <div class="sizes">
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d1" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d1"/></svg>
+          <span class="cap">24px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d1" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d1"/></svg>
+          <span class="cap">36px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d1" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d1"/></svg>
+          <span class="cap">48px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cand">
+      <span class="tag">Candidata B &middot; 2 de 3</span>
+      <h4>Diente de leon &middot; silueta simple</h4>
+      <p class="gloss">Un vilano redondo, un tallo, tres semillas suertas que se van. Solo masas grandes; ningun filamento.</p>
+      <div class="sizes">
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d2" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d2"/></svg>
+          <span class="cap">24px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d2" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d2"/></svg>
+          <span class="cap">36px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d2" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d2"/></svg>
+          <span class="cap">48px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cand">
+      <span class="tag">Candidata B &middot; 3 de 3</span>
+      <h4>Diente de leon &middot; silueta sin semillas</h4>
+      <p class="gloss">El mismo vilano y el mismo tallo, sin las semillas suertas. Prueba una sola ambiguedad: sin ellas, es solo una bola en un palo?</p>
+      <div class="sizes">
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d3" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d3"/></svg>
+          <span class="cap">24px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d3" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d3"/></svg>
+          <span class="cap">36px</span>
+        </div>
+        <div class="szu">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d3" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-d3"/></svg>
+          <span class="cap">48px</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <p><b>Lo que se ve a 24px, sin adornarlo.</b></p>
+    <p><b>Botanico: no sobrevive.</b> Trece filamentos con penacho de tres puntas caben en unos 10px de diametro utiles. Con filete de 1px las puntas se solapan y el interior de la cabeza se cierra en una manchita gris irregular; la masa desplazada 1,92px asoma por detras de esa maranilla y no se lee como segunda capa, se lee como suciedad. Peor aun: el tallo, que es lo unico que dice &ldquo;planta&rdquo;, queda visualmente igual de pesado que un filamento cualquiera. A 48px el dibujo por fin respira y hasta es bonito, pero un glifo que solo funciona en su tamano de estres no sirve: en la app este icono vive sobre todo a 20-24px.</p>
+    <p><b>Silueta simple: sobrevive.</b> Es la unica de las tres lecturas de diente de leon que aguanta los tres tamanos con el mismo gesto. El vilano es una masa redonda grande, el tallo es una sola curva, y las tres semillas son circulos de ~1u que a 24px siguen siendo puntos distinguibles del contorno. Aviso de registro que hay que aceptar de forma explicita: las semillas <b>no</b> estan en la plancha de masa. A ese tamano, un offset de 1,92u las despegaria por completo del contorno &mdash; masa entera fuera de la linea &mdash; y eso ya no lee como mal registro sino como error. Van a una sola tinta, como el detalle diminuto en risografia de verdad. Es una excepcion documentada, no un arreglo silencioso.</p>
+    <p><b>Sin semillas: la ambiguedad se confirma.</b> A 24px es una bola en un palo. No es que sea confuso, es que se parece mas a un globo, a una piruleta o a un alfiler que a un diente de leon. Y peor de lo que se esperaba: la masa desplazada abajo a la derecha de un circulo perfecto produce una media luna limpisima que refuerza la lectura de esfera solida, exactamente lo contrario de un vilano. Las semillas suertas no son decoracion: son el unico portador del significado &ldquo;esto se va volando&rdquo;. Sin ellas el glifo no dice nada de soltar.</p>
+    <p><b>Y la hoja.</b> Se lee perfecta a los tres tamanos &mdash; es la forma mas robusta de la pagina, sin discusion tecnica. El problema no es el dibujo, es el significado: la hoja se cae sola. Nadie la suelta. El diente de leon pone el gesto en la boca del usuario, y eso es justo lo que se estaba buscando. <b>El coste de elegir diente de leon es real:</b> se cambia una forma de riesgo cero por una que exige respetar tres semillas de ~1u y una excepcion de registro. Es una decision de significado pagada con solidez.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+
+<!-- ============================ 2 ============================ -->
+<section>
+  <p class="snum">Seccion 2</p>
+  <h2>El trio en contexto</h2>
+  <p class="lede">El Flujo de 3 Destinos con los tres hues de destino de Aliento. Lo importante no es cada glifo por separado, es que los tres pesen igual: ninguno puede leer mas apagado, mas pesado, mas sobrante ni mas alarmante que los otros, porque la app no juzga nunca la decision del usuario. El flujo se muestra dos veces, con hoja y con la silueta de diente de leon que ha sobrevivido.</p>
+
+  <div class="flowpair">
+
+    <div class="flowcol">
+      <p class="flowlab">Con hoja en el tercer hueco</p>
+      <div class="flow">
+        <p class="flowq">Y esto, donde va?</p>
+        <div class="three">
+          <div class="dest dk">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-caj"/></svg></div>
+            <p class="dlab">Quedarmelo</p>
+          </div>
+          <div class="dest dd">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-bol"/></svg></div>
+            <p class="dlab">Donar o vender</p>
+          </div>
+          <div class="dest dt">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-hoj"/></svg></div>
+            <p class="dlab">Tirar o soltar</p>
+          </div>
+        </div>
+        <p class="footcap">Tres opciones del mismo peso. Ninguna es la correcta.</p>
+      </div>
+    </div>
+
+    <div class="flowcol">
+      <p class="flowlab">Con diente de leon (silueta simple) en el tercer hueco</p>
+      <div class="flow">
+        <p class="flowq">Y esto, donde va?</p>
+        <div class="three">
+          <div class="dest dk">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-caj"/></svg></div>
+            <p class="dlab">Quedarmelo</p>
+          </div>
+          <div class="dest dd">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-bol"/></svg></div>
+            <p class="dlab">Donar o vender</p>
+          </div>
+          <div class="dest dt">
+            <div class="tile"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-d2" x="1.92" y="1.92" fill="var(--surface-raised)"/><use href="#L-d2"/></svg></div>
+            <p class="dlab">Tirar o soltar</p>
+          </div>
+        </div>
+        <p class="footcap">Tres opciones del mismo peso. Ninguna es la correcta.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="flags">
+    <div class="flag">
+      <p class="fh">Bandera 1 &middot; sin resolver</p>
+      <p>La caja y la bolsa estan <b>prestadas</b>. En esta app una caja ya significa la Caja de Cuarentena y una bolsa ya es la unidad de volumen de descarga. Son dos dobles reservas, no dos glifos aprobados. No se propone sustituto aqui: solo se deja la colision a la vista.</p>
+    </div>
+    <div class="flag">
+      <p class="fh">Bandera 2 &middot; hue bajo sospecha</p>
+      <p>El <code>dest-trash</code> de Aliento es una arena clara ya senalada como posible &ldquo;apagado / sobrante&rdquo; en vez de neutro. Se presenta tal cual, junto a los otros dos, para poder juzgarlo en situ.</p>
+      <div class="swatchline">
+        <div class="sw" style="background:#C4D6CE"></div><code>dest-keep #C4D6CE</code>
+      </div>
+      <div class="swatchline">
+        <div class="sw" style="background:#D3D0E4"></div><code>dest-donate #D3D0E4</code>
+      </div>
+      <div class="swatchline">
+        <div class="sw" style="background:#DCD6C8"></div><code>dest-trash #DCD6C8</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+
+<!-- ============================ 3 ============================ -->
+<section>
+  <p class="snum">Seccion 3</p>
+  <h2>Reconciliacion de paleta sobre fondo frio</h2>
+  <p class="lede">El set anterior se dibujo con masas calidas provisionales (salvia, ocre, arcilla) sobre un blanco roto <i>calido</i>. Aliento es casi blanco <i>frio</i>, y una masa mal registrada que asoma esta mucho mas expuesta que un relleno bien encajado. Aqui va el set completo redibujado sobre el <code>surface-base</code> real de Aliento, con masas tomadas de los propios tokens de Aliento &mdash; el papel de la salvia lo hace <code>dest-keep</code> (menta polvo, frio) y el del ocre lo hace <code>dest-trash</code> (arena clara, el unico token calido de la paleta).</p>
+
+  <div class="utable">
+    <p class="uhdr">24 px &mdash; offset 1,92 px</p>
+    <div class="urow">
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--accent-soft)"/><use href="#L-cam"/></svg><span class="un">Camara<br>accent-soft</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-alb" x="1.92" y="1.92" fill="var(--dest-keep)"/><use href="#L-alb"/></svg><span class="un">Album<br>dest-keep</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-caj"/></svg><span class="un">Caja<br>dest-trash</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="1.92" y="1.92" fill="var(--dest-donate)"/><use href="#L-bol"/></svg><span class="un">Bolsa<br>dest-donate</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--accent-soft)"/><use href="#L-rel"/></svg><span class="un">Reloj<br>accent-soft</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-keep)"/><use href="#L-hoj"/></svg><span class="un">Hoja &middot; zona<br>dest-keep</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-aju" x="1.92" y="1.92" fill="var(--dest-donate)"/><use href="#L-aju"/></svg><span class="un">Ajustes<br>dest-donate</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-lap" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-lap"/></svg><span class="un">Lapiz<br>dest-trash</span></div>
+    </div>
+
+    <hr class="usep">
+
+    <p class="uhdr">48 px &mdash; offset 3,84 px</p>
+    <div class="urow">
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-cam" x="1.92" y="1.92" fill="var(--accent-soft)"/><use href="#L-cam"/></svg><span class="un">Camara</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-alb" x="1.92" y="1.92" fill="var(--dest-keep)"/><use href="#L-alb"/></svg><span class="un">Album</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-caj" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-caj"/></svg><span class="un">Caja</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-bol" x="1.92" y="1.92" fill="var(--dest-donate)"/><use href="#L-bol"/></svg><span class="un">Bolsa</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-rel" x="1.92" y="1.92" fill="var(--accent-soft)"/><use href="#L-rel"/></svg><span class="un">Reloj</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-keep)"/><use href="#L-hoj"/></svg><span class="un">Hoja &middot; zona</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-aju" x="1.92" y="1.92" fill="var(--dest-donate)"/><use href="#L-aju"/></svg><span class="un">Ajustes</span></div>
+      <div class="ucell"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--ink-primary)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><use href="#M-lap" x="1.92" y="1.92" fill="var(--dest-trash)"/><use href="#L-lap"/></svg><span class="un">Lapiz</span></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><b>Aguantan la salvia y el ocre sobre fondo frio? Con matices, y hay que decirlos.</b></p>
+    <p>La respuesta corta: <b>no se pueden traer</b>, y ese es el hallazgo. La salvia y el ocre calidos del set anterior no existen en Aliento; lo que hay son sus equivalentes frios de la paleta. Sustituidos por los tokens propios, <code>dest-keep</code> (#C4D6CE) y <code>accent-soft</code> (#D5E0DC) se comportan bien: comparten el sesgo frio de #F7F8F9, asi que el creciente que asoma se lee como una segunda tinta a proposito y no se enturbia. <code>dest-donate</code> (#D3D0E4) es la mejor de las cuatro sobre este fondo: es la unica con matiz claramente distinto del gris de fondo y el desplazamiento se ve limpio incluso a 24px.</p>
+    <p><b>El caso que hay que vigilar es <code>dest-trash</code> (#DCD6C8), el papel del ocre.</b> Es el unico token calido de Aliento, y sobre un fondo frio no se vuelve barro exactamente: se vuelve <i>papel viejo</i>. El contraste con #F7F8F9 es tan bajo (los dos por encima de L* 84) que a 24px la media luna que asoma casi desaparece &mdash; el gesto de mal registro se pierde y el icono parece simplemente lineal. Y donde si aparece, el calor sobre el frio lee amarillento, que refuerza justo la sospecha de la Seccion 2: sobrante en vez de neutro. No es que se ensucie; es que casi no esta. Una masa que apenas se ve no es un tratamiento, es una inconsistencia.</p>
+    <p><b>El glifo que se rompe, otra vez, es Ajustes.</b> Tres circulos de r=2,7u sobre tres lineas horizontales separadas 5u. Con offset de 1,92u la masa de cada circulo se desplaza casi dos tercios de su propio radio, sale del circulo y cruza <i>la linea de al lado</i>. A 24px eso deja tres manchas pastel que ya no pertenecen a ningun mando y que parecen sombra sucia bajo los railes. En la pagina anterior el sintoma era detalle fino; aqui, con offset proporcional y masa mas clara, es peor: la masa desplazada de Ajustes ya no vive dentro de su propia forma. Cualquier arreglo (masa unica de placa detras de los tres mandos, o quitar Ajustes de la plancha de masa) es una excepcion, y esta pendiente.</p>
+    <p>El resto del set aguanta. Camara, Album, Caja, Bolsa, Reloj y Hoja son masas grandes y cerradas: el offset del 8% les asoma un borde parejo y coherente a 24 y a 48. Lapiz esta al limite &mdash; es una forma diagonal fina y la masa desplazada en +x/+y va casi paralela a su propio eje, asi que asoma mucho por la punta y casi nada por el lomo. Se lee, pero es el segundo candidato a excepcion despues de Ajustes.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+
+<!-- ============================ 4 ============================ -->
+<section>
+  <p class="snum">Seccion 4</p>
+  <h2>En situ</h2>
+  <p class="lede">Una sola tarjeta del Dispensador en Aliento. La Hoja aparece como marcador de zona, en un sitio tranquilo. Esto es la pantalla en la que el usuario vive de verdad, asi que casi todo es espacio vacio.</p>
+
+  <div class="stage">
+    <div class="phone">
+      <p class="phTop">Tengo 15 minutos ahora</p>
+
+      <div class="phMid">
+        <div class="card">
+          <div class="cardHead">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-secondary)" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"><use href="#M-hoj" x="1.92" y="1.92" fill="var(--dest-keep)"/><use href="#L-hoj"/></svg>
+            <span class="cardZone">Salon</span>
+          </div>
+          <h3 class="cardTask" style="margin-top:0">Despeja la mesa del salon</h3>
+          <span class="durChip">10&ndash;15 min</span>
+        </div>
+
+        <div class="acts">
+          <div class="btnPri">Hecho</div>
+          <div class="btnGho">Otra mas facil &nbsp;/&nbsp; Ahora no</div>
+        </div>
+      </div>
+
+      <p class="phFoot">Una sola cosa. Nada mas ahora mismo.</p>
+    </div>
+  </div>
+  <p class="stagecap">Aliento &middot; esquinas de 14px &middot; &ldquo;Hecho&rdquo; relleno con accent-soft #D5E0DC &middot; Hoja a 20px con linea ink-secondary</p>
+</section>
+
+
+<footer class="pg">
+  <p>Todo el dibujo es SVG en linea hecho a mano: sin librerias de iconos, sin archivos externos, sin red, sin JavaScript. Los hex de Aliento y la regla de offset (8% del lado renderizado, con los valores de viewBox calculados para cada tamano) estan documentados en los comentarios de <code>&lt;style&gt;</code> de esta pagina.</p>
+  <p>Sin rojo. Sin iconografia de aviso. Sin signos de exclamacion. Sin degradados, resplandores ni sombras difusas.</p>
+</footer>
+
+</div>
+</body>
+</html>
