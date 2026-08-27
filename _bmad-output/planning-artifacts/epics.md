@@ -13,6 +13,13 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-designs/ux-organizer-2026-08-21/EXPERIENCE.md
   - project-context.md
 status: final
+readiness: clear
+upstreamDebtsPaid: 2026-08-27
+  # All four debts written into the PRD and the Architecture Spine by two clean-context passes:
+  #   AD-4's Week clause rewritten to SM-2 persistence + the two forced consequences
+  #   A `shipped` task's Origin Context = its Spanish catalogue name (PRD glossary + FR-5 + AD-16 mechanism)
+  #   PRD OQ-1's venue = the development machine via Lemonade, with E2B as the preferred candidate
+  #   Plus one found while verifying: AD-16's fourth catalogue field now DECLARED as an override of FR-31's three
 inputsReadAt: 2026-08-27 (post blocker-resolution pass; all five documents at status final, updated 2026-08-27)
 precedence: "SPEC.md is canonical (self-declared contract). PRD / Architecture Spine / UX spine pair are its companions and the source of FR, NFR, AD and UX-DR detail. On conflict, SPEC wins; §1.1 principles win over any FR; the UX/Architecture spines win over the PRD on the surfaces they own."
 ---
@@ -31,90 +38,44 @@ This document provides the complete epic and story breakdown for the Anti-Overwh
 
 ## Requirements Inventory
 
-### Functional Requirements
+### Functional Requirements (index)
 
-Extracted from PRD §4 as it stands after the 2026-08-27 UX handoff absorption. FR IDs are stable identifiers, not an ordering — FR-30 belongs to §4.8 and FR-32 to §4.9 by that rule. All 32 are in scope for the validation build (PRD §6: "every feature above ships, nothing else").
+Source of record: **PRD §4** (status final, updated 2026-08-27). FR IDs are stable identifiers, not an ordering. All 32 are in scope (PRD §6). Every operative clause is restated at point of use by the story acceptance criteria that cite it; this index exists for lookup and ID anchoring, not as the text of record. Epic and story homes: the FR Coverage Map below.
 
-**4.1 Single-Task Dispenser (UI kernel)**
-
-- **FR-1: Single-card viewport.** The user sees exactly one dispensed Micro-task with its duration estimate at the Dispenser surface. No screen reachable in under 3 taps renders more than one actionable Micro-task at once.
-- **FR-2: Done action with positive feedback.** One tap completes the dealt Micro-task with non-intrusive positive feedback and the next card. Advance in under 500 ms; feedback never modal, never loud audio, never a rating prompt or nag screen.
-- **FR-3: Guilt-free skip.** One tap skips the dealt Micro-task; an alternative is dealt with no failure recorded. No overdue state, no counter, no notification. Pool exhaustion mid-session closes the session early with the fixed warm string `por hoy no hay nada más que merezca la pena`.
-- **FR-4: 1-tap *daily* energy check-in.** 🟢 / 🟡 / 🔴 in one tap, offered **once per day as a check-in at the first opening**; the eligible pool re-filters in under 500 ms. *(Rewritten 2026-08-27 from a permanent control.)*
-  - The check-in is a daily surface, **not permanent furniture**: it appears at the day's first opening and never again on re-opens within that day, skippable in one tap; once answered or dismissed it is gone for the day — a dismissal is a skip-for-today, never re-shown within the day and never styled as pending.
-  - Energy defaults to 🟢 every day and **never decays**. The check-in exists to ask for less, never to clear a gate: the pool stays wide until the user narrows it, and a user who never answers it loses nothing. Late-day decay toward 🟡 was considered and rejected.
-  - **The weekly self-report (SM-2) outranks the check-in whenever it is pending** — it is the rarer instrument. From the first Sunday opening until answered that week it holds the slot at every first opening, on any day. The handoff is deterministic: once the self-report clears the slot (answered, or dismissed for that opening alone — a dismissal hides it until the next opening, never for the week), the check-in takes the slot in that same opening if it has not already been resolved that day. A day that ends without the check-in having shown is carried by the 🟢 default and owes nothing.
-  - The check-in presents the three levels as **direct tap targets** — the one-tap property is the whole mechanism — and nothing else.
-  - Only 🔴 narrows (Instant Habits and ≤ 60 s only, Focus Chunks excluded); 🟢 and 🟡 filter nothing. **A 🔴 tapped while the check-in is open** with a card in progress behaves like the checkpoint: the active card can be finished, the filter applies to the next deal. **Outside the open check-in no energy control exists to tap mid-task** — simplifying the *current* task is Rescue Mode's job (FR-5), not an energy change.
-- **FR-5: Rescue Mode (task unsticking).** A stuck Micro-task is re-sliced into 2–4 steps of ≤ 60 s via its Origin Context. Two triggers: declined on 3 different calendar days (soft heuristic), or user request at any time. Rescue depth capped at 1. Completing all steps marks the original done; a rescue whose steps are declined on 3 different days dissolves the original silently. With no reachable Slicer it degrades per FR-29. **Also carries mid-session relief** once the check-in strip has gone: `Otra más fácil` is the per-task valve.
-- **FR-6: Warm Return.** After ≥ 48 h of absence the user is received with a rebalanced plan and no reference to missed days in any UI element or copy anywhere in the app.
-
-**4.2 Floating Time Bag & Session Control**
-
-- **FR-7: Daily floating time budget.** A daily Time Bag, default 15 min, range 5–30. Covers **advance work only** — the Focus Chunk; Baseline Upkeep and Instant Habits are not charged to it. Below 10 min the day composes without a Focus Chunk, silently. The bag bounds the day's total advance: once the day's Focus Chunk is dealt, later sessions compose of upkeep and habits only.
-- **FR-8: "I have X minutes now" trigger.** An ad-hoc session declaring available minutes; dealt tasks' estimated durations sum to ≤ the declared pocket. The session runs to the pocket and is never ended by the app itself.
-- **FR-9: Pause and silent recalculation.** Interrupt at any moment; partial progress saved, unspent **advance** minutes roll back into the Time Bag. No interrupted, incomplete or overdue state displayed anywhere, in either language. Resuming deals the next Micro-task directly — never a resume menu.
-- **FR-10: Anti-Marathon checkpoint.** A rest offer at every multiple of the checkpoint interval (default 15 min, range 10–15) with an explicit permission-to-stop screen as the primary surface. Never a wall. No continuation question (`¿seguimos?`) exists anywhere. Extending is a silent, secondary, user-initiated act. Sessions shorter than one interval simply end — their close is the permission to stop.
-
-**4.3 Project Weaver — FlyLady + 1-3-5 Hybrid Engine**
-
-- **FR-11: Dual-lifecycle projects with archetype templates.** Evergreen material arrives active by default from the pre-sliced Library; curation enables/disables its clusters. Epic Projects are created from a photo or a typed/form description — always through the Slicer, never from a template. Exactly one FlyLady Zone active per day, rotating weekly over *active* clusters. Dormant Epics appear in no default view.
-  - **Genesis is multi-path, and the two paths never share a surface** *(A-slim, 2026-08-27)*. The **photo path is a direct one-tap camera entry on the Dispenser itself** (FR-16) — UJ-2's "one tap to Scan" — an add-work entrance beside the day's card, not a departure from it. **Typed/form entry is reached through the Dispenser's single quiet affordance**, which opens the genesis surface with typed entry as its **one recommended action** and settings as **the way out**. Neither entrance is a precondition for the other.
-  - **This squares FR-11 with principle 1 structurally rather than by exception:** the camera is an entrance, not a decision surface, and the genesis surface carries exactly one recommended action plus its way out. No surface holds two recommended actions, so **no exception is owed — E2 is retired**.
-  - The Archetype Template selection surface enumerates templates and clusters and opens **from the genesis surface** as a complement — never a third top-level path (E1). Selecting a template enables or disables Evergreen clusters only; it never creates an Epic Project.
-- **FR-12: Automatic 1-3-5 weaving.** Each day composes as 1 Focus Chunk (10–15 min) + 3 Micro-maintenance (2–3 min) + 5 Instant Habits (~30 s), scaled to the current Time Bag and Energy Level. The Focus Chunk slot is reserved for advance work; Baseline Upkeep never occupies it. Manual captures take precedence over Evergreen/Epic material of the same size and are dealt within 3 eligible days, FIFO within a size. The deal window freezes on non-eligible days. Composition is regenerable and records its origin mix.
-- **FR-13: Invisible safety buffers.** Epic Project steps spread across days with slack the user cannot see or configure. 7 days of total absence push no milestone into an overdue state.
-- **FR-14: Silent rescheduler.** Unfinished Micro-tasks re-woven into future days with no user action, failure record or notification. No "overdue" concept anywhere in the data model surfaced to the UI.
-- **FR-15: Gentle seasonal activation.** The system may suggest activating a dormant Epic Project on seasonal triggers, proposing a minutes/day plan. One-tap dismissible on the ambient strip, never more than once per season per project, declining has zero side effects.
-
-**4.4 AI Photo-Diagnosis & Visual Rewards**
-
-- **FR-16: Space photo scan with Smart Slicer.** Photograph a space, receive a sequence of 3–5 min Micro-tasks with per-step effort estimates. No latency cap and no timeout; the wait is in-app, foreground, with visible progress and honest copy. Leaving the surface or backgrounding cancels and discards it. Failure states the cause plainly and offers Manual Capture. Origin Context retained; the image discarded per FR-25.
-  - **The scan surface is a direct one-tap camera entry on the Dispenser** — the photo genesis path of FR-11 and UJ-2's "one tap to Scan". Photographing a space is add-work beside the day's card. The camera permission is requested at the **first scan attempt**, never at app entry and never during first run — the same first-use rule the microphone follows.
-  - **The camera entry can be disabled outright in settings** so it never appears on the Dispenser at all; and a camera permission **refused at first use — or revoked at the system level after being granted** — removes the entry under its own power until the user restores it from settings. **Visibility = enabled ∧ permission not refused.** A single settings row owns both the disable toggle and the reactivation, so the reversal lives where the user put the refusal. A dead camera icon on the primary surface would be pending work in the one place the user lives.
-- **FR-17: Before/After visual reward.** After a session or project milestone on a scanned space, shoot an "after" photo and receive a side-by-side diff with no negative framing. Saved to the Album automatically.
-- **FR-18: Local transformation album.** A private, local gallery of before/after pairs and cumulative milestones. Never sent by the app; entries individually deletable and purgeable in one action.
-
-**4.5 Mindful Decluttering Protocol**
-
-- **FR-19: Pre-clean purge injection.** When an organizing Epic Project activates, purge Micro-tasks are prepended: the first dealt Micro-task of a newly activated organizing project is always a purge step.
-- **FR-20: Detachment questions and 3-Destination Flow.** The two guilt-free detachment questions plus the triage surfaced as `Quedármelo` / `Donar o vender` / `Tirar o soltar`. No pressure framing; every question answerable by skip. The three destinations carry equal weight and none is worded, styled or ordered as the undesirable one.
-- **FR-21: Quarantine Box.** Hesitated items go to a dated box; after 6 months a **blind** timer suggests donation on the date alone, at most once per box, one-tap dismissible on the ambient strip, claiming no knowledge of the box's contents.
-- **FR-22: Cumulative declutter metric.** Liberated items tracked as a positive-impact milestone, incremented only by tap during purge steps. Optional coarse volume tags (`bolsa` / `caja` / `caja grande` / `mueble`), displayed as an approximation with its unit visible (`≈ 3 cajas liberadas`), never a target, rate, percentage or deficit.
-
-**4.6 Progress & Cumulative Impact**
-
-- **FR-23: Cumulative impact dashboard.** Cumulative minutes, completed Micro-tasks, liberated items/volume and album highlights. No daily quotas, no averages-over-time, no deficit framing. After ≥ 10 comfortable days a one-tap-dismissable snowball suggestion to raise the Time Bag by ≤ 5 min may appear on the ambient strip; the run itself is internal and never surfaced; suppressed at the top of the bag's range.
-
-**4.7 Ambient Invitation**
-
-- **FR-24: Single silent daily invitation.** Exactly one opt-in daily notification at a chosen hour, off by default, delivered silently on a low-importance channel with no sound, heads-up or badge. Copy references no task, count, or anything owed/late/missed/remaining. At most one per 24 h under every code path, no re-delivery, no follow-up. Disabling removes the app's notification permission usage entirely; no other notification category is requested.
-
-**4.8 Data Handling & Privacy**
-
-- **FR-25: Per-scan consent and upload minimization.** Per-scan confirmation before any image leaves the device; no blanket "always allow" exists. On-device person/face detection refuses the scan before upload with an offer to reframe. The scan image is deleted once the micro-plan exists. Declining or a detection refusal routes to Manual Capture. The confirmation states in plain Spanish what is sent and to whom, with no dark-pattern asymmetry — declining costs the same number of taps. Only the scan image and a prompt are sent. Text-only re-slice sends Origin Context plus the current task with no per-call dialog; **the genesis surface** states what is sent and to which provider, and the send action *is* the consent.
-- **FR-26: Local validation instrumentation.** Four on-device-only queryable series: (a) session start/end with duration and Micro-tasks completed, (b) Slicer calls and outcome, (c) Before/After pairs per project milestone, (d) invitation emissions and whether the app opened within the hour. Every Micro-task carries an immutable genesis origin (`shipped` / `manual` / `local` / `cloud`), inherited by rescue steps, never surfaced in the Dispenser. Local-only, no analytics SDK, readable as raw exported data, never surfaced as a target/average/period comparison. Skips feed only FR-5's logic; no cumulative skip total is stored.
-- **FR-30: Silent automatic export.** After the destination folder is picked once (system picker, persisted URI), every subsequent export runs by itself: plans, album images and all FR-26 series in one legible-text-plus-images format that is simultaneously raw series export, validation source and restore format. Foreground-triggered at session end and app backgrounding — not background work. Never transmitted. No reminder, badge, backup-age indicator, "last exported" line or failure toast anywhere the user lives; export state readable in settings only, never framed as the user's omission. Restorable via a one-file-picker import in settings — full restore, no merging, no partial restore.
-
-**4.9 Manual Capture (the floor)**
-
-- **FR-27: Manual Capture.** One Micro-task from one line of text plus one of exactly three sizes (30 s / 3 min / 10–15 min = the 1-3-5 taxonomy), at any time, with no network, key, model or account. Reachable from the Dispenser in one tap. Asks for nothing else — no project, category, date, priority, tag, recurrence or confirmation screen. Correctable or discardable from the capture surface only, before leaving; the confirming action stays disabled until the line holds text. No screen lists, counts, filters or browses captured tasks (NL-1). Origin `manual`, Origin Context is its own line. Dealt within 3 eligible days, ahead of same-size Evergreen/Epic material.
-  - The line is plain text and nothing is ever parsed from it — including a day. A line saying "el jueves" is not held until Thursday. **A capture with a real deadline does not belong on this surface, and the frame's copy says nothing about dates — the surface does not lecture** *(OQ-11 closed 2026-08-27)*.
-  - **Manual Capture handles spatial work, and it says so by framing rather than by refusing.** The surface is framed spatially — title, helper, example, the three sizes — so non-spatial work is never invited and rarely attempted. The app performs **no validation of the captured line**: "llamar al dentista" typed or dictated anyway is **accepted silently** and dealt as an ordinary card, because rejecting it would shame the user and detecting it reliably is impossible. **No invitation, no validation, no refusal** *(OQ-11 closed 2026-08-27; frame copy authored in the UX spines)*.
-- **FR-32: Voice dictation into the capture line.** The single line can be filled by speaking, recognised **on-device**, with no network, key, model or account. Offered on Manual Capture and nowhere else; no voice command exists anywhere. Fills the text line only — the size is still three taps, nothing is parsed from the transcript, one utterance yields at most one Micro-task. No cloud fallback; no audio retained, exported, instrumented or recoverable. The transcript lands in the existing one-line field on the existing surface — FR-27's correct-or-discard is what governs a mis-transcription. The keyboard is never removed. Origin stays `manual`; a separate per-capture dictation boolean is readable in settings only.
-  - Where on-device Spanish recognition is unavailable — no language pack, unsupported device — the microphone affordance is **simply not present**: no error, no explanation, no install offer, no greyed state, **and no settings pointer to the system's language-pack installation either**. This is a decision, not a deferred question *(OQ-13 closed 2026-08-27)*, and it forecloses nothing: every string is externalized, so a second locale remains pure translation.
-  - The permission is requested at the first dictation attempt, never at first run. Refusing leaves capture fully functional by keyboard, removes the affordance, and the app never asks again on its own. **A refused permission is reversible in settings and nowhere else — the same unified pattern the camera follows**: a reactivation row exists only while there is something to reactivate, and a phone with recognition available and permission granted shows no row at all.
-
-**4.10 AI Access Path**
-
-- **FR-28: AI Access Path with a vetted-provider allowlist.** The Slicer is reached through a swappable access interface; the validation build implements BYOK with the user's own key against a provider from an in-app allowlist. Exactly one path usable; **Local ships as a debug-only canned-slice stub** so the interface has two real callers. No free-form endpoint or base-URL field. The allowlist is frozen at build time and never fetched. Each entry states provider name and the date its terms were verified, *on* that date and not since. The gate is **no-training only**; retention is not gated; the key's tier is the user's own call, stated once at key entry and never repeated. The credential is protected at rest by an OS-backed non-exportable key, never in preferences, never in the export. No account, login, password or registration anywhere; nothing in first run requires the network. No margin, metering or reporting. Managed, if ever built, is non-expiring credits and never a subscription.
-- **FR-29: Honest degradation with no Slicer.** With no Slicer reachable the app states the cause plainly and offers Manual Capture. Seven distinguishable causes, each naming its own remedy: no key configured, invalid key, exhausted quota, provider unreachable, no network, consent declined, person detected in frame. None is a dead end, none is styled as an error, nothing is queued. A fresh install with no Slicer still reaches a woven 1-3-5 day from shipped content; the app names which half is unavailable rather than implying the whole product is degraded. **The seven strings are authored** *(2026-08-27 — see UX-DR43)* and are part of the SM-C2 audit from the start.
-
-**4.11 Evergreen Task Library**
-
-- **FR-31: Pre-sliced Evergreen Library.** A shipped catalogue spanning three cadences, each populated: daily (Instant Habits ~30 s and Baseline Upkeep 3–15 min), weekly (zone routines across 5 FlyLady zones), monthly/seasonal (`fondo`). Every entry carries a size from the 1-3-5 taxonomy, a cadence, and a zone-or-none. **Coverage floor: ≥ 28 distinct 10–15 min non-daily entries** eligible for the Focus Chunk slot — the floor counts dealt Focus Chunks, not calendar days. The `fondo` cluster is an eligible source and fills a thin zone week before any repetition. No entry is bound to a clock. Curation is at **cluster** level only; no screen enumerates individual entries. Fixed at build time and not user-authorable. Every entry carries origin `shipped`. Breadth is a build-time, verifiable property.
-  - **Curation is reachable from onboarding and settings only, never from the Dispenser.** A disabled cluster's tasks simply never appear; disabling one produces no count, no summary and no copy about what was turned off.
-  - **Onboarding is the product itself plus one one-time ambient strip offering curation** after first run — **no wizard and no first-run curation flow**, because the cold-start contract holds hardest on day one. The strip is dismissible in one tap, a dismissal means **never again**, and settings plus the template-selection surface (E1) remain the standing routes. A user who dismisses it, or never sees it, keeps the default standing — every cluster active *(OQ-3's surviving half closed 2026-08-27)*.
+| FR | Subject (one line) |
+|---|---|
+| FR-1 | Single-card viewport; nothing within 3 taps shows two actionable Micro-tasks |
+| FR-2 | `Hecho` in one tap; next card < 500 ms; non-intrusive positive feedback |
+| FR-3 | Guilt-free skip, alternative dealt, no failure recorded; pool exhaustion closes with the fixed warm string |
+| FR-4 | 1-tap daily energy check-in at the first opening; only 🔴 narrows; the weekly self-report outranks it while pending |
+| FR-5 | Rescue Mode: 2–4 steps ≤ 60 s via Origin Context; depth capped at 1; dissolution pattern; degrades per FR-29 |
+| FR-6 | Warm Return ≥ 48 h: rebalanced plan, no reference to missed days anywhere |
+| FR-7 | Daily Time Bag 5–30, default 15; advance work only; below 10 = no Focus Chunk, silently |
+| FR-8 | `Tengo X minutos ahora`: dealt estimates sum ≤ the declared pocket; never ended by the app |
+| FR-9 | Pause at any moment; silent recalculation; no interrupted/overdue state in either language |
+| FR-10 | Anti-Marathon checkpoint as permission-to-rest; extension a silent secondary; no `¿seguimos?` anywhere |
+| FR-11 | Dual lifecycle: Evergreen active by default; Epic Projects via the Slicer only; one zone active per day |
+| FR-12 | Automatic 1-3-5 weaving scaled to bag and energy; capture precedence; 3-eligible-day deal window |
+| FR-13 | Invisible safety buffers; 7 days of absence push no milestone overdue |
+| FR-14 | Silent rescheduler: no overdue concept anywhere in the data model surfaced to the UI |
+| FR-15 | Gentle seasonal activation; once per season per project; declining has zero side effects |
+| FR-16 | Photo scan via Smart Slicer; unbounded in-app foreground wait; entry visibility = enabled ∧ permission not refused |
+| FR-17 | Before/After reward: side-by-side diff, no negative framing, saved to the Album automatically |
+| FR-18 | Local transformation album: individually deletable, purgeable in one action, never sent |
+| FR-19 | Pre-clean purge injection: the first dealt task of a newly activated organizing project is a purge step |
+| FR-20 | Two detachment questions + 3-Destination Flow, equal weight, every question answerable by skip |
+| FR-21 | Quarantine Box: blind 6-month timer, at most once per box, copy claims no knowledge of contents |
+| FR-22 | Cumulative liberated-items metric: tap-only, coarse volume tags, never a target or rate |
+| FR-23 | Cumulative impact dashboard under the denominator rule; snowball suggestion ≤ +5 min, suppressed at the cap |
+| FR-24 | One silent opt-in daily invitation; at most one per 24 h (superseded by the domestic-day rule, Story 8.2) |
+| FR-25 | Per-scan consent, no blanket allow; on-device face gate; scan image deleted once the plan exists |
+| FR-26 | Four on-device-only series; immutable genesis origin; no analytics SDK; no cumulative skip total |
+| FR-27 | Manual Capture: one line + one of exactly three sizes, nothing else; no validation, no refusal, no list |
+| FR-28 | BYOK access path behind `SlicerPort`; frozen provider allowlist; no account; non-exportable key |
+| FR-29 | Honest degradation: seven distinguishable causes, one calm surface, `Anotarlo` exit |
+| FR-30 | Silent automatic export (foreground triggers); full restore, no merging; state readable in Settings only |
+| FR-31 | Pre-sliced Evergreen Library: four fields, ≥ 28 eligible floor, cluster-level curation, fixed at build time |
+| FR-32 | On-device voice dictation into the capture line; absent where unavailable; no audio retained |
 
 ### NonFunctional Requirements
 
@@ -138,159 +99,103 @@ Extracted from PRD §4 as it stands after the 2026-08-27 UX handoff absorption. 
 - **NFR16: Determinism.** Given the same pool, event log, calendar day and session facts, selection is deterministic. No `Random`, no wall-clock read, no `dart:io`, no ambient state inside the core.
 - **NFR17: Story completion gate.** A story is done only when `flutter test`, `dart format --set-exit-if-changed .` and `flutter analyze` all pass. *(Source: `project-context.md` / `AGENTS.md` Policy.)*
 - **NFR18: Testing shape.** Core invariants are exercised with `dart test` on the machine, no emulator. Widget tests only where a surface consumes the read facade or a command. No golden tests; visual and behavioural verification is manual on the three validation handsets.
+- **NFR19: Theme selection is the platform's.** Light/dark **follows the system, with no settings row** — an override row would be the app's only duplicated preference, and the Foundation rule is that everything unstated is the platform's *(decided 2026-08-27, closing its OQ with zero UI)*.
 - **NFR20: One `Makefile` at the repository root is the entry point for every development command.** Tests, formatting, linting, analysis, localisation regeneration, the `tool/` build-time checks, running and building — no development operation is invoked by a remembered incantation. **`make gate` runs exactly NFR17's three commands** (`flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze`) so the story completion gate is one command, and **CI invokes the same targets** so local green means CI green. `make help` lists every target with a one-line description. The file grows additively: every story that introduces a `tool/` check or a build-time guard registers its own target in the same pass. *(Builder requirement, 2026-08-27.)*
 
-- **NFR19: Theme selection is the platform's.** Light/dark **follows the system, with no settings row** — an override row would be the app's only duplicated preference, and the Foundation rule is that everything unstated is the platform's *(decided 2026-08-27, closing its OQ with zero UI)*.
+### Additional Requirements (index)
 
-### Additional Requirements
+Source of record: **ARCHITECTURE-SPINE.md** (status final, updated 2026-08-27). The scaffold tree, the pinned stack table and the authored catalogue counts live there and are consumed where needed (Stories 1.1 and 1.5). Paradigm in one line: functional core / imperative shell, seven ports (`Store`, `Slicer`, `Clock`, `Notifier`, `Recognizer`, `Folder`, `Files`), adapters named for their technology, dependencies pointing inward only. Every AD below is cited by the story acceptance criteria that must honour it — the 26/26 mapping is asserted in Coverage completeness.
 
-From the Architecture Spine (`ARCHITECTURE-SPINE.md`, updated 2026-08-27). These are structural obligations that shape epic and story boundaries, not restatements of FRs.
+| AD | Subject (one line) | Anchored in |
+|---|---|---|
+| AD-1 | No plan is ever stored; the day is derived from (pool, log, day, session) | 1.6, 2.1, 6.4 |
+| AD-2 | Both stores insert-only, enforced by SQL triggers in a `.drift` file | 1.3 |
+| AD-3 | Determinism; `card_dealt` written by a command, never by rendering | 1.1, 1.6 |
+| AD-4 | One calendar authority: 04:00 day, Monday week, meteorological season; SM-2 persists until answered | 1.4, 2.6, 5.7, 8.2 |
+| AD-5 | Core sealed (no flutter/drift/plugins, CI-enforced); no adapter names inside | 1.1 |
+| AD-6 | NL-1 in the read API: no collections of pending/captured tasks; signals named as facts | 1.6, 3.3 |
+| AD-7 | One egress chokepoint sealed three ways; exactly three payload shapes, no fourth as a type | 4.2 |
+| AD-8 | Consent a single-use `ScanConsent` token; scan cache unlinked on every terminal path | 5.2, 5.3 |
+| AD-9 / AD-10 | `SlicerPort`'s three implementations; compile-time provider allowlist, no-training gate | 4.4, 4.1 |
+| AD-11 | Three Kotlin channels (notify, dictate, credentials); no socket, no date arithmetic | 3.4, 4.3, 8.1 |
+| AD-12 | Egress map a closed list; no network SDK for any reason; `crash_recorded` is the only diagnostic | 1.3, 4.2 |
+| AD-13 | Export authoritative/derived split; one foreground coordinator; `(generationSequence, generationId)` order | 9.2, 9.3 |
+| AD-14 | Origin set at genesis, immutable, inherited by rescue steps, never in the Dispenser | 1.3, 3.2, 4.6, 5.4 |
+| AD-15 | The shipped ARB is the string table; no literals; pinned keys need value + sign-off | 1.2, 4.5 |
+| AD-16 | Catalogue a build-time asset: four fields, ARB names keyed by id, 28-deal rotation test | 1.5, 1.7, 4.6 |
+| AD-17 | Three runtime permissions at first use; inexact alarm; `RECEIVE_BOOT_COMPLETED`; no exact-alarm | 3.4, 5.2, 8.2 |
+| AD-18 | Update path is the restore path: one keystore, install-on-top, debug never on a validation handset | 9.3 |
+| AD-19 | No session of record; a session belongs to its start day; exactly three closing causes | 2.2 |
+| AD-20 | One resolver owns the Focus slot: occupancy vs identity, Epic arbitration, below-floor fallback | 1.6, 3.3, 5.4, 6.1 |
+| AD-21 | One log of user acts and system events; no entry asserts an absence; store seal | 1.3 |
+| AD-22 | No secret in log, pool or export; vault envelopes; `withCredential` per request | 4.3 |
+| AD-23 | Forward-only evolution: unknown kinds tolerated, payloads additive, catalogue ids permanent | 1.3, 1.5, 5.3, 9.3 |
+| AD-24 | Exactly one `EligibleDay(item, day)`; `warmReturnDue` the one sibling | 2.7, 3.3, 4.6 |
+| AD-25 | Pool membership derived; no synthetic completion; dissolution retires the chain atomically | 4.6, 1.11 |
+| AD-26 | Achievement figures cross only to the dashboard; internal signals never cross as numbers | 7.3, 9.1 |
 
-**Greenfield scaffold — this is Epic 1, Story 1.** The Architecture names no third-party starter template. What it *does* fix is a specific project skeleton that must exist before any FR story can be written, and it is prescriptive enough to be a story of its own:
+Also from the spine, consumed where cited: the six `tool/` build-time checks (AD-3/5, AD-7 ×3, AD-15, AD-16, AD-23, AD-21's store seal) plus AD-22's export-fixture check; the two export property tests (AD-13 round-trip, AD-16 rotation) live as tests; no logging framework and no log destination (AD-12); deferred by the architecture and **not to be built**: OQ-1's deployment topology, log-growth projections, multi-user, iOS, committed-export compaction, screen-reader semantics, API 37, design-token generation, the second locale.
 
-```
-organizer/
-  packages/core/          # pure Dart — no flutter, no drift, no plugins
-    lib/day/  lib/pool/  lib/log/  lib/weave/  lib/derive/  lib/ports/  lib/export/
-  lib/                    # the Flutter shell
-    store/  files/  egress/  platform/notify/  platform/dictate/  plugins/  ui/
-    l10n/app_es.arb       # THE string table
-    strings/              # generated accessors only — no literals
-  assets/evergreen/       # the catalogue: id, size, cadence, zone
-  android/app/src/main/kotlin/   # native halves of notify, dictate, credentials
-  tool/                   # the six build-time checks
-  test/                   # dart test over core
-```
+### UX Design Requirements (index)
 
-- **Paradigm: functional core / imperative shell, hexagonal ports & adapters.** The core is pure Dart holding the whole product — calendar, pool, event vocabulary, weave, every derived signal, the Slicer port, the export shape. It performs no I/O, reads no clock it was not handed, returns no randomness. The shell carries facts in and effects out. Dependencies point inward only; adapters return inert DTOs and never domain objects.
-- **Seven ports:** `Store`, `Slicer`, `Clock`, `Notifier`, `Recognizer`, `Folder`, `Files`. Ports end in `Port`; adapters name their technology (`DriftStore`, `SafFolder`, `ByokSlicer`).
-- **The spine binds `§1.1 principles P1–P6 (and exception E1)`** — E2 dropped 2026-08-27. **The engine was verified compatible with the FR-4 rewrite and needs no change:** energy day-scoping is a *superset* of the once-a-day check-in UI (a deliberate affordance restriction, not an engine change), and `energy_set` / `setting_changed` / `suggestion_dismissed` / `report_answered` already cover every new act the redesign introduces.
-- **AD-1: No plan is ever stored; the day is derived.** Persist exactly two kinds of replayable domain fact — the task pool as immutable facts and the append-only event log. Today's composition, the next card, FR-5's decline count, the snowball run, a capture's deal window, an Epic's buffered target, **and the settings record** are pure functions of `(pool, log, day, session)`. FR-14's Silent Rescheduler is therefore not code.
-- **AD-2: Both stores are insert-only, enforced by the database.** SQL triggers raise on `UPDATE` and `DELETE` on both tables, declared in a `.drift` file and created in the initial migration. Corrections are new entries; pool retirement is a derivation, never a deleted row.
-- **AD-3: Determinism, and "dealt" is written by a command.** Ties break by least-recently-dealt then stable id. `nextCard()` is pure and **writes nothing**; `card_dealt` is appended by the command answering the previous card, or by `session_started` for a session's first card — never as a side effect of rendering.
-- **AD-4: One calendar authority.** Day = `[04:00 local, 04:00 local next)`. Week = seven domestic days anchored on **Monday**. Season = three-month meteorological quarters on domestic-day boundaries. A DST transition never creates or destroys a period. Every log entry stores its UTC instant **plus the local offset in force**; a day is computed from the stored offset. Energy is **day-scoped**, defaulting to 🟢 at each boundary, never carried across one, and the default is derived rather than written. No other code — Kotlin included — computes a date boundary; the Notifier port accepts an absolute instant only.
-- **AD-5 / AD-6: The core is sealed and NL-1 lives in the read API.** `packages/core` declares no dependency on `flutter`, `drift` or any plugin (CI-enforced). The read facade exposes no function returning a collection of pending or captured tasks; `nextCard()` returns at most one card. Derived signals are named as **facts, never actions** (`captureIsDue`, `rescueIsWarranted`, `bagIsComfortable`) and are inputs to `core/weave`, not outputs to the shell — with one stated crossing, `warmReturnDue`.
-- **AD-7: One egress chokepoint, sealed three ways.** Exactly one module, `lib/egress/`, may import an HTTP client; it accepts exactly three payload shapes with no fourth existing as a type, and enforces a single image-resolution cap before any upload. It never queues, never retries, never persists a pending request. Three checks seal it: a Dart import check, a resolved-Gradle-dependency-graph allowlist, and a merged-Android-manifest check against an enumerated permission/service/receiver/provider set.
-- **AD-8: Consent is a single-use token.** The upload function cannot be called without a `ScanConsent` — absence is a compile-time impossibility. The token binds to the scan's cache subdirectory identity, is minted after the on-device face gate and before the resolution cap, and is consumable once. `consent_granted` is instrumentation only and carries no capability; the token is never persisted, exported or reconstructible.
-- **AD-9 / AD-10: Slicer port and provider gate.** `SlicerPort` has three declared implementations (BYOK usable, Local a debug-variant-only canned stub, Managed as the port's third shape with no proxy/account/billing code). The allowlist is a compile-time constant. Retention is not gated; the free-tier notice is stated once, in settings, and never repeated.
-- **AD-11: Our own platform channel only where the guarantee *is* an OS API.** Three Kotlin channels: **notify** (one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once, never a second), **dictate** (`createOnDeviceSpeechRecognizer()` gated by `isOnDeviceRecognitionAvailable()`, further gated by `checkRecognitionSupport()` / `triggerModelDownload()` because a service being available is not the *Spanish model* being present), **credentials** (AndroidKeyStore wrapping key). Camera, on-device face detection and folder access stay plugin-served. All three channels may open no socket and compute no dates.
-- **AD-12 / AD-13: Export shape.** `AUTHORITATIVE/` holds immutable generation snapshots of log and pool, content-addressed album blobs, and each generation's create-once commit manifest — and nothing else. `derived/` holds the album manifest, the four FR-26 series rendered for reading, and the crash log, and is **never read on import**. One process-wide foreground coordinator serialises export, import, cleanup and album-byte mutation; a trigger arriving mid-export is **dropped, not queued**; pool and log come from the same SQLite read transaction. Generation identity is the tuple `(generationSequence, generationId)`; import considers only fully visible manifests, verifies every inventory byte, and chooses the greatest valid tuple. Automatic cleanup never deletes a committed manifest, snapshot or blob. Import tolerates unknown kinds and fields; refusal is reserved for structural corruption. Observability is `export_recorded` log entries rendered as latest-success and latest-failure in settings, and nothing else.
-- **AD-14: Origin is set at genesis and is immutable.** Written once at creation, never updated; rescue steps **inherit** the parent's origin; origin never reaches the Dispenser; every log entry referencing an item carries it too.
-- **AD-15: The shipped ARB *is* the string table.** `lib/l10n/app_es.arb` is the single table; `lib/strings/` holds no literals; a lint fails on any string literal reaching a widget. No interpolation that produces a sentence. FR-29's seven strings are pinned **by key** in a build check requiring both a non-placeholder value **and** a reviewer sign-off marker in the ARB metadata.
-- **AD-16: The catalogue is a build-time asset.** A versioned read-only data file under `assets/evergreen/`, never written, never enumerable below cluster level. Each entry carries **four fields and no more**: a permanent id, a size, a cadence, a zone-or-none. **The Spanish task name is not in the asset** — it is an ARB entry keyed by the id. Two checks: `tool/` counts distinct 10–15 min non-daily entries and fails below 28, and a core test asserts the Focus-Chunk rotation never repeats within 28 deals for the **default** curation state. Cluster curation takes effect at the **next week boundary** for weekly zones and **immediately** for daily and `fondo` clusters.
-- **AD-17: Permissions and background work.** Exactly three runtime permissions — `CAMERA`, `POST_NOTIFICATIONS`, `RECORD_AUDIO` — each requested at the moment its feature is first used, never at app entry or first run; each refusal leaves the app working, is recorded as `permission_refused`, and is never asked again (via the derived `permissionMayBeAsked` fact). `RECEIVE_BOOT_COMPLETED` is the one install-time permission beyond those three. FR-24 is delivered by an **inexact** alarm, at most one per **domestic day**, rescheduled after boot from a core-computed instant. **No exact-alarm permission** — `USE_EXACT_ALARM` is Play-restricted to apps whose core function is precise timing, which this app is the negation of *(PRD OQ-8 closed 2026-08-26)*.
-- **AD-18: The update path is the restore path.** Every build signed with the same keystore so install-on-top preserves data and the migration runs. Release ritual: export on all three handsets, install on top, import if a migration fails. No store distribution; the debug variant is never installed on a validation handset.
-- **AD-19: There is no session of record.** A session is the latest `session_started` with no matching `session_ended`, and it **belongs to the domestic day of its own start instant**. A day boundary crossed inside a session neither ends it nor resets the day's advance. The declared pocket is `session_started`'s pocket plus its `session_extended` events. `session_ended` has exactly three causes: the user stopping, the declared pocket elapsing while foregrounded, and the app being backgrounded. FR-23's comfortable-day predicate reads the **original** pocket.
-- **AD-20: One resolver owns the Focus Chunk slot.** `core/weave` is the only code that may emit a deal; everything else returns candidates with precedence. **Occupancy** is once per domestic day and closed only by a `card_done` (or a completed rescue chain) — FR-7's *dealt* is read here as answered `Hecho`, a deliberate recorded override. **Identity** re-resolves on each deal, so a skip yields a different candidate and consumes no rotation. Epic arbitration: least-recently-served active Epic, then activation order, then stable id. Below-floor fallback: the zone's own entries, then `fondo`, then the least-recently-dealt eligible entry regardless of zone.
-- **AD-21: The log holds user acts and system events, and no entry may assert an absence.** One table under AD-2's triggers. **User acts:** `card_dealt`, `card_done`, `card_skipped`, `session_started`, `session_extended`, `session_ended`, `energy_set`, `capture_created`, `consent_granted`, `slice_requested`, `slice_returned`, `scan_abandoned`, `album_entry_added`, `album_entry_deleted`, `box_created`, `item_triaged`, `suggestion_dismissed`, `report_answered`, `epic_activated`, `cluster_curation_changed`, `setting_changed`. **System events (exhaustive eight):** `invitation_emitted`, `app_opened`, `consent_declined`, `face_refused`, `slice_failed`, `crash_recorded`, `permission_refused`, `export_recorded`. System events are readable only by `core/export` and the FR-26 series, with three stated exceptions (`permissionMayBeAsked`, `warmReturnDue`, settings rendering `export_recorded`). **No other replayable domain store exists** — a `tool/` store seal enforces that no persistence API is touched outside Store, Folder and Files, with CredentialVault's AndroidKeyStore access as the one closed native exception.
-- **AD-22: No secret is ever an entry, a pool fact, or in either half of the export.** AndroidKeyStore holds one non-exportable wrapping key; `CredentialVault` owns provider-scoped ciphertext envelopes in app-private Files storage. Plaintext enters only the shell's credential-setting handler, never crosses the core/log/pool/export/crash/URL, and is never cached. `credentialAvailable(provider)` is **display state only, never request authorisation**; every request executes `withCredential(provider, operation)`. `setting_changed` may carry `selectedProvider` but never `keyExists`. The SAF destination is the same class of grant: it rides in `setting_changed`, the export redacts it **to null — never drops the field**, and restore reads it as not configured. Round-trip identity excludes both capabilities.
-- **AD-23: Forward-only substrate evolution.** Unknown kinds are tolerated and ignored, never coerced, never fatal. Payloads are additive-only — a field may be added with a default; none is renamed, retyped or removed; a kind is retired by ceasing to write it. **Catalogue ids are permanent once shipped**, with a `tool/` check diffing the id set against the previous release.
-- **AD-24: One predicate for "an eligible day".** `core/derive` exposes exactly one `EligibleDay(item, day)` and every window, counter and freeze is expressed over it: a domestic day on which at least one session started — by its start instant, no earlier than the item's pool-fact creation — and at whose start at least one of that day's sessions found the item's size not excluded. One sibling predicate serves FR-6: `warmReturnDue`, 48 h wall-clock since the later of the last `app_opened` and the last user act.
-- **AD-25: Pool membership is derived; nothing synthesises a completion.** Retirement has exactly two derived causes: the completion of rescue children, and FR-5's dissolution pattern — which retires the original **and every not-yet-completed step of that chain, atomically in one derivation**. No tombstone is stored and no synthetic completion is ever appended.
-- **AD-26: The validator surface is the one place a number may cross.** **Achievement figures** (cumulative minutes, completed tasks, liberated volume, album highlights) may cross to the shell and are rendered only on the FR-23 dashboard, subject to the denominator rule. **Internal signals** (declines, the comfortable-day run, the deal window, any skip total) never cross as numbers. The validator surface is settings and nowhere else.
-- **Six `tool/` build-time checks:** core purity (AD-3, AD-5); the egress seal as three checks — Dart imports, Gradle graph, merged manifest (AD-7); string placeholders and sign-off (AD-15); the catalogue floor (AD-16); the catalogue id diff (AD-23); the store seal (AD-21). Plus AD-22's export-fixture check. Two more live as tests: the generational export round-trip with a cut-after-every-write corpus and a build-N+1 fixture (AD-13), and the 28-deal rotation (AD-16). Lints carry the forbidden vocabulary, the text-scaling ban, and the no-literal-strings rule.
-- **Pinned stack versions:** drift 2.34.3 + `drift_flutter` 0.3.1; `flutter_riverpod` 3.4.2 (shell-only — providers wrap the read facade and the commands and nothing else); `camera` 0.12.0+2; `google_mlkit_face_detection` 0.15.1 (community-maintained, 64-bit only); `saf_util` 3.1.0 (pickers and persisted permissions only — **no read/write**) paired with `saf_stream` 4.0.1 (the actual write path for FR-30); `uuid` 4.6.0 (RFC 9562 v7, minted in the shell and handed to the core; ordering never reads id bits); `flutter_localizations` / `gen_l10n`; Kotlin 2.4.0. `flutter_secure_storage` and `flutter_local_notifications` deliberately unused.
-- **Catalogue content is authored and counted (addendum A12).** 34 daily, 36 weekly across five zones, 15 monthly/seasonal. Eligible units against the floor: 20 weekly 10–15 min (5/3/4/5/3 per zone) + 12 `fondo` 10–15 min = **32 against a floor of 28**. Clusters: `anclas`, `sostén`, `plantas`, `coche`, `fondo`, plus the five zones Z1–Z5.
-- **No logging framework and no log destination.** Diagnostics are `crash_recorded` events and nothing more.
-- **Deferred by the architecture (do not build):** OQ-1's deployment topology (a real Local path; Gemma 4 E4B is **3.66 GB**, and `flutter_gemma` 1.6.5 exists), log-growth projections, multi-user, iOS, committed-export compaction, screen-reader semantics, API 37, design-token generation, the second locale.
+Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, final after the 2026-08-27 blocker-resolution pass). Mockups illustrate; the spines specify and win on conflict — over the PRD, the reference image and every artifact in `mockups/`. Copy items still `[OPEN]` and deferred positions are carried by the open-items register in Coverage completeness below. Every UX-DR is cited by the story acceptance criteria that implement it.
 
-### UX Design Requirements
-
-Extracted from the bmad-ux spine pair as it stands after the **blocker-resolution pass closed 2026-08-27** (eight phase-blockers resolved). `DESIGN.md` owns visual identity and tokens; `EXPERIENCE.md` owns IA, behaviour, states, interactions, accessibility and journeys.
-
-**Nothing here is a phase-blocker any more.** What remains open is 7 `DESIGN` + 14 `EXPERIENCE` questions, all of them copy items, device verifications or deferred positions — marked `[OPEN]` at the requirement they gate. Three renders were promoted to `mockups/` in this pass (`dispenser-canonical-1`, `mic-manual-capture-1`, `dark-mode-1`), bringing the illustrated set to eight artifacts. Mockups illustrate; the spines specify, and **the spines win on conflict** — over the PRD, over the reference image, over every artifact in `mockups/` and `.working/`.
-
-**Design tokens and the visual system**
-
-- **UX-DR1: Transcribe the full token set once into `lib/ui/tokens.dart` as named constants, referenced nowhere else by literal value.** `DESIGN.md` is the source of truth. Scope: 6 field-tier colours, **6 icon-mass-tier colours** (the trio, neutral, ochre, **blue**), **11 dark-mode colours** (5 field + 6 mass), 8 typography roles, 3 radii, 14 spacing values, 2 format rules.
-- **UX-DR2: Implement the two-tier colour discipline.** Field tier at Aliento baseline (L\* 88.3–100, ink L\* 12.6) for grounds, cards, text, hairlines, the chip and the primary action. Icon-mass tier at **L\* 76.0 exactly** (Δ L\* 21.6 against `surface-base`) for the colour plate inside a glyph **and nowhere else**. The two tiers never touch.
-- **UX-DR3: Enforce the four colour rules that keep the system from breaking.** `accent-soft` is the **sole** pastel that may carry text (the chip, `Hecho`, and the selected `size-option`); **no glyph may ever sit inside `accent-soft`**; the three destination hues appear only **inside** their glyph, never as a field/tile/bar/band without it; the trio moves together in L\* and chroma or not at all. "No red" means no alarm register — a dusty rose at L\* 76 / C 15 is admitted; red as alarm, warning iconography and exclamation marks are not.
-- **UX-DR4: Implement `icon-mass-blue` #9BC1D2 as the system's active-state hue — state, and state only.** It marks the selected battery's charge in the energy check-in and the dictating microphone's capsule. L\* 75.92, C 15.42, hue 235.2, computed by the trio's own verified Lab method so it is born inside the system band; separations 16.87 (keep), 15.67 (donate), 28.40 (trash), 29.59 (ochre) — all clear of the 15 threshold. **Never give blue a meaning** (a destination, a recommendation). *(This hex is a 2026-08-27 geometric correction: the first issue #A4BED6 at hue 256 was released with separations measured as hue-angle differences rather than a–b plane distances, and sat 10.8 from `dest-donate`. Two pairs remain below 15 with their reasons recorded — blue vs neutral at 14.03 light / 14.1 dark, and blue-dark vs keep-dark at 14.15 — all states or non-competing meanings, never simultaneous rivals, each declared redundantly by ink and prose.)*
-- **UX-DR5: Implement the eight-role type ramp under the paired rule.** **Lora for the task text only** (26sp/500/1.32); **Lexend for all seven other roles** — `duration`, `action-primary`, `action-secondary`, `support`, `screen-heading`, `metric-numeral`, `caption-warm`. Both variable families bundled. All type sized in `sp` with multiplier line-heights; never `dp` sizes or fixed dp line-heights. The stated failure condition is honoured rather than negotiated: if Lora is ever needed in a second role, the answer is all-Lexend.
-- **UX-DR6: Implement the flat depth model.** No gradients, no glow, no blurred drop shadows, in either mode. Surfaces separate by tone and a 1px hairline. The only intentional depth is the two flat plates of the misregistration idiom.
-- **UX-DR7: Implement the three-radius shape system.** `14px` default (card, primary action, equal pair, full-size photo frame, every rectangular surface); `9999px` for the two things carrying a **quantity of time** (duration chip, size-option); `4px` for the album-thumbnail photo frame only.
-- **UX-DR8: Implement the printed-matter glyph treatment.** Mass under line, line always `ink-primary` dark ink, mass flat pastel. One global misregistration offset `translate(1.358, -1.358)` in a 24 viewBox — 8% of rendered size, 45° up-right, never a fixed dp value and never per-icon. Stroke width `target_px × 24 / render_px`, target 1.5px at 24px, one width per render size — no taper, no variable weight. Minimum axial extent 8u along the offset vector; never more than two masses in a glyph. `stroke-linejoin: round`, `stroke-linecap: round`.
-- **UX-DR9: Implement the registered-mass rule.** **A mass whose own axis contradicts the global 45° vector — or that sits inside a closed container — is REGISTERED, not misregistered.** Two glyphs live under it, each on both grounds: the **batería** (horizontal casing against the vector; a charge inside a closed container where misregistration reads as a *leak*) and the **Micrófono capsule** (vertical axis against the vector; a capsule is itself the container). Axial glyphs — Lápiz, seed, destination trio — keep the misregistration. Checkable per glyph by one question: does this mass's own axis coincide with the global vector? *(Generalised 2026-08-27 rather than allowed to become a one-off exception.)*
-- **UX-DR10: Draw the `seed-glyph` to spec.** Exactly **8 filaments at every size, permanently** — never add filaments, never fatten the pappus to chase an ink number. Filled `ink-primary` achene; `dest-trash` mass as a circle in the pompom hub displaced toward the **leeward (dense)** edge; axis at **45.0°** exactly, equal to the global offset vector so the transverse component is zero. **Motion dashes only at 56px and above** — never at glyph scale, never in the destination trio. Interface minimum 48px. `[OPEN]` the pompom circle's exact radius is specified as a coverage constraint and its drawn value is not yet recorded (`DESIGN` OQ-1).
-- **UX-DR11: Ship the ten-glyph set.** **Cámara, Álbum, Caja, Bolsa, Reloj, Hoja, Lápiz**, the **dandelion seed**, the **batería** and the **Micrófono capsule**. Caja / Bolsa / seed are the destination trio; Hoja is the zone marker carrying `icon-mass-ochre`; batería and Micrófono are registered; the rest are utility carrying `icon-mass-neutral`. **The Ajustes glyph is dissolved** — Settings is reached as quiet text, so no drawing ever needs to read as "settings", and the gear question dies by removal rather than by exception *(`DESIGN` OQ-1 closed by dissolution)*.
-- **UX-DR12: Implement the complete dark palette as separately authored, never an inversion.** Warm off-white ink (`#ECEAE4`) on a deep desaturated neutral ground, never pure black. **The dark mass tier sits at L\* 62, chroma ~13**, computed by the light trio's method with the version-C hues: `dest-keep-dark` #7E9C91, `dest-donate-dark` #9793AA, `dest-trash-dark` #AE8E91 — equal weight by construction (Δ L\* spread 0.12, chroma spread 0.15, minimum hue separation 15.83). Plus `icon-mass-ochre-dark` #A2947E, `icon-mass-blue-dark` #7B9BA9, `icon-mass-neutral-dark` #8E9894. **`ink-secondary-dark` #99A0A3 is now assigned** as the dark secondary ink (6.31:1 base / 5.60:1 raised, AA), covering `action-secondary`, `support` and the zone-marker line. **`border-strong-dark` is DELETED** — an orphan; `border-hairline-dark` covers every dark edge. `accent-soft-dark` verified at 9.27:1 with `ink-primary-dark`.
-- **UX-DR13: The destinations keep their LIGHT FORM in dark mode.** Two plates, the global offset, mass under line — line in `ink-primary-dark`, mass in the dark hue. **The earlier decision that they retire to a 6px edge bar plus hairline is SUPERSEDED**, overturned by the builder on seeing the bars rendered (*"quedan muy pobres y con poco contraste"*). As masses on `surface-raised-dark` they carry Δ L\* 46 (~5:1) — deliberately stronger than the light system's own ~2:1 mass contrast, which is the volume the bars lacked.
-
-**Components to build**
-
-- **UX-DR14: `dispenser-card`.** `surface-raised` on `surface-base`, 1px hairline, 14px, no shadow. Vertical order: duration chip as eyebrow → task text in Lora → `action-primary` → `action-secondary` as plain text → `zone-marker` as a quiet footer. Air around the card is a **minimum 48dp plus flex, never a fixed value** — at 200% the card grows into it. Never compresses to fit more; the screen scrolls instead.
-- **UX-DR15: The Dispenser furniture, under one grammar — mass means work, prose means leaving.** **Top-right:** the two add-work entries, **Cámara** and **Lápiz**, at 24px inside 48dp targets carrying `icon-mass-neutral` under the ordinary treatment. **Below the card:** the single `ambient-strip` slot. **Bottom-centre:** `Nuevo proyecto` in ink-secondary text, the `action-secondary` pattern — the one departure, and deliberately **the only control with no pastel mass anywhere on it**. The misregistration idiom is designed to be *seen*, the opposite of discreet, and was never going to mark the quietest control on the screen. **No permanent energy furniture exists anywhere** — permanent chrome for an occasional action miscommunicates cadence, a defect surfaced and fixed in the canonical render.
-- **UX-DR16: `action-primary` — `Hecho`.** Full-width, 14px, filled `accent-soft`, label `ink-primary` at 11.96:1, min-height 48dp, `task-to-actions` 32dp above it as the largest interior gap. One tap, no confirmation, no undo prompt, no modal.
-- **UX-DR17: `action-secondary` — `Otra más fácil / Ahora no`.** **Text only** — no box, no fill, no underline, no animation. `ink-secondary`, touch target still 48dp. **One control, never split**, carrying two distinct FRs (`Otra más fácil` = FR-5, `Ahora no` = FR-3). The string is never split, shortened, ellipsized, hard-broken or non-breaking-spaced; the 200% fold is accepted and **must be verified on a real Android device**.
-- **UX-DR18: `duration-chip`.** Pill filled `accent-soft`, `ink-primary` text, sitting **above** the task as an eyebrow at 8dp — proximity is what makes it the cost of *this* task. Never a countdown, never a clock. Also serves the pocket trigger `Tengo 15 minutos ahora`.
-- **UX-DR19: `size-option`** — Manual Capture's three-size picker, **the only selector attached to a capture**. Pill, min-height 48dp, 12dp gap, options shown as **durations** (`30 s` · `3 min` · `10–15 min`) and never as the glossary's internal names. Single selection, always populated: no empty state, no "none of these". **Selected is `accent-soft`** — the chip's own fill, borrowed because the options *are* durations; **unselected is `surface-raised` with a 1px hairline**. Both keep `ink-primary` and the `duration` role. **No option ever carries a glyph**, which is exactly why the selected state may use that fill at all. Dark: selected takes `accent-soft-dark`. *(The "only selector in the app" claim is narrowed rather than broken: the energy check-in also selects, but it filters the pool rather than writing a value into something captured.)*
-- **UX-DR20: `energy-checkin` — the battery marks.** Three batteries at 24px inside 48dp taps: **llena / media / baja**, each a casing and nub drawn **line-only**, with the charge as a **registered mass filling from the left** — widths 12.8u / 6.4u / 3.2u in the 24 viewBox. **Selected: charge `icon-mass-blue` + casing `ink-primary`. Unselected: charge `icon-mass-neutral` + casing `ink-secondary`.** Llena pre-marked as the standing default. The charge carries **no offset** — the documented registered exception. Lives in the `ambient-strip` once a day. **Why a battery:** a charge is a *quantity*, culturally unjudgeable — chosen over a traffic light (positivo-neutro-negativo, the shame register) and over partial-fill circles (which read as rating scales). A rose/red charge was rejected on three recorded grounds: hue collision with `dest-trash`, the low-battery anxiety metaphor reimporting the negative valence the form was chosen to escape, and selected-as-loudest making the asking-for-less moment the most alarming on the screen.
-- **UX-DR21: `microphone-glyph` — the dictation affordance.** A **vertical capsule, stem and U-arc stand** line-only in `ink-primary`, with the capsule as a **registered mass**: `icon-mass-neutral` at rest, `icon-mass-blue` while dictating. 24px inside a 48dp tap, **at the one-line field's end** on Manual Capture and nowhere else — placement does half the *press-to-speak* work, the form does the rest. The dictating state is declared in **ink and prose** — blue capsule plus the caption `Escuchando…` in `support` — and **never by motion**: a breathing cue was offered and declined. Simply absent where on-device recognition is unavailable — never greyed, never explained. *(The diagonal handheld mic was fully legal under the offset and lost anyway: the capsule is what every phone already taught its users, and the honest price was paid in the rule — UX-DR9's generalisation — not hidden in the drawing.)*
-- **UX-DR22: `ambient-strip` — six residents, one spec.** A single strip below the card: sentence in `support` and `ink-secondary`, tappable where an accept action exists and never a primary action, ✕ dismissal at 48dp, **at most one resident visible at a time**. **Chrome rule: ephemeral = bare, persistent = hairline** — the daily energy check-in, the three suggestions (seasonal, snowball, Quarantine follow-up) and the one-time first-run curation offer sit bare on the ground; the Sunday self-report carries a 1px hairline edge because it stays until answered. **The self-report's answer row is numeric 1–5 with end labels `Nada` / `Muchísimo`** — numbers chosen for zero ambiguity after five empty circles failed to read as anything at all; smileys rejected (borrowed glyphs, fine detail dies under the treatment, OEM variance). Placement below the card keeps cold-start card-first and leaves the hero uncontested.
-- **UX-DR23: `curation-row` — one component, three homes.** A platform switch row: **cluster name, cadence in `support` (diaria / semanal / mensual-estacional), switch** — tappable anywhere in the row. The three homes are the E1 template surface, onboarding's one-time strip offer, and Settings' sub-screen; all three render the identical row so curation looks like itself everywhere. **Cadence carries the row's only description**: rhythm is product metadata, not volume — FR-31 forbids counting tasks, and cadence counts nothing. Switching produces no count, no summary, no copy about what changed, and **never a task-level row**; none of the three homes may read as a browsable catalogue.
-- **UX-DR24: The Cámara entry.** Dispenser, top-right; one tap to Scan. **Absent, never greyed, never explained**, when the user has disabled the camera in Settings or refused its permission at first use — the microphone's absent-and-silent pattern, plus a reversal path: Settings re-enables the entry and the OS permission is requested again at the next first use. **Visibility = enabled ∧ permission not refused**; the app never re-asks on its own.
-- **UX-DR25: The quiet affordance — `Nuevo proyecto`, text and not a glyph.** The **single** departure from the Dispenser: ink-secondary, the `action-secondary` pattern, bottom-centred. Opens typed project entry as the recommended action with **Settings as the text way-out inside**. Never animated, never emphasised, never badged, never carrying a pastel mass. **The mark question is dissolved by the same move:** a glyph has to mean one thing and this affordance means two (project entry + configuration behind it); prose can name both. Rejected: a settings glyph on it (Settings is the way *out*, not the destination), two separate affordances, and the gear as a documented single-ink exception (mooted).
-- **UX-DR26: `action-equal-pair`** — the per-scan consent gate, and nowhere else. One row, both children `flex 1 1 0`, identical width/height/ground/hairline/type role/ink/tap count, **no fill on either** — `accent-soft` is expelled from the surface entirely. **Zero recommended actions**, the only such surface in the app. The residual asymmetry is recorded rather than claimed solved: `Enviar` sits in the unfavourable first slot.
-- **UX-DR27: `destination-flow`.** Three equal-weight glyphs at 64px, 32dp row gap, one decision per screen with nothing else on it. **No tile, no field, no default, no pre-selection, no ordering signal.** Skip is a legitimate answer. `[OPEN]` the destination labels have **no type role assigned** — none of the three added roles covers a destination label (`DESIGN` OQ-3).
-- **UX-DR28: `zone-marker`** — the Hoja glyph at 24px, `ink-secondary` line, `icon-mass-ochre` mass, `support` type, in the Dispenser footer. A place-marker, not a control: it is not a filter and opens nothing. `[OPEN]` whether the ochre crescent reads at 24px **under a secondary-ink line** is unverified — the Δ L\* 18–20 threshold was calibrated against an `ink-primary` line — as is its axial extent against the 8u minimum; **the dark sibling carries the same question**, and both verify on a device (`DESIGN` OQ-7).
-- **UX-DR29: `photo-frame`.** 3:4 aspect, 14px at full size and 4px at thumbnail, 1px hairline, `surface-base` while loading with **no spinner, no shimmer, no gradient** — an empty frame of the right shape. Labels **outside** the frame, never over the image. 16dp pair gap. Every image local; nothing here is ever uploaded.
-- **UX-DR30: `dashboard-highlight-row`** — inside the FR-23 exception and nowhere else. Three columns at default scale, 12dp gap, thumbnail at 3:4 / 4px, caption in `support`, date in `short-date`. **Reflows to one column per row as soon as a caption would break beyond two lines** — never shrinks, never truncates, never scales the dp gaps. Tapping a highlight is a way *into* the Album, not a browse surface.
-
-**Information architecture and navigation**
-
-- **UX-DR31: Build the surface map exactly as sited.** Dispenser (primary, where the user lives) · pocket trigger · energy check-in (in the strip) · **Scan (the Cámara entry — this IS the photo path of genesis; the table's old duplication is resolved)** · per-scan consent gate · Manual Capture · genesis surface (behind `Nuevo proyecto`) · Archetype Template / cluster curation · Anti-Marathon checkpoint · Before/After reward · Transformation Album · cumulative impact dashboard · Decluttering Protocol · 3-Destination Flow · Quarantine Box · no-Slicer surface · Settings · onboarding (= the product plus one strip).
-- **UX-DR32: Navigation is contextual plus one quiet prose departure — there is no nav bar, no drawer, and no list of destinations anywhere.** Two recorded consequences, accepted rather than smoothed over: surfaces exist **without always being available** (no completed transformation means the Album, and the dashboard behind it, are unreachable — a permanently reachable Album is a surface that invites browsing), and concentrating the departure into one point is deliberate.
-- **UX-DR33: Implement Settings as a flat platform list in five quiet groups**, ordered from what the house does to plumbing: **Tu día** (Time Bag) · **Contenido de la casa** (cluster curation, on a sub-screen of `curation-row` rows) · **IA y voz** (provider allowlist, key + the free-tier sentence once, dictation boolean read-only, **mic entry row *only* when its permission was refused**, camera entry disable + reactivate) · **Avisos** (Ambient Invitation opt-in + hour) · **Tus datos** (export destination + manual export + last result never framed as omission, import/restore, album purge). **Light/dark follows the system — no row.**
-- **UX-DR34: Implement onboarding as the product plus one strip.** First open puts the card on screen in ≤ 2 s: the working Evergreen 1-3-5 day, zero typing, zero network, zero key. The curation offer lives on the ambient strip **once ever** — tappable to the cluster list, dismissable, and dismissed it never returns; Settings and the E1 surface remain the permanent paths. **No wizard, no welcome screen delaying the first card**: the ≤ 2 s contract holds hardest on day one, the day of the promise.
-- **UX-DR35: Honour the two declared exceptions and add no third.** The **FR-23 dashboard** departs on information density. The **consent gate** departs on the one-recommended-action rule, carrying zero. **E2 dissolved 2026-08-27.** Anything claiming a new exception is a defect. The dashboard's density must not propagate; the template surface may not borrow its licence.
-- **UX-DR36: Implement the denominator rule as a checkable review gate on the dashboard.** Six values share that screen and it does not shame because **no value on it admits a denominator** — no "de 7 días", no average, no target, no period comparison, no per-day rate, no percentage, no completion ratio. The reviewable form: *if a value could be given a denominator, it does not belong on this screen.* Adding any comparison breaks the exception rather than extending it.
-- **UX-DR37: The volume line carries no glyph, per the glyph-adjacency rule.** `≈ 3 cajas liberadas` stands as a figure alone, because the system's only box glyph *is* `Quedármelo` and setting it beside a sentence about boxes released would say the opposite. Generalised: **a destination glyph appears only where the destination it names is the meaning being expressed.**
-
-**Behaviour, states and interaction**
-
-- **UX-DR38: The card leaves.** On completion the card does not change content — it **exits the screen entirely**, and it **must never fly toward a counter, a pile or a badge**. The Android gesture vocabulary governs and the app is Android-only. `[OPEN]` whether the departure runs along the global 45° offset axis, and whether the departure itself *is* the celebration (satisfying FR-2 with one gesture instead of two), is proposed and unconfirmed (`DESIGN` OQ-4 / `EXPERIENCE` OQ-11).
-- **UX-DR39: Celebration is mandated, not forbidden — in two tiers, with three rules.** Tier one: a small warm haptic acknowledgement per Micro-task. Tier two: the Before/After diff. It must **close** ("done, and that is enough") — celebration that opens a door is forbidden even with identical animation. It must **not scale with quantity** — the same celebration every time, no combos, no "you're on three". It must **never gate the next card** — under 500 ms, celebration may overlap but never delay.
-- **UX-DR40: Tier two's two anti-score rules.** **Proportion does the work a score would do**: two plates of equal size, at equal height, with the same corner, 16dp apart, labels `Antes` / `Ahora` **outside** the pastel. The moment one plate is larger, higher or framed differently the layout has an opinion, and an opinion is a rating. **The caption has a hard ceiling — it may name the place, the moment and the authorship and nothing else** (`La mesa del salón, esta tarde. Esto lo hiciste tú.`): any adjective about the result reintroduces a scale, and with a scale the deficit comes back. The secondary here **closes** — `Cerrar`, never a variant of *seguir*.
-- **UX-DR41: Implement the state patterns as specified.** Cold open (one card in ≤ 2 s, never a splash, never a loader) · Warm Return · Pause · Resume (deals the next card directly — never a menu about the past) · **Energy level (defaults llena, fixed, no decay, reset daily; the level is *behaviour, not chrome* — after the strip leaves nothing on the Dispenser displays it, and the narrower deal is itself the display)** · **Camera disabled or refused (the entry simply absent; reversible only in Settings)** · No Slicer (**ONE calm surface carrying the seven strings plus one exit — `Anotarlo` — not seven visual states**) · Manual Capture · checkpoint · offline/airplane (never an error state, no banner) · person in frame · consent declined · scan wait · dormant Epic · export failure (settings only) · pool exhausted mid-session · later session same day · **first run / onboarding**.
-- **UX-DR42: Implement Manual Capture's spatial frame as an ordering rule, not a copy suggestion.** In this order: (1) the title names **a place**, (2) the helper lists **things you can touch**, (3) the example opens with **a spatial verb**. Read in that order, non-spatial work does not occur to the user, which is why no refusal is needed. Change the order and the frame stops framing. **The confirmed absence is the proof: no error state, no validation, no rejection — therefore no second version of this screen exists.** If `llamar al dentista` is typed it is accepted in silence. One secondary control only — `Descartar`, which is also the exit; no `Cancelar` beside it. *(The authored strings below were verified against this ordering rule before authorization.)*
-- **UX-DR43: Implement the interaction primitives.** **One tap** is the unit for every primitive act — nothing important costs two. **Stopping is always one tap, at any moment, for any reason** — there is no wrong moment to stop and no state in which stopping is unavailable. Timings are contractual (≤ 2 s / < 500 ms / < 500 ms). Feedback never modal, never loud audio, never a rating prompt.
-- **UX-DR44: Enforce the banned-everywhere list.** Lists, calendars, backlogs, counts of anything undone, streaks, badges, overdue anything, red as alarm, warning iconography, exclamation marks, `¿seguimos?`, "keep going" as a primary action, a blanket "always allow" consent setting, always-on listening or ambient audio of any kind, and any motion carrying a completed card toward a counter, a pile or a badge. **Add: never animate a state that ink and prose can declare** — the mic's breathing cue was offered and declined.
-
-**Accessibility**
-
-- **UX-DR45: Meet the 200% floor by growing and scrolling.** Nothing ellipsized, no `maxLines`, no `FittedBox`, no `TextScaler`/`textScaleFactor` override, no fixed-height container around text — one lint bans all five. Touch targets never below 48dp (a platform constant that does not scale with font size). Haptics never the sole completion signal — every haptic acknowledgement is accompanied by something visible.
-- **UX-DR46: Accept and implement the one named degradation.** The dashboard's three-highlight row at 200% is the only place where 200% breaks a **layout** rather than a size. The fallback is a **reflow, not a shrink**, triggered in **lines rather than dp** so it survives a different line breaker and a second locale. This is expected behaviour and not a defect to be filed.
-- **UX-DR47: Shape carries the entire differentiation load in the 3-Destination Flow, and this is load-bearing.** With tiles dropped, hue lives only inside each glyph — on the order of 200 device pixels — so for a user with reduced colour vision the three choices are told apart by **silhouette alone**. That cost is accepted, and it produces one non-negotiable rule: the three destination hues never appear as a field, tile, bar or band without their glyph inside.
-- **UX-DR48: `[OPEN]` — screen-reader behaviour is discussed nowhere in the record** (`EXPERIENCE` OQ-8, architecture Deferred). TalkBack labels, roles, state announcements and traversal order are unspecified. Interim convention, stated so each surface-builder does not invent one: **no custom semantics, no manual announcements, platform traversal order.** Revisit before the first surface ships to a handset other than the builder's. *(Partial mitigation already earned: the `Escuchando…` caption gives the dictating state screen-reader-visible liveness that a motion cue would not have.)*
-
-**Copy**
-
-- **UX-DR49: Ship the authored fixed-string table verbatim — 26 rows, not to be re-worded downstream.** Nine from before: `Hecho` · `Otra más fácil / Ahora no` · `Tengo 15 minutos ahora` · `Despeja la mesa del salón` · `Quedármelo` / `Donar o vender` / `Tirar o soltar` · `≈ 3 cajas liberadas` · `Esta semana, ¿cuánto te ha agobiado la casa?` · `hay 15 minutos esperando cuando te apetezca` · `por hoy no hay nada más que merezca la pena`. **Authored 2026-08-27:** the seven no-Slicer strings (UX-DR50) · `Anotarlo` · `Nuevo proyecto` · `¿Cuánta energía tienes hoy?` · `Nada` / `Muchísimo` · and the seven Manual Capture strings — title `Un rincón de la casa`, helper `Una cosa que se pueda señalar con la mano: un cajón, una estantería, una silla, un rincón.`, example `Vaciar la caja de la entrada`, placeholder `Escríbelo o dilo en voz alta`, `Escuchando…`, `Guardar` · `Descartar`.
-- **UX-DR50: The seven no-Slicer strings are AUTHORED — wire them verbatim.** In the register the builder directed: the key and configuration causes are **objective problems of the app, not of the home** — *señalar y listo*. State the fact, name the remedy where one exists, **no cushioning**.
-  1. `No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.`
-  2. `La clave guardada no es válida. Puedes revisarla en Ajustes.` — the rewrite of the PRD's flagged `tu clave no es válida`; **the shaming lived in the possessive, not in the judgment**, and objectivity pays the flag.
-  3. `El crédito de la clave se ha agotado. Se repone en la cuenta del proveedor, no en la app.`
-  4. `El servicio de IA no responde ahora mismo. Puedes intentarlo más tarde.`
-  5. `El móvil está sin conexión. Los servicios que usan IA no son accesibles.`
-  6. `La foto no se ha enviado.`
-  7. `Se ve una persona en la foto, así que no se ha enviado a ningún sitio. Puedes repetirla sin nadie en el encuadre.`
-
-  Exit: `Anotarlo` — input-method-neutral by construction (the manual path includes on-device dictation, so a label claiming *a mano* would collide with the microphone on the destination surface). **FR-29's "names the distinction plainly" is carried by PRECISION, not reassurance** — each string scopes exactly what is unavailable, so none implies the whole product is degraded. **One deliberate deviation, recorded so it is not read as an omission: string 6 names no remedy**, because the remedy would be *retry and accept* — the persuasion the PRD forbids on this path. **Checkable property of the failure path: the exit works in all seven states, including no-network**, because typing and on-device dictation never need what is missing.
-- **UX-DR51: `[OPEN]` — four unauthored copy items.** The Warm Return copy (it must rebalance without naming what it is rebalancing) · the Anti-Marathon permission-to-rest copy, **and how the "extend the session" secondary is *presented* without highlighting, animating or suggesting it** · the `Hecho` confirmation copy ("a warm confirmation" is specified; the words are not) · the empty states for the Album and the dashboard (constrained: they may not count or name what is absent). (`EXPERIENCE` OQs 1, 2, 3, 7.)
-- **UX-DR52: `[OPEN]` — strings still drafted and never authorised** (`EXPERIENCE` OQ-13). The Manual Capture set has been authorised and moved into the fixed table. What remains: `Enviar la foto` · `No enviarla` (consent gate, plus the gate's explanatory body) · `Empezar con esta` · `Volver` (genesis — **these predate the A-slim restructure and must be re-authored against the slimmed surface before use**) · `Guardar en el álbum` · `Cerrar` (Before/After) · `Quitar esta sugerencia` (snowball) · the one-time first-run curation offer on the strip (unwritten) · and the Before/After caption itself.
-- **UX-DR53: `[OPEN]` — the Ambient Invitation copy decision** (PRD OQ-7, `EXPERIENCE` OQ-4): one fixed string, or a small rotating set to avoid the blindness that kills any repeated notification. Either shape must survive SM-C3.
-- **UX-DR54: `[OPEN]` — the "plates but not the meal" copy** (PRD OQ-12, surviving half of `EXPERIENCE` OQ-14): does any copy explain why the app knows about the plates and not the cooking, and where would it live? *(OQ-11's dates half is closed upstream: the frame's copy says nothing about dates, because the surface does not lecture.)*
-- **UX-DR55: Apply the Voice-and-Tone do/don't table to every string.** Name the cost before the ask · say what happened, never congratulate volume · offer the way out in the user's own register, never ask `¿seguimos?` · state plainly what the app cannot do, never frame degradation as fault · accept what the user typed, never correct or reject it · leave the missed days unmentioned · exclamation-free, alarm-free, streak-free · let the reward caption name place/moment/authorship and never an adjective about the result · let a cumulative figure stand as a completed fact, never with a denominator · **let a curation row carry cadence, never volume**.
-
-**Remaining open items that gate a surface's final form, not its behaviour**
-
-- **UX-DR56: `[OPEN]` — the scan-wait experience** (`EXPERIENCE` OQ-6). No latency cap and no affordance beyond "visible progress and honest copy". What progress means when the duration is unbounded is undecided.
-- **UX-DR57: `[OPEN]` — Before/After diff presentation** beyond "side-by-side" (`EXPERIENCE` OQ-9): layout, whether sharing exists at all, framing, and what the reward surface does when no Before photo was ever taken.
-- **UX-DR58: `[OPEN]` — Decluttering Protocol question presentation** (`EXPERIENCE` OQ-10), and how "answerable by skip" is surfaced without reading as an evasion.
-- **UX-DR59: `[OPEN, position stands]` — whether the seasonal suggestion engine needs any configuration surface in v1** (PRD OQ-6, `EXPERIENCE` OQ-5). Defaults-only is the standing answer until a suggestion actually misfires — which is a position, not a decision.
-- **UX-DR60: `[DEFERRED]` — system chroma** (`DESIGN` OQ-5). Version C raises chroma across the whole system from ~10 to ~15 and Aliento was chosen for being airy; whether that reads as too present has not been judged in situ. The lever, if needed, is all three destinations **down together** to ~13, and `icon-mass-ochre` and `icon-mass-blue` move with them — never one alone.
-- **UX-DR61: `[DEFERRED]` — what `short-date` does once an album entry is older than a year** (`DESIGN` OQ-6). The format carries no year on purpose, but the Album is permanent, so `12 ago` will eventually be ambiguous. Three plausible exits exist and none is chosen. Cannot bite inside the four-week window.
-- **UX-DR62: `[DEFERRED]` — the second locale** (`DESIGN` OQ-2, `EXPERIENCE` OQ-12). FR-9's "in either language" never names the second language; its string lengths bear on the 200% fold and on the type ramp. Covered by construction: every string is already externalised in the flat i18n-ready table, so a second locale is translation rather than redesign.
+| UX-DR | Subject (one line) | Story |
+|---|---|---|
+| 1 | Full token set once in `lib/ui/tokens.dart`, referenced nowhere else by literal | 1.2 |
+| 2 | Two-tier colour discipline: field tier at Aliento baseline; icon-mass at L\* 76.0 exactly | 1.2 |
+| 3 | Four colour rules: `accent-soft` the sole text pastel; destination hues only inside glyphs | 1.2, 6.3 |
+| 4 | `icon-mass-blue` = active state only, never a meaning | 2.5, 3.4 |
+| 5 | Eight-role ramp: Lora for task text only, Lexend for the other seven; sp with multiplier line-heights | 1.2 |
+| 6 | Flat depth: tone + 1px hairline; no gradients, glow or blurred shadows | 1.8 |
+| 7 | Three radii: 14 default, 9999 for time quantities, 4 for album thumbnails | 1.2, 7.2 |
+| 8 | Printed-matter glyphs: one global 45° offset, mass under line, one stroke width per render | 1.2 |
+| 9 | Registered-mass rule for masses whose axis contradicts the vector (batería, mic capsule) | 2.5, 3.4 |
+| 10 | Seed glyph: exactly 8 filaments, 45° axis, motion dashes only at ≥ 56px | 1.2, 6.3 |
+| 11 | Ten-glyph set; the Ajustes glyph is dissolved | 1.2 |
+| 12 | Dark palette separately authored, never an inversion | 1.2 |
+| 13 | Destinations keep their light form in dark mode | 6.3 |
+| 14 | `dispenser-card`: order, hairline, and air as 48dp minimum plus flex | 1.8 |
+| 15 | Dispenser furniture grammar: mass means work, prose means leaving | 3.2, 5.2 |
+| 16 | `action-primary Hecho`: full-width `accent-soft`, 48dp, one tap, no confirmation | 1.9 |
+| 17 | The unsplit text secondary; string never split or ellipsized; fold verified on device | 1.10 |
+| 18 | `duration-chip` eyebrow above the task; also the pocket trigger | 1.8, 2.2 |
+| 19 | `size-option`: durations never internal names; selected `accent-soft`; no glyph | 3.2 |
+| 20 | Battery check-in marks: registered charge filling from the left, no offset | 2.5 |
+| 21 | Mic capsule at the field's end; state declared in ink and prose, never by motion | 3.4 |
+| 22 | `ambient-strip`: six residents, at most one visible; ephemeral bare, persistent hairline | 2.5 |
+| 23 | `curation-row`: one component, three homes, cadence as the only description | 5.6 |
+| 24 | Cámara entry: absent never greyed; reversal in Settings; visibility = enabled ∧ permission | 5.2 |
+| 25 | `Nuevo proyecto`: quiet text affordance carrying typed entry + the Settings way-out | 2.1, 5.4 |
+| 26 | `action-equal-pair` consent gate: zero recommended actions, no fill on either | 5.3 |
+| 27 | `destination-flow`: three glyphs at 64px, one decision per screen, no tile or default | 6.3 |
+| 28 | `zone-marker` Hoja footer: a place-marker, not a control | 1.8 |
+| 29 | `photo-frame`: 3:4, labels outside, empty frame of the right shape while loading | 7.1, 7.2 |
+| 30 | `dashboard-highlight-row`: reflow by lines at the two-line break, never shrink | 7.3 |
+| 31 | The surface map exactly as sited | all |
+| 32 | Contextual navigation plus one quiet prose departure; no nav bar, no destination list | 7.2, 7.3 |
+| 33 | Settings as a flat platform list in five quiet groups | 2.1, 4.4, 8.1, 9.2 |
+| 34 | Onboarding = the product plus one one-time strip; the first card in ≤ 2 s | 5.6 |
+| 35 | Two declared exceptions and no third; dashboard density must not propagate | 7.3 |
+| 36 | The denominator rule as a checkable review gate, value by value | 7.3 |
+| 37 | The volume line carries no glyph (glyph-adjacency rule) | 6.5, 7.3 |
+| 38 | The card exits entirely; never toward a counter, pile or badge | 1.9 |
+| 39 | Celebration mandated, two tiers, three rules; never gates the next card | 1.9 |
+| 40 | Two anti-score rules: equal plates; caption ceiling (place, moment, authorship) | 7.1 |
+| 41 | State patterns as specified: cold open, warm return, pause, no-Slicer, offline, first run … | 1.8, 4.5 |
+| 42 | Manual Capture's spatial frame as an ordering rule; no second version of the screen | 3.2 |
+| 43 | Interaction primitives: one tap per primitive; stopping always one tap; contractual timings | 2.3 |
+| 44 | The banned-everywhere list (lists, streaks, `¿seguimos?`, alarm red, animated states …) | 1.8, 4.5, 6.2 |
+| 45 | The 200% floor by growing and scrolling; one lint bans all five escapes; 48dp targets | 1.2, 1.8 |
+| 46 | The dashboard reflow is the one named degradation, expected not a defect | 7.3 |
+| 47 | Silhouette alone carries the 3-destination differentiation (load-bearing) | 6.3 |
+| 48 | Screen-reader interim convention: no custom semantics, platform traversal | 1.2 |
+| 49 | The 26 authored fixed strings, verbatim, never re-worded | 3.2, 6.3 |
+| 50 | The seven no-Slicer strings authored and pinned; exit works in all seven states | 4.5 |
+| 51–54 | `[OPEN]` copy items (warm return, rest, `Hecho` copy, empty states, invitation, plates-not-meal) | register |
+| 55 | The Voice-and-Tone do/don't table applies to every string entering the table | 1.2 |
+| 56–59 | `[OPEN]` / position items: scan-wait, diff presentation, question presentation, seasonal config | register |
+| 60–62 | `[DEFERRED]`: system chroma, `short-date` past a year, the second locale | — |
 
 ### FR Coverage Map
 
@@ -335,7 +240,7 @@ Legend: **E1–E9** are the epics below. Two FRs are deliberately split across t
 
 **Coverage: 32 of 32 FRs mapped.** No FR is unassigned, and no epic depends on a later epic to function.
 
-**Where the NFRs land.** NFR1–NFR19 are build-wide and are not owned by any single epic. Four are *established* by Epic 1 and then inherited: NFR9 (no overdue at the schema level), NFR16 (determinism), NFR7 (the ARB as the single string table) and NFR12 (the pinned stack). The rest are verified per story through the six `tool/` checks, the lints and NFR17's completion gate — which is why every epic's stories close on `flutter test`, `dart format --set-exit-if-changed .` and `flutter analyze` green.
+**Where the NFRs land.** NFR1–NFR20 are build-wide and owned by no single epic; NFR9 (no overdue at the schema level), NFR16 (determinism), NFR7 (the ARB as the single string table) and NFR12 (the pinned stack) are established by Epic 1 and inherited. The rest are verified per story through the `tool/` checks, the lints and NFR17's completion gate.
 
 ## Epic List
 
@@ -357,85 +262,37 @@ That is incidental sharing of stable components, not the same component redesign
 
 ---
 
-### Epic 1: The Day That Deals Itself
+**The nine epics, one line each** — each epic's full narrative, scope notes and stories live in its own section below; the implementation notes formerly carried here are merged into those sections (2026-08-27).
 
-A fresh install — in airplane mode, with no key, no account and no model — puts one household Micro-task on screen within two seconds and lets the user complete it or pass on it. This is the vertical slice that proves the paradigm: the pure-Dart functional core, the insert-only substrate, the one calendar authority, the shipped catalogue, the 1-3-5 weave and the Dispenser surface. It is deliberately the largest epic, because splitting it would produce a substrate epic with no user value.
+- **E1 · The Day That Deals Itself** — a fresh install in airplane mode deals one household card in ≤ 2 s: the vertical slice that proves the paradigm.
+- **E2 · How Much the App Asks of Me** — Time Bag, pocket, pause, checkpoint, energy check-in, Warm Return: everything narrows what the app requests; nothing adds work.
+- **E3 · The Floor — Capture by Hand or Voice** — a ten-second capture, typed or spoken, that comes back as an ordinary card and never as a list.
+- **E4 · The Slicer and Honest Degradation** — BYOK behind the sealed egress, Rescue Mode, and seven plain reasons when the AI half is unavailable.
+- **E5 · From a Personal Project to Its First Card** — photo or typed genesis under per-scan consent, plus cluster curation in its three homes.
+- **E6 · Letting Go Without Guilt** — purge first, two detachment questions, three equal destinations, a blind Quarantine Box.
+- **E7 · Seeing What I Did** — equal plates, a deletable local album, and a dashboard no denominator can turn into a quota.
+- **E8 · The One Silent Invitation** — one opt-in notification that is structurally incapable of escalating.
+- **E9 · My Data, My Copy** — silent generational export and full restore; the format that earns the name *restore*.
 
-**FRs covered:** FR-1, FR-2, FR-3, FR-11 *(Evergreen half)*, FR-12, FR-14, FR-31 *(catalogue half)*
+**Story index** (story titles are load-bearing; FR homes are in the Coverage Map below):
 
-**Implementation notes:** Establishes the greenfield scaffold (`packages/core` + shell + `tool/` + `assets/evergreen/`), the seven ports, AD-2's SQL triggers declared in `.drift` and created in the initial migration, AD-4's `Calendar`, AD-21's full log vocabulary, and AD-20's resolver as the extension point later epics feed. Ships `tokens.dart`, the `dispenser-card`, `action-primary`, the unsplit `action-secondary`, `duration-chip` and `zone-marker`. Runs on the Time Bag's 15-minute default and energy's 🟢 default — Epic 2 makes both settable, which is additive rather than a rewrite. Four `tool/` checks land here: core purity, the catalogue floor, the catalogue id diff and the no-literal-strings lint, plus the forbidden-vocabulary lint and the 28-deal rotation test. FR-14 is discharged as a proven property, not code.
-
-### Epic 2: How Much the App Asks of Me
-
-The user sets the minutes they are willing to give a day, declares the pocket of time they actually have right now, stops with one tap at any moment, asks for less on a low day, and comes back after an absence with nothing to catch up on. Everything in this epic narrows what the app requests; nothing in it adds work.
-
-**FRs covered:** FR-4, FR-6, FR-7, FR-8, FR-9, FR-10
-
-**Implementation notes:** Implements AD-19's derived session (no session of record; the day a session belongs to; the three closing causes) and AD-24's single `EligibleDay` predicate with its `warmReturnDue` sibling. Builds the `ambient-strip` with its first resident, the `energy-checkin` battery marks, and `icon-mass-blue` as the active-state hue. Builds the Settings shell plus the **Tu día** group. The FR-4 ↔ SM-2 slot handoff is deterministic and must be tested as such: the self-report outranks the check-in while pending on any day, a dismissal hides it for the opening only, and unresolved check-in days are carried by the 🟢 default.
-
-### Epic 3: The Floor — Capture by Hand or Voice
-
-The user puts something into the app that it could never have known about — a favour promised to a neighbour — in about ten seconds, typed or spoken out loud, and then never sees it again until it arrives as an ordinary card. No list appears, no counter moves, nothing congratulates them.
-
-**FRs covered:** FR-27, FR-32
-
-**Implementation notes:** Adds capture pool facts and their precedence as a new candidate source into AD-20's resolver, with the deal window expressed over Epic 2's `EligibleDay` predicate. Builds the `size-option` component with its two states, the spatial frame's three-step ordering rule, and the AD-11 `dictate` channel gated by `isOnDeviceRecognitionAvailable()` **and** `checkRecognitionSupport()` — a service being available is not the Spanish model being present. Ships the `microphone-glyph` capsule under UX-DR9's registered-mass rule, the `Escuchando…` caption, and the per-capture dictation boolean that only Settings may read. The seven authored Manual Capture strings go in verbatim. This epic is also what makes Epic 4's degradation surface possible.
-
-### Epic 4: The Slicer and Honest Degradation
-
-The user supplies their own provider key, asks a stuck task to be made simpler and gets steps of under a minute, and — whenever the AI cannot be reached, for any of seven reasons — reads plainly what is unavailable and carries on working from the local pool. The Slicer's absence degrades genesis, never execution.
-
-**FRs covered:** FR-5, FR-28, FR-29
-
-**Implementation notes:** Builds `lib/egress/` as the single HTTP chokepoint with exactly three payload shapes and no fourth existing as a type, sealed by three checks: Dart imports, the resolved Gradle graph and the merged Android manifest. `SlicerPort` with BYOK usable and the Local canned stub reachable only in the debug variant, so the interface has two real callers. AD-22's `CredentialVault` — AndroidKeyStore wrapping key, provider-scoped envelopes in app-private Files, `withCredential` per request, plaintext never crossing the core — plus the CI check that rejects secrets and key shapes in export fixtures. FR-5's dissolution pattern retires the original and every incomplete sibling atomically (AD-25), with no tombstone and no synthetic completion. The seven no-Slicer strings are already authored and are pinned by key in AD-15's build check, which requires both a non-placeholder value and a reviewer sign-off marker.
-
-**Provider selection is settled by a shared model-evaluation harness, decided 2026-08-27.** The PRD leaves provider choice to "the terms gate and structured-output reliability alone", and that reliability was never tested. One harness serves **five candidates at once** — Gemma 4 E2B and E4B run locally on the development machine through Lemonade's OpenAI-compatible endpoint, plus Gemini, OpenAI and Anthropic — sharing the four expensive things: one corpus of real clutter photos, one prompt, one structured-output schema, and one written pass bar. This resolves this epic's provider precondition and PRD OQ-1's topology question in the same session. Two rules govern it. **The harness lives outside the app** — not in `lib/`, not in `tool/` (which is the six build-time checks): a script calling five endpoints is legitimate tooling and would be an AD-7/AD-12 violation as app code. And **the desktop result reads in one direction only**: the Android artifact is differently quantized, so a desktop failure kills a candidate outright, while a desktop pass is provisional and must be re-verified on the handset before commitment. E2B is tested first — if it passes, the work ends on the better outcome; if it fails, E4B follows. Storage, peak memory, inference latency and thermal behaviour stay handset questions and stay deferred (AD-9 keeps the Local path a configuration, not a rewrite).
-
-### Epic 5: From a Personal Project to Its First Card
-
-The user photographs a real space — or describes one in writing — and is shown not a plan but a first step, so the storage room stops being a wall. Consent is asked for every single scan, people in the frame are refused before anything leaves the device, and the household programme can be curated at cluster level.
-
-**FRs covered:** FR-11 *(Epic half)*, FR-13, FR-15, FR-16, FR-25, FR-31 *(curation half)*
-
-**Implementation notes:** Both genesis entrances, A-slim: the Cámara entry sited directly on the Dispenser (visibility = enabled ∧ permission not refused, with the single Settings row owning both the disable toggle and the reactivation) and the typed genesis surface behind `Nuevo proyecto` carrying one recommended action plus its way out. AD-8's single-use `ScanConsent` token bound to the scan's cache subdirectory, minted after the on-device face gate and before the resolution cap; both scan files unlinked on **every** terminal path, with a sweep at each `app_opened` as the crash backstop. Adds Epic material as a candidate source with AD-20's least-recently-served arbitration. Builds the `action-equal-pair` consent gate — the only surface in the app with zero recommended actions — and the `curation-row` in all three homes. Onboarding is the product plus one one-time strip: no wizard, because the ≤ 2 s contract holds hardest on day one.
-
-### Epic 6: Letting Go Without Guilt
-
-Before organizing anything, the user is asked the two questions that do the real work, and offered three destinations of genuinely equal weight — none of them worded, styled or ordered as the bad one. What they hesitate over goes in a dated box that never claims to know what happened to it.
-
-**FRs covered:** FR-19, FR-20, FR-21, FR-22
-
-**Implementation notes:** Purge injection as a candidate-precedence rule in the resolver, not a special case in the weave. The `destination-flow` at 64px with no tile, no default and no ordering signal — and the load-bearing accessibility consequence honoured: with tiles dropped, hue lives only inside each glyph, so the three choices are told apart by silhouette alone and the three destination hues may never appear as a field, tile, bar or band without their glyph inside. The Quarantine Box is reconstructed from `box_created` and `item_triaged` acts with its follow-up derived from the box's instant — never a stored date. `item_triaged` carries a destination plus an optional coarse volume tag from the four allowed values and never a number. This epic produces the figures Epic 7 renders.
-
-### Epic 7: Seeing What I Did
-
-The user sees the same corner of their home before and after, in two plates of equal size that let the comparison speak without anyone grading it, kept in a private local album they can delete piece by piece — and a cumulative account of what they have done that no denominator can turn into a quota.
-
-**FRs covered:** FR-17, FR-18, FR-23
-
-**Implementation notes:** The `photo-frame` pair with labels outside the pastel, and the caption ceiling enforced as a review rule: place, moment and authorship, and no adjective about the result, because an adjective is a scale and a scale brings the deficit back. AD-26's split is the gate for the dashboard — achievement figures may cross to the shell, internal signals never — and the denominator rule is checked value by value: *if a value could be given a denominator, it does not belong on this screen*. `dashboard-highlight-row` reflows to one column when a caption would break beyond two lines; it never shrinks, and that degradation at 200% is expected behaviour rather than a defect to file. Album bytes are content-addressed, and `album_entry_deleted` unlinks the app-private source file in the same operation.
-
-### Epic 8: The One Silent Invitation
-
-The user opts into a single daily invitation at an hour they choose, and it arrives silently, saying nothing about tasks, counts or anything owed. Ignoring it changes nothing — a week of ignored days is indistinguishable from a week of opened ones — and it is structurally incapable of escalating.
-
-**FRs covered:** FR-24
-
-**Implementation notes:** Kept as its own epic because it is structurally isolated: the AD-11 `notify` channel, one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)` created once and never a second, an **inexact** alarm at most once per *domestic day* (not a rolling 24 h — a chosen hour of 03:30 would otherwise straddle two days), `RECEIVE_BOOT_COMPLETED` for the reschedule, and no exact-alarm permission. The trigger instant is computed in the core and the Kotlin half performs no date arithmetic of any kind, boot reschedule included. Adds Settings' **Avisos** group. `[OPEN]` the copy decision — one fixed string or a small rotating set — is unresolved and must survive SM-C3 either way.
-
-### Epic 9: My Data, My Copy
-
-Nothing the user does leaves their phone unless they export it, and the export happens by itself into the folder they chose once — with no reminder, no badge, no backup-age line and no failure toast anywhere they live. It restores in full on a fresh install, which is what earns the format the name *restore*.
-
-**FRs covered:** FR-26, FR-30
-
-**Implementation notes:** Placed last because the product functions without it and because FR-26's four series need every act to exist first — each act was written by the epic that owns its behaviour. Implements AD-13 in full: the authoritative/derived split with `derived/` never read on import, one process-wide foreground coordinator that drops rather than queues a concurrent trigger, pool and log from the same SQLite read transaction, the `(generationSequence, generationId)` total order, create-once manifests, and cleanup that never deletes a committed manifest, snapshot or blob. The property test is what earns the name: arbitrary state exported, wiped, imported, every derived read model identical — cut after every write, across partial provider visibility, missing bytes, checksum mismatch and truncated manifests — plus a build-N+1 fixture imported into build N. Adds Settings' **Tus datos** group and the validator surface. **A sequencing caveat worth stating plainly:** AD-18's release ritual (export on all three handsets, install on top, import if a migration fails) has no teeth until this epic lands, so it must be complete before the four-week validation window opens.
+| Epic | Stories | FRs covered |
+|---|---|---|
+| E1 | 1.1 sealed scaffold · 1.2 tokens, glyphs, ARB · 1.3 insert-only substrate · 1.4 one calendar · 1.5 Evergreen catalogue · 1.6 the 1-3-5 weave · 1.7 zone rotation · 1.8 one card on screen · 1.9 `Hecho` · 1.10 the skip half · 1.11 no-overdue proof | FR-1, 2, 3, 11 *(Evergreen)*, 12, 14, 31 *(catalogue)* |
+| E2 | 2.1 Time Bag + way into Settings · 2.2 declared pocket + derived session · 2.3 pause · 2.4 checkpoint · 2.5 ambient strip + check-in · 2.6 weekly self-report · 2.7 Warm Return | FR-4, 6, 7, 8, 9, 10 |
+| E3 | 3.1 recognition availability probe · 3.2 Manual Capture · 3.3 the capture returns · 3.4 dictation | FR-27, 32 |
+| E4 | 4.1 model harness · 4.2 egress seal · 4.3 credential vault · 4.4 port + allowlist · 4.5 honest degradation · 4.6 Rescue Mode | FR-5, 28, 29 |
+| E5 | 5.1 face gate · 5.2 camera entry · 5.3 consent + scan lifecycle · 5.4 genesis · 5.5 buffers · 5.6 curation's three homes · 5.7 seasonal suggestion | FR-11 *(Epic)*, 13, 15, 16, 25, 31 *(curation)* |
+| E6 | 6.1 purge first · 6.2 detachment questions · 6.3 three destinations · 6.4 Quarantine Box · 6.5 declutter metric | FR-19, 20, 21, 22 |
+| E7 | 7.1 Before/After · 7.2 Transformation Album · 7.3 impact dashboard | FR-17, 18, 23 |
+| E8 | 8.1 one silent channel · 8.2 one per domestic day + boot | FR-24 |
+| E9 | 9.1 four series · 9.2 generational export · 9.3 restore + property test | FR-26, 30 |
 
 ---
 
 ## Coverage completeness
 
-Verified mechanically over the story sections, not asserted:
+Checked by hand against the inventory tables on 2026-08-27 — no tooling exists in the greenfield repo yet, and a `tool/` id-coverage check over the story sections is owed to NFR20 when the scaffold lands:
 
 | Inventory | Covered | Note |
 |---|---|---|
@@ -451,7 +308,27 @@ Verified mechanically over the story sections, not asserted:
 - **UX-DR61 `[DEFERRED]` — `short-date` past a year.** Cannot bite inside a four-week window; the ambiguity it describes arrives twelve months after the first album entry.
 - **UX-DR62 `[DEFERRED]` — the second locale.** Covered by construction: every string is already externalised in one flat table, so a second locale is translation rather than redesign.
 
-**One class of correction found during this pass, recorded so the same slip is recognisable later.** The UX-DR inventory was renumbered when the blocker-resolution pass closed nine questions and added nine requirements, and three story citations were left pointing at the old numbers — a destination-flow rule citing `action-primary`, a density rule citing `zone-marker`, and a glyph-adjacency rule citing `dashboard-highlight-row`. All three are corrected. Citations by number survive renumbering only if they are re-verified against the subject they name, which is why this check ran over the subject text rather than over the numbers alone.
+**One class of correction from this pass:** a UX-DR renumbering left three story citations pointing at old numbers; all three are corrected — re-verify citations against subject text after any renumbering.
+
+**Open copy and design items that gate a surface's final form — one register, each blocking its story.** A story listed below is not started until its item is closed in the UX spine pair; the `[OPEN]` marker at the story's end names the same item.
+
+| Item | Source | Blocking story | Closure owner |
+|---|---|---|---|
+| `Hecho` confirmation copy ("a warm confirmation"; the words are not) | UX-DR51 | 1.9 | `bmad-ux` (update) |
+| Permission-to-rest copy + extend-action presentation | UX-DR51 | 2.4 | `bmad-ux` (update) |
+| Warm Return copy | UX-DR51 | 2.7 | `bmad-ux` (update) |
+| Consent-gate strings (`Enviar la foto` / `No enviarla` + gate body) | UX-DR52 | 5.3 | `bmad-ux` (update) |
+| Scan-wait progress affordance | UX-DR56 | 5.3 | `bmad-ux` (update) |
+| Genesis strings `Empezar con esta` / `Volver` — re-author post A-slim | UX-DR52 | 5.4 | `bmad-ux` (update) |
+| First-run curation offer copy | UX-DR52 | 5.6 | `bmad-ux` (update) |
+| Detachment-question presentation (skip without evasion) | UX-DR58 | 6.2 | `bmad-ux` (update) |
+| Before/After diff presentation + the no-Before case | UX-DR57 | 7.1 | `bmad-ux` (update) |
+| Album + dashboard empty states | UX-DR51 | 7.2, 7.3 | `bmad-ux` (update) |
+| Snowball dismissal copy | UX-DR52 | 7.3 | `bmad-ux` (update) |
+| Ambient Invitation copy (fixed vs rotating) | UX-DR53 / PRD OQ-7 | 8.1 | `bmad-ux` (update) |
+| Destination-label type role | UX-DR27 / `DESIGN` OQ-3 | 6.3 | `bmad-ux` (update) |
+| Zone-marker 24px readability on device | UX-DR28 / `DESIGN` OQ-7 | 1.8 (device check) | builder, on handset |
+| Seed-glyph pompom radius | UX-DR10 / `DESIGN` OQ-1 | 1.2 (glyph drawing) | `bmad-ux` (update) |
 
 ## Step-4 validation record
 
@@ -466,23 +343,19 @@ Every check the validation step mandates was run against the written stories rat
 
 **Two findings that are not defects in this document but are worth carrying forward:**
 
-1. **A shipped Evergreen task has no defined Origin Context, and FR-5 needs one to re-slice.** The decline heuristic fires on any Micro-task declined on three different eligible days — including a catalogue entry like *Desengrasar la campana extractora*, which is a very plausible thing to pass over three times. But FR-31 and AD-16 give a catalogue entry exactly four fields plus its ARB name, and the glossary defines Origin Context only for photo-diagnosis output, form data, free text and a Manual Capture's own line. **Nothing says what a `shipped` task's Origin Context is**, so nothing says whether it can be rescued. The cheapest consistent answer is the Manual Capture precedent — its own name is its Origin Context — but that is a decision, not a reading, and it belongs upstream rather than in a story. Story 4.6 is where it will bite.
+1. **A `shipped` Evergreen task's Origin Context was undefined, and FR-5 needs one to re-slice — decided 2026-08-27: its Spanish catalogue name, one line, exactly the Manual Capture shape (debt 4, paid).** Story 4.6 is where it bites.
 2. **One acceptance criterion in Story 1.11 is vacuous until Epic 5.** Its *"no milestone is in an overdue state"* clause has no milestones to check while Epic Projects do not exist. It is not wrong and it costs nothing — Story 5.5 tests the same property for real once buffers exist — but a reader should not mistake the Epic 1 pass for evidence about buffers.
 
-**Checks that passed without change:** FR coverage (32/32, with the two declared splits); no starter template is specified by the Architecture, and Story 1.1 is correspondingly a scaffold story rather than a template clone; tables are created only where needed — both stores land in one story because Epic 1 genuinely needs both, and later epics add fields additively under AD-23; ports are declared by first consumer rather than all seven up front; epic independence in both directions — every dependency runs backward, and no epic requires a later one to function; and the file-churn assessment, where the overlap on `core/weave` is answered by AD-20's candidate-precedence extension point rather than by consolidation, recorded with its rationale in the Epic List.
+**Checks that passed without change:** FR coverage (32/32 with the two declared splits); Story 1.1 is a scaffold story, not a template clone; both stores land in one story because Epic 1 genuinely needs both, later epics adding fields additively under AD-23; ports declared by first consumer; epic independence in both directions; and `core/weave` overlap answered by AD-20's candidate-precedence extension point (rationale in the Epic List).
 
-## Upstream debts owed, outside this document
+## Upstream debts — all four paid, 2026-08-27
 
-Recorded here so they are not carried in anyone's head. Both were created by the 2026-08-27 model-testing decision and are deliberately deferred until the epic and story pass completes, so this flow is not interrupted.
+Recorded here so they are not carried in anyone's head. All four were created by passes on 2026-08-27 and **paid the same day**; the register stays because Stories 2.6 and 4.6 implement the decisions and cite this reasoning.
 
-1. **PRD OQ-1's test venue.** It reads "an afternoon of testing on the validation phone". The plan is now: the development machine first, through Lemonade, as a cheap kill filter; the handset only if quality passes. The venue changed; the question did not.
-2. **PRD OQ-1 and the Architecture Stack table name E4B as the phone-class target and do not consider E2B at all.** E2B enters as the *preferred* candidate — smaller on exactly the axis the standing constraint cares about — with its Android size still to be recorded from the model card. The Stack table's E4B row (3.66 GB on disk, ~3283 MB peak memory) stays correct for E4B.
-
-3. **AD-4's Week clause contradicts FR-4 on the SM-2 window, and the builder resolved it in FR-4's favour on 2026-08-27.** AD-4 reads *"The report window is **that Sunday only**: an unanswered report expires at the week boundary and never carries into the next week."* The decision is that the report **persists until answered**, because SM-2 yields only four data points across the validation window and measures the product premise. AD-4's clause must be rewritten, and two consequences the choice forces must be recorded with it: a pending report is **superseded at the next Sunday rather than accumulated**, and `report_answered` **carries the week it answers** rather than only its instant. Story 2.6 already implements all three. Noted for the record: FR-4's current wording came from the 2026-08-27 rubric pass, whose stated purpose was to make this very handoff deterministic — and it introduced the divergence while doing so.
-
-4. **A `shipped` Evergreen task has no defined Origin Context, and FR-5 needs one to re-slice** (found by the step-4 validation, detailed in the record above). The decline heuristic will fire on catalogue entries, and neither FR-31, AD-16 nor the glossary says what such a task's Origin Context is — so nothing says whether it can be rescued at all. The cheapest consistent answer is the Manual Capture precedent, its own name, but that is a decision rather than a reading. It bites in Story 4.6.
-
-Owners: `bmad-prd` (update) for debts 1, 2 and 4, plus a one-line touch to the spine's Stack table; **`bmad-architecture` (update) for AD-4's Week clause** (debt 3).
+1. **PRD OQ-1's test venue — PAID (PRD changelog, 2026-08-27).** The development machine first, through Lemonade's OpenAI-compatible endpoint, as a cheap kill filter; the handset only if quality passes. OQ-1 itself stays open — only venue, candidate set and method are settled.
+2. **E2B as the preferred local candidate — PAID (PRD changelog + the spine's Stack table, 2026-08-27).** The Stack table's Gemma rows are split E2B/E4B; E2B's Android size remains to be read off the model card when OQ-1's test runs; E4B's 3.66 GB / ~3283 MB figures stay E4B's.
+3. **AD-4's Week clause — PAID (spine surgical update, 2026-08-27).** AD-4 now carries the persistence reading as a recorded override, both forced consequences included: a pending report is **superseded at the next Sunday, never accumulated**, and `report_answered` **carries the week it answers** (AD-21's vocabulary line updated to match). Nothing upstream still states the Sunday-only reading. Story 2.6 implements all three.
+4. **A `shipped` Evergreen task's Origin Context — PAID (PRD §3 + FR-5, and the spine's AD-16, 2026-08-27).** Its **Spanish catalogue name** — one line of text, exactly the shape a Manual Capture's is; name-plus-zone, a pre-authored per-entry rescue and not-rescuable were each rejected on the record. No schema change: the name is an ARB entry keyed by id, resolved at load time by AD-21's named shell loader and handed to the core as inert data. Story 4.6 implements it.
 
 ---
 
@@ -498,8 +371,9 @@ A fresh install — in airplane mode, with no key, no account and no model — p
 - **Only the ports this epic consumes are declared** — `Clock` and `Store`. The remaining five (`Slicer`, `Notifier`, `Recognizer`, `Folder`, `Files`) arrive with their first consumer, per the create-only-what-the-story-needs principle.
 - **Epic 1 runs on defaults.** The Time Bag sits at its 15-minute default and energy at 🟢, with no surface to change either; Epic 2 makes both settable. The weave takes them as inputs from the first line, so this is additive rather than a rewrite.
 - **The root `Makefile` is created in Story 1.1 and grows additively (NFR20).** It cannot invoke checks that do not exist yet — the catalogue floor arrives in 1.5, the egress seal in Epic 4 — so 1.1 lays down the development loop and the `gate` target, and **every later story that introduces a `tool/` check or build-time guard registers its target in the same pass.** That way the file is useful from the first story rather than assembled at the end. AD-18's release-ritual targets (build, install-on-top, export, import) are owed by Epic 9, where the export and import they drive actually land.
-
 - **`Otra más fácil / Ahora no` ships with its final string and only its skip half wired.** `Ahora no` is FR-3 and belongs here; `Otra más fácil` is FR-5's Rescue Mode and arrives in Epic 4. The control is a shared component completed across two epics — the same pattern as the ambient strip and Settings — not a forward dependency, and not a defect to file.
+
+**Implementation notes:** establishes the greenfield scaffold (`packages/core` + shell + `tool/` + `assets/evergreen/`), the seven ports of which only `Clock` and `Store` are consumed here, AD-2's SQL triggers declared in `.drift` and created in the initial migration, AD-4's `Calendar`, AD-21's full log vocabulary, and AD-20's resolver as the extension point later epics feed. Ships `tokens.dart`, the `dispenser-card`, `action-primary`, the unsplit `action-secondary`, `duration-chip` and `zone-marker`. Four `tool/` checks land here — core purity, the catalogue floor, the catalogue id diff and the no-literal-strings lint — plus the forbidden-vocabulary lint and the 28-deal rotation test. FR-14 is discharged as a proven property, not code.
 
 ### Story 1.1: The sealed scaffold
 
@@ -659,6 +533,11 @@ So that the no-overdue guarantee rests on a trigger rather than on nobody reachi
 **Then** user acts and system events live in the one table under the same triggers
 **And** the kinds this epic writes are present: `card_dealt`, `card_done`, `card_skipped`, `session_started`, `session_ended`, `app_opened` (AD-21)
 
+**Given** an uncaught Flutter or platform error
+**When** it occurs
+**Then** a `crash_recorded` entry is appended carrying the stack and the timestamp and nothing else — no task text, no image path, no prompt, no URL — via a handler the shell installs at startup, the only diagnostics destination in a build with no logging framework (NFR13, AD-12, AD-21)
+**And** its sole readers are `core/export` and the FR-26 series, per AD-21's system-events rule; Story 9.2's `derived/` crash log renders it
+
 **Given** a derivation meets a log entry of a kind it does not know
 **When** it processes the stream
 **Then** it skips that entry and continues, never coercing it and never failing (AD-23)
@@ -748,6 +627,10 @@ So that a fresh install in airplane mode, with no key and no model, already has 
 **Given** the previous release's id set
 **When** the `tool/` id-diff check runs
 **Then** the build fails on any id that disappeared or whose size changed, because `card_dealt` rows reference them (AD-23)
+
+**Given** no previous release exists — the greenfield build
+**When** the id-diff check lands
+**Then** its failure mode is proven anyway: a checked-in v0 id-set fixture with a deliberately mutated copy fails the self-test and names the mutated id, so the check has fired at least once before the first real release exists (AD-23)
 
 **Given** a phone in airplane mode on day one
 **When** the app is opened
@@ -839,6 +722,11 @@ So that twenty-eight days of work never feel like the same four tasks.
 **Given** a cluster curation change
 **When** it takes effect
 **Then** weekly zones change at the **next week boundary** and daily and `fondo` clusters change **immediately** (AD-16)
+**And** the next-week-boundary rule **supersedes FR-31's literal *simply never appear*** for weekly zones — the rotation argument is the zone's — recorded as a declared, reasoned override on AD-17's pattern so a later reader does not "correct" it to immediate effect (AD-16, FR-31)
+
+**Given** every cluster disabled by curation
+**When** the day composes
+**Then** the day composes with no deals and any session closes immediately carrying `por hoy no hay nada más que merezca la pena` — the same empty-pool close as FR-3, never an error and never styled as debt, with Settings as the way back (FR-3, FR-31)
 
 ### Story 1.8: One card on screen
 
@@ -915,6 +803,10 @@ So that the thing is done, that is enough, and the next one is already there.
 **Given** `action-primary`
 **When** it is rendered
 **Then** it is full-width, 14px, filled `accent-soft` with `ink-primary` label at 11.96:1, minimum height 48dp, and 32dp below the task as the largest interior gap (UX-DR16)
+
+**Given** the `Hecho` confirmation's visible copy
+**When** this story is planned
+**Then** it is `[OPEN]` per UX-DR51 — "a warm confirmation" is specified, the words are not — and it must be authored before the feedback ships; the register above carries it against this story
 
 ### Story 1.10: The unsplit secondary control — the skip half
 
@@ -1002,8 +894,9 @@ The user sets the minutes they are willing to give a day, declares the pocket of
 
 - **Settings is reached through a surface whose other half arrives in Epic 5.** UX-DR25 sites Settings as the text way-out *inside* the `Nuevo proyecto` affordance, whose recommended action is typed project genesis — and genesis needs the Slicer, which is Epic 4. So this epic builds the affordance and Settings behind it, carrying the way out alone; Epic 5 adds typed genesis as that surface's recommended action. This is a build-order intermediate state, not a declared exception to principle 1: nothing ships until later epics land, and Epic 2's own domain — setting the Time Bag — is complete and reachable.
 - **The session already exists as a log fact from Epic 1.** This epic adds the *declared pocket* to `session_started` (additively, under AD-23), `session_extended`, the pause semantics and the checkpoint. Epic 1's open-on-entry / close-on-background behaviour stays and gains the other two closing causes.
-- **The SM-2 window persists until answered — FR-4's reading, chosen by the builder on 2026-08-27.** AD-4 currently states the opposite (*"that Sunday only: an unanswered report expires at the week boundary and never carries into the next week"*), so **the debt runs to the Architecture Spine rather than to the PRD**: AD-4's Week clause must be rewritten. The reasoning for the choice is the instrument's fragility — SM-2 yields only four data points across the whole validation window, and it measures the product premise, so losing one to an unopened Sunday costs 25% of the only subjective measure the build has.
-- **Two consequences follow necessarily from that choice, and neither document contains them.** They are forced by the reading rather than freely chosen, and Story 2.6 carries both as acceptance criteria. **(a) A pending report is superseded at the next Sunday, never accumulated** — otherwise two reports are pending at once and an answer cannot be attributed to a week. The superseded week simply has no data point, which is where SM-2's *"a week with no answer"* consequence survives. **(b) `report_answered` must carry the week it answers, not merely its instant.** Under AD-4's reading the instant sufficed, because an answer always fell inside the week it belonged to; under persistence it does not, and without the explicit target week SM-2's week-4-versus-week-1 trend cannot be built at all.
+- **The SM-2 window persists until answered — FR-4's reading, chosen 2026-08-27 and now carried by AD-4 itself as a recorded override (debt 3, paid): a pending report is superseded at the next Sunday, never accumulated, and `report_answered` carries the week it answers.** The reasoning is the instrument's fragility — SM-2 yields only four data points across the whole validation window, and it measures the product premise. Story 2.6 implements all three and tests the deterministic slot handoff. **(a) A pending report is superseded at the next Sunday, never accumulated** — otherwise two reports are pending at once and an answer cannot be attributed to a week. The superseded week simply has no data point, which is where SM-2's *"a week with no answer"* consequence survives. **(b) `report_answered` must carry the week it answers, not merely its instant.** Under AD-4's reading the instant sufficed, because an answer always fell inside the week it belonged to; under persistence it does not, and without the explicit target week SM-2's week-4-versus-week-1 trend cannot be built at all.
+
+**Implementation notes:** implements AD-19's derived session (no session of record; the day a session belongs to; the three closing causes) and AD-24's single `EligibleDay` predicate with its `warmReturnDue` sibling. Builds the `ambient-strip` with its first resident, the `energy-checkin` battery marks, and `icon-mass-blue` as the active-state hue. Builds the Settings shell plus the **Tu día** group. The FR-4 ↔ SM-2 slot handoff is deterministic and is tested as such in Story 2.6.
 
 ### Story 2.1: The Time Bag, and the way into Settings
 
@@ -1051,6 +944,10 @@ So that the app asks me for an amount I chose rather than one it assumed.
 **When** the slot is re-evaluated
 **Then** identity re-resolves and a closed slot is never re-opened (AD-20)
 
+**Given** a mid-day Time Bag raise from below 10 minutes to 10 or more
+**When** the slot is re-evaluated
+**Then** a Focus Chunk composes iff none was dealt that day — a closed slot never re-opens, and an undealt one is freed by exactly this raise (AD-20, FR-7)
+
 ### Story 2.2: The declared pocket and the derived session
 
 As Sergio,
@@ -1066,6 +963,22 @@ So that what it deals me fits the time I have instead of the time it wishes I ha
 **Given** a declared pocket
 **When** cards are dealt inside the session
 **Then** their estimated durations sum to **≤ the declared pocket**, upkeep included (FR-8, FR-12)
+
+**Given** the declared pocket
+**When** it is accepted
+**Then** it is a positive whole number of minutes inside 1–60; out-of-range input is refused by the trigger surface with no error state (FR-8)
+
+**Given** a remaining pocket smaller than every eligible candidate's estimate
+**When** the next deal resolves
+**Then** no over-budget card is dealt: the session closes early carrying `por hoy no hay nada más que merezca la pena` — the same warm close as pool exhaustion (FR-8, FR-3)
+
+**Given** a dealt card answered `Ahora no`
+**When** the pocket sum is recomputed
+**Then** only answered cards consume the pocket — a skipped card's estimate is released, and the alternative deal still fits the pocket (FR-8, FR-3)
+
+**Given** the app re-opened after process death left a derived-open session
+**When** `app_opened` is handled
+**Then** any open session whose pocket elapsed closes at that instant **first**, and only then does a new `session_started` append — two derived-open sessions never coexist (AD-19)
 
 **Given** the log
 **When** the current session is derived
@@ -1108,9 +1021,11 @@ So that a life that interrupts me never turns into a state I have to clear.
 **When** the user stops
 **Then** it costs one tap, works for any reason, and no state exists in which stopping is unavailable (FR-9, UX-DR43)
 
-**Given** a paused session
-**When** partial progress is examined
-**Then** it is saved, and **only unspent pocket minutes of advance work** return to the Time Bag — minutes spent on Baseline Upkeep or Instant Habits never entered it and return nowhere (FR-9, FR-12)
+**Given** the Time Bag
+**When** its ledger semantics are inspected
+**Then** it is a **daily ceiling derived from the setting, never a depleting wallet**: nothing is ever subtracted from it, so FR-9's *unspent advance minutes roll back into the Time Bag* is satisfied vacuously — there is nothing to return because nothing was spent — a declared reading recorded on AD-17/AD-20's pattern so no later reader implements an accumulator (AD-1, FR-7, FR-9)
+**And** the day's advance ledger is three worked cases: bag 15 with pocket 10 — the chunk is dealt only if its estimate fits the pocket, else the day's advance waits for a fuller pocket; bag 5 — the day composes with no chunk at all, silently; bag 30 — the advance is still one chunk, and the surplus buys nothing, because upkeep and habits are charged nowhere (FR-7, FR-12)
+**And** a session crossing 04:00 charges its advance to **its own start day's** slot, never the crossed-into day's (AD-19)
 
 **Given** a paused or interrupted session
 **When** any surface is rendered
@@ -1139,6 +1054,10 @@ So that finishing a session never feels like giving up on something.
 **Given** the checkpoint interval
 **When** it is configured
 **Then** it defaults to 15 minutes inside a 10–15 range (FR-10, §10.1)
+
+**Given** a domestic day of several sessions, each shorter than one checkpoint interval
+**When** the interval multiples are computed
+**Then** they read **cumulative same-day session time, not per-session elapsed** — chaining short sessions cannot dodge the rest offer, which is the concern FR-10 exists to carry (FR-10, AD-19)
 
 **Given** the checkpoint arrives
 **When** a card is in progress
@@ -1223,6 +1142,19 @@ So that a bad day makes the app quieter instead of making me feel behind.
 **Then** it defaults to 🟢 / llena, never decays, and is never carried across a boundary
 **And** after the strip leaves, nothing on the Dispenser displays the level — the narrower deal is itself the display (AD-4, UX-DR41)
 
+**Given** more than one strip resident eligible at one opening
+**When** the strip resolves
+**Then** one total precedence order decides — rarest eligible frequency first: the once-ever first-run curation offer, then the once-per-box Quarantine follow-up, then the once-per-season suggestion, then the snowball, then the weekly self-report, then the daily check-in — ties broken by earliest-eligible instant, then stable id (UX-DR22, AD-3)
+**And** a displaced resident is neither consumed nor dismissed: it re-offers at the next opening, because only the ✕ is a dismissal (UX-DR22)
+
+**Given** a session crossing 04:00 into a new domestic day
+**When** the strip next resolves after the boundary
+**Then** that resolution is the crossed-into day's first opening for the check-in — shown once if unresolved, skippable, never again that day (FR-4)
+
+**Given** a 🔴 day holding an in-flight rescue chain or a pending first purge step
+**When** the pool filters
+**Then** the rescue chain's steps remain eligible — their estimates are ≤ 60 s, inside the filter's own rule — and the purge-first guarantee defers to the next non-🔴 day rather than breaking (FR-4, FR-5, FR-19)
+
 ### Story 2.6: The weekly self-report and the deterministic slot handoff
 
 As the builder,
@@ -1305,7 +1237,6 @@ So that the app cannot make my absence into a debt, because it has no way to rep
 **When** this story is planned
 **Then** it is `[OPEN]` per UX-DR51 and must be authored first, under one constraint: **it must rebalance without naming what it is rebalancing**
 
-
 ---
 
 ## Epic 3: The Floor — Capture by Hand or Voice
@@ -1319,6 +1250,8 @@ The user puts something into the app that it could never have known about — a 
 - **Story 3.1 is a verification story and it gates 3.4.** §10.2 records two unverified halves of the recognition assumption, and they fail differently: poor *accuracy* is absorbed silently by the keyboard, so it gates nothing; poor *availability* voids the accessibility floor §7 claims, which is a promise about **who can use the app**. So availability is verified first, on real handsets, and it needs no pass bar — it is binary.
 - **This epic is what makes Epic 4's degradation surface possible.** FR-29's single exit is `Anotarlo`, to Manual Capture. Built in the other order, that surface has nowhere to go.
 - **Manual Capture's only privilege is its deal window.** Everything else about a captured task is ordinary, and the pool is the only place it can be seen again.
+
+**Implementation notes:** adds capture pool facts and their precedence as a new candidate source into AD-20's resolver, with the deal window expressed over Epic 2's `EligibleDay` predicate. Builds the `size-option` component with its two states, the spatial frame's three-step ordering rule, and the AD-11 `dictate` channel gated by `isOnDeviceRecognitionAvailable()` **and** `checkRecognitionSupport()` — a service being available is not the Spanish model being present. Ships the `microphone-glyph` capsule under UX-DR9's registered-mass rule, the `Escuchando…` caption, and the per-capture dictation boolean that only Settings may read. The seven authored Manual Capture strings go in verbatim.
 
 ### Story 3.1: On-device recognition availability, verified on the handsets
 
@@ -1425,6 +1358,10 @@ So that I trust the capture surface enough to use it instead of a notes app.
 **When** its deal window is derived
 **Then** it is expressed over the **one** `EligibleDay(item, day)` predicate and no second definition exists, and the window is three eligible days (FR-12, AD-24)
 
+**Given** an eligible day on which a capture was dealt and declined
+**When** the window advances
+**Then** the day is consumed — a capture is dealt within three eligible days, answered or not, and skipping never extends the window (FR-12, AD-24)
+
 **Given** a 🔴 day or a day of absence
 **When** the deal window advances
 **Then** it **freezes** — the window advances only on days the capture was actually eligible for dealing (FR-12, AD-24)
@@ -1504,6 +1441,14 @@ So that the one surface where the app asks me to write does not depend on the wo
 **Then** keyboard capture is fully functional, the affordance is removed, a `permission_refused` entry is appended, and **the app never asks again on its own** via the derived `permissionMayBeAsked` fact (AD-17, AD-21)
 **And** the refusal is reversible in Settings and nowhere else, on the same unified pattern the camera follows — a row exists only while there is something to reactivate (FR-32, UX-DR33)
 
+**Given** the microphone permission revoked at the system level after being granted
+**When** dictation is next attempted
+**Then** it behaves exactly as a first-use refusal: the affordance is removed, a `permission_refused` entry is appended, and the IA y voz reactivation row appears — the camera's unified pattern, twin case (AD-17, UX-DR33)
+
+**Given** dictation interrupted by backgrounding, a call, or focus loss mid-utterance
+**When** the surface returns
+**Then** no partial transcript lands in the line — the interrupted utterance yields nothing, the affordance resets to rest, and no error appears (FR-32)
+
 **Given** on-device Spanish recognition is unavailable
 **When** the surface is rendered
 **Then** the affordance is **simply absent** — no error, no explanation, no greyed-out state, no install offer, and no settings pointer to the system's language-pack installation (FR-32, OQ-13 closed 2026-08-27)
@@ -1532,6 +1477,8 @@ The user supplies their own provider key, asks a stuck task to be made simpler a
 - **The `Files` port is declared here**, as its first consumer: AD-22's encrypted credential envelopes. Epic 5 adds the scan cache and Epic 7 the album bytes, additively.
 - **`Otra más fácil`'s half of the secondary control is wired in this epic** (Story 4.6), completing the shared component Epic 1 built with only its skip half.
 
+**Implementation notes:** builds `lib/egress/` as the single HTTP chokepoint with exactly three payload shapes and no fourth existing as a type, sealed by three checks — Dart imports, the resolved Gradle graph and the merged Android manifest. `SlicerPort` with BYOK usable and the Local canned stub reachable only in the debug variant, so the interface has two real callers. AD-22's `CredentialVault` — AndroidKeyStore wrapping key, provider-scoped envelopes in app-private Files, `withCredential` per request, plaintext never crossing the core — plus the CI check that rejects secrets and key shapes in export fixtures. FR-5's dissolution pattern retires the original and every incomplete sibling atomically (AD-25), with no tombstone and no synthetic completion. The seven no-Slicer strings are already authored and are pinned by key in AD-15's build check, which requires both a non-placeholder value and a reviewer sign-off marker. Provider selection is settled by the shared model-evaluation harness — Story 4.1 — which also closes PRD OQ-1's venue and candidate set (debts 1–2, paid).
+
 ### Story 4.1: The model-evaluation harness and provider selection
 
 As the builder,
@@ -1542,7 +1489,7 @@ So that the provider choice and OQ-1's topology question are answered by evidenc
 
 **Given** the harness
 **When** its location is checked
-**Then** it lives **outside the app** — not in `lib/`, not in `tool/` — because a script calling five endpoints is legitimate tooling and would be an AD-7 / AD-12 violation as app code (NFR13)
+**Then** it lives **outside the app** — not in `lib/`, not in `tool/` — because a script calling five endpoints is legitimate tooling and would be an AD-7 / AD-12 violation as app code: a second HTTP opener outside `lib/egress/`, against AD-12's closed egress map (NFR13)
 
 **Given** the harness
 **When** its candidates are enumerated
@@ -1618,7 +1565,7 @@ So that a fourth destination cannot arrive without someone deciding to add one.
 
 **Given** the resolved Gradle dependency graph
 **When** the second seal runs
-**Then** it is checked against an allowlist and the build fails on any addition — this is how a manifest-initialised native SDK would otherwise arrive invisibly to a Dart import check (AD-7)
+**Then** it is checked against an allowlist and the build fails on any addition — this is how a manifest-initialised native SDK would otherwise arrive invisibly to a Dart import check (AD-7, AD-12)
 
 **Given** the merged Android manifest
 **When** the third seal runs
@@ -1795,7 +1742,6 @@ So that a key problem is the app's problem and never reads as mine.
 **Then** each is pinned **by key** and requires both a non-placeholder value **and** a reviewer sign-off marker in the ARB metadata — existence and review are separate gates (AD-15)
 **And** the check is registered as a `Makefile` target reachable from `make check` (NFR20)
 
-
 ### Story 4.6: Rescue Mode
 
 As Sergio,
@@ -1815,11 +1761,26 @@ So that being stuck produces a smaller ask rather than a quiet accusation.
 **Given** a re-slice request
 **When** it is sent
 **Then** it uses the task's **Origin Context** through the FR-28 access path, and **no new photo is taken or re-processed** (FR-5, FR-25)
+
+**Given** a `shipped` catalogue task declined on three different eligible days
+**When** its Origin Context is resolved
+**Then** it is **the task's Spanish catalogue name — one line of text, exactly the shape a Manual Capture's is** (builder decision, 2026-08-27)
+**And** no field is added to the catalogue asset: the name already exists as an ARB entry keyed by the entry's id, so the existing allowlisted shell loader resolves that key at load time and hands the name to the core as inert data — AD-16's four-fields-and-no-more, AD-15's single string table and AD-5's sealed core all stand unchanged
+**And** the rescue steps inherit origin `shipped` (AD-14), so SM-4's origin arithmetic is untouched
+**And** nothing enters the catalogue: the steps are transient pool facts, and FR-31's *fixed at build time, the user cannot author, edit or extend it* stands entire
 **And** it sends the Origin Context and the current task with no per-call dialog, resting on the build-time allowlist gate rather than a runtime hope (FR-25)
 
 **Given** a successful re-slice
 **When** its result enters the queue
 **Then** it is 2–4 steps, each ≤ 60 s, woven one at a time by the Project Weaver, and **tonally indistinguishable** from any other Micro-task (FR-5)
+
+**Given** a rescue step's pool fact
+**When** it is written
+**Then** it carries the step's **estimate in seconds, verbatim from the Slicer's tag**, and a size from Story 5.3's one fixed banding — ≤ 60 s → the 30 s size — with every duration-consuming rule reading the estimate and the size governing only same-size precedence and shape counting (AD-23, FR-5)
+
+**Given** a rescue re-slice
+**When** it is requested, returned or failed
+**Then** `slice_requested` / `slice_returned` / `slice_failed` are appended on the same terms as a photo scan, so FR-26 series (b) closes over the rescue channel too (FR-26, AD-21)
 
 **Given** rescue steps
 **When** their provenance is recorded
@@ -1829,13 +1790,17 @@ So that being stuck produces a smaller ask rather than a quiet accusation.
 **When** the parent is evaluated
 **Then** the parent is done **by derivation** — no synthetic `card_done` is ever appended, so completion counts still count user acts only (AD-25, FR-26)
 
+**Given** a rescued Focus Chunk
+**When** its chain completes or dissolves on a later domestic day
+**Then** the advance is charged to the dealing session's own day — completion closes that day's occupancy by derivation, the completing day's slot stays free, and a dissolution releases the dealing day's slot for a fresh resolve (AD-19, AD-20, AD-25)
+
 **Given** a rescue is activated
 **When** the refusal counter is evaluated
 **Then** it resets, success or failure — including an attempt that degraded because no Slicer was reachable, so a failed rescue does not re-trigger on every subsequent deal (FR-5)
 
 **Given** a rescue step
-**When** a re-slice of it is attempted
-**Then** it is refused: rescue depth is capped at 1 (FR-5)
+**When** `Otra más fácil` is tapped on it
+**Then** the depth cap holds — no second re-slice — and the control degrades to its skip half with no refusal surface and no error: one tap still passes the step, and no half-wired control exists anywhere (FR-5)
 
 **Given** a rescue whose steps are themselves declined on 3 different eligible days
 **When** dissolution runs
@@ -1846,9 +1811,9 @@ So that being stuck produces a smaller ask rather than a quiet accusation.
 **When** a rescue is attempted
 **Then** it degrades per FR-29: the original task stays dealable as-is, nothing is queued, and no error state appears (FR-5, FR-29)
 
-**Given** a manually captured task and no Slicer at all
-**When** the user asks to simplify it
-**Then** it cannot be rescued, and that is stated plainly at the moment of asking and **never as a failure** (FR-5, FR-27)
+**Given** a manually captured task
+**When** rescue is requested
+**Then** it is rescuable through its own single line whenever a Slicer is reachable — a capture's Origin Context is exactly the re-slice text (§3) — and with no reachable Slicer it degrades per FR-29 like any other task: the original stays dealable, nothing is queued, and nothing is styled as failure (FR-5, FR-27)
 
 **Given** any skip
 **When** storage is inspected
@@ -1867,6 +1832,8 @@ The user photographs a real space — or describes one in writing — and is sho
 - **Story 5.1 gates 5.2 and 5.3.** The face gate is a privacy guarantee resting on a **community-maintained** dependency the architecture already lists among its three fragile ones. Its bar is asymmetric and that asymmetry is the whole point: a false positive costs an annoyance, a false negative **uploads a photograph of a person**, which is the failure FR-25 exists to prevent.
 - **This epic completes the genesis surface Epic 2 half-built.** Epic 2 put the `Nuevo proyecto` affordance on the Dispenser carrying only its Settings way-out; this epic adds typed project entry as that surface's recommended action, restoring principle 1's literal arithmetic — one recommended action plus one way out. E2 stays dissolved.
 - **The `Files` port gains the per-scan cache**, additively on the adapter Epic 4 declared for credential envelopes.
+
+**Implementation notes:** both genesis entrances, A-slim — the Cámara entry sited directly on the Dispenser (visibility = enabled ∧ permission not refused, with the single Settings row owning both the disable toggle and the reactivation) and the typed genesis surface behind `Nuevo proyecto` carrying one recommended action plus its way out. AD-8's single-use `ScanConsent` token bound to the scan's cache subdirectory, minted after the on-device face gate and before the resolution cap; both scan files unlinked on **every** terminal path, with a sweep at each `app_opened` as the crash backstop. Adds Epic material as a candidate source with AD-20's least-recently-served arbitration. Builds the `action-equal-pair` consent gate — the only surface in the app with zero recommended actions — and the `curation-row` in all three homes. Onboarding is the product plus one one-time strip: no wizard, because the ≤ 2 s contract holds hardest on day one.
 
 ### Story 5.1: The on-device face gate, verified before it is trusted
 
@@ -2018,6 +1985,14 @@ So that consent is a decision I make rather than a setting I once forgot.
 **When** the steps are returned
 **Then** each carries a duration tag **between 3 and 5 minutes** (FR-16)
 
+**Given** a sliced step's pool fact
+**When** it is written
+**Then** it carries the step's **estimate in seconds, verbatim from the Slicer's tag**, and a **size from the 1-3-5 taxonomy by one fixed banding — ≤ 60 s → 30 s, 61 s–9 min → 3 min, ≥ 10 min → 10–15 min** — and this banding is the product's only duration→size rule: the pocket, the 🔴 filter's *≤ 60 s* and the bag's ceiling read the **estimate**, never the bucket; the size governs only same-size precedence and 1-3-5 shape counting; Focus-slot eligibility is by candidate class, never by size; and a Manual Capture's estimate is its size's canonical value (AD-23, FR-12, FR-27)
+
+**Given** a response that parses but violates the step contract — a duration tag outside 3–5 minutes, or steps that are not real actions in the space
+**When** the outcome is recorded
+**Then** it is `slice_failed`, never dealt as-is, surfaced under the provider-unresponsive string — a declared mapping recorded so a later reader does not invent an eighth cause (FR-16, FR-29, AD-21)
+
 **Given** a successful slice
 **When** the scan's data is handled
 **Then** the Slicer's structured description of the space is retained as **Origin Context** for future re-slicing, and the image itself is discarded (FR-16, FR-25, FR-5)
@@ -2049,6 +2024,10 @@ So that a project I have been avoiding for months starts with ten minutes.
 **Given** the typed genesis surface
 **When** the user sends a description
 **Then** the surface states in plain Spanish what is sent and to which provider, and **the send action is the consent** — an explicit send with the destination named, not a separate dialog (FR-25, NFR4)
+
+**Given** an empty description on the typed genesis surface
+**When** the send action is evaluated
+**Then** it stays disabled until the description holds text, mirroring `Guardar` — no empty egress call exists (FR-25, NFR4)
 
 **Given** a genesis call
 **When** it is instrumented
@@ -2138,8 +2117,9 @@ So that the app stops offering me a terrace I never had, without ever showing me
 **Then** it is **cluster level only and never a task-level row** — a browsable 80-item catalogue is the list NL-1 abolishes, arriving through the template door (FR-31)
 
 **Given** the E1 template surface
-**When** its exception is scoped
-**Then** it enumerates **templates and clusters, never the individual catalogue entries inside them**, and selecting a template enables or disables Evergreen clusters only — it never creates an Epic Project (FR-11, FR-31, E1)
+**When** it is built
+**Then** it opens **from the genesis surface** — the complement to typed entry, never a third top-level path — rendered in the identical `curation-row`, and its exception licence lives here and nowhere else (FR-11, E1)
+**And** it enumerates **templates and clusters, never the individual catalogue entries inside them**, and selecting a template enables or disables Evergreen clusters only — it never creates an Epic Project (FR-11, FR-31, E1)
 
 **Given** a curation change
 **When** it takes effect
@@ -2215,6 +2195,8 @@ Before organizing anything, the user is asked the two questions that do the real
 - **Purge injection is a candidate-precedence rule, not a special case in the weave.** `core/weave` stays the only emitter of a deal; purge steps return candidates with precedence like everything else (AD-20).
 - **This epic produces the figures Epic 7 renders.** `item_triaged` is written here and read there — a clean producer/consumer seam, which is why the two epics stayed separate.
 - **The accessibility consequence of dropping coloured tiles is load-bearing here and nowhere else.** With hue confined inside each glyph, the three choices are told apart by silhouette alone. That cost was accepted knowingly and it produces one non-negotiable rule this epic must honour.
+
+**Implementation notes:** the `destination-flow` at 64px with no tile, no default and no ordering signal — and the load-bearing accessibility consequence honoured: with tiles dropped, hue lives only inside each glyph, so the three choices are told apart by silhouette alone and the three destination hues may never appear as a field, tile, bar or band without their glyph inside. The Quarantine Box is reconstructed from `box_created` and `item_triaged` acts with its follow-up derived from the box's instant — never a stored date. `item_triaged` carries a destination plus an optional coarse volume tag from the four allowed values and never a number. This epic produces the figures Epic 7 renders.
 
 ### Story 6.1: Purge comes first
 
@@ -2325,6 +2307,10 @@ So that hesitating is a valid outcome instead of a decision I keep re-opening.
 **When** the user sends it to quarantine
 **Then** a `box_created` entry is appended carrying the box's date (FR-21, AD-21)
 
+**Given** a hesitated item
+**When** it goes into the box
+**Then** it is recorded as an `item_triaged` entry carrying the destination `quarantine` — an additive value of the destination vocabulary under AD-23 — linked to its box's `box_created` id, so the box's contents reconstruct from the log and nothing else (FR-21, AD-21, AD-23)
+
 **Given** a Quarantine Box
 **When** it is reconstructed
 **Then** it is derived from `box_created` and `item_triaged` acts — there is **no quarantine table** and its follow-up is derived from the box's own instant, **never a stored date** (AD-1)
@@ -2373,7 +2359,6 @@ So that letting go leaves a trace of what it produced rather than of what it cos
 **When** they cross to the shell
 **Then** they cross as **achievement figures**, rendered only on the FR-23 dashboard that Epic 7 builds, and subject to the denominator rule there (AD-26)
 
-
 ---
 
 ## Epic 7: Seeing What I Did
@@ -2387,6 +2372,8 @@ The user sees the same corner of their home before and after, in two plates of e
 - **This epic reads what Epic 6 wrote.** The per-destination counts and volume tags come from `item_triaged`; nothing here recomputes them from anything else.
 - **The dashboard is the app's one declared density exception**, and the denominator rule is what makes it safe. Both are review gates on this epic's stories, checkable value by value.
 - **The album is contextual only.** It is reached when a transformation completes and not otherwise, and the dashboard sits behind it. A permanently reachable album is a surface that invites browsing, which is the thing the product removed.
+
+**Implementation notes:** the `photo-frame` pair with labels outside the pastel, and the caption ceiling enforced as a review rule — place, moment and authorship, and no adjective about the result, because an adjective is a scale and a scale brings the deficit back. AD-26's split is the gate for the dashboard: achievement figures may cross to the shell, internal signals never. `dashboard-highlight-row` reflows to one column when a caption would break beyond two lines; it never shrinks. Album bytes are content-addressed, and `album_entry_deleted` unlinks the app-private source file in the same operation.
 
 ### Story 7.1: The Before/After reward
 
@@ -2428,6 +2415,14 @@ So that the work is visible without anyone putting a score on it.
 **Given** a completed diff
 **When** it is saved
 **Then** it goes to the Transformation Album **automatically**, and an `album_entry_added` entry is appended (FR-17, AD-21)
+
+**Given** a session milestone on a space no Before photo was ever taken for
+**When** the reward is offered
+**Then** it offers the shoot-and-save path only — a single `Ahora` photo saved to the Album, never a one-plate diff and never a placeholder plate — and the milestone still counts for FR-26 series (c); the surface's presentation copy stays `[OPEN]` per UX-DR57 (FR-17, FR-26)
+
+**Given** the camera entry disabled or its permission refused
+**When** the reward's shoot action is rendered
+**Then** it follows the Cámara entry's own rule — absent, or degrading to Manual Capture's path — never a dead button on the reward surface (FR-16, FR-29, UX-DR24)
 
 **Given** the diff presentation beyond side-by-side
 **When** this story is planned
@@ -2531,6 +2526,14 @@ So that progress is visible as a completed fact rather than as a fraction of som
 **When** the snowball is evaluated
 **Then** the suggestion **does not appear** — there is nothing left to suggest (FR-23)
 
+**Given** the snowball suggestion accepted
+**When** it is applied
+**Then** the Time Bag rises by exactly 5 minutes capped at 30, a `setting_changed` entry is appended, and the comfortable-day run resets to zero — the next suggestion must be earned by a fresh run (FR-23, AD-1)
+
+**Given** the snowball suggestion dismissed
+**When** its scope is evaluated
+**Then** it stays hidden while the current run stands and may reappear only after that run breaks and a new one reaches ten — dismissal never becomes a permanent feature loss, and never a nag (FR-23)
+
 **Given** a session the user chose to extend
 **When** the comfortable-day predicate reads its pocket
 **Then** it reads the **original** pocket, so the extension is never scored as a marathon (AD-19)
@@ -2538,7 +2541,6 @@ So that progress is visible as a completed fact rather than as a fraction of som
 **Given** the dashboard's empty state and the snowball's dismissal copy
 **When** this story is planned
 **Then** both are `[OPEN]` per UX-DR51 and UX-DR52 — the empty state may not count or name what is absent
-
 
 ---
 
@@ -2553,6 +2555,8 @@ The user opts into a single daily invitation at an hour they choose, and it arri
 - **Kept as its own epic because it is structurally isolated**, not because it is large: its own Kotlin channel, its own alarm, its own boot receiver, its own permission, and the only background work in the entire build.
 - **The `Notifier` port is declared here**, as its first and only consumer.
 - **Statelessness is a requirement, not an optimisation.** The invitation is composed from nothing but the configured hour and the Time Bag value. If it cannot see whether the user has been away, it cannot acquire pressure later, no matter who edits the copy.
+
+**Implementation notes:** the AD-11 `notify` channel — one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once and never a second — an **inexact** alarm at most once per *domestic day* (not a rolling 24 h — a chosen hour of 03:30 would otherwise straddle two days), `RECEIVE_BOOT_COMPLETED` for the reschedule, and no exact-alarm permission. The trigger instant is computed in the core and the Kotlin half performs no date arithmetic of any kind, boot reschedule included. Adds Settings' **Avisos** group. `[OPEN]` the copy decision — one fixed string or a small rotating set — must survive SM-C3 either way.
 
 ### Story 8.1: One silent channel that cannot be widened
 
@@ -2587,8 +2591,13 @@ So that the one notification I allow cannot grow into the thing I turned notific
 **Then** it is **off by default**, and once disabled it stays disabled until the user turns it back on (FR-24)
 
 **Given** the invitation is disabled
-**When** permissions are inspected
-**Then** the app's notification permission usage is removed **entirely**, and the app requests **no other notification category** (FR-24)
+**When** any code path runs
+**Then** no notification is ever posted and the channel is never recreated — FR-24's *"removes the app's notification permission usage entirely"* is carried by those observables, because an app cannot revoke its own grant: the manifest entry stays inside AD-7's enumerated set, and the grant is the user's to revoke in system settings (FR-24, AD-7, AD-11)
+**And** the app requests **no other notification category** (FR-24)
+
+**Given** the invitation enabled while `POST_NOTIFICATIONS` is refused or revoked
+**When** the Avisos group is rendered
+**Then** the undeliverable fact is stated beside the hour row — never a silent no-delivery state, and never a re-ask the app initiates on its own (FR-24, AD-17)
 
 **Given** Settings
 **When** the **Avisos** group is rendered
@@ -2617,6 +2626,7 @@ So that a reboot or a doze cycle can never turn one invitation into two.
 **Given** the delivery rate
 **When** it is bounded
 **Then** it is at most one per **domestic day** — not a rolling 24 hours, because a chosen hour of 03:30 would otherwise straddle two days (AD-4, AD-17)
+**And** this **supersedes FR-24's literal "one per 24 h"**: a declared, reasoned override recorded in AD-17 on the same pattern AD-20 uses for FR-7's *dealt*, so a later reader must not "correct" the code back to a rolling window (AD-17, AD-20)
 
 **Given** every code path including a boot reschedule after the alarm already fired
 **When** emission is evaluated
@@ -2650,7 +2660,6 @@ So that a reboot or a doze cycle can never turn one invitation into two.
 **When** background work is enumerated
 **Then** this invitation is **the only background work that exists** — no sync, no location, no persistent service, no wake locks, and the export runs in the foreground (NFR8)
 
-
 ---
 
 ## Epic 9: My Data, My Copy
@@ -2665,6 +2674,8 @@ Nothing the user does leaves their phone unless they export it, and the export h
 - **The `Folder` port is declared here**, as its only consumer, paired across `saf_util` (pickers and persisted permissions **only** — it provides no read or write) and `saf_stream` (the actual write path). Missing that pair was the architecture's first-draft error and it is called out so it is not repeated.
 - **A hard sequencing condition:** AD-18's release ritual — export on all three handsets, install on top, import if a migration fails — **has no teeth until this epic lands**, so it must be complete before the four-week validation window opens. The `Makefile` targets for that ritual are owed here (NFR20).
 
+**Implementation notes:** implements AD-13 in full — the authoritative/derived split with `derived/` never read on import, one process-wide foreground coordinator that drops rather than queues a concurrent automatic trigger, pool and log from the same SQLite read transaction, the `(generationSequence, generationId)` total order, create-once manifests, and cleanup that never deletes a committed manifest, snapshot or blob. The property test is what earns the name: arbitrary state exported, wiped, imported, every derived read model identical — cut after every write, across partial provider visibility, missing bytes, checksum mismatch and truncated manifests — plus a build-N+1 fixture imported into build N. Adds Settings' **Tus datos** group and the validator surface.
+
 ### Story 9.1: The four series, on the device and nowhere else
 
 As the builder,
@@ -2675,7 +2686,7 @@ So that the validation verdict does not depend on the app's own summary of itsel
 
 **Given** the instrumentation
 **When** its series are enumerated
-**Then** exactly four exist and are queryable: **(a)** session start/end with duration and Micro-tasks completed, **(b)** Slicer calls and their outcome — plan / declined / unavailable — covering **every photo scan and every text-genesis call on the same terms**, **(c)** Before/After pairs per project milestone, **(d)** invitation emissions and whether the app was opened within the following hour (FR-26)
+**Then** exactly four exist and are queryable: **(a)** session start/end with duration and Micro-tasks completed, **(b)** Slicer calls and their outcome — plan / declined / unavailable — covering **every photo scan, every text-genesis call and every rescue re-slice on the same terms**, **(c)** Before/After pairs per project milestone, **(d)** invitation emissions and whether the app was opened within the following hour (FR-26)
 
 **Given** series (b)
 **When** its denominator is closed
@@ -2750,6 +2761,14 @@ So that nothing is lost and nothing about backup ever appears as work I owe.
 **When** it is handled
 **Then** it is **dropped, not queued** — AD-17's two triggers fire within milliseconds of each other at the end of a session (AD-13, AD-7)
 
+**Given** a manual export requested while an export is already running
+**When** the coordinator handles it
+**Then** the manual export is **serialized behind the running one, never dropped** — the drop rule belongs to automatic triggers, and a user-initiated act is not a trigger (AD-13, FR-30)
+
+**Given** a second installation exporting into the same destination folder
+**When** it assigns its `generationSequence`
+**Then** it continues from the **greatest fully verified manifest visible in that folder**, not from its own history — a shared folder is one lineage (AD-13)
+
 **Given** the coordinator is held
 **When** the snapshot is taken
 **Then** pool and log come from the **same SQLite read transaction**, so a byte-perfect generation cannot still be logically torn (AD-13)
@@ -2808,6 +2827,14 @@ So that "restore format" is a property of the file rather than a promise about i
 **When** selection runs
 **Then** it is **ignored without invalidating an older one** (AD-13)
 
+**Given** an import that refuses — no valid generation found
+**When** it refuses
+**Then** the existing database is left untouched: the wipe begins only after a generation is fully verified, so a failed restore can never destroy local data (AD-13, FR-30)
+
+**Given** an import while a scan is resolving
+**When** the coordinator is held
+**Then** the import waits for the scan's resolution to complete — scan pool facts never land in wiped or restored state (AD-13, AD-8)
+
 **Given** an import from a different build
 **When** unknown kinds and fields are met
 **Then** they are **preserved verbatim and defaulted where a default exists** — AD-18's ritual imports an export made by a *different* build, so tolerating its rows is the contract, not a courtesy (AD-13, AD-23)
@@ -2831,6 +2858,19 @@ So that "restore format" is a property of the file rather than a promise about i
 **Given** a fixture produced by build N+1
 **When** it is imported into build N
 **Then** **no derived read model regresses** (AD-13, AD-23)
+
+**Given** an install-on-top under AD-18's ritual
+**When** the app starts afterwards
+**Then** the persisted SAF grant **survives**, because it belongs to the install the same keystore preserved — so the silent export resumes with **no user action and no prompt** (AD-18, FR-30)
+
+**Given** a genuine fresh install followed by an import
+**When** the restored state is read
+**Then** the SAF destination comes back **not configured** — the grant belongs to the previous install and the export redacted the field to null — so **the user must re-pick the destination before any export can resume** (AD-22, AD-13)
+
+**Given** a restored install whose destination has not been re-picked
+**When** the app runs
+**Then** it keeps working and **stays silent**: export simply does not happen, the fact is visible in Settings only, and it is **never framed as the user's omission** — no reminder, no badge, no backup-age line and no toast (FR-30, NFR2)
+**And** an `export_recorded` entry carries the outcome and cause, so the gap is legible to the validator without ever reaching the Dispenser (AD-13, AD-21)
 
 **Given** the release ritual
 **When** it is performed
