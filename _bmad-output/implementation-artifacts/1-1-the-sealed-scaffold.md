@@ -17,7 +17,7 @@ so that every invariant the product rests on is checkable from the first commit 
 3. **Given** any file under `packages/core/lib/` **When** a commit introduces `Random`, a wall-clock read, `dart:io` or ambient state **Then** the same check fails the build (AD-3, NFR16).
 4. **Given** the port declarations **When** `packages/core/lib/ports/` is inspected **Then** exactly two ports exist — `Clock` and `Store` — each named with the `Port` suffix **And** no adapter type is named anywhere inside the core (AD-5).
 5. **Given** the Android configuration **When** the app is assembled **Then** `minSdk` is 33, `targetSdk` is 36 **And** `abiFilters` excludes every 32-bit ABI (NFR12).
-6. **Given** `pubspec.yaml` **When** its dependencies are read **Then** Flutter 3.47.1 / Dart 3.13.1 and the pinned versions of the Stack table are used **And** neither `material_ui` nor `cupertino_ui` is added.
+6. **Given** `pubspec.yaml` **When** its dependencies are read **Then** the environment's Flutter SDK is the latest stable patch of the 3.47 line (Dart 3.13.x) and the pinned versions of the Stack table are used **And** neither `material_ui` nor `cupertino_ui` is added.
 7. **Given** the test strategy **When** it is set up **Then** core invariants run under `dart test` on the machine with no emulator; widget tests exist **only where a surface consumes the read facade or a command**; and **no golden tests are written** — visual and behavioural verification is manual on the three validation handsets (NFR18).
 8. **Given** the repository root **When** it is listed **Then** a `Makefile` exists carrying every command needed to work on the app in development, and no development operation requires a remembered incantation (NFR20).
 9. **Given** the `Makefile` **When** `make help` is run **Then** it lists every target with a one-line description, and it is the default target so a bare `make` is never destructive.
@@ -26,22 +26,22 @@ so that every invariant the product rests on is checkable from the first commit 
 12. **Given** CI **When** it verifies a commit **Then** it invokes the same `Makefile` targets rather than duplicating their command lines, so a green `make gate` locally means a green CI.
 13. **Given** a later story that introduces a `tool/` check or a build-time guard **When** that story is complete **Then** its target is registered in the `Makefile` and reachable from `make check` in the same pass (NFR20).
 14. **Given** the story is complete **When** the completion gate runs **Then** `flutter test`, `dart format --set-exit-if-changed .` and `flutter analyze` are all green (NFR17).
-15. **Given** the repository root **When** `devbox shell` is entered and `flutter --version` / `java -version` are read **Then** Flutter 3.47.1 / Dart 3.13.1 and JDK 17 are on `PATH` from the devbox environment, `devbox.json` and `devbox.lock` are committed **And** the pinned Flutter SDK is the official 3.47.1 tarball — the nixpkgs `flutter` package is not used (NFR21).
+15. **Given** the repository root **When** `devbox shell` is entered and `flutter --version` / `java -version` are read **Then** the line-pinned Flutter SDK (3.47.x, Dart 3.13.x) and JDK 17 are on `PATH` from the devbox environment, `devbox.json` and `devbox.lock` are committed **And** that SDK is the official tarball of the 3.47 line — the nixpkgs `flutter` package is not used (NFR21).
 
 ## Tasks / Subtasks
 
 - [ ] **Task 0 — Verify the toolchain inside devbox before writing anything** (AC: 6, 14, 15) — *see Blocking Environment Prerequisites; do not proceed past this task until the checks pass*
   - [ ] Devbox CLI present (`devbox version`; 0.18.0 verified on this machine). **Every check below and every later task runs inside `devbox shell`**, never against the host toolchain (NFR21).
-  - [ ] Inside the shell, `flutter --version` reports **3.47.1 / Dart 3.13.1**. Neither binary is on the host `PATH` today — the SDK arrives with Task 1's devbox environment. Do **not** substitute a different Flutter version and do **not** "fix" the pins to match an installed SDK. **Never `devbox add flutter`** — nixpkgs tops out at 3.47.0 (`devbox search flutter`, verified 2026-08-27) and the pin would silently move.
-  - [ ] Inside the shell, `java -version` reports **17** (devbox `jdk17`). The host's JDK 26 is irrelevant inside the shell; set `org.gradle.java.home` or `flutter config --jdk-dir` only if Gradle still resolves the host JDK.
+  - [ ] Inside the shell, `flutter --version` reports the **latest stable patch of the 3.47 line** (Dart 3.13.x; 3.47.2 at the time of writing). Neither binary is on the host `PATH` today — the SDK arrives with Task 1's devbox environment. Do **not** jump lines (3.46, 3.48) and do **not** "fix" the pubspec to match an installed SDK. **Never `devbox add flutter`** — nixpkgs lags the line's patches (3.47.0 while stable is 3.47.2, 2026-08-27) and is not the official SDK.
+  - [ ] Inside the shell, `java -version` reports **17** (devbox `jdk17`). 17 is the major the 3.47 Android toolchain verifies against — Java 17 minimum, KGP 2.4.0 — so the pin is the major and the patch floats. The host's JDK 26 is irrelevant inside the shell; set `org.gradle.java.home` or `flutter config --jdk-dir` only if Gradle still resolves the host JDK.
   - [ ] `make build` / `make run` additionally need Android SDK platform 36 — verify the devbox package that provides it (`devbox search android-sdk`) or expose an existing SDK via `ANDROID_HOME` in `devbox.json`. The gate itself needs no Android SDK.
   - [ ] If any of the above cannot be satisfied, **stop and report** — a story cannot be closed with the NFR17 gate unrun (`project-context.md`, `AGENTS.md` → Policy).
 
 - [ ] **Task 1 — Create the devbox environment** (AC: 15)
-  - [ ] `devbox.json` at the repository root: nixpkgs `jdk17`, `make`, `git`, and the Android SDK tooling verified in Task 0. **No `flutter` package** — nixpkgs cannot express 3.47.1; see *The devbox environment* in Dev Notes.
-  - [ ] A bootstrap (a run-once-guarded devbox `init_hook`, or the first step of `make deps`) downloads the official `flutter_linux_3.47.1-stable.tar.xz`, **verifies its sha256**, unpacks it under a gitignored `.toolchain/flutter/`, and puts `.toolchain/flutter/bin` on `PATH` inside the shell. `dart` 3.13.1 ships inside that SDK — nothing pins it separately.
+  - [ ] `devbox.json` at the repository root: nixpkgs `jdk17`, `make`, `git`, and the Android SDK tooling verified in Task 0. **No `flutter` package** — nixpkgs lags the 3.47 line's patches and is not the official SDK; see *The devbox environment* in Dev Notes.
+  - [ ] A bootstrap (a run-once-guarded devbox `init_hook`, or the first step of `make deps`) downloads the official `flutter_linux_3.47.x-stable.tar.xz` — the line's current stable patch — **verifies its sha256**, unpacks it under a gitignored `.toolchain/flutter/`, and puts `.toolchain/flutter/bin` on `PATH` inside the shell. `dart` 3.13.x ships inside that SDK — nothing pins it separately. A patch bump within the line is exactly two edited values here (version, sha256) plus a re-lock and the gate; nothing else changes.
   - [ ] Generate and **commit `devbox.json` and `devbox.lock`**; `.gitignore` (created here if Task 2 has not yet) gains `.toolchain/`.
-  - [ ] Proof of AC 15: inside `devbox shell`, `flutter --version` → 3.47.1 / Dart 3.13.1, `dart --version` → 3.13.1, `java -version` → 17.
+  - [ ] Proof of AC 15: inside `devbox shell`, `flutter --version` → 3.47.x (the recorded patch) / Dart 3.13.x, `java -version` → 17.
   - [ ] This file is the environment of record: a later story needing a toolchain piece adds it here and re-commits the lock in the same pass (NFR21), mirroring AC 13's Makefile rule.
 
 - [ ] **Task 2 — Create the Flutter shell app at the repository root** (AC: 5, 6)
@@ -112,9 +112,9 @@ Verified on this machine on 2026-08-27:
 | Requirement | Required | Present | Action |
 | --- | --- | --- | --- |
 | Devbox | 0.18.0 verified | `/usr/local/bin/devbox` 0.18.0 | — |
-| Flutter | 3.47.1 | **not on host `PATH`** | Task 1's bootstrap: sha256-pinned official tarball. **Never `devbox add flutter`** — nixpkgs tops out at 3.47.0 |
-| Dart | 3.13.1 (ships with Flutter) | **not on host `PATH`** | as above |
-| JDK | **17** (Flutter 3.47 brings Java 17) | host has **26.0.2** — irrelevant inside the shell | devbox package `jdk17` (Task 1) |
+| Flutter | 3.47.x — the line's latest stable patch (3.47.2 today) | **not on host `PATH`** | Task 1's bootstrap: sha256-pinned official tarball. **Never `devbox add flutter`** — nixpkgs lags the line (3.47.0) |
+| Dart | 3.13.x (ships with Flutter) | **not on host `PATH`** | as above |
+| JDK | **17 major** — what the 3.47 Android toolchain verifies against (Java 17 minimum, KGP 2.4.0); the patch floats | host has **26.0.2** — irrelevant inside the shell | devbox package `jdk17` (Task 1) |
 | Android SDK | compile/target **36** | unverified | devbox package (`devbox search android-sdk`) or `ANDROID_HOME`; needed by `make build` / `make run`, not by the gate |
 
 The story completion gate (`flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze`) cannot be run without the first two, and it runs **inside `devbox shell`** (NFR21). **Never present this story as done with the gate unrun** — that is the one policy in `AGENTS.md` and `project-context.md`.
@@ -123,7 +123,7 @@ The story completion gate (`flutter test`, `dart format --set-exit-if-changed .`
 
 NFR21 makes devbox the environment of record: `devbox.json` plus a committed `devbox.lock` provision JDK 17, the Android SDK tooling and `make`; CI installs devbox and runs the same `make` targets through `devbox run --`. Devbox is development-time tooling only — nothing it manages ships inside the app, so AD-12's and NFR13's no-network-SDK rule is untouched.
 
-The one thing devbox must **not** provide is the Flutter SDK. `devbox search flutter` tops out at **3.47.0** (verified 2026-08-27; the nixhub web index lags even further at 3.41.x), and the Stack table's 3.47.1 / Dart 3.13.1 was verified against the live web and does not move. Pulling `flutter` from nixpkgs — or letting a transitive package do it — would substitute 3.47.0 for 3.47.1 and break AC 6 and AC 15 silently. Hence: the bootstrap fetches the official `flutter_linux_3.47.1-stable.tar.xz` under a sha256 pin, unpacks it into gitignored `.toolchain/flutter/`, and exposes it on `PATH` inside the shell. The JDK has no such gap — nixpkgs `jdk17` tracks 17.x and Java's pin is a major version.
+The one thing devbox must **not** provide is the Flutter SDK. The Stack pins the **line**, not the patch — 3.47.x, latest stable patch — because patch releases are fixes this project wants, and freezing one patch forever would refuse them (3.47.2 shipped within two weeks of 3.47.0). But nixpkgs `flutter` sits at 3.47.0 (`devbox search flutter`, 2026-08-27; the nixhub web index lags further), so `devbox add flutter` would both freeze the line's oldest patch and substitute a derivation that is not the official SDK. Hence: the bootstrap fetches the official `flutter_linux_3.47.x-stable.tar.xz` — version and sha256 recorded in the repo — so every checkout is exact and reproducible while a patch bump remains a two-value edit, a re-lock and the gate. The JDK has no such gap: Java's pin is the major (17, what the 3.47 Android toolchain verifies against — Java 17 minimum, KGP 2.4.0) and nixpkgs `jdk17` floats its patches.
 
 ### What this story is, and what it is not
 
@@ -154,7 +154,7 @@ These are judgment calls the epic left open. They are settled here deliberately;
 
 4. **`make build` = debug APK.** Release signing is AD-18's single-keystore ritual and belongs to Epic 9, where the export and import it drives actually land.
 
-5. **The toolchain comes from devbox, not the host.** `devbox.json` + committed `devbox.lock` provision JDK 17, the Android SDK tooling and `make`; the Flutter SDK is the sha256-pinned official 3.47.1 tarball, never the nixpkgs `flutter` package (NFR21, see *The devbox environment*). This also settles CI mechanics inside ruling 3's provider: the workflow uses `jetify-com/devbox-install-action` and `devbox run -- make …`, so the runner resolves the identical lockfile — and CI doubles as the regression test for the environment of record.
+5. **The toolchain comes from devbox, not the host.** `devbox.json` + committed `devbox.lock` provision JDK 17, the Android SDK tooling and `make`; the Flutter SDK is the sha256-pinned official tarball of the 3.47.x line, never the nixpkgs `flutter` package (NFR21, see *The devbox environment*). This also settles CI mechanics inside ruling 3's provider: the workflow uses `jetify-com/devbox-install-action` and `devbox run -- make …`, so the runner resolves the identical lockfile — and CI doubles as the regression test for the environment of record.
 
 ### The two ports, and why only two
 
@@ -185,7 +185,7 @@ organizer/
   pubspec.yaml                      # NEW
   analysis_options.yaml             # NEW
   .github/workflows/ci.yml          # NEW — installs devbox, calls make targets only
-  .toolchain/flutter/               # NEW, gitignored — the sha256-pinned 3.47.1 tarball
+  .toolchain/flutter/               # NEW, gitignored — the sha256-pinned 3.47.x tarball
   packages/core/                    # NEW — pure Dart, no flutter/drift/plugins
     pubspec.yaml
     lib/ports/clock_port.dart
@@ -203,13 +203,13 @@ organizer/
 
 Untouched: `_bmad/`, `_bmad-output/`, `.claude/`, `.agents/`, `.opencode/`, `AGENTS.md`, `project-context.md`.
 
-### Stack pins — authoritative, do not move
+### Stack pins — authoritative; the Flutter line, not the patch
 
-The spine's Stack table was **verified against the live web on 2026-08-26 by an independent reviewer**, and where the first draft was wrong the correction is what the table carries. Treat it as the pin of record; do not let `flutter pub upgrade` move it, and do not "modernise" a version because a newer one exists.
+The spine's Stack table was **verified against the live web on 2026-08-26 by an independent reviewer**, and where the first draft was wrong the correction is what the table carries. Treat it as the pin of record. **Flutter is pinned by line, not by patch**: 3.47.x, the latest stable patch — patch bumps are routine (two edited values in Task 1's bootstrap, a re-lock, the gate) and only a line jump (3.48+) is a decision that reopens this table. Do not let `flutter pub upgrade` move product dependencies, and do not "modernise" a line because a newer one exists.
 
 | Name | Version | Note relevant to this story |
 | --- | --- | --- |
-| Flutter | **3.47.1** | Dart 3.13.1. Brings **Java 17** and a Flutter-side minimum of Android API 24 |
+| Flutter | **3.47.x (line)** | Dart 3.13.x (`^3.13.0`). Brings **Java 17** and a Flutter-side minimum of Android API 24. The patch floats within the line; the bootstrap records the exact one |
 | Android targetSdk | **36** | Play requires 36 from 2026-08-31; API 37 is a known follow-up, deferred |
 | Android minSdk | **33** | Set by `POST_NOTIFICATIONS` and by `checkRecognitionSupport()`/`triggerModelDownload()` — **not** by the on-device recognizer, which is API 31 |
 | `flutter_riverpod` | **3.4.2** | shell-only |
