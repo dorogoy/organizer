@@ -237,7 +237,7 @@ The app holds photographs of the inside the user's home. Two rules govern them: 
 
 ## AI Access Path & Degradation
 
-- **BYOK only in v1.** The user supplies their own key; the provider is chosen from an **in-app allowlist**. A free-form endpoint or base-URL field **does not exist**. Each allowlist entry states the provider name and the date its no-training, no-retention terms were verified.
+- **BYOK only in v1.** The user supplies their own key; the provider is chosen from an **in-app allowlist**. A free-form endpoint or base-URL field **does not exist**. Each allowlist entry states the provider name and the date its no-training terms were verified. **Key entry carries one sentence, once**: a free-tier key may be used for training and the app cannot tell which tier a key belongs to. It is stated at the moment it is actionable and never repeated — not on the Dispenser, not as a badge, not as a recurring warning (FR-28).
 - **A key is not an identity.** No login, no password, no registration, no first-run network requirement. The key lives in the OS keystore and never appears in the export.
 - The Local path is a debug-only canned-slice stub. The Managed path is interface-only and deferred; if it is ever built, its balance is never surfaced outside Settings.
 - **Configuration lives in Settings — where the validator reads — and never intrudes on the Dispenser, where the user lives.** The Dispenser never mentions a key, a quota, a provider or a network.

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Party validation — Organizer Architecture Spine</title>
+  <style>
+    :root{--ink:#17201f;--muted:#61706d;--paper:#f5f1e8;--card:#fffdf8;--red:#b42318;--amber:#b54708;--green:#027a48;--line:#d8d1c3;--blue:#175cd3}
+    *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 ui-sans-serif,system-ui,sans-serif}
+    main{max-width:1080px;margin:auto;padding:48px 24px 80px}.eyebrow{letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-size:.76rem;font-weight:800}
+    h1{font-size:clamp(2.2rem,6vw,4.7rem);line-height:.98;margin:.2em 0}.verdict{display:inline-block;background:var(--red);color:white;padding:.55rem .85rem;border-radius:999px;font-weight:800}
+    .lede{max-width:760px;font-size:1.18rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:28px 0}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 24px #342b1c10}.metric{font-size:2.4rem;font-weight:900;line-height:1}.critical{border-left:6px solid var(--red)}.high{border-left:6px solid var(--amber)}
+    h2{margin-top:48px;font-size:1.65rem}h3{margin:.1rem 0 .4rem}.tag{font-size:.73rem;text-transform:uppercase;font-weight:900;color:var(--red)}
+    ol{padding-left:1.3rem}li{margin:.75rem 0}.voices p{margin:.45rem 0}.muted{color:var(--muted)}a{color:var(--blue)}
+    .pass{color:var(--green);font-weight:800}.decision{background:#241d18;color:#fff8e8;padding:24px;border-radius:18px;margin-top:40px}
+    @media(max-width:600px){main{padding:28px 16px 56px}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">BMad Architecture × Party Mode · 27 agosto 2026</div>
+  <h1>El spine aún no es un sustrato seguro.</h1>
+  <p><span class="verdict">FAIL · cambios requeridos</span></p>
+  <p class="lede">El lint está limpio y la arquitectura es fuerte, pero el debate independiente encontró dos garantías de recuperación que no se sostienen y nueve seams de severidad alta donde dos unidades obedientes todavía pueden construir productos incompatibles.</p>
+
+  <section class="grid">
+    <article class="card"><div class="metric">0</div><strong>fallos mecánicos</strong><div class="muted">IDs, placeholders, estructura AD</div></article>
+    <article class="card critical"><div class="metric">2</div><strong>críticos</strong><div class="muted">exportación y restore de credenciales</div></article>
+    <article class="card high"><div class="metric">9</div><strong>altos</strong><div class="muted">contratos compartidos y trazabilidad</div></article>
+    <article class="card"><div class="metric">6</div><strong>cola</strong><div class="muted">4 medios · 2 bajos</div></article>
+  </section>
+
+  <section class="voices card">
+    <div class="eyebrow">La mesa</div>
+    <p>📊 <strong>Mary / Level:</strong> “BYOK solo converge si sabemos de quién es realmente la clave.”</p>
+    <p>🏗️ <strong>Winston:</strong> “Una secuencia de renames atómicos no es una transacción de generación.”</p>
+    <p>💻 <strong>Amelia:</strong> “Sin esquema y correlación normativos, el compilador no puede proteger el contrato.”</p>
+    <p>🎨 <strong>Sally:</strong> “Manual Capture y consentimiento todavía pueden reintroducir presión mientras todo lo técnico parece correcto.”</p>
+    <p>📋 <strong>John:</strong> “No llamemos detalle de implementación a una contradicción que cambia quién puede validar el producto.”</p>
+  </section>
+
+  <h2>Críticos</h2>
+  <article class="card critical"><div class="tag">C1 · recovery</div><h3>La exportación no es atómica como generación</h3><p>Un crash entre el rename de pool y log deja archivos válidos de generaciones distintas. La solución exige generaciones inmutables y un único manifest/puntero de commit atómico.</p></article>
+  <article class="card critical"><div class="tag">C2 · restore</div><h3><code>keyExists</code> puede mentir tras restaurar</h3><p>El log exportado conserva “existe”, pero la keystore no viaja. La presencia de clave debe ser una capacidad viva no exportable, igual que SAF.</p></article>
+
+  <h2>Nueve decisiones que aún no convergen</h2>
+  <ol class="card high">
+    <li>Propiedad de credenciales: BYOK real frente a claves de la cuenta del constructor.</li>
+    <li>Cap de notificación: día doméstico frente a ventana móvil de 24 horas.</li>
+    <li>OQ-11/OQ-12 ausentes antes de construir Manual Capture.</li>
+    <li>Esquema Evergreen de tres campos en PRD frente a cuatro en AD-16.</li>
+    <li>Envelope, payloads y correlación de eventos/pool no normativos.</li>
+    <li>Sin orden total determinista para eventos con el mismo instante.</li>
+    <li>Sin semántica durable para entrega/evidencia de notificaciones.</li>
+    <li>Sin álgebra cerrada de respuesta/error del Slicer.</li>
+    <li>Sin máquina de estados para callbacks y commit de dictado.</li>
+  </ol>
+
+  <h2>Lo que sí queda ratificado</h2>
+  <div class="card"><p class="pass">✓ Paradigma, dirección de dependencias, alcance local-first/no-backend y stack principal.</p><p class="pass">✓ Modelo insert-only, egress cerrado, ausencia de lateness y separación del validator surface.</p><p class="pass">✓ Versiones y la mayoría de afirmaciones Android verificadas con fuentes primarias actuales.</p></div>
+
+  <div class="decision"><div class="eyebrow">Gate decision</div><h2>Actualizar antes de dividir en stories</h2><p>Primero C1, C2 y los altos 1–6. Después, cerrar notificaciones, Slicer y dictado antes de repartir esas unidades. Esta validación no modificó el spine.</p></div>
+
+  <h2>Evidencia completa</h2>
+  <p><a href="rubric.md">Rubric review</a> · <a href="verification.md">Evidence verification</a> · <a href="adversarial.md">Adversarial review</a> · <a href="report.md">Markdown report</a></p>
+</main></body></html>

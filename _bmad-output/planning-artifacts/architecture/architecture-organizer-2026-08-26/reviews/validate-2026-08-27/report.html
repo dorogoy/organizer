@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviewer Gate — Architecture Spine — organizer</title>
+<style>
+  :root {
+    --bg: #faf7f2; --ink: #2b2622; --muted: #7a6f63; --card: #ffffff;
+    --line: #e8e0d4; --ok: #4a7c59; --warn: #b07d2b; --bad: #a4432f;
+    --ok-bg: #e9f2ec; --warn-bg: #f7eedd; --bad-bg: #f6e4df; --info-bg: #eceff3;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.6 "Lexend", "Segoe UI", system-ui, sans-serif; padding: 48px 24px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-weight: 600; font-size: 26px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  h2 { font-weight: 600; font-size: 18px; margin: 36px 0 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card .name { font-size: 13px; color: var(--muted); }
+  .card .verdict { font-size: 17px; font-weight: 600; margin: 4px 0 8px; }
+  .card .counts { font-size: 13px; color: var(--muted); }
+  .v-bad { color: var(--bad); } .v-warn { color: var(--warn); } .v-ok { color: var(--ok); }
+  .banner { border-radius: 10px; padding: 16px 20px; margin-top: 20px; font-size: 15px; }
+  .banner.fail { background: var(--bad-bg); border-left: 4px solid var(--bad); }
+  .finding { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin-top: 12px; }
+  .finding .tag { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 6px; padding: 2px 8px; margin-right: 8px; vertical-align: middle; }
+  .t-crit { background: var(--bad-bg); color: var(--bad); } .t-high { background: var(--warn-bg); color: var(--warn); }
+  .t-med { background: var(--info-bg); color: #4a5b70; } .t-low { background: #f0ece5; color: var(--muted); }
+  .finding .title { font-weight: 600; font-size: 15px; vertical-align: middle; }
+  .finding p { font-size: 14.5px; margin-top: 6px; color: #453e37; }
+  .tail { color: var(--muted); font-size: 14px; margin-top: 16px; }
+  ul.links { margin-top: 8px; padding-left: 20px; font-size: 14px; color: var(--muted); }
+  ul.links li { margin-top: 4px; }
+  code { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 0.92em; background: #f0ece5; border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reviewer Gate — Architecture Spine</h1>
+  <div class="sub">Anti-Overwhelm Mobile Task Organizer · 26 ADs · status <code>final</code> · validated 2026-08-27 · Validate intent (report only — spine not modified)</div>
+
+  <div class="banner fail">
+    <strong>Gate verdict: FAIL as final.</strong> Driven by the adversarial lens: one critical and four high seam defects between ADs. The Stack section is fully re-verified against the live web (30/30 load-bearing claims; every pinned version is the current pub.dev release as of 2026-08-27; nothing fabricated or superseded). All five top findings are closable with amendments, not a rewrite.
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="name">lint_spine.py</div><div class="verdict v-ok">CLEAN</div><div class="counts">0 findings</div></div>
+    <div class="card"><div class="name">Rubric walker</div><div class="verdict v-warn">PASS WITH FIXES</div><div class="counts">0 crit · 0 high · 3 med · 6 low</div></div>
+    <div class="card"><div class="name">Verification lens</div><div class="verdict v-ok">PASS</div><div class="counts">0 crit · 0 high · 0 med · 1 low · 3 info</div></div>
+    <div class="card"><div class="name">Adversarial lens</div><div class="verdict v-bad">FAIL</div><div class="counts">1 crit · 4 high · 4 med</div></div>
+  </div>
+
+  <h2>Critical</h2>
+  <div class="finding">
+    <span class="tag t-crit">CRITICAL</span><span class="title">ADV-1 · AD-19 × AD-20 — cross-04:00-session Focus Chunk occupancy is double-owned</span>
+    <p>Two letter-compliant builds disagree on a session that spans the 04:00 boundary: one ships two answered Focus Chunks inside one domestic day (the marathon-with-a-comma AD-4 exists to prevent), the other silently loses a day's chunk.</p>
+  </div>
+
+  <h2>High</h2>
+  <div class="finding">
+    <span class="tag t-high">HIGH</span><span class="title">ADV-2 · AD-24 × AD-4 — "that day's energy" is undefined</span>
+    <p>Undefined for days with multiple <code>energy_set</code> entries and for cross-boundary sessions; FR-5's rescue counter and FR-12's capture window can advance on different day sets.</p>
+  </div>
+  <div class="finding">
+    <span class="tag t-high">HIGH</span><span class="title">ADV-3 · AD-21 × AD-13 × FR-30 — export outcome has no compliant durable home</span>
+    <p>The exhaustive seven system events plus "no other store" leave FR-30's export state volatile-only; also no act for "left the scan surface", shifting FR-26 series (b)'s denominator.</p>
+  </div>
+  <div class="finding">
+    <span class="tag t-high">HIGH</span><span class="title">ADV-4 · AD-13 × AD-23 × AD-18 — tolerance is stated over derivations, not the import</span>
+    <p>One build refuses the exact cross-version restore AD-18's update ritual depends on.</p>
+  </div>
+  <div class="finding">
+    <span class="tag t-high">HIGH</span><span class="title">ADV-5 · AD-25 × FR-5 — dissolution's retire-set is undefined</span>
+    <p>One build keeps dealing orphaned siblings of a dissolved task forever.</p>
+  </div>
+
+  <h2>Medium</h2>
+  <div class="finding">
+    <span class="tag t-med">MEDIUM</span><span class="title">RUB-1 · AD-14/AD-25 vs AD-2 — pool-fact immutability asserted but unenforced</span>
+    <p>AD-2's insert-only triggers cover only the log table; the round-trip test cannot distinguish hard-delete from derive-retire.</p>
+  </div>
+  <div class="finding">
+    <span class="tag t-med">MEDIUM</span><span class="title">RUB-2 · Structural Seed ERD — entity mismatches</span>
+    <p><code>ALBUM_ENTRY</code> drawn as an entity though its manifest is derived; <code>CATALOGUE_ENTRY</code> though it is a build-time asset; <code>QUARANTINE_BOX</code> with no stated storage home.</p>
+  </div>
+  <div class="finding">
+    <span class="tag t-med">MEDIUM</span><span class="title">RUB-3 · AD-21 "No other store exists" has no named guard</span>
+    <p>Absent from the five tool checks, lints and tests; guard inventory also loose ("five checks" vs AD-7's three, AD-22's CI grep unlisted).</p>
+  </div>
+  <div class="tail">Plus 4 medium (ADV-6..ADV-9), 6 low (rubric) and 1 low + 3 info (verification) in the full reviews.</div>
+
+  <h2>Full reviews</h2>
+  <ul class="links">
+    <li><code>reviews/validate-2026-08-27/rubric.md</code></li>
+    <li><code>reviews/validate-2026-08-27/verification.md</code></li>
+    <li><code>reviews/validate-2026-08-27/adversarial.md</code></li>
+    <li><code>reviews/validate-2026-08-27/report.md</code> (this report, markdown twin)</li>
+  </ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,1385 @@
+<title>Arquitectura Antiagobio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..600;1,400&family=Lexend:wght@300..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================
+   ALIENTO — palette, type ramp and the misregistration idiom
+   taken from ux-organizer-2026-08-21/DESIGN.md rather than invented.
+   Light: the colour plate is offset on the global 45 degree vector.
+   Dark:  the plate retires to a 6px edge bar — DESIGN.md's own
+          authored rule for the destination marks, not an inversion.
+   ============================================================ */
+
+:root {
+  /* field tier — Aliento baseline */
+  --ground: #F7F8F9;
+  --raised: #FFFFFF;
+  --ink: #1E2124;
+  --ink-2: #5C6368;
+  --hairline: #E1E5E8;
+  --accent: #D5E0DC;
+
+  /* icon-mass tier — the plates. Destination hues deliberately unused:
+     DESIGN.md forbids them as a field without their glyph inside. */
+  --plate-substrate: #D5E0DC;
+  --plate-boundary: #B3BEBA;
+  --plate-outside: #CAB9A0;
+
+  /* the misregistration, as tokens so the dark theme changes SHAPE */
+  --plate-dx: 0.5rem;
+  --plate-dy: 0.5rem;
+  --plate-bar: 0px;
+  --plate-alpha: 1;
+
+  --sheet: 74rem;
+  --measure: 62ch;
+
+  --s1: .25rem; --s2: .5rem; --s3: .75rem; --s4: 1rem;
+  --s5: 1.5rem; --s6: 2rem; --s7: 3rem; --s8: 4.5rem; --s9: 7rem;
+
+  --radius: 14px;
+  --radius-sm: 4px;
+  --radius-full: 9999px;
+
+  --line: 1px solid var(--hairline);
+  --focus: #4A6B7C;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #1B1E20;
+    --raised: #24282A;
+    --ink: #ECEAE4;
+    --ink-2: #99A0A3;
+    --hairline: #343A3D;
+    --accent: #313E3B;
+    --plate-substrate: #313E3B;
+    --plate-boundary: #46514D;
+    --plate-outside: #574E42;
+    --plate-dx: 0px;
+    --plate-dy: 0px;
+    --plate-bar: 6px;
+    --plate-alpha: 1;
+    --focus: #9EC3B5;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #1B1E20;
+  --raised: #24282A;
+  --ink: #ECEAE4;
+  --ink-2: #99A0A3;
+  --hairline: #343A3D;
+  --accent: #313E3B;
+  --plate-substrate: #313E3B;
+  --plate-boundary: #46514D;
+  --plate-outside: #574E42;
+  --plate-dx: 0px;
+  --plate-dy: 0px;
+  --plate-bar: 6px;
+  --plate-alpha: 1;
+  --focus: #9EC3B5;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: 'Lexend', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 350;
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(a):focus-visible,
+:where(button):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- sheet & plates ---------- */
+
+.sheet {
+  max-width: var(--sheet);
+  margin: 0 auto;
+  padding: 0 var(--s5) var(--s9);
+}
+
+.plate {
+  padding-block: var(--s8);
+  border-top: var(--line);
+}
+.plate:first-of-type { border-top: 0; }
+
+.plate__no {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  color: var(--ink-2);
+  display: block;
+  margin-bottom: var(--s3);
+}
+
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+
+h2 {
+  font-family: 'Lexend', sans-serif;
+  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -.01em;
+  max-width: 34ch;
+}
+
+h3 {
+  font-family: 'Lexend', sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: .01em;
+}
+
+.lede {
+  font-family: 'Lora', Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.0625rem, 1rem + .4vw, 1.25rem);
+  font-weight: 400;
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin-top: var(--s4);
+  color: var(--ink);
+}
+
+p { max-width: var(--measure); }
+
+.note {
+  font-size: .875rem;
+  line-height: 1.5;
+  letter-spacing: .01em;
+  color: var(--ink-2);
+  max-width: 68ch;
+}
+
+code, .mono {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: .8125em;
+  font-weight: 400;
+}
+code {
+  background: var(--accent);
+  color: var(--ink);
+  padding: .1em .34em;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- cover ---------- */
+
+.cover { padding-block: var(--s9) var(--s8); }
+
+.cover__eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.cover h1 {
+  font-family: 'Lora', Georgia, serif;
+  font-size: clamp(2.25rem, 1.4rem + 4.2vw, 4.25rem);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -.02em;
+  margin-top: var(--s5);
+  max-width: 26ch;
+}
+
+.cover h1 em {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.cover__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  margin-top: var(--s6);
+  padding-top: var(--s4);
+  border-top: var(--line);
+  font-size: .8125rem;
+  letter-spacing: .02em;
+  color: var(--ink-2);
+  max-width: 68rem;
+}
+.cover__meta b { color: var(--ink); font-weight: 500; }
+
+/* ---------- stat strip ---------- */
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s5);
+  margin-top: var(--s7);
+}
+.strip div { display: flex; flex-direction: column; gap: var(--s1); }
+.strip dt, .strip .k {
+  font-size: .75rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.strip .v {
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- the misregistered card ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: var(--s6) var(--s5);
+  margin-top: var(--s6);
+}
+
+.card { position: relative; isolation: isolate; }
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  translate: var(--plate-dx) var(--plate-dy);
+  background: var(--plate);
+  opacity: var(--plate-alpha);
+  border-radius: var(--radius);
+  z-index: -1;
+}
+
+.card__body {
+  position: relative;
+  background: var(--raised);
+  border: var(--line);
+  border-left: max(var(--plate-bar), 1px) solid var(--plate);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.card[data-fam="substrate"] { --plate: var(--plate-substrate); }
+.card[data-fam="boundary"]  { --plate: var(--plate-boundary); }
+.card[data-fam="outside"]   { --plate: var(--plate-outside); }
+
+.card__id {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .08em;
+  color: var(--ink-2);
+}
+
+.card dl { margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.card dt {
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: var(--s1);
+}
+.card dd { margin: 0; font-size: .9375rem; line-height: 1.5; }
+.card dd.rule { font-weight: 400; }
+
+.card__binds {
+  margin-top: auto;
+  padding-top: var(--s3);
+  border-top: var(--line);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: .6875rem;
+  letter-spacing: .02em;
+  color: var(--ink-2);
+}
+
+.card[hidden] { display: none; }
+
+/* ---------- filter ---------- */
+
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s5);
+  align-items: center;
+}
+.filter__label {
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-right: var(--s2);
+}
+.chip {
+  font-family: 'Lexend', sans-serif;
+  font-size: .8125rem;
+  font-weight: 400;
+  letter-spacing: .01em;
+  color: var(--ink);
+  background: var(--raised);
+  border: var(--line);
+  border-radius: var(--radius-full);
+  padding: .34rem .85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+}
+.chip:hover { border-color: var(--ink-2); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: transparent; font-weight: 500; }
+.chip .dot { width: .55rem; height: .55rem; border-radius: 50%; display: inline-block; }
+.chip .n {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .6875rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- figure / svg ---------- */
+
+figure {
+  margin: var(--s6) 0 0;
+  background: var(--raised);
+  border: var(--line);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  overflow-x: auto;
+}
+figure svg { display: block; width: 100%; height: auto; min-width: 30rem; }
+figcaption {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: var(--line);
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 72ch;
+}
+
+.dia-ink { fill: var(--ink); }
+.dia-ink-2 { fill: var(--ink-2); }
+.dia-stroke { stroke: var(--ink); fill: none; stroke-width: 1.4; }
+.dia-hair { stroke: var(--hairline); fill: none; stroke-width: 1.2; }
+.dia-box { fill: var(--raised); stroke: var(--ink); stroke-width: 1.4; }
+.dia-label {
+  font-family: 'Lexend', sans-serif;
+  font-size: 12px;
+  font-weight: 450;
+  letter-spacing: .01em;
+}
+.dia-mono {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .02em;
+}
+.dia-cap {
+  font-family: 'Lexend', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* ---------- quote ---------- */
+
+blockquote {
+  margin: var(--s6) 0 0;
+  padding-left: var(--s5);
+  border-left: 3px solid var(--accent);
+  max-width: 58ch;
+}
+blockquote p {
+  font-family: 'Lora', Georgia, serif;
+  font-size: 1.125rem;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+}
+blockquote cite {
+  display: block;
+  margin-top: var(--s3);
+  font-family: 'Lexend', sans-serif;
+  font-size: .75rem;
+  font-style: normal;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ---------- tables ---------- */
+
+.tw { overflow-x: auto; margin-top: var(--s6); border: var(--line); border-radius: var(--radius); background: var(--raised); }
+table { border-collapse: collapse; width: 100%; min-width: 34rem; }
+caption { text-align: left; padding: var(--s4) var(--s5) 0; font-size: .8125rem; color: var(--ink-2); }
+th, td {
+  text-align: left;
+  padding: var(--s3) var(--s5);
+  font-size: .875rem;
+  line-height: 1.45;
+  border-bottom: var(--line);
+  vertical-align: top;
+}
+thead th {
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+tbody tr:last-child td { border-bottom: 0; }
+td .mono { font-size: .8125rem; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.tag {
+  display: inline-block;
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: .16rem .5rem;
+  border-radius: var(--radius-full);
+  border: var(--line);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tag--ok { background: var(--accent); border-color: transparent; color: var(--ink); }
+
+/* ---------- holes list ---------- */
+
+.holes { margin-top: var(--s6); display: flex; flex-direction: column; gap: var(--s5); }
+.hole {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: var(--s5);
+  padding-bottom: var(--s5);
+  border-bottom: var(--line);
+}
+.hole:last-child { border-bottom: 0; padding-bottom: 0; }
+.hole__id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .8125rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+.hole h3 { margin-bottom: var(--s2); }
+.hole p { margin: 0 0 var(--s2); font-size: .9375rem; }
+.hole .fix {
+  font-size: .875rem;
+  padding-top: var(--s2);
+}
+.hole .fix b { font-weight: 500; }
+
+/* ---------- tree ---------- */
+
+pre.tree {
+  margin: var(--s6) 0 0;
+  background: var(--raised);
+  border: var(--line);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  overflow-x: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .8125rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+pre.tree b { font-weight: 500; }
+pre.tree span { color: var(--ink-2); }
+
+/* ---------- two-col ---------- */
+
+.two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--s6);
+  margin-top: var(--s6);
+}
+.two > div > h3 { margin-bottom: var(--s3); }
+.two ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: var(--s2); }
+.two li { font-size: .9375rem; line-height: 1.5; }
+
+.foot {
+  margin-top: var(--s8);
+  padding-top: var(--s5);
+  border-top: var(--line);
+  font-size: .8125rem;
+  color: var(--ink-2);
+}
+.foot p { max-width: 74ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<main class="sheet">
+
+  <header class="cover">
+    <span class="cover__eyebrow">Espina de arquitectura · build de validación</span>
+    <h1>Del día no se guarda nada.<br><em>Se deriva.</em></h1>
+    <p class="lede">Y de ahí se cae solo casi todo lo demás: el replanificador silencioso deja de ser código, la vuelta después de seis días fuera no necesita camino propio, y «vencido» no queda prohibido — queda <strong>inexpresable</strong>.</p>
+
+    <div class="cover__meta">
+      <span><b>Organizador de tareas antiagobio</b> · Android, un usuario, sin cuenta</span>
+      <span>Flutter <b>3.47.1</b></span>
+      <span>Paradigma: <b>núcleo funcional / cáscara imperativa</b></span>
+      <span>26 ago 2026 · actualizado 27 ago 2026</span>
+    </div>
+
+    <dl class="strip">
+      <div><dt class="k">Decisiones</dt><dd class="v">26</dd></div>
+      <div><dt class="k">Ligadas a</dt><dd class="v">32 FR</dd></div>
+      <div><dt class="k">Guardas mecánicas</dt><dd class="v">8</dd></div>
+      <div><dt class="k">Rondas de gate</dt><dd class="v">5</dd></div>
+      <div><dt class="k">OQ del PRD cerradas</dt><dd class="v">3</dd></div>
+    </dl>
+  </header>
+
+  <!-- ================= 01 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 01 — EL SUSTRATO</span>
+    <h2>Un registro de lo que hiciste no puede contener lo que no hiciste</h2>
+    <p class="lede">El PRD pide dos cosas que parecen de vigilancia y son de estructura: que la composición del día sea regenerable, y que ningún campo pueda expresar retraso. La respuesta no es vigilarlas. Es hacerlas imposibles.</p>
+
+    <blockquote>
+      <p>Las señales internas que un mecanismo necesita cuentan solo lo que el usuario hizo, nunca lo que no hizo.</p>
+      <cite>PRD §1.1, principio 2</cite>
+    </blockquote>
+
+    <p class="note" style="margin-top:var(--s5)">Esa frase, leída como contrato de almacenamiento, describe un log <em>append-only</em>. Pero «lo que el usuario hizo» resultó ser demasiado estrecho: FR-26 necesita registrar que se emitió una invitación y que la app se abrió, y eso no lo origina nadie. El invariante correcto es más afilado y aguanta las dos cosas: <strong>ninguna entrada puede afirmar una ausencia ni una obligación.</strong> <code>invitation_emitted</code> es un hecho. <em>Vencido</em> no lo es, y sigue sin caber.</p>
+
+    <figure>
+      <svg viewBox="0 0 900 340" role="img" aria-labelledby="f1t f1d">
+        <title id="f1t">Qué se guarda y qué se deriva</title>
+        <desc id="f1d">A la izquierda, dos almacenes: hechos del pool y el log de actos. En el centro, una función pura. A la derecha, todo lo que se deriva: la composición del día, la siguiente carta y las señales invisibles. No hay almacén de plan.</desc>
+
+        <text class="dia-cap dia-ink-2" x="0" y="14">SE GUARDA · hechos inmutables</text>
+        <text class="dia-cap dia-ink-2" x="352" y="14">FUNCIÓN PURA</text>
+        <text class="dia-cap dia-ink-2" x="608" y="14">SE DERIVA · nada persistido</text>
+
+        <!-- stores -->
+        <rect x="4" y="34" width="240" height="72" rx="10" fill="var(--plate-substrate)" transform="translate(7,7)"/>
+        <rect x="4" y="34" width="240" height="72" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="22" y="60">Pool</text>
+        <text class="dia-mono dia-ink-2" x="22" y="80">catálogo · capturas · pasos epic</text>
+        <text class="dia-mono dia-ink-2" x="22" y="96">nada se edita nunca</text>
+
+        <rect x="4" y="126" width="240" height="88" rx="10" fill="var(--plate-substrate)" transform="translate(7,7)"/>
+        <rect x="4" y="126" width="240" height="88" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="22" y="152">Log de actos</text>
+        <text class="dia-mono dia-ink-2" x="22" y="172">card_dealt · card_done · skipped</text>
+        <text class="dia-mono dia-ink-2" x="22" y="188">session_started · energy_set</text>
+        <text class="dia-mono dia-ink-2" x="22" y="204">setting_changed · item_triaged</text>
+
+        <rect x="4" y="234" width="240" height="52" rx="10" class="dia-box" stroke-dasharray="4 4"/>
+        <text class="dia-label dia-ink-2" x="22" y="256">Calendario</text>
+        <text class="dia-mono dia-ink-2" x="22" y="274">día · semana · estación</text>
+
+        <!-- arrows in -->
+        <path class="dia-stroke" d="M248 70 L340 140"/>
+        <path class="dia-stroke" d="M248 170 L340 162"/>
+        <path class="dia-stroke" d="M248 260 L340 184"/>
+
+        <!-- function -->
+        <rect x="346" y="112" width="188" height="100" rx="10" fill="var(--plate-boundary)" transform="translate(7,7)"/>
+        <rect x="346" y="112" width="188" height="100" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="440" y="150" text-anchor="middle">weave</text>
+        <text class="dia-mono dia-ink-2" x="440" y="172" text-anchor="middle">sin azar</text>
+        <text class="dia-mono dia-ink-2" x="440" y="188" text-anchor="middle">sin reloj propio</text>
+
+        <path class="dia-stroke" d="M538 148 L600 108"/>
+        <path class="dia-stroke" d="M538 162 L600 176"/>
+        <path class="dia-stroke" d="M538 176 L600 244"/>
+
+        <!-- derived -->
+        <rect x="606" y="76" width="290" height="58" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="624" y="100">Exactamente una carta</text>
+        <text class="dia-mono dia-ink-2" x="624" y="120">nextCard() — nunca una colección</text>
+
+        <rect x="606" y="148" width="290" height="58" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="624" y="172">La composición 1-3-5 de hoy</text>
+        <text class="dia-mono dia-ink-2" x="624" y="192">regenerable por construcción</text>
+
+        <rect x="606" y="220" width="290" height="90" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="624" y="244">Las señales invisibles</text>
+        <text class="dia-mono dia-ink-2" x="624" y="264">3 rechazos · días cómodos</text>
+        <text class="dia-mono dia-ink-2" x="624" y="280">ventana de reparto</text>
+        <text class="dia-mono dia-ink-2" x="624" y="296">fecha objetivo con buffer</text>
+
+        <line class="dia-hair" x1="0" y1="326" x2="900" y2="326"/>
+        <text class="dia-mono dia-ink-2" x="0" y="338">No existe DAILY_PLAN. No existe SESSION. Ninguna entidad lleva fecha de vencimiento, cuenta de aplazamientos ni ratio de cumplimiento.</text>
+      </svg>
+      <figcaption>Lo que el diagrama hace desaparecer: FR-14, el «replanificador silencioso», no es código — nada se asignó nunca a un día futuro, así que no hay nada que replanificar. FR-6, la vuelta cálida, no necesita camino propio — no hay backlog que ocultar. Dos requisitos que dejan de ser funciones.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ================= 02 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 02 — LAS VEINTISÉIS DECISIONES</span>
+    <h2>Solo lo que dos unidades podrían elegir de forma incompatible</h2>
+    <p class="note" style="margin-top:var(--s4)">Nada aquí es una preferencia de estilo ni algo que se pueda leer del código una vez escrito. El matiz de la plancha marca la familia: <strong>sustrato</strong> (cómo vive el estado), <strong>fronteras</strong> (quién puede depender de qué y construir qué), <strong>exterior</strong> (egreso, confianza y el sobre operacional).</p>
+
+    <div class="filter" role="group" aria-label="Filtrar decisiones por familia">
+      <span class="filter__label">Familia</span>
+      <button class="chip" type="button" data-f="all" aria-pressed="true">Todas <span class="n">26</span></button>
+      <button class="chip" type="button" data-f="substrate" aria-pressed="false"><span class="dot" style="background:var(--plate-substrate)"></span>Sustrato <span class="n">10</span></button>
+      <button class="chip" type="button" data-f="boundary" aria-pressed="false"><span class="dot" style="background:var(--plate-boundary)"></span>Fronteras <span class="n">7</span></button>
+      <button class="chip" type="button" data-f="outside" aria-pressed="false"><span class="dot" style="background:var(--plate-outside)"></span>Exterior <span class="n">9</span></button>
+    </div>
+
+    <div class="cards" id="grid">
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-1</span>
+        <h3>No se guarda ningún plan; el día se deriva</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que una unidad construya <code>daily_plan</code> y otra derive. No pueden coexistir, y la que guarda hace expresable el retraso.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Persistir solo hechos del pool y actos — cambios de ajustes incluidos, para que el export sepa cuánto valía el Time Bag el día 5. El sobre de credenciales y el destino SAF son <strong>capacidades de instalación</strong>, no estado re-ejecutable.</dd></div>
+        </dl>
+        <p class="card__binds">FR-3 · 4 · 5 · 6 · 7 · 9 · 12 · 13 · 14 · 23 · 26 · §7</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-2</span>
+        <h3>Las dos tablas son insert-only, y lo impone la base de datos</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que la garantía de «sin vencidos» degenere en disciplina. SQLite pone <code>UPDATE</code> a un teclazo — en cualquiera de las dos tablas del sustrato.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Triggers SQL que revientan en <code>UPDATE</code> y <code>DELETE</code> en <strong>actos y pool</strong>. Una corrección es un acto nuevo; una retirada del pool es derivación, nunca una fila borrada.</dd></div>
+        </dl>
+        <p class="card__binds">AD-1 · 14 · 21 · 25 · FR-14 · 26 · §7</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-3</span>
+        <h3>La derivación es determinista y no tiene azar</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Un log no reproducible. Con azar, el export deja de valer como prueba de validación y el suelo de cobertura de FR-31 no se puede demostrar.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Ni <code>Random</code>, ni reloj de pared, ni estado ambiente en el núcleo. Empates: menos-recientemente-repartido, luego id estable.</dd></div>
+        </dl>
+        <p class="card__binds">FR-3 · 4 · 12 · 26 · 31 · SM-1…4</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-4</span>
+        <h3>Una sola autoridad de calendario</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Seis significados de «día» y dos relojes. Y un nivel más arriba: la semana y la estación también cargan peso y no estaban definidas en ningún sitio.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Día = <code>[04:00, 04:00)</code>. Semana de siete días domésticos anclada en lunes; el informe de SM-2 vive solo el domingo y expira en el borde. Estación = trimestre meteorológico. La hora de la invitación se interpreta en la zona vigente a cada reprogramación — sigue al usuario. Nada más calcula un límite de fecha.</dd></div>
+        </dl>
+        <p class="card__binds">FR-5 · 6 · 7 · 12 · 15 · 21 · 24 · 31 · SM-1 · SM-2</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-19</span>
+        <h3>No hay sesión de registro; la sesión también se deriva</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>El único hueco que AD-1 dejó abierto. Una unidad la guarda en un provider, otra la reconstruye del log — y al morir el proceso a media sesión, la primera reparte carta nueva y la segunda retoma el bolsillo.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Una sesión es <code>session_started</code> sin <code>session_ended</code> y pertenece al día de su propio inicio. El avance — <strong>todo acto <code>card_*</code> de la sesión, más ocupación y rotación</strong> — es un solo libro de caja cargado al día de la sesión. El cierre de FR-3 es la primera causa de fin; un bolsillo agotado se revela, no se espera.</dd></div>
+        </dl>
+        <p class="card__binds">FR-8 · 9 · 10 · 12 · AD-1</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-20</span>
+        <h3>Un solo resolutor posee la ranura del Focus Chunk</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Dos items grandes en un día — un maratón con una coma — llegando legítimamente desde dos sitios: el Weaver reclama la ranura y la precedencia de capturas también.</dd></div>
+          <div><dt>Regla</dt><dd class="rule"><code>core/weave</code> es lo único que puede emitir un reparto. La ranura que cierra un <code>card_done</code> es <strong>el día de la sesión que la repartió, y ningún otro</strong> — una sesión que cruza las 04:00 nunca ocupa la ranura del día cruzado. El <em>dealt</em> de FR-7 se lee como respondido <code>Hecho</code>, override registrado. Con varias Epics activas: la menos recientemente servida.</dd></div>
+        </dl>
+        <p class="card__binds">FR-4 · 5 · 7 · 12 · 19 · 27 · 31</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-5</span>
+        <h3>La dirección de dependencia es de un solo sentido y el núcleo está sellado</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que el núcleo adquiera un import de Flutter, drift o un plugin — y con ello pierda la testabilidad de la que dependen todos los invariantes.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Un check de CI revienta si aparece. Y los adaptadores devuelven DTO inertes, nunca objetos de dominio: solo el núcleo construye un item del pool.</dd></div>
+        </dl>
+        <p class="card__binds">todo</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-6</span>
+        <h3>NL-1 vive en la API de lectura, no en las pantallas</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que dos historias hagan crecer cada una su <code>getPendingTasks()</code> por un motivo razonable, y a partir de ahí la lista quede a un widget de distancia para siempre.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Ninguna función devuelve una colección de tareas pendientes. Los contadores se calculan dentro y salen como decisiones opacas, jamás como números.</dd></div>
+        </dl>
+        <p class="card__binds">FR-1 · 27 · NL-1 · §1.1 P1 · E1</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-11</span>
+        <h3>Canal propio solo donde la garantía <em>es</em> una API del sistema</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que una historia cablee FR-24, FR-32 o la custodia de la clave por un paquete cómodo y anule la propiedad en la que descansa el requisito.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Tres canales nuestros: notificación (<code>IMPORTANCE_LOW</code>, creado una vez), dictado (<code>createOnDeviceSpeechRecognizer</code>, que fuerza on-device y falla en vez de caer a cloud) y <strong>credenciales</strong> (KeyStore guarda solo la wrapping key AEAD no exportable; el sobre cifrado vive en Files). El resto, plugin.</dd></div>
+        </dl>
+        <p class="card__binds">FR-24 · 28 · 32 · §7</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-14</span>
+        <h3>El origen se fija en la génesis y es inmutable</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que SM-4 deje de ser legible. Una línea escrita a mano y recortada por el Slicer cloud entró al pool a mano.</dd></div>
+          <div><dt>Regla</dt><dd class="rule"><code>shipped</code> / <code>manual</code> / <code>local</code> / <code>cloud</code>, escrito una vez. Los pasos de rescate <strong>heredan</strong>. El origen no llega nunca al Dispenser.</dd></div>
+        </dl>
+        <p class="card__binds">FR-5 · 26 · 27 · 31 · SM-4</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-15</span>
+        <h3>Una tabla plana de strings, sin concatenación en runtime</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que la auditoría antivergüenza sea irrevisable. Una frase montada en runtime no se puede leer en una tabla.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Un check de build revienta si alguna de las siete cadenas sin-Slicer de FR-29 está vacía o sigue siendo un placeholder de programador.</dd></div>
+        </dl>
+        <p class="card__binds">FR-29 · §7 · SM-C2</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-16</span>
+        <h3>El catálogo Evergreen es un asset de build con prueba de build</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que el catálogo derive hacia una base de datos que el usuario pueda alcanzar, y que el suelo de cobertura quede como afirmación sin verificar.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Fichero de datos de solo lectura. Una herramienta cuenta las entradas distintas de 10–15 min no diarias y revienta el build por debajo de 28.</dd></div>
+        </dl>
+        <p class="card__binds">FR-11 · 12 · 29 · 31</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-7</span>
+        <h3>Un solo estrangulamiento de egreso, tres payloads, un tope de resolución</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que llegue un cuarto destino sin que nadie haya decidido añadirlo — el miedo que §7 declara y la razón por la que FR-32 prohíbe el fallback de voz.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Solo <code>lib/egress/</code> puede importar un cliente HTTP, y un check de CI lo verifica. Ni cola, ni reintento, ni petición pendiente persistida.</dd></div>
+        </dl>
+        <p class="card__binds">FR-5 · 11 · 16 · 25 · 26 · 30 · 32 · §7</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-8</span>
+        <h3>El consentimiento es un token de un solo uso que la firma exige</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Un consentimiento cacheado, es decir el «permitir siempre» que FR-25 dice que no debe existir.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Sin <code>ScanConsent</code> ligado a <em>esa</em> imagen no se puede llamar a subir: imposibilidad de compilación, no comprobación en runtime. El acto que lo registra es instrumentación y no otorga capacidad.</dd></div>
+        </dl>
+        <p class="card__binds">FR-16 · 25 · 29</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-9</span>
+        <h3>El Slicer es un puerto con dos implementaciones reales en el build</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Una abstracción sin probar. FR-28 exige dos llamadores para que la intercambiabilidad se ejercite en vez de afirmarse.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">BYOK usable; Local como stub de corte enlatado alcanzable <strong>solo en debug</strong>. La allowlist es una constante de compilación, nunca se descarga.</dd></div>
+        </dl>
+        <p class="card__binds">FR-5 · 11 · 16 · 28 · 29 · OQ-1</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-10</span>
+        <h3>La puerta es no-entrenamiento; el tier de la clave es del usuario</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Maquinaria compensatoria para una garantía que la app no está en posición de dar: avisos recurrentes, indicadores de antigüedad, re-chequeos, retiradas silenciosas.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">La entrada de clave dice <strong>una vez</strong> que una clave gratuita puede usarse para entrenar y que la app no distingue el tier. Nada lo repite. Los términos rancios se corrigen embarcando un build.</dd></div>
+        </dl>
+        <p class="card__binds">FR-25 · 28 · OQ-10</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-12</span>
+        <h3>El mapa de egreso es una lista cerrada</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que lleguen de uno en uno, cada uno defendible por separado: reporte de crashes, config remota, feature flags, un SDK de «diagnóstico».</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Ningún SDK de terceros que abra un destino de red, por ningún motivo. El crash se escribe local, en la mitad derivada del export, sin texto de tareas ni rutas de imagen.</dd></div>
+        </dl>
+        <p class="card__binds">FR-26 · §7 · SM-C3</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-13</span>
+        <h3>El export tiene mitad autoritativa y mitad derivada</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Un restore desde el resumen que pierde datos en silencio, un export que se pueda contradecir consigo mismo, y un corte a mitad de escritura que deje vintages mezclados.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Generaciones inmutables con manifiesto de commit canónico y secuencia; un coordinador único serializa todo. El import elige la mayor generación <em>totalmente verificada</em> — cortes y visibilidad parcial del proveedor caen en la generación anterior, nunca en un restore a medias. La tolerancia del import es la de AD-23: el ritual de AD-18 importa un export hecho por <em>otro</em> build.</dd></div>
+        </dl>
+        <p class="card__binds">FR-18 · 26 · 30 · §7 · AD-23</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-17</span>
+        <h3>Permisos y trabajo en background</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Un muro de permisos en el primer arranque, una segunda categoría de notificación, y un permiso de alarma exacta pedido para un ping sin contenido.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Tres permisos, cada uno en el momento de su primer uso. Alarma <strong>inexacta</strong>, una por día doméstico. La invitación es el único trabajo en background del build.</dd></div>
+        </dl>
+        <p class="card__binds">FR-16 · 24 · 32 · §7 · OQ-8</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-18</span>
+        <h3>El camino de actualización es el camino de restore</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que un arreglo a mitad de ventana le cueste sus datos a la validación, y que el import siga siendo una promesa sin probar.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Mismo keystore de firma siempre. El ritual: exportar en los tres teléfonos, instalar encima, importar si la migración falla.</dd></div>
+        </dl>
+        <p class="card__binds">FR-30 · SM-1 · SM-2 · §8</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-21</span>
+        <h3>El log lleva actos de usuario y eventos de sistema; ninguna entrada afirma una ausencia</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que cuatro historias inventen cada una un sitio para lo que no origina el usuario. Una lo mete en el log y otra guarda la última emisión en <code>SharedPreferences</code> — un tercer almacén, fuera del export, invisible al test de ida y vuelta. Y con ello <strong>SM-C3 pierde el único test que el PRD le da</strong>.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Ocho eventos de sistema, enumerados — el octavo es <code>export_recorded</code>, el hogar duradero de la observabilidad de FR-30. Legibles solo por <code>core/export</code> y las series, con tres excepciones declaradas. <strong>Sello de almacenamiento</strong>: Store, Folder y Files; solo CredentialVault puede llamar a AndroidKeyStore, y solo por la wrapping key.</dd></div>
+        </dl>
+        <p class="card__binds">FR-24 · 25 · 26 · 29 · 30 · SM-C3</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-23</span>
+        <h3>El sustrato tiene una teoría de su propia evolución</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>El riesgo que crea AD-18 y que nada más cubría: instalar builds nuevos <em>durante</em> las cuatro semanas que producen la evidencia, mientras AD-2 prohíbe reescribir lo grabado. Un build que renombre un tipo o reemita ids del catálogo cambia en silencio toda lectura derivada del teléfono actualizado.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Tipos desconocidos se toleran y se ignoran. Payloads solo aditivos. Ids del catálogo permanentes, con un check que los diffea contra la release anterior.</dd></div>
+        </dl>
+        <p class="card__binds">AD-1 · 2 · 3 · 16 · 18 · FR-26 · 31 · SM-1</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-24</span>
+        <h3>Un solo predicado para «día elegible»</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que dos contadores avancen sobre conjuntos de días distintos. La ventana de captura de FR-12 y el contador de FR-5 se congelan igual —el PRD dice que son el mismo mecanismo— y ningún AD decía qué es un día elegible. Una captura repartida el día 3 en un build y el 6 en el otro.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Un <code>EligibleDay(item, día)</code> en <code>core/derive</code> y ninguna historia define un segundo. La energía de una sesión es el último <code>energy_set</code> <strong>del propio día de esa sesión</strong> — el 🔴 de ayer no congela las ventanas de hoy. Un hermano sirve a FR-6: <code>warmReturnDue</code>.</dd></div>
+        </dl>
+        <p class="card__binds">FR-4 · 5 · 6 · 12 · 27</p>
+      </div></article>
+
+      <article class="card" data-fam="substrate"><div class="card__body">
+        <span class="card__id">AD-25</span>
+        <h3>La pertenencia al pool es derivada; nada sintetiza una compleción</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que una unidad añada un <code>card_done</code> sintético para el padre de un rescate — con lo que la serie (a) lee cinco compleciones por un rescate de cuatro pasos y SM-C1 lee tareas-por-día <em>hacia arriba</em> por un mecanismo que existía para hacer la tarea más pequeña.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Dos causas derivadas de retirada, ninguna lápida, ninguna compleción sintética. La disolución retira <strong>el ítem original y todo paso no completado de la cadena, atómicamente</strong> — un hermano superviviente sería un fragmento retejido para siempre. Toda cuenta de compleciones cuenta actos de usuario y nada más.</dd></div>
+        </dl>
+        <p class="card__binds">FR-5 · 12 · 17 · 26 · SM-C1</p>
+      </div></article>
+
+      <article class="card" data-fam="outside"><div class="card__body">
+        <span class="card__id">AD-22</span>
+        <h3>La wrapping key es del KeyStore; la credencial es un sobre cifrado en Files</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que una historia razonable exporte la clave del proveedor — el log va en la mitad autoritativa y FR-30 lo escribe en una carpeta que §7 anticipa que sea Drive. Y también la formulación imposible de «la clave vive en el keystore»: KeyStore no admite cadenas arbitrarias.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">KeyStore: una wrapping key AEAD no exportable. La credencial: sobre cifrado por proveedor en Files, nunca preferencias. El texto claro solo existe al guardarlo o dentro de <code>withCredential</code>, por petición, sin caché. <code>credentialAvailable</code> es estado de pantalla, jamás autorización; tras restore, la elección queda y la credencial no.</dd></div>
+        </dl>
+        <p class="card__binds">FR-25 · 28 · 30 · §7</p>
+      </div></article>
+
+      <article class="card" data-fam="boundary"><div class="card__body">
+        <span class="card__id">AD-26</span>
+        <h3>La superficie del validador es el único sitio donde un número puede cruzar</h3>
+        <dl>
+          <div><dt>Evita</dt><dd>Que la regla de opacidad de AD-6 se lea como absoluta, que no puede serlo: el dashboard de FR-23 muestra <code>4 h 25 min</code>, y §7 <em>exige</em> que las series crudas se puedan leer en algún sitio. Sin partir la regla, una unidad prudente se niega a pintar el dashboard y otra descuidada expone el contador de rechazos, ambas citando la misma frase.</dd></div>
+          <div><dt>Regla</dt><dd class="rule">Cifras de logro pueden cruzar y solo al dashboard, con la regla del denominador. Señales internas no cruzan nunca como números. Las series crudas, solo en Ajustes — alcanzable desde el Dispenser por <strong>una única aforranza callada, en el chrome del Dispenser</strong>.</dd></div>
+        </dl>
+        <p class="card__binds">FR-23 · 26 · 30 · 32 · §7 · SM-C1 · SM-C2</p>
+      </div></article>
+
+    </div>
+  </section>
+
+  <!-- ================= 03 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 03 — LAS FRONTERAS</span>
+    <h2>El núcleo no sabe que existe un teléfono</h2>
+    <p class="lede">Dart puro, sin Flutter, sin drift, sin plugins. No porque haga falta portabilidad, sino porque es la pieza donde viven los invariantes que más duelen si se rompen — y sin Android en medio se ejercitan con <code>dart test</code>, sin emulador.</p>
+
+    <figure>
+      <svg viewBox="0 0 900 412" role="img" aria-labelledby="f2t f2d">
+        <title id="f2t">Dirección de dependencia</title>
+        <desc id="f2d">Las superficies dependen de la fachada de lectura y de los comandos de acto. Ambos dependen del núcleo. El núcleo declara siete puertos. Cada puerto lo implementa un adaptador. Ninguna flecha apunta hacia dentro desde un adaptador.</desc>
+
+        <text class="dia-cap dia-ink-2" x="0" y="14">SUPERFICIES</text>
+        <text class="dia-cap dia-ink-2" x="256" y="14">NÚCLEO · DART PURO</text>
+        <text class="dia-cap dia-ink-2" x="530" y="14">PUERTOS</text>
+        <text class="dia-cap dia-ink-2" x="716" y="14">ADAPTADORES</text>
+
+        <rect x="4" y="150" width="150" height="86" rx="10" fill="var(--plate-boundary)" transform="translate(7,7)"/>
+        <rect x="4" y="150" width="150" height="86" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="22" y="180">ui/</text>
+        <text class="dia-mono dia-ink-2" x="22" y="200">solo la fachada</text>
+        <text class="dia-mono dia-ink-2" x="22" y="216">de lectura</text>
+
+        <path class="dia-stroke" d="M158 193 L250 193"/>
+
+        <rect x="256" y="88" width="244" height="212" rx="10" fill="var(--plate-substrate)" transform="translate(9,9)"/>
+        <rect x="256" y="88" width="244" height="212" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="276" y="118">packages/core</text>
+        <text class="dia-mono dia-ink-2" x="276" y="146">day · pool · acts</text>
+        <text class="dia-mono dia-ink-2" x="276" y="164">weave · derive</text>
+        <text class="dia-mono dia-ink-2" x="276" y="182">export</text>
+        <line class="dia-hair" x1="276" y1="200" x2="480" y2="200"/>
+        <text class="dia-mono dia-ink-2" x="276" y="222">sin flutter</text>
+        <text class="dia-mono dia-ink-2" x="276" y="240">sin drift</text>
+        <text class="dia-mono dia-ink-2" x="276" y="258">sin plugins</text>
+        <text class="dia-mono dia-ink-2" x="276" y="282">un check de CI lo vigila</text>
+
+        <g class="dia-stroke">
+          <path d="M504 116 L556 68"/><path d="M504 146 L556 116"/><path d="M504 176 L556 164"/>
+          <path d="M504 206 L556 212"/><path d="M504 236 L556 260"/><path d="M504 266 L556 308"/>
+          <path d="M504 296 L556 356"/>
+        </g>
+
+        <g>
+          <rect x="560" y="52" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="72">Store</text>
+          <rect x="560" y="100" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="120">Slicer</text>
+          <rect x="560" y="148" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="168">Clock</text>
+          <rect x="560" y="196" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="216">Notifier</text>
+          <rect x="560" y="244" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="264">Recognizer</text>
+          <rect x="560" y="292" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="312">Folder</text>
+          <rect x="560" y="340" width="128" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="576" y="360">Files</text>
+        </g>
+
+        <g class="dia-stroke">
+          <path d="M692 68 L740 68"/><path d="M692 116 L740 116"/><path d="M692 164 L740 164"/>
+          <path d="M692 212 L740 212"/><path d="M692 260 L740 260"/><path d="M692 308 L740 308"/>
+          <path d="M692 356 L740 356"/>
+        </g>
+
+        <g>
+          <rect x="744" y="52" width="152" height="32" rx="8" fill="var(--plate-outside)" transform="translate(5,5)"/>
+          <rect x="744" y="52" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="72">store/ — drift</text>
+          <rect x="744" y="100" width="152" height="32" rx="8" fill="var(--plate-outside)" transform="translate(5,5)"/>
+          <rect x="744" y="100" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="120">egress/ — el único HTTP</text>
+          <rect x="744" y="148" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="168">plugins/</text>
+          <rect x="744" y="196" width="152" height="32" rx="8" fill="var(--plate-outside)" transform="translate(5,5)"/>
+          <rect x="744" y="196" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="216">platform/notify ★</text>
+          <rect x="744" y="244" width="152" height="32" rx="8" fill="var(--plate-outside)" transform="translate(5,5)"/>
+          <rect x="744" y="244" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="264">platform/dictate ★</text>
+          <rect x="744" y="292" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="312">plugins/saf_util</text>
+          <rect x="744" y="340" width="152" height="32" rx="8" fill="var(--plate-outside)" transform="translate(5,5)"/>
+          <rect x="744" y="340" width="152" height="32" rx="8" class="dia-box"/><text class="dia-mono dia-ink" x="758" y="360">files/ — álbum · sobres</text>
+        </g>
+
+        <line class="dia-hair" x1="0" y1="384" x2="900" y2="384"/>
+        <text class="dia-mono dia-ink-2" x="0" y="398">★ canal Kotlin escrito por nosotros — tres: notify, dictate y credentials. CredentialVault vive en la cáscara entre ui/, egress/ y files/, y es el único que puede llamar a AndroidKeyStore (solo por la wrapping key). Los adaptadores devuelven DTO inertes.</text>
+      </svg>
+      <figcaption>Los tres canales marcados con ★ son el precio de haber elegido Flutter, y son un precio pequeño y justificado FR a FR. El resto de puntos de contacto van por plugin, porque en ellos la garantía es nuestra propia conducta y no una propiedad del sistema que un plugin pueda degradar.</figcaption>
+    </figure>
+
+    <pre class="tree"><b>organizer/</b>
+  <b>packages/core/</b>          <span>Dart puro — sin flutter, sin drift, sin plugins</span>
+    lib/day/               <span>Calendar: la única conversión de instante a periodo</span>
+    lib/pool/              <span>hechos: entrada de catálogo, captura, paso epic</span>
+    lib/log/               <span>el vocabulario: actos de usuario + eventos de sistema</span>
+    lib/weave/             <span>composición, determinista — el único que reparte</span>
+    lib/derive/            <span>toda señal, nombrada como hecho</span>
+    lib/ports/             <span>Store · Slicer · Clock · Notifier · Recognizer · Folder · Files</span>
+    lib/export/            <span>generaciones, manifiesto de commit, como datos</span>
+  <b>lib/</b>                    <span>la cáscara Flutter</span>
+    store/                 <span>esquema drift, triggers insert-only en ambas tablas</span>
+    files/                 <span>el adaptador Files: álbum, caché de escaneo, sobres</span>
+    egress/                <span>el ÚNICO módulo que importa un cliente HTTP</span>
+    platform/notify/       <span>canal propio: un canal IMPORTANCE_LOW</span>
+    platform/dictate/      <span>canal propio: solo reconocedor on-device</span>
+    plugins/               <span>camera · mlkit face · saf_util + saf_stream</span>
+    ui/                    <span>superficies + tokens.dart</span>
+    l10n/app_es.arb        <span>LA tabla de strings</span>
+    strings/               <span>accessors generados — sin literales</span>
+  <b>assets/evergreen/</b>       <span>el catálogo: id · talla · cadencia · zona</span>
+  <b>android/…/kotlin/</b>       <span>las mitades nativas de notify, dictate y credentials</span>
+  <b>tool/</b>                   <span>los seis checks de build</span>
+  <b>test/</b>                   <span>dart test sobre el núcleo</span></pre>
+  </section>
+
+  <!-- ================= 04 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 04 — EL EXTERIOR</span>
+    <h2>Tres payloads, y nada hacia nosotros</h2>
+
+    <figure>
+      <svg viewBox="0 0 900 372" role="img" aria-labelledby="f3t f3d">
+        <title id="f3t">Mapa de egreso</title>
+        <desc id="f3d">El teléfono contiene la app, el keystore con la wrapping key, la base SQLite privada, el directorio de caché y los ficheros privados (álbum, caché, sobre de credencial). Salen dos flechas: tres payloads hacia la cuenta de proveedor del propio usuario, y ficheros de export hacia la carpeta del usuario. Hacia los desarrolladores, una flecha punteada que no lleva nada.</desc>
+
+        <rect x="4" y="34" width="380" height="292" rx="12" class="dia-hair" fill="none" stroke-dasharray="6 5"/>
+        <text class="dia-cap dia-ink-2" x="22" y="58">UN TELÉFONO ANDROID · SIN CUENTA · SIN BACKEND</text>
+
+        <rect x="26" y="76" width="150" height="52" rx="9" fill="var(--plate-substrate)" transform="translate(7,7)"/>
+        <rect x="26" y="76" width="150" height="52" rx="9" class="dia-box"/>
+        <text class="dia-label dia-ink" x="44" y="108">La app</text>
+
+        <rect x="212" y="76" width="150" height="52" rx="9" class="dia-box"/>
+        <text class="dia-mono dia-ink" x="228" y="98">Android Keystore</text>
+        <text class="dia-mono dia-ink-2" x="228" y="116">wrapping key no exportable</text>
+
+        <rect x="26" y="148" width="150" height="52" rx="9" class="dia-box"/>
+        <text class="dia-mono dia-ink" x="44" y="170">SQLite privada</text>
+        <text class="dia-mono dia-ink-2" x="44" y="188">actos + pool, insert-only</text>
+
+        <rect x="212" y="148" width="150" height="52" rx="9" class="dia-box"/>
+        <text class="dia-mono dia-ink" x="228" y="170">caché</text>
+        <text class="dia-mono dia-ink-2" x="228" y="188">foto, borrada al resolver</text>
+
+        <rect x="26" y="216" width="336" height="42" rx="9" class="dia-box"/>
+        <text class="dia-mono dia-ink" x="44" y="242">Files privados — álbum · caché · sobre de credencial cifrado</text>
+
+        <rect x="26" y="270" width="336" height="42" rx="9" class="dia-box" stroke-dasharray="4 4"/>
+        <text class="dia-mono dia-ink-2" x="44" y="296">ningún SDK de terceros que abra un destino de red</text>
+
+        <path class="dia-stroke" d="M388 100 L556 100"/>
+        <text class="dia-mono dia-ink-2" x="398" y="90">3 payloads · consentimiento por escaneo</text>
+        <rect x="560" y="62" width="336" height="86" rx="10" fill="var(--plate-outside)" transform="translate(7,7)"/>
+        <rect x="560" y="62" width="336" height="86" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="578" y="88">La cuenta de proveedor del propio usuario</text>
+        <text class="dia-mono dia-ink-2" x="578" y="110">foto + prompt · texto de génesis · texto de re-corte</text>
+        <text class="dia-mono dia-ink-2" x="578" y="132">Gemini de pago · OpenAI · Anthropic — no-entrenamiento</text>
+
+        <path class="dia-stroke" d="M388 174 L556 190"/>
+        <text class="dia-mono dia-ink-2" x="398" y="168">ficheros, nunca transmitidos</text>
+        <rect x="560" y="166" width="336" height="52" rx="10" class="dia-box"/>
+        <text class="dia-label dia-ink" x="578" y="188">La carpeta del propio usuario</text>
+        <text class="dia-mono dia-ink-2" x="578" y="208">elegida una vez por el selector del sistema</text>
+
+        <path class="dia-hair" d="M388 291 L556 270" stroke-dasharray="5 4"/>
+        <rect x="560" y="236" width="336" height="52" rx="10" class="dia-box" stroke-dasharray="4 4"/>
+        <text class="dia-label dia-ink-2" x="578" y="258">Los desarrolladores</text>
+        <text class="dia-mono dia-ink-2" x="578" y="278">nada · nunca · por ningún camino de código</text>
+
+        <line class="dia-hair" x1="0" y1="344" x2="900" y2="344"/>
+        <text class="dia-mono dia-ink-2" x="0" y="358">Audio: a ningún sitio. El reconocimiento es on-device y no tiene fallback, así que la voz no añade destino a este mapa.</text>
+      </svg>
+      <figcaption>El tope de resolución de imagen vive en la capa de egreso y sirve a tres cosas de una vez: la minimización de subida que exige FR-25, el coste, y cuánto detalle del interior de tu casa sale del dispositivo.</figcaption>
+    </figure>
+
+    <h3 style="margin-top:var(--s7)">Lo que esta sesión cambió del PRD</h3>
+    <p class="note">Un requisito «no negociable, para siempre» resultó imposible de cumplir. Se estrechó a lo que sí es verificable, y se pagó aguas arriba en la misma sesión para que la espina y el PRD no divergieran.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Antes</th><th>Ahora</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>FR-28: términos escritos de <b>no-entrenamiento y no-retención</b></td>
+            <td>Términos escritos de <b>no-entrenamiento</b>, fechados</td>
+            <td>Ningún proveedor alcanzable con clave propia ofrece retención cero por escrito — todos guardan brevemente para vigilar abusos, y la retención cero real es un contrato enterprise. Filtrar por ella habría excluido a todos los candidatos y con ellos al hook diferenciador.</td>
+          </tr>
+          <tr>
+            <td>La allowlist filtra el proveedor</td>
+            <td>La allowlist filtra el proveedor; <b>el tier lo afirma el usuario</b></td>
+            <td>El tier gratuito de Gemini sí entrena, y una clave gratuita es indistinguible de una de pago. La app lo dice una vez, al introducir la clave, y no vuelve a mencionarlo.</td>
+          </tr>
+          <tr>
+            <td>FR-28: la clave «se guarda en el OS keystore»</td>
+            <td>KeyStore guarda <b>solo una wrapping key</b> AEAD no exportable; la credencial es un <b>sobre cifrado</b> en almacenamiento privado</td>
+            <td>KeyStore no admite la cadena arbitraria de una API key: la formulación literal era imposible de cumplir. A14 y AD-22 son ahora el contrato; tras restore la elección de proveedor vuelve y la credencial no — es capacidad local, se comprueba en vivo.</td>
+          </tr>
+          <tr>
+            <td>OQ-8 abierta: ¿alarma inexacta o la hora debe aguantar?</td>
+            <td><b>Cerrada</b> — alarma inexacta, cero permisos nuevos</td>
+            <td><code>USE_EXACT_ALARM</code> está restringido a apps cuya función central es la temporización precisa, que es la negación de un Time Bag flotante. Y la copy de FR-24 no lleva reloj dentro, así que no puede equivocarse de reloj.</td>
+          </tr>
+          <tr>
+            <td>OQ-10 abierta: qué proveedores pasan la puerta</td>
+            <td><b>Cerrada</b> — Gemini de pago, OpenAI, Anthropic</td>
+            <td>Y el coste deja de ser criterio: una foto de habitación cuesta entre 0,003 y 0,006 USD por escaneo, así que el objetivo de A8 lo cumplen todos con holgura y la cifra no discrimina nada.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 05 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 05 — EL DÍA DOMÉSTICO</span>
+    <h2>El producto usaba «día» para seis cosas y nadie había fijado el límite</h2>
+
+    <figure>
+      <svg viewBox="0 0 900 250" role="img" aria-labelledby="f4t f4d">
+        <title id="f4t">El día doméstico</title>
+        <desc id="f4d">Una línea de tiempo con límites a las cuatro de la mañana. El caso feo: platos a las 23:55 y otro Focus Chunk a las 00:05 quedan dentro del mismo día doméstico, así que no se ofrece un segundo item grande.</desc>
+
+        <text class="dia-cap dia-ink-2" x="0" y="14">UN DÍA = [04:00 LOCAL, 04:00 LOCAL DEL DÍA+1)</text>
+
+        <line class="dia-stroke" x1="40" y1="96" x2="860" y2="96"/>
+        <g class="dia-stroke">
+          <path d="M40 78 L40 114"/><path d="M450 78 L450 114"/><path d="M860 78 L860 114"/>
+        </g>
+        <text class="dia-mono dia-ink-2" x="40" y="70" text-anchor="middle">04:00</text>
+        <text class="dia-mono dia-ink-2" x="450" y="70" text-anchor="middle">04:00</text>
+        <text class="dia-mono dia-ink-2" x="860" y="70" text-anchor="middle">04:00</text>
+
+        <rect x="44" y="86" width="402" height="20" fill="var(--plate-substrate)"/>
+        <text class="dia-label dia-ink" x="245" y="132" text-anchor="middle">un día doméstico</text>
+
+        <g class="dia-stroke"><path d="M352 96 L352 168"/><path d="M370 96 L370 200"/></g>
+        <circle cx="352" cy="96" r="3.5" class="dia-ink"/>
+        <circle cx="370" cy="96" r="3.5" class="dia-ink"/>
+        <text class="dia-mono dia-ink" x="344" y="182" text-anchor="end">23:55 · platos hechos</text>
+        <text class="dia-mono dia-ink" x="378" y="214">00:05 · ¿otro Focus Chunk?</text>
+        <text class="dia-mono dia-ink-2" x="378" y="230">no: es el mismo día</text>
+
+        <line class="dia-hair" x1="0" y1="248" x2="900" y2="248"/>
+      </svg>
+      <figcaption>Rechazado: medianoche local, que parte una sesión nocturna en dos días y deja duplicar la ranura entre las 23:xx y las 00:xx. Y rechazado: que el día empiece al abrir la app, porque rompería SM-1 —cuya razón de ser es contar los días que <em>no</em> abres— y haría que el contador de FR-5 dependiera de la conducta que mide.</figcaption>
+    </figure>
+
+    <div class="two">
+      <div>
+        <h3>Las seis cosas que ahora pasan por el mismo sitio</h3>
+        <ul>
+          <li>FR-5 — «rechazada en 3 días distintos»</li>
+          <li>FR-7 y FR-12 — un Focus Chunk por día</li>
+          <li>FR-12 — la ventana de reparto de una captura</li>
+          <li>FR-24 — como máximo una invitación al día</li>
+          <li>FR-21 — el temporizador ciego de seis meses</li>
+          <li>SM-1 — «sesiones en ≥ 70 % de los días»</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Y las dos que el reconcile encontró después</h3>
+        <ul>
+          <li><b>La semana.</b> FR-31 rota una zona por semana y SM-2 persiste «hasta contestar esa semana». Anclada en lunes, así que el domingo de SM-2 es el último día de la semana.</li>
+          <li><b>La estación.</b> FR-15 sugiere «como máximo una vez por estación y proyecto». Trimestres meteorológicos sobre límites de día doméstico.</li>
+          <li>Ninguna de las dos estaba definida en ningún input, y dos unidades las habrían implementado distinto — exactamente igual que el día.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 06 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 06 — LO QUE ENCONTRÓ EL GATE</span>
+    <h2>Treinta y una formas de cumplir todos los ADs y aun así construir cosas incompatibles</h2>
+    <p class="lede">El gate se corrió dos veces. La primera, con el autor haciendo de revisor: encontró siete huecos y los cerró con dos ADs nuevos. La segunda, con tres revisores independientes que no habían visto ninguna de esas conversaciones. Encontraron los siete — y veinticuatro más, incluidos <strong>tres que los ADs de la primera pasada habían introducido al arreglar los primeros</strong>.</p>
+    <p class="note">Y luego tres rondas más el 27 de agosto: una <em>validación</em> independiente (19 hallazgos), la <em>actualización</em> que los cerró — y que abrió 11 costuras nuevas entre los propios arreglos, también cerradas — y una ronda <em>crítica</em> sobre la custodia de credenciales que reescribió AD-11 y AD-22. La lección no cambió en ninguna: un autor revisando su propio trabajo encuentra las costuras que ya sospechaba, y no las que abrió mientras las cosía.</p>
+
+    <div class="holes">
+      <div class="hole">
+        <span class="hole__id">C1<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>La espina se contradecía consigo misma sobre su propia regla de mutación</h3>
+          <p>Una fila de convenciones decía «los ajustes son el único registro mutable»; la nota del ERD, en la misma página, decía que son una caché derivada. Las dos lentes que leyeron el documento entero lo cazaron. Y la adversaria añadió la consecuencia: la unidad que construye la tabla mutable no la mete en ninguna mitad del export, así que <strong>el restore revierte el Time Bag en silencio</strong> — y el test de ida y vuelta pasa igual, porque compara lo que exportó consigo mismo.</p>
+          <p class="fix"><b>Cerrado.</b> No hay registro mutable en ninguna parte de la app.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">C2<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>Una historia razonable exportaba la clave de API del usuario</h3>
+          <p>Consecuencia directa del arreglo de la primera pasada. Al hacer actos los cambios de ajustes, y estando el log en la mitad autoritativa del export, y escribiéndose ese export en una carpeta que §7 anticipa que sea Drive: la credencial del proveedor sale del dispositivo dentro del backup, como una línea en un fichero que nadie abre. FR-28 lo prohíbe con estas palabras — «nunca en el export» — y ningún AD llevaba la prohibición.</p>
+          <p class="fix"><b>Cerrado por AD-22.</b> Ningún secreto es una entrada, un hecho del pool, ni parte de ninguna mitad del export.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">C3<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>La sesión se evaporaba a las 04:00 y devolvía el maratón que AD-4 existía para matar</h3>
+          <p>Una sesión declarada a las 03:40 no tiene <code>session_started</code> «en el día doméstico actual» cuando dan las cuatro. El avance del día se resetea bajo un usuario que no ha soltado el teléfono, y se reparte un segundo item grande. La hazaña de la primera pasada fue mover el problema de medianoche a las cuatro; la de la segunda, verlo. Y lo peor es que la hora lo hace raro: no aparece en pruebas, y las 03:40 son exactamente cuando abre la app alguien con insomnio.</p>
+          <p class="fix"><b>Cerrado.</b> La sesión pertenece al día doméstico de su propio inicio, no al día en curso.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">C4<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>Los eventos que no origina el usuario no tenían casa, y SM-C3 se quedaba sin test</h3>
+          <p>FR-26 necesita registrar consentimiento declinado, cara detectada, invitación emitida y app abierta. Un vocabulario de «uno por acto de usuario» no tiene sitio para ninguno, así que una historia los mete en el log y otra guarda la última emisión en <code>SharedPreferences</code> — un tercer almacén, fuera del export, invisible al test. Entonces «como máximo una notificación cada 24 h en todos los caminos» falla en el único camino que nadie prueba: un reinicio después de que la alarma ya haya sonado. Y la serie (d) queda vacía, con lo que <strong>SM-C3 pierde el único test que el PRD le da</strong>.</p>
+          <p class="fix"><b>Cerrado por AD-21</b>, y de paso afiló el invariante: no es «solo lo que el usuario hizo», es <em>ninguna entrada puede afirmar una ausencia ni una obligación</em>.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">C5<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>El sustrato no tenía teoría de su propia evolución</h3>
+          <p>AD-18 exige instalar builds nuevos <em>durante</em> las cuatro semanas que producen la evidencia, y AD-2 prohíbe reescribir lo grabado. Nada decía qué hace el núcleo con un tipo de entrada que no reconoce, ni si los ids del catálogo son estables entre builds. Un build a mitad de ventana que renombre un tipo o reemita ids cambia en silencio la rotación, el suelo de cobertura, el contador de FR-5 y el conjunto de días de SM-1 — en el teléfono actualizado y en ningún otro. Y el test de ida y vuelta no ve nada de esto, porque prueba un esquema contra sí mismo.</p>
+          <p class="fix"><b>Cerrado por AD-23.</b> Tipos desconocidos tolerados, payloads solo aditivos, ids permanentes con check de diff.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">V1<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>Dos filas del Stack describían un mundo que no existe</h3>
+          <p><span class="mono">material</span> y <span class="mono">cupertino</span> no son paquetes: los nombres estaban inventados a partir de un titular de búsqueda. Un <span class="mono">pubspec</span> escrito desde esa fila revienta. Y el minSdk estaba justificado con una pregunta que sí tenía respuesta: el reconocedor on-device es API 31, no 33 — la decisión aguanta por otros motivos, pero el razonamiento escrito era falso.</p>
+          <p class="fix"><b>Corregido, y es el modo de fallo que esa lente existe para cazar.</b> Cinco filas más resultaron inexactas, incluida una con consecuencia real: con el cifrador por defecto de <span class="mono">flutter_secure_storage</span> la clave va envuelta en SharedPreferences, que FR-28 prohíbe. Hoy ese paquete está fuera del stack: la custodia de credenciales es nuestro tercer canal Kotlin.</p>
+        </div>
+      </div>
+
+      <div class="hole">
+        <span class="hole__id">C6<br><span class="tag">crítico</span></span>
+        <div>
+          <h3>La custodia de credenciales era imposible tal como estaba escrita</h3>
+          <p>«La clave vive en el OS keystore» no es implementable: AndroidKeyStore no almacena cadenas arbitrarias, solo claves que él mismo genera. Mientras tanto el Stack ataba la custodia a <span class="mono">flutter_secure_storage</span>, cuyo contrato no expone la separación wrapping-key / sobre cifrado que FR-28 necesita, y el sello de almacenamiento prohibía a un CredentialVault llamar a KeyStore. Tres textos, ninguno ejecutable tal cual.</p>
+          <p class="fix"><b>Cerrado.</b> Tercer canal Kotlin <span class="mono">credentials</span>: KeyStore retiene la wrapping key AEAD no exportable, los sobres cifrados viven en Files, y el sello de AD-21 nombra su única excepción nativa. El PRD se reconcilió el mismo día (FR-28, OQ-9, A14).</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:var(--s7)">Y las doce altas, en una frase cada una</h3>
+    <div class="two">
+      <div>
+        <h3 style="font-size:.9375rem">Dueños que faltaban</h3>
+        <ul>
+          <li><b>«Repartida» no estaba definida.</b> Quién escribe <code>card_dealt</code> y cuándo — y lo leen tanto el desempate de AD-3 como el contador de FR-5, de formas distintas.</li>
+          <li><b>«Día elegible» se derivaba dos veces</b>, por dos historias, y el PRD dice explícitamente que son el mismo mecanismo.</li>
+          <li><b>Nada decía cómo sale un item del pool</b>, y FR-5 exige que salgan dos: el padre de un rescate y el rescate que se disuelve.</li>
+          <li><b>Los bytes del álbum.</b> El borrado es un acto, pero nadie desenlazaba el fichero — que acabaría escrito para siempre en una carpeta posiblemente sincronizada.</li>
+          <li><b>La superficie del validador</b> no tenía dueño estructural, y la regla de opacidad de AD-6 chocaba de frente con el dashboard de FR-23.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:.9375rem">Garantías que no garantizaban</h3>
+        <ul>
+          <li><b>Los dos disparadores del export</b> se lanzan con milisegundos de diferencia al cerrar una sesión, sin regla de escritor único ni de atomicidad — y el test de ida y vuelta exporta desde reposo, así que jamás vería un fichero partido.</li>
+          <li><b>El suelo de AD-16 contaba el fichero embarcado</b>, no el pool elegible que la curación mueve en runtime. Se alcanza en el build y se rompe en el teléfono, con el build verde.</li>
+          <li><b>Los sellos de AD-7 solo miraban imports de Dart</b>, así que una dependencia de Gradle o un socket en nuestros propios canales Kotlin pasaba invisible.</li>
+          <li><b>La tabla plana de strings tenía dos casas</b>, y el check de auditoría leía una — con lo que SM-C2 pasaba a ser una afirmación sobre la mitad de la copy.</li>
+          <li><b>El check de placeholders</b> aprobaba cualquier frase no vacía, incluida <code>tu clave no es válida</code>, que es la única que el PRD y la espina UX nombran por su nombre como el riesgo que las siete existen para quitar.</li>
+          <li><b>El lint del 200 %</b> prohibía dos cosas y dejaba abiertas las tres evasiones obvias — <code>FittedBox</code>, un override de <code>TextScaler</code>, un contenedor de altura fija.</li>
+          <li><b>AD-4 cubría el horario de verano</b> y no el cambio de zona: un viaje re-fechaba toda la historia y movía SM-1, el contador de FR-5 y la rotación a la vez.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 07 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 07 — EL STACK</span>
+    <h2>Verificado contra la web, no contra la memoria</h2>
+    <p class="note" style="margin-top:var(--s4)">Verificado contra la web el 26–27 de agosto de 2026. Lo que no se pudo verificar lo dice.</p>
+
+    <div class="tw">
+      <table>
+        <caption>El código es dueño de estas versiones en cuanto exista; el pubspec es el pin.</caption>
+        <thead><tr><th>Pieza</th><th>Versión</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td>Flutter · Dart</td><td class="num mono">3.47.1 · 3.13.1</td><td><span class="tag tag--ok">verificado</span> <span class="tag">trae Java 17 y mínimo Android API 24</span></td></tr>
+          <tr><td>Android target SDK</td><td class="num mono">36</td><td><span class="tag">la 37 ya existe desde el 16-jun-2026 · Play exige 36 desde el 31-ago-2026; la fecha de la 37 es proyección, y moot sin distribución por tienda</span></td></tr>
+          <tr><td>Android minSdk</td><td class="num mono">33</td><td><span class="tag">la decisión aguanta, el razonamiento no: el reconocedor on-device es API <b>31</b>. Lo que fija 33 es <span class="mono">POST_NOTIFICATIONS</span> y <span class="mono">checkRecognitionSupport</span></span></td></tr>
+          <tr><td>drift</td><td class="num mono">2.34.3</td><td><span class="tag tag--ok">verificado</span> <span class="tag">+ <span class="mono">drift_flutter</span> 0.3.1 · los triggers de AD-2 solo se declaran en un <span class="mono">.drift</span></span></td></tr>
+          <tr><td><span class="mono">flutter_riverpod</span> · <span class="mono">camera</span></td><td class="num mono">3.4.2 · 0.12.0+2</td><td><span class="tag tag--ok">verificado</span> <span class="tag"><span class="mono">camera</span> es de primera parte</span></td></tr>
+          <tr><td><span class="mono">google_mlkit_face_detection</span></td><td class="num mono">0.15.1</td><td><span class="tag">comunitario, no de Google · las libs de 32 bits existen, pero solo las de 64 están alineadas a 16 KB: <span class="mono">abiFilters</span> excluye 32</span></td></tr>
+          <tr><td><span class="mono">saf_util</span> + <span class="mono">saf_stream</span></td><td class="num mono">3.1.0 · 4.0.1</td><td><span class="tag"><span class="mono">saf_util</span> <b>no lee ni escribe</b> — solo selector y permisos persistidos. Faltaba la segunda mitad</span></td></tr>
+          <tr><td>custodia de credenciales</td><td class="num mono">canal propio</td><td><span class="tag">Kotlin <span class="mono">credentials</span>: KeyStore con wrapping key AEAD no exportable; sobres cifrados por proveedor en Files. <span class="mono">flutter_secure_storage</span>, deliberadamente <b>sin usar</b>: no expone este contrato</span></td></tr>
+          <tr><td><span class="mono">uuid</span></td><td class="num mono">4.6.0</td><td><span class="tag tag--ok">RFC 9562 v7</span> <span class="tag">la monotonía intra-milisegundo es opt-in (<span class="mono">UuidV7Monotonic</span>), no el default — y las convenciones prohíben ordenar por bits del id de todos modos</span></td></tr>
+          <tr><td><span class="mono">material</span> / <span class="mono">cupertino</span></td><td class="num mono">no son dependencia</td><td><span class="tag"><b>los inventé.</b> El desacoplamiento fue en 3.47, los paquetes son <span class="mono">material_ui</span> / <span class="mono">cupertino_ui</span>, son opt-in, y el SDK sigue trayendo las librerías</span></td></tr>
+          <tr><td>Gemma 4 E4B <span class="mono">(Local, aplazado)</span></td><td class="num mono">3,66 GB</td><td><span class="tag">no 2,5 · y existe <span class="mono">flutter_gemma</span> 1.6.5, así que tampoco hacía falta el canal propio</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:var(--s7)">Ocho guardas que las comprueba una máquina, no la buena voluntad</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Regla</th><th>Mecanismo</th></tr></thead>
+        <tbody>
+          <tr><td>AD-2 — las dos tablas son insert-only</td><td>triggers SQL que revientan en <code>UPDATE</code> y <code>DELETE</code>, en actos <b>y</b> pool</td></tr>
+          <tr><td>AD-3 y AD-5 — el núcleo está sellado y es puro</td><td>check de CI: imports declarados, y ni <code>Random</code> ni <code>DateTime.now</code> ni <code>dart:io</code> dentro</td></tr>
+          <tr><td>AD-7 — un solo estrangulamiento de egreso</td><td><b>tres</b> checks, no uno: imports de Dart, el grafo de dependencias de Gradle, y el manifest fusionado. Un check de Dart no ve un socket en Kotlin</td></tr>
+          <tr><td>AD-13 — el restore es una propiedad, no una promesa</td><td>test de ida y vuelta <b>generacional</b>: cortes después de cada escritura, visibilidad parcial del proveedor, manifiestos corruptos, y fixture del build N+1 importado en el build N</td></tr>
+          <tr><td>AD-15 — las siete cadenas de FR-29 existen <em>y están revisadas</em></td><td>fijadas por clave, con valor no-placeholder <b>y</b> marca de visto bueno: existir y estar revisada son dos puertas</td></tr>
+          <tr><td>AD-16 — el suelo de cobertura</td><td>la cuenta sobre el fichero <b>y</b> un test de núcleo: 28 repartos sin repetir en la curación por defecto</td></tr>
+          <tr><td>AD-21 — el sello de almacenamiento</td><td>ninguna API de persistencia fuera de Store, Folder y Files; la única excepción nativa es CredentialVault → AndroidKeyStore, y solo por la wrapping key</td></tr>
+          <tr><td>AD-22 — ningún secreto sale en el export</td><td>check de fixtures del export: rechaza texto plano, formas de clave de proveedor y <code>keyExists</code> persistido</td></tr>
+          <tr><td>AD-23 — continuidad del catálogo entre builds</td><td>diff del conjunto de ids contra la release anterior</td></tr>
+          <tr><td>Y el vocabulario prohibido</td><td>lint: ningún identificador puede contener <code>overdue</code>, <code>late</code>, <code>missed</code>, <code>pending</code>, <code>debt</code>, <code>streak</code>, <code>dueDate</code>, <code>backlog</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 08 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 08 — LO APLAZADO</span>
+    <h2>La mitad del contrato que mantiene la espina delgada</h2>
+    <p class="note" style="margin-top:var(--s4)">Cada uno con la condición que lo devuelve a la mesa. Nada aquí permite que dos unidades divergan.</p>
+
+    <div class="two">
+      <div>
+        <h3>Con condición de revisión</h3>
+        <ul>
+          <li><b>La topología de OQ-1.</b> Sigue abierta por decisión del propio PRD, y AD-9 la vuelve configuración en vez de reescritura. El coste del camino Local quedó corregido en las dos direcciones: <span class="mono">flutter_gemma</span> 1.6.5 existe (MediaPipe + LiteRT-LM, Gemma 4 E4B en la lista), así que no hacía falta canal propio — pero el modelo pesa 3,66 GB en disco. Vuelve con las pruebas de fotos reales.</li>
+          <li><b>El crecimiento del log.</b> Milisegundos en una ventana de cuatro semanas. Vuelve si un arranque en frío pasa de 1 s, y entonces la respuesta es una tabla de proyección reconstruible desde el log — nunca un plan guardado.</li>
+          <li><b>La compactación del export comprometido.</b> SAF no puede demostrar que un listado esté globalmente completo, así que AD-13 solo borra escombros sin commit y retiene toda generación comprometida. Vuelve cuando el crecimiento medido justifique una compactación explícita con contrato de recuperación propio.</li>
+          <li><b>Multiusuario.</b> El pool y el log no tienen columna de propietario. Es un cambio de esquema y se acepta a sabiendas.</li>
+          <li><b>iOS.</b> El producto entero vive en un paquete Dart puro, así que una segunda superficie es cáscara, no reescritura. Lo que necesitaría contrapartes son los tres canales de AD-11.</li>
+          <li><b>La segunda locale.</b> Con ARB, añadirla es una traducción y no un refactor.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Riesgos nombrados, no resueltos</h3>
+        <ul>
+          <li><b>Las tres dependencias frágiles.</b> <span class="mono">google_mlkit_face_detection</span> es comunitario; <span class="mono">saf_util</span> es pequeño y carga FR-30 entero; <span class="mono">flutter_local_notifications</span> está deliberadamente sin usar. Cada una es candidata a ascender a canal de plataforma si resulta que la garantía sí descansaba en la API.</li>
+          <li><b>El lector de pantalla.</b> El registro UX dice que las etiquetas de TalkBack, los roles y el orden de recorrido no se han discutido en ningún sitio. A diferencia de las preguntas de copy, esta tiene mitad estructural: el orden de recorrido sobre una superficie de una carta más un contenedor ambiente es una decisión real.</li>
+          <li><b>Las siete cadenas sin-Slicer.</b> Sin escribir, y AD-15 las bloquea a build time — que es la única forma de que no las escriba con prisa quien cablee la rama de error.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 09 ================= -->
+  <section class="plate">
+    <span class="plate__no">PLANCHA 09 — DE DÓNDE SALE ESTA HOJA</span>
+    <h2>El sistema visual no es de este documento</h2>
+    <p class="lede">La paleta es <em>Aliento</em> tal cual: suelo frío casi blanco, tinta oscura, <span class="mono">agua clara</span> como único pastel que lleva texto. La regla emparejada de tipografía se respeta — Lora para lo que una persona escribió, Lexend para todo lo que es mecanismo.</p>
+    <p class="note">Y la firma es la regla 2 del sistema: <strong>la plancha de color está desplazada a propósito</strong>, en un solo vector global, en proporción al elemento y nunca en un valor fijo. En modo oscuro la plancha no se invierte: <strong>cambia de forma</strong> y se retira a una barra de 6 px — que es exactamente la decisión que <span class="mono">DESIGN.md</span> ya había tomado para las marcas de destino, porque una masa pastel bajo tinta hueso ronda 4:1 y se lee sucia.</p>
+    <p class="note">Los tres matices de plancha son <span class="mono">agua clara</span>, la masa neutra y la ocre. Los tres del trío de destinos están deliberadamente sin usar aquí: el sistema prohíbe que aparezcan como campo sin su glifo dentro.</p>
+
+    <div class="foot">
+      <p><b>Espina:</b> <span class="mono">ARCHITECTURE-SPINE.md</span> — 26 ADs, 19 convenciones, cuatro diagramas. <b>Memlog:</b> <span class="mono">.memlog.md</span>, donde vive el razonamiento que la espina no lleva. <b>Revisiones:</b> <span class="mono">reviews/</span> — cinco rondas de gate conservadas, y <span class="mono">reconcile-inputs.md</span>. Actualizada el 27-ago-2026 tras las rondas de validación, actualización y credenciales.</p>
+      <p>Fuentes: el PRD <span class="mono">prd-organizer-2026-08-20</span> con su addendum, y las espinas UX <span class="mono">ux-organizer-2026-08-21</span> — <span class="mono">EXPERIENCE.md</span> y <span class="mono">DESIGN.md</span>. Cuando la espina y una fuente chocan, ganó la fuente salvo en un punto: la puerta de FR-28, que se estrechó y se pagó aguas arriba el mismo día.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  var grid = document.getElementById('grid');
+  if (!grid) return;
+  var cards = Array.prototype.slice.call(grid.querySelectorAll('.card'));
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-f]'));
+
+  function apply(fam) {
+    cards.forEach(function (c) {
+      c.hidden = !(fam === 'all' || c.getAttribute('data-fam') === fam);
+    });
+    chips.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-f') === fam));
+    });
+  }
+
+  chips.forEach(function (b) {
+    b.addEventListener('click', function () { apply(b.getAttribute('data-f')); });
+  });
+})();
+</script>
