@@ -63,7 +63,7 @@ Source of record: **PRD §4** (status final, updated 2026-08-27). FR IDs are sta
 | FR-17 | Before/After reward: side-by-side diff, no negative framing, saved to the Album automatically |
 | FR-18 | Local transformation album: individually deletable, purgeable in one action, never sent |
 | FR-19 | Pre-clean purge injection: the first dealt task of a newly activated organizing project is a purge step |
-| FR-20 | Two detachment questions + 3-Destination Flow, equal weight, every question answerable by skip |
+| FR-20 | Two mandatory Sí/No detachment questions, then the equal-weight 3-Destination Flow |
 | FR-21 | Quarantine Box: blind 6-month timer, at most once per box, copy claims no knowledge of contents |
 | FR-22 | Cumulative liberated-items metric: tap-only, coarse volume tags, never a target or rate |
 | FR-23 | Cumulative impact dashboard under the denominator rule; snowball suggestion ≤ +5 min, suppressed at the cap |
@@ -138,7 +138,7 @@ Also from the spine, consumed where cited: the six `tool/` build-time checks (AD
 
 ### UX Design Requirements (index)
 
-Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, final after the 2026-08-27 blocker-resolution pass). Mockups illustrate; the spines specify and win on conflict — over the PRD, the reference image and every artifact in `mockups/`. Copy items still `[OPEN]` and deferred positions are carried by the open-items register in Coverage completeness below. Every UX-DR is cited by the story acceptance criteria that implement it.
+Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after the 2026-08-27 blocker-resolution follow-up). Mockups illustrate; the spines specify and win on conflict — over the PRD, the reference image and every artifact in `mockups/`. Remaining deferred positions and implementation checks are carried by Coverage completeness below. Every UX-DR is cited by the story acceptance criteria that implement it.
 
 | UX-DR | Subject (one line) | Story |
 |---|---|---|
@@ -181,7 +181,7 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, final after the
 | 37 | The volume line carries no glyph (glyph-adjacency rule) | 6.5, 7.3 |
 | 38 | The card exits entirely; never toward a counter, pile or badge | 1.9 |
 | 39 | Celebration mandated, two tiers, three rules; never gates the next card | 1.9 |
-| 40 | Two anti-score rules: equal plates; caption ceiling (place, moment, authorship) | 7.1 |
+| 40 | Two anti-score rules: equal plates; only `Antes` and `Después`, with no caption | 7.1 |
 | 41 | State patterns as specified: cold open, warm return, pause, no-Slicer, offline, first run … | 1.8, 4.5 |
 | 42 | Manual Capture's spatial frame as an ordering rule; no second version of the screen | 3.2 |
 | 43 | Interaction primitives: one tap per primitive; stopping always one tap; contractual timings | 2.3 |
@@ -192,9 +192,9 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, final after the
 | 48 | Screen-reader interim convention: no custom semantics, platform traversal | 1.2 |
 | 49 | The 26 authored fixed strings, verbatim, never re-worded | 3.2, 6.3 |
 | 50 | The seven no-Slicer strings authored and pinned; exit works in all seven states | 4.5 |
-| 51–54 | `[OPEN]` copy items (warm return, rest, `Hecho` copy, empty states, invitation, plates-not-meal) | register |
+| 51–54 | Authored copy items, except the non-gating plates-not-meal question | register |
 | 55 | The Voice-and-Tone do/don't table applies to every string entering the table | 1.2 |
-| 56–59 | `[OPEN]` / position items: scan-wait, diff presentation, question presentation, seasonal config | register |
+| 56–59 | Authored scan-wait, diff and question presentation; seasonal configuration remains open | register |
 | 60–62 | `[DEFERRED]`: system chroma, `short-date` past a year, the second locale | — |
 
 ### FR Coverage Map
@@ -220,7 +220,7 @@ Legend: **E1–E9** are the epics below. Two FRs are deliberately split across t
 | FR-14 | **E1** | Discharged as a **proven property, not code**: AD-1 means nothing was assigned to a future day, so nothing needs re-planning. Carried by a test that lateness is inexpressible |
 | FR-15 | **E5** | Seasonal activation suggestion — an ambient-strip resident, once per season per project |
 | FR-16 | **E5** | The Cámara entry, the scan surface and its unbounded in-app wait; entry visibility = enabled ∧ permission not refused |
-| FR-17 | **E7** | The Before/After reward: two equal plates, the caption ceiling, `Cerrar` never *seguir* |
+| FR-17 | **E7** | The Before/After reward: two equal plates, only `Antes` and `Después`, `Cerrar` never *seguir* |
 | FR-18 | **E7** | The local Transformation Album — contextual only, individually deletable, purgeable in one action |
 | FR-19 | **E6** | Purge injection: the first dealt card of a newly activated organizing project is always a purge step |
 | FR-20 | **E6** | The two detachment questions and the three equal destinations, differentiated by silhouette alone |
@@ -310,25 +310,12 @@ Checked by hand against the inventory tables on 2026-08-27 — no tooling exists
 
 **One class of correction from this pass:** a UX-DR renumbering left three story citations pointing at old numbers; all three are corrected — re-verify citations against subject text after any renumbering.
 
-**Open copy and design items that gate a surface's final form — one register, each blocking its story.** A story listed below is not started until its item is closed in the UX spine pair; the `[OPEN]` marker at the story's end names the same item.
+**Implementation checks that gate story completion.** All copy and surface decisions are closed in the UX spine pair. The two checks below require their named implementation evidence.
 
 | Item | Source | Blocking story | Closure owner |
 |---|---|---|---|
-| `Hecho` confirmation copy ("a warm confirmation"; the words are not) | UX-DR51 | 1.9 | `bmad-ux` (update) |
-| Permission-to-rest copy + extend-action presentation | UX-DR51 | 2.4 | `bmad-ux` (update) |
-| Warm Return copy | UX-DR51 | 2.7 | `bmad-ux` (update) |
-| Consent-gate strings (`Enviar la foto` / `No enviarla` + gate body) | UX-DR52 | 5.3 | `bmad-ux` (update) |
-| Scan-wait progress affordance | UX-DR56 | 5.3 | `bmad-ux` (update) |
-| Genesis strings `Empezar con esta` / `Volver` — re-author post A-slim | UX-DR52 | 5.4 | `bmad-ux` (update) |
-| First-run curation offer copy | UX-DR52 | 5.6 | `bmad-ux` (update) |
-| Detachment-question presentation (skip without evasion) | UX-DR58 | 6.2 | `bmad-ux` (update) |
-| Before/After diff presentation + the no-Before case | UX-DR57 | 7.1 | `bmad-ux` (update) |
-| Album + dashboard empty states | UX-DR51 | 7.2, 7.3 | `bmad-ux` (update) |
-| Snowball dismissal copy | UX-DR52 | 7.3 | `bmad-ux` (update) |
-| Ambient Invitation copy (fixed vs rotating) | UX-DR53 / PRD OQ-7 | 8.1 | `bmad-ux` (update) |
-| Destination-label type role | UX-DR27 / `DESIGN` OQ-3 | 6.3 | `bmad-ux` (update) |
-| Zone-marker 24px readability on device | UX-DR28 / `DESIGN` OQ-7 | 1.8 (device check) | builder, on handset |
-| Seed-glyph pompom radius | UX-DR10 / `DESIGN` OQ-1 | 1.2 (glyph drawing) | `bmad-ux` (update) |
+| Zone-marker 24px readability on device | UX-DR28 / `DESIGN` implementation check | 1.8 | builder, on handset in light and dark mode |
+| Seed-glyph pompom radius | UX-DR10 / `DESIGN` implementation check | 1.2 | builder, record exact drawn value within the coverage constraint |
 
 ## Step-4 validation record
 
@@ -500,7 +487,7 @@ So that the anti-shaming audit can be read as a flat table and no surface built 
 
 **Given** any string entering the table
 **When** it is reviewed
-**Then** it is checked against the Voice-and-Tone do/don't table — name the cost before the ask, say what happened rather than congratulate volume, never ask `¿seguimos?`, never frame degradation as fault, never correct what the user typed, leave the missed days unmentioned, no exclamations, no adjective about a result, and no figure with a denominator (UX-DR55)
+**Then** it is checked against the Voice-and-Tone do/don't table — name the cost before the ask, say what happened rather than congratulate volume, never ask `¿seguimos?`, never frame degradation as fault, never correct what the user typed, leave the missed days unmentioned, no exclamations except `¡Buen trabajo!` after `Hecho`, no adjective about a result, and no figure with a denominator (UX-DR55)
 
 ### Story 1.3: The insert-only substrate
 
@@ -806,7 +793,7 @@ So that the thing is done, that is enough, and the next one is already there.
 
 **Given** the `Hecho` confirmation's visible copy
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR51 — "a warm confirmation" is specified, the words are not — and it must be authored before the feedback ships; the register above carries it against this story
+**Then** it is `¡Buen trabajo!`, the explicit narrow exception to the exclamation-free rule; it acknowledges completed effort, carries no quantity and suggests no further work (UX-DR51)
 
 ### Story 1.10: The unsplit secondary control — the skip half
 
@@ -1085,7 +1072,7 @@ So that finishing a session never feels like giving up on something.
 
 **Given** the permission-to-rest copy and the extend action's presentation
 **When** this story is planned
-**Then** both are `[OPEN]` per UX-DR51 and must be authored before the surface is wired — the presentation question is *how* extension is offered without highlighting, animating or suggesting it
+**Then** the primary message is `Nada más por el momento` and the available silent secondary action is `Quiero seguir` (UX-DR51)
 
 ### Story 2.5: The ambient strip and the daily energy check-in
 
@@ -1235,7 +1222,7 @@ So that the app cannot make my absence into a debt, because it has no way to rep
 
 **Given** the Warm Return copy
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR51 and must be authored first, under one constraint: **it must rebalance without naming what it is rebalancing**
+**Then** it is `Siempre a tu disposición`, which rebalances without naming what it is rebalancing (UX-DR51)
 
 ---
 
@@ -1999,7 +1986,7 @@ So that consent is a decision I make rather than a setting I once forgot.
 
 **Given** the consent gate's strings and the scan-wait affordance
 **When** this story is planned
-**Then** both are `[OPEN]` — `Enviar la foto`, `No enviarla` and the gate's explanatory body per UX-DR52, and what "visible progress" means when the duration is unbounded per UX-DR56 — and both must be settled before the surface is wired
+**Then** the equal actions are `Enviar la foto` and `No enviarla`; the body is `La foto se procesará por [proveedor] para obtener las tareas necesarias.`; the unbounded wait says `Creando tareas` beside an indeterminate animated writing pencil (UX-DR52, UX-DR56)
 
 ### Story 5.4: Epic Project genesis, by photograph or in writing
 
@@ -2023,7 +2010,7 @@ So that a project I have been avoiding for months starts with ten minutes.
 
 **Given** the typed genesis surface
 **When** the user sends a description
-**Then** the surface states in plain Spanish what is sent and to which provider, and **the send action is the consent** — an explicit send with the destination named, not a separate dialog (FR-25, NFR4)
+**Then** the surface states in plain Spanish that the description will be analysed to create tasks, and **`Analizar` is the consent action** — no separate dialog and no provider name on this text-genesis surface (FR-25, NFR4)
 
 **Given** an empty description on the typed genesis surface
 **When** the send action is evaluated
@@ -2056,7 +2043,7 @@ So that a project I have been avoiding for months starts with ten minutes.
 
 **Given** the genesis surface's drafted strings
 **When** this story is planned
-**Then** `Empezar con esta` and `Volver` are `[OPEN]` per UX-DR52 **and predate the A-slim restructure**, so they must be re-authored against the slimmed surface rather than adopted
+**Then** the consent action is `Analizar` and the quiet exit is `Volver`; the surface says the description will be analysed to create tasks without naming the provider (UX-DR52)
 
 ### Story 5.5: Invisible buffers
 
@@ -2148,7 +2135,7 @@ So that the app stops offering me a terrace I never had, without ever showing me
 
 **Given** the one-time curation offer's copy
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR52 and unwritten
+**Then** it is `Ajustar grupos de tareas`, tappable once on the strip and gone forever when dismissed (UX-DR52)
 
 ### Story 5.7: The gentle seasonal suggestion
 
@@ -2242,17 +2229,17 @@ So that deciding costs me a thought instead of a justification.
 **When** its copy is audited
 **Then** it contains **no pressure framing** (FR-20, NFR7)
 
-**Given** any question
-**When** the user does not want to answer
-**Then** **skip is a legitimate answer** and carries no consequence anywhere — no metric, no counter, no internal signal (FR-20)
+**Given** either question
+**When** it is rendered
+**Then** it offers only `Sí` and `No`; there is no skip action, and the user must choose one of the three destinations after both answers (FR-20)
 
 **Given** the questions
 **When** they enter the string table
 **Then** they are externalised and unconcatenated like every other string, and they sit in the SM-C2 audit (AD-15, NFR7)
 
-**Given** the question presentation and how "answerable by skip" is surfaced
+**Given** the question presentation
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR58 — the constraint is that skipping must not read as an evasion, and that has no answer in the record
+**Then** each question has only `Sí` and `No`, followed by the required 3-Destination Flow; no skip affordance is built (UX-DR58, FR-20)
 
 ### Story 6.3: Three destinations of equal weight
 
@@ -2373,7 +2360,7 @@ The user sees the same corner of their home before and after, in two plates of e
 - **The dashboard is the app's one declared density exception**, and the denominator rule is what makes it safe. Both are review gates on this epic's stories, checkable value by value.
 - **The album is contextual only.** It is reached when a transformation completes and not otherwise, and the dashboard sits behind it. A permanently reachable album is a surface that invites browsing, which is the thing the product removed.
 
-**Implementation notes:** the `photo-frame` pair with labels outside the pastel, and the caption ceiling enforced as a review rule — place, moment and authorship, and no adjective about the result, because an adjective is a scale and a scale brings the deficit back. AD-26's split is the gate for the dashboard: achievement figures may cross to the shell, internal signals never. `dashboard-highlight-row` reflows to one column when a caption would break beyond two lines; it never shrinks. Album bytes are content-addressed, and `album_entry_deleted` unlinks the app-private source file in the same operation.
+**Implementation notes:** the `photo-frame` pair has only `Antes` and `Después` outside the pastel — no caption, share action or rating language. AD-26's split is the gate for the dashboard: achievement figures may cross to the shell, internal signals never. `dashboard-highlight-row` reflows to one column when a caption would break beyond two lines; it never shrinks. Album bytes are content-addressed, and `album_entry_deleted` unlinks the app-private source file in the same operation.
 
 ### Story 7.1: The Before/After reward
 
@@ -2394,7 +2381,7 @@ So that the work is visible without anyone putting a score on it.
 
 **Given** the labels
 **When** they are placed
-**Then** `Antes` and `Ahora` sit **outside the frame**, never over the image (UX-DR29)
+**Then** `Antes` and `Después` sit **outside the frame**, never over the image (UX-DR29)
 
 **Given** a frame while its image loads
 **When** it is rendered
@@ -2403,10 +2390,6 @@ So that the work is visible without anyone putting a score on it.
 **Given** the diff view
 **When** its copy is audited
 **Then** it contains **no negative framing** — no "still messy", and no adjective about the result at all: *mejor*, *más despejado*, *casi* each reintroduce a scale, and with a scale the deficit comes back (FR-17, UX-DR40)
-
-**Given** the reward caption
-**When** it is written
-**Then** it may name **the place, the moment and the authorship, and nothing else** — the shape of it being `La mesa del salón, esta tarde. Esto lo hiciste tú.` — in `caption-warm`, the only type role created for one sentence (UX-DR40)
 
 **Given** the reward's secondary control
 **When** it is labelled
@@ -2418,7 +2401,7 @@ So that the work is visible without anyone putting a score on it.
 
 **Given** a session milestone on a space no Before photo was ever taken for
 **When** the reward is offered
-**Then** it offers the shoot-and-save path only — a single `Ahora` photo saved to the Album, never a one-plate diff and never a placeholder plate — and the milestone still counts for FR-26 series (c); the surface's presentation copy stays `[OPEN]` per UX-DR57 (FR-17, FR-26)
+**Then** it shows `Un trabajo estupendo` — no one-plate diff, placeholder plate or shoot-and-save prompt — and the milestone still counts for FR-26 series (c) (UX-DR57, FR-17, FR-26)
 
 **Given** the camera entry disabled or its permission refused
 **When** the reward's shoot action is rendered
@@ -2426,7 +2409,7 @@ So that the work is visible without anyone putting a score on it.
 
 **Given** the diff presentation beyond side-by-side
 **When** this story is planned
-**Then** layout, whether sharing exists at all, framing, and what the surface does **when no Before photo was ever taken** are `[OPEN]` per UX-DR57 — the last of those is a real hole, since FR-17 fires on session milestones over spaces that never became Epics
+**Then** equal-size frames sit side-by-side, labelled only `Antes` and `Después`; the pair is private and local, has no caption or share action, and the no-Before case shows `Un trabajo estupendo` (UX-DR57)
 
 ### Story 7.2: The local Transformation Album
 
@@ -2466,7 +2449,7 @@ So that a record of my own home stays mine and stays deletable.
 
 **Given** the album's empty state
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR51, under one constraint: **it may not count or name what is absent**
+**Then** no empty state exists: the Album is unreachable until a first transformation exists (UX-DR51)
 
 ### Story 7.3: The cumulative impact dashboard
 
@@ -2540,13 +2523,13 @@ So that progress is visible as a completed fact rather than as a fraction of som
 
 **Given** the dashboard's empty state and the snowball's dismissal copy
 **When** this story is planned
-**Then** both are `[OPEN]` per UX-DR51 and UX-DR52 — the empty state may not count or name what is absent
+**Then** the dashboard is unreachable until a first transformation exists, and the snowball dismissal is `Está bien así.` (UX-DR51, UX-DR52)
 
 ---
 
 ## Epic 8: The One Silent Invitation
 
-The user opts into a single daily invitation at an hour they choose, and it arrives silently, saying nothing about tasks, counts or anything owed. Ignoring it changes nothing — a week of ignored days is indistinguishable from a week of opened ones — and it is structurally incapable of escalating.
+The user opts into a single daily invitation at an hour they choose, and it arrives silently with motivating, kind rotating copy. It may refer generally to household action, a short available time or a change of activity, but never names an actual pending task, shows a count or frames anything as owed. Ignoring it changes nothing — a week of ignored days is indistinguishable from a week of opened ones — and it is structurally incapable of escalating.
 
 **FRs covered:** FR-24
 
@@ -2554,9 +2537,9 @@ The user opts into a single daily invitation at an hour they choose, and it arri
 
 - **Kept as its own epic because it is structurally isolated**, not because it is large: its own Kotlin channel, its own alarm, its own boot receiver, its own permission, and the only background work in the entire build.
 - **The `Notifier` port is declared here**, as its first and only consumer.
-- **Statelessness is a requirement, not an optimisation.** The invitation is composed from nothing but the configured hour and the Time Bag value. If it cannot see whether the user has been away, it cannot acquire pressure later, no matter who edits the copy.
+- **Statelessness is a requirement, not an optimisation.** The invitation may use only its configured hour, the Time Bag value and the fixed reviewed copy set. It cannot see whether the user has been away, so it cannot acquire pressure later, no matter who edits the copy.
 
-**Implementation notes:** the AD-11 `notify` channel — one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once and never a second — an **inexact** alarm at most once per *domestic day* (not a rolling 24 h — a chosen hour of 03:30 would otherwise straddle two days), `RECEIVE_BOOT_COMPLETED` for the reschedule, and no exact-alarm permission. The trigger instant is computed in the core and the Kotlin half performs no date arithmetic of any kind, boot reschedule included. Adds Settings' **Avisos** group. `[OPEN]` the copy decision — one fixed string or a small rotating set — must survive SM-C3 either way.
+**Implementation notes:** the AD-11 `notify` channel — one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once and never a second — an **inexact** alarm at most once per *domestic day* (not a rolling 24 h — a chosen hour of 03:30 would otherwise straddle two days), `RECEIVE_BOOT_COMPLETED` for the reschedule, and no exact-alarm permission. The trigger instant is computed in the core and the Kotlin half performs no date arithmetic of any kind, boot reschedule included. Adds Settings' **Avisos** group. The reviewed motivating copy set rotates; it may refer generally to household action, a short available time or a change of activity, but no entry names an actual pending task, shows a count or frames anything as owed, late, missed or remaining.
 
 ### Story 8.1: One silent channel that cannot be widened
 
@@ -2580,11 +2563,11 @@ So that the one notification I allow cannot grow into the thing I turned notific
 
 **Given** the notification's copy
 **When** it is audited
-**Then** it contains **no task title, no numeric counter, no time reference other than the offered minutes, and no word framing anything as owed, late, missed or remaining** (FR-24, SM-C3)
+**Then** it may refer generally to household action, a short available time or a change of activity, but contains **no actual task title, no numeric counter, and no word framing anything as owed, late, missed or remaining** (FR-24, SM-C3)
 
 **Given** the invitation's composition
 **When** its inputs are traced
-**Then** it reads **only the configured hour and the Time Bag value** — no plan state, no completion history, no last-open time. It cannot see whether the user has been away, so it cannot acquire pressure later (A6)
+**Then** it reads only the configured hour, the Time Bag value and the fixed reviewed copy set — no plan state, no completion history, no last-open time. It cannot see whether the user has been away, so it cannot acquire pressure later (A6)
 
 **Given** the setting
 **When** its default is checked
@@ -2609,7 +2592,7 @@ So that the one notification I allow cannot grow into the thing I turned notific
 
 **Given** the invitation's copy decision
 **When** this story is planned
-**Then** it is `[OPEN]` per UX-DR53 — one fixed string or a small rotating set to avoid the blindness that kills any repeated notification, and **either shape must survive SM-C3**
+**Then** it uses the reviewed motivating, kind rotating set. Every string survives SM-C3: no actual task title, counter, owed/late/missed/remaining framing or increased frequency (UX-DR53, FR-24)
 
 ### Story 8.2: One per domestic day, rescheduled after boot
 

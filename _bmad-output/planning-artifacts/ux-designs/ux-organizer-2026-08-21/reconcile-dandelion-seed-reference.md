@@ -2,12 +2,14 @@
 name: Reconciliation — dandelion-seed-reference.png
 description: Accounts for every visual idea carried by the one user-supplied visual taken in during Discovery, and where each one landed in DESIGN.md.
 status: final
-updated: 2026-08-25
+updated: 2026-08-27
 input: "imports/dandelion-seed-reference.png"
-record: ".memlog.md (133 lines) · DESIGN.md · mockups/seed-at-scale-1.html · mockups/final-verification-1.html"
+record: ".memlog.md · DESIGN.md · mockups/seed-at-scale-1.html · mockups/final-verification-1.html"
 ---
 
 # Reconciliation — `imports/dandelion-seed-reference.png`
+
+**Addendum — 2026-08-27.** This accounting is final as a record of the 2026-08-25 state; four of its findings were superseded by the blocker-resolution pass of 2026-08-27, all recorded in `DESIGN.md`. (1) The teal ink (claim 15, "dropped by silence… never argued down") was **considered and rejected** by the builder — "neither is to be re-litigated". (2) The taper (claim 8) likewise **considered and rejected** — one stroke width per render size stands. (3) The at-rest 64px trio seed (§3, "nowhere written down as a decision") is now **named and accepted knowingly** as a decision. (4) The motion-dashes lever (§3, "pulled nowhere") is now **assigned** — on at 56px and above, illustration register only; Warm Return is drawn with them at 168px, the permission-to-rest screen without them. The two in-place corrections this report calls for at its close ("12-filament reference" → 17; "dense (windward)" → leeward, *sotavento*) were paid in `DESIGN.md`. Nothing else in the accounting changed.
 
 One visual was supplied by the builder during Discovery. Everything the session decided about the third destination glyph after that point was decided against this file. This report accounts for what happened to every idea the file carries — not to praise the outcome, but to make sure nothing was quietly dropped.
 
