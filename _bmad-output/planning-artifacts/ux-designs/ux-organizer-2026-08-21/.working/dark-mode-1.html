@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark mode completo — ux-organizer · Fase 5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&family=Lora:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --srf-b:#1B1E20; --srf-r:#24282A;
+    --ink-p:#ECEAE4; --ink-s:#99A0A3;
+    --hair:#343A3D; --acc:#313E3B;
+    --keep-d:#7E9C91; --donate-d:#9793AA; --trash-d:#AE8E91;
+    --ochre-d:#A2947E; --blue-d:#7B9BA9; --neut-d:#8E9894;
+    --blue-light:#9BC1D2; --blue-old:#A4BED6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#D8DADD;font-family:'Lexend',sans-serif;color:#1E2124;padding:32px 24px 80px}
+  h1{font-size:22px;font-weight:600;letter-spacing:.01em;margin-bottom:6px}
+  .sub{font-size:13px;color:#5C6368;line-height:1.5;max-width:900px;margin-bottom:8px}
+  .note{background:#fff;border:1px solid #E1E5E8;border-radius:10px;padding:14px 18px;font-size:13px;line-height:1.55;color:#5C6368;max-width:900px;margin:14px 0 34px}
+  .note b{color:#1E2124}
+  h2{font-size:16px;font-weight:600;margin:44px 0 4px;letter-spacing:.01em}
+  .h2sub{font-size:13px;color:#5C6368;margin-bottom:18px;line-height:1.5}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .phone{width:380px;background:var(--srf-b);border:1px solid #3A3F42;border-radius:26px;padding:18px 0 14px;min-height:740px;display:flex;flex-direction:column}
+  .phone .inner{display:flex;flex-direction:column;height:100%;padding:0 24px;flex:1}
+  .cap{font-size:12.5px;color:#5C6368;margin-top:12px;line-height:1.5;max-width:380px}
+  .cap b{color:#1E2124}
+  .tap{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px}
+  .furn{display:flex;justify-content:flex-end;align-items:center;min-height:48px}
+  .furn-grp{display:flex;gap:4px}
+  .spacer{flex:1;min-height:24px}
+  .card{background:var(--srf-r);border:1px solid var(--hair);border-radius:14px;padding:24px}
+  .chip{display:inline-block;background:var(--acc);color:var(--ink-p);font-size:15px;font-weight:500;letter-spacing:.01em;line-height:1.4;padding:5px 14px;border-radius:9999px}
+  .task{font-family:'Lora',serif;font-size:26px;font-weight:500;line-height:1.32;margin-top:8px;color:var(--ink-p)}
+  .done{margin-top:32px;background:var(--acc);color:var(--ink-p);font-size:19px;font-weight:600;letter-spacing:.01em;border-radius:14px;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .skip{margin-top:12px;text-align:center;color:var(--ink-s);font-size:15px;line-height:1.35;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .zone{margin-top:20px;display:flex;align-items:center;gap:8px;color:var(--ink-s);font-size:13px;line-height:1.45}
+  .strip{margin:20px 2px 0}
+  .strip .line1{display:flex;align-items:center;gap:4px}
+  .strip .txt{flex:1;color:var(--ink-s);font-size:13px;line-height:1.45}
+  .strip .x{width:48px;height:48px;margin:-8px -10px -8px -6px;display:flex;align-items:center;justify-content:center;color:var(--ink-s);font-size:15px}
+  .batt-row{display:flex;gap:2px;margin-top:2px}
+  .link-new{margin:6px 0 10px;text-align:center}
+  .link-new a{color:var(--ink-s);font-size:15px;font-decoration:none;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px}
+  .panel{background:#fff;border:1px solid #E1E5E8;border-radius:14px;padding:22px;max-width:100%}
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:4px}
+  .panel p{font-size:12.5px;color:#5C6368;line-height:1.55;margin-bottom:16px}
+  .paneldark{background:var(--srf-r);border:1px solid var(--hair);border-radius:14px;padding:22px}
+  .paneldark h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--ink-p)}
+  .flex{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .lbl{font-size:12px;color:#5C6368;margin-top:8px;text-align:center;line-height:1.4}
+  .lblw{font-size:12px;color:var(--ink-s);margin-top:8px;text-align:center;line-height:1.4}
+  .destrow{display:flex;align-items:center;gap:16px;background:var(--srf-r);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .destrow .bar{position:absolute;left:0;top:0;bottom:0;width:6px}
+  .destrow .glyph{margin-left:10px}
+  .destrow .name{color:var(--ink-p);font-size:19px;font-weight:600;letter-spacing:.01em}
+  .destrow+.destrow{margin-top:16px}
+  table.nums{border-collapse:collapse;font-size:12.5px;max-width:100%}
+  table.nums td,table.nums th{border:1px solid #E1E5E8;padding:7px 12px;text-align:left;line-height:1.45}
+  table.nums th{background:#F7F8F9;font-weight:600}
+  .verdict{background:#fff;border:1.5px solid #1E2124;border-radius:14px;padding:22px 26px;max-width:960px;margin-top:44px}
+  .verdict h3{font-size:15px;font-weight:600;margin-bottom:10px}
+  .verdict li{font-size:13.5px;line-height:1.6;margin-left:18px;margin-bottom:7px}
+  .verdict li b{font-weight:600}
+  .verdict .q{color:#8A4B2F}
+  .ph{font-size:11px;color:#9AA0A5;background:#F1F2F3;border-radius:6px;padding:2px 8px;display:inline-block}
+</style>
+</head>
+<body>
+
+<h1>Dark mode completo — Fase 5</h1>
+<div class="sub">Paleta oscura re-autorada contra la versión C por el método verificado de la sesión. Todo lo calculado, nada invertido. <b>Las spines ganan.</b></div>
+<div class="note">
+  <b>Corrección honesta incluida:</b> las separaciones del azul presentadas en la Fase 2 (41.9 del lila) eran diferencias de <b>ángulo de hue</b>, no distancias en el plano a–b — la métrica del propio sistema. Corregido: el azul pasa de h256 a <b>h235 · #9BC1D2</b> (visualmente casi idéntico, sigue siendo azul polvoriento) y ahora limpia 15 de cada masa cromática. Distancia al neutro casi-gris: 14.03 — aceptada con su razón registrada (par de <b>estados</b> sobre la misma marca, nunca significados en competencia; declarada redundante por tinta y prosa).<br>
+  <b>Órdenes de la paleta oscura:</b> trío a L*62/C13 (hues de la versión C) → separación mínima <b>15.83</b> ✓ y contraste de barra 4.99–5.03:1 (paridad por construcción, spread 0.04) · ocre C13.5 · azul h235 · neutro a su croma propio · <b>ink-secondary-dark asignada</b> (6.31:1 / 5.60:1, AA) · <b>border-strong-dark borrada</b> (huérfana: nada necesita un borde fuerte que hairline-dark no cubra) · accent-soft-dark verificada (9.27:1 con la tinta clara).
+</div>
+
+<!-- ============ SECTION 1 · light correction ============ -->
+<h2>1 · La corrección del azul (claro)</h2>
+<div class="row">
+  <div class="panel">
+    <div class="flex">
+      <div style="text-align:center"><svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--blue-old)"/></svg><div class="lbl">#A4BED6 · h256<br>emisión Fase 2 — métrica errónea<br>sep-vs-donate real: 10.8 ✗</div></div>
+      <div style="text-align:center"><svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--blue-light)"/></svg><div class="lbl"><b>#9BC1D2 · h235</b><br>re-emisión corregida<br>sep: keep 16.9 · donate 15.7 · trash 28.4 · ochre 29.6 ✓</div></div>
+    </div>
+    <p style="margin:14px 0 0">A la vista, la corrección es imperceptible — ambas son azul polvoriento en la banda. La diferencia es de geometría: ahora el hue está a distancia ≥15 de cada masa con croma, medida en el mismo plano a–b que gobierna el trío.</p>
+  </div>
+</div>
+
+<!-- ============ SECTION 2 · dark dispenser ============ -->
+<h2>2 · El Dispenser oscuro completo</h2>
+<div class="h2sub">Mueblario, tarjeta, franja con check-in, enlace. La gramática masa-trabajo / texto-marcharse sin cambio.</div>
+<div class="row">
+  <div>
+  <div class="phone"><div class="inner">
+    <div class="furn">
+      <div class="furn-grp">
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5" fill="var(--neut-d)"/></g><g fill="none" stroke="var(--ink-p)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5"/><path d="M8.5 7.5 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h3.8 a1.6 1.6 0 0 1 1.6 1.6 V7.5"/><circle cx="12" cy="13.2" r="3.6"/></g></svg></div>
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><g transform="rotate(45 12 12)"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1" fill="var(--neut-d)"/></g></g><g transform="rotate(45 12 12)" fill="none" stroke="var(--ink-p)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1"/><path d="M18 9.75 L22 12 L18 14.25 Z"/><line x1="6" y1="9.75" x2="6" y2="14.25"/></g></svg></div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="card">
+      <span class="chip">3 min</span>
+      <div class="task">Despeja la mesa del salón</div>
+      <div class="done">Hecho</div>
+      <div class="skip">Otra más fácil / Ahora no</div>
+      <div class="zone">
+        <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z" fill="var(--ochre-d)"/></g><g fill="none" stroke="var(--ink-s)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z"/><path d="M6.6 12.7 C10 11.4 15 11.3 18.3 12.1"/><path d="M5 13 L2.6 14.4"/></g></svg>
+        <span>Zona: Salón <span class="ph">PH</span></span>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="line1">
+        <div class="txt">¿Cuánta energía tienes hoy?</div>
+        <div class="x">✕</div>
+      </div>
+      <div class="batt-row" id="battD"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="link-new"><a href="#">Nuevo proyecto</a></div>
+  </div></div>
+  <div class="cap"><b>Notas:</b> chip y Hecho en accent-soft-dark con tinta clara (9.27:1) · masas de glifos en neutral-dark (5.6:1 contra el suelo) · Hoja con masa ocre oscura · la franja desnuda · el enlace en tinta secundaria oscura (6.31:1, AA).</div>
+  </div>
+</div>
+
+<!-- ============ SECTION 3 · destination flow dark ============ -->
+<h2>3 · Las destinaciones oscuras — volúmenes</h2>
+<div class="h2sub">Derrota del builder tras ver las barras: «quedan muy pobres y con poco contraste». La decisión registrada del cambio de forma SE ANULA — las destinaciones conservan su forma clara (dos planchas, offset global, masa bajo línea), solo cambian los colores. Los valores L*62/C13 calculados sirven como masas: ΔL* 46 contra el suelo — el contraste que faltaba, por construcción. Separación mínima del trío: 15.83.</div>
+<div class="row">
+  <div>
+    <div style="width:380px">
+      <div class="destrow"><div class="glyph"><svg width="64" height="64" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 10.5 V19 a1.2 1.2 0 0 0 1.2 1.2 H17.8 A1.2 1.2 0 0 0 19 19 V10.5 Z" fill="var(--keep-d)"/></g><g fill="none" stroke="var(--ink-p)" stroke-width="0.5625" stroke-linejoin="round" stroke-linecap="round"><path d="M3.2 7.6 L5.4 4.6 H17.2 L20.8 8.2 V19 a1.2 1.2 0 0 1 -1.2 1.2 H6.2 A1.2 1.2 0 0 1 5 19 Z M5 10.5 H20.8"/></g></svg></div><div class="name">Quedármelo</div></div>
+      <div class="destrow"><div class="glyph"><svg width="64" height="64" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M7.2 9.2 H16.8 L15.8 19 a1.5 1.5 0 0 1 -1.5 1.3 H9.7 A1.5 1.5 0 0 1 8.2 19 Z" fill="var(--donate-d)"/></g><g fill="none" stroke="var(--ink-p)" stroke-width="0.5625" stroke-linejoin="round" stroke-linecap="round"><path d="M6 8.5 H18 L16.8 19 a1.6 1.6 0 0 1 -1.6 1.4 H8.8 A1.6 1.6 0 0 1 7.2 19 Z"/><path d="M9 8.5 C9 5.5 10 4 12 4 C14 4 15 5.5 15 8.5"/></g></svg></div><div class="name">Donar o vender</div></div>
+      <div class="destrow"><div class="glyph"><svg width="64" height="64" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><circle cx="12.6" cy="9.4" r="2.6" fill="var(--trash-d)"/></g><g fill="none" stroke="var(--ink-p)" stroke-width="0.5625" stroke-linejoin="round" stroke-linecap="round"><path d="M12.6 12 L11.4 16.4 L9.8 17.2 C7.9 15.9 7 14 7 12.4"/><path d="M12.6 6.8 L11.2 4.4 M14.5 7.5 L16.2 5.6 M15.9 9.6 L18.3 9.1 M13.6 6.6 L13.1 3.9 M15.5 8.2 L17.6 6.9"/><path d="M11.4 16.4 C10.9 18.9 9.7 19.6 8.3 19.6 C7 19.6 6.2 18.7 6.2 17.6 C6.2 16.2 7.5 15.4 9.8 15.2"/></g><path d="M11.4 16.4 C10.9 18.9 9.7 19.6 8.3 19.6 C7 19.6 6.2 18.7 6.2 17.6 C6.2 16.2 7.5 15.4 9.8 15.2 Z" fill="var(--ink-p)" stroke="none"/></svg></div><div class="name">Tirar o soltar</div></div>
+    </div>
+    <div class="cap"><b>Mismas construcciones que en claro</b> — caja con masa en el cuerpo, bolsa con masa en el cuerpo, semilla con círculo en el pompom (desplazado a barlovento del haz) y aquenio relleno en tinta clara. Dos planchas, un vector global, 0.5625u de trazo. Las masas a L*62 saltan sobre el suelo oscuro: el volumen que las barras no tenían. Igual peso por construcción (L* 61.87–62.10, C 12.88–13.03).</div>
+  </div>
+</div>
+
+<!-- ============ SECTION 4 · manual capture dark ============ -->
+<h2>4 · Manual Capture oscuro — los estados del mic</h2>
+<div class="row">
+  <div class="paneldark">
+    <h3>Reposo y dictando</h3>
+    <div class="flex">
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24"><rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4" fill="var(--neut-d)"/><g fill="none" stroke="var(--ink-p)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4"/><path d="M6.2 10.6 v0.8 a5.8 5.8 0 0 0 11.6 0 v-0.8"/><line x1="12" y1="17.2" x2="12" y2="20.4"/></g></svg><div class="lblw">reposo · neutral-dark</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24"><rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4" fill="var(--blue-d)"/><g fill="none" stroke="var(--ink-p)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4"/><path d="M6.2 10.6 v0.8 a5.8 5.8 0 0 0 11.6 0 v-0.8"/><line x1="12" y1="17.2" x2="12" y2="20.4"/></g></svg><div class="lblw">dictando · blue-dark</div></div>
+    </div>
+    <p style="margin:14px 0 0;font-size:12.5px;color:var(--ink-s);line-height:1.55">La cápsula dictando en blue-dark #7B9BA9 (h235, la corrección aplicada también aquí) + el pie <span style="color:var(--ink-s)">«Escuchando…»</span> en tinta secundaria. Sin animación, como siempre.</p>
+  </div>
+  <div class="panel">
+    <h3>La tabla completa calculada</h3>
+    <table class="nums">
+      <tr><th>Token</th><th>Hex</th><th>L*</th><th>C</th><th>h</th></tr>
+      <tr><td>dest-keep-dark</td><td>#7E9C91</td><td>61.87</td><td>12.96</td><td>169.7</td></tr>
+      <tr><td>dest-donate-dark</td><td>#9793AA</td><td>61.95</td><td>13.03</td><td>298.0</td></tr>
+      <tr><td>dest-trash-dark</td><td>#AE8E91</td><td>61.99</td><td>12.88</td><td>13.3</td></tr>
+      <tr><td>icon-mass-ochre-dark</td><td>#A2947E</td><td>61.97</td><td>13.61</td><td>83.6</td></tr>
+      <tr><td>icon-mass-blue-dark</td><td>#7B9BA9</td><td>62.10</td><td>13.40</td><td>234.7</td></tr>
+      <tr><td>icon-mass-neutral-dark</td><td>#8E9894</td><td>61.95</td><td>4.47</td><td>168.9</td></tr>
+      <tr><td>ink-secondary-dark <b>(asignada)</b></td><td>#99A0A3</td><td>65.40</td><td>3.08</td><td>232.0</td></tr>
+      <tr><td>border-strong-dark <b>(borrada)</b></td><td>—</td><td colspan="3">huérfana; hairline-dark cubre todo borde oscuro</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ VERDICT ============ -->
+<div class="verdict">
+  <h3>Veredicto y preguntas</h3>
+  <ol>
+    <li><b>La corrección del azul claro:</b> #9BC1D2 (h235) reemplaza a #A4BED6. Visualmente casi idéntica; geométricamente honesta. <span class="q">¿Confirmada?</span></li>
+    <li><b>La paleta oscura completa:</b> trío de barras a L*62/C13 con paridad por construcción, contrapartes de ocre/azul/neutro, ink-secondary-dark asignada, border-strong-dark borrada. <span class="q">¿Confirmada?</span></li>
+    <li><b>Distancias azul↔neutro (14.0 claro · 14.1 oscuro) y azul↔keep oscuro (14.2):</b> bajo 15 pero entre <i>estados</i> y <i>no-significados</i> en competencia, declaradas redundante por tinta y prosa — aceptadas con la razón registrada. <span class="q">¿Se acepta?</span></li>
+    <li><b>La Hoja oscura a 24px</b> hereda la misma pregunta abierta de su versión clara (la OQ del creciente bajo tinta secundaria — sigue viva para verificación en dispositivo). <span class="q">Nota</span></li>
+  </ol>
+</div>
+
+<script>
+function batterySVG(level, sel){
+  const w = level===0 ? 12.8 : level===1 ? 6.4 : 3.2;
+  const fill = sel ? 'var(--blue-d)' : 'var(--neut-d)';
+  const ink = sel ? 'var(--ink-p)' : 'var(--ink-s)';
+  return `<div class="tap"><svg width="24" height="24" viewBox="0 0 24 24">`+
+    `<rect x="4.6" y="9.1" width="${w}" height="6.3" rx="1" fill="${fill}"/>`+
+    `<g fill="none" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">`+
+    `<rect x="3" y="7.5" width="16" height="9.5" rx="2"/><rect x="20.2" y="10.25" width="1.8" height="4" rx="0.9"/></g></svg></div>`;
+}
+document.getElementById('battD').innerHTML = batterySVG(0,true)+batterySVG(1,false)+batterySVG(2,false);
+</script>
+
+</body>
+</html>

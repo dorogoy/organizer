@@ -10,7 +10,7 @@ created: '2026-08-26'
 updated: '2026-08-27'
 binds:
   - 'FR-1 … FR-32'
-  - '§1.1 principles P1–P6 (and exceptions E1, E2)'
+  - '§1.1 principles P1–P6 (and exception E1)'
   - '§5.2 NL-1'
   - '§7 cross-cutting constraints'
   - 'SM-1 … SM-4, SM-C1 … SM-C3'

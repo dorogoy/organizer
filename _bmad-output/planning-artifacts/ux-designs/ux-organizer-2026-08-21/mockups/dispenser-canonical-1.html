@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispenser canónico v2 — ux-organizer · Fase 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&family=Lora:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface-base:#F7F8F9; --surface-raised:#FFFFFF;
+    --ink-primary:#1E2124; --ink-secondary:#5C6368;
+    --border-hairline:#E1E5E8; --accent-soft:#D5E0DC;
+    --mass-neutral:#B3BEBA; --mass-ochre:#CAB9A0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#ECEDEE;font-family:'Lexend',sans-serif;color:var(--ink-primary);padding:32px 24px 80px}
+  h1{font-size:22px;font-weight:600;letter-spacing:.01em;margin-bottom:6px}
+  .sub{font-size:13px;color:var(--ink-secondary);line-height:1.5;max-width:900px;margin-bottom:8px}
+  .note{background:#fff;border:1px solid var(--border-hairline);border-radius:10px;padding:14px 18px;font-size:13px;line-height:1.55;color:var(--ink-secondary);max-width:900px;margin:14px 0 34px}
+  .note b{color:var(--ink-primary)}
+  h2{font-size:16px;font-weight:600;margin:44px 0 4px;letter-spacing:.01em}
+  .h2sub{font-size:13px;color:var(--ink-secondary);margin-bottom:18px;line-height:1.5}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+
+  .phone{width:380px;background:var(--surface-base);border:1px solid #D6DADD;border-radius:26px;padding:18px 0 14px;min-height:740px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .phone .inner{display:flex;flex-direction:column;height:100%;padding:0 24px;flex:1}
+  .cap{font-size:12.5px;color:var(--ink-secondary);margin-top:12px;line-height:1.5;max-width:380px}
+  .cap b{color:var(--ink-primary)}
+  .badge{display:inline-block;font-size:11px;color:#fff;background:var(--ink-secondary);border-radius:6px;padding:2px 8px;margin-bottom:10px;letter-spacing:.02em}
+
+  .furn{display:flex;justify-content:flex-end;align-items:center;min-height:48px}
+  .furn-grp{display:flex;gap:4px}
+  .tap{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer}
+  .tap:hover{background:rgba(0,0,0,.035)}
+
+  .spacer{flex:1;min-height:24px}
+  .card{background:var(--surface-raised);border:1px solid var(--border-hairline);border-radius:14px;padding:24px}
+  .chip{display:inline-block;background:var(--accent-soft);color:var(--ink-primary);font-size:15px;font-weight:500;letter-spacing:.01em;line-height:1.4;padding:5px 14px;border-radius:9999px}
+  .task{font-family:'Lora',serif;font-size:26px;font-weight:500;line-height:1.32;margin-top:8px}
+  .done{margin-top:32px;background:var(--accent-soft);color:var(--ink-primary);font-size:19px;font-weight:600;letter-spacing:.01em;border-radius:14px;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .skip{margin-top:12px;text-align:center;color:var(--ink-secondary);font-size:15px;font-weight:400;line-height:1.35;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .zone{margin-top:20px;display:flex;align-items:center;gap:8px;color:var(--ink-secondary);font-size:13px;line-height:1.45}
+
+  .strip{margin:20px 2px 0}
+  .strip .line1{display:flex;align-items:center;gap:4px}
+  .strip .txt{flex:1;color:var(--ink-secondary);font-size:13px;line-height:1.45;cursor:pointer}
+  .strip .x{width:48px;height:48px;margin:-8px -10px -8px -6px;display:flex;align-items:center;justify-content:center;color:var(--ink-secondary);font-size:15px;cursor:pointer;border-radius:12px}
+  .strip .x:hover{background:rgba(0,0,0,.035)}
+  .strip.hairline{border:1px solid var(--border-hairline);border-radius:14px;padding:12px 8px 12px 16px;background:var(--surface-raised)}
+  .strip.hairline .x{margin:-4px -4px -4px 0}
+  .strip .subrow{display:flex;align-items:center;gap:0}
+  .nums{display:flex}
+  .nums .tap{width:48px;font-size:15px;font-weight:500;color:var(--ink-primary)}
+  .ends{display:flex;justify-content:space-between;margin:2px 6px 0;color:var(--ink-secondary);font-size:12px}
+  .batt-row{display:flex;gap:2px;margin-top:2px}
+
+  .link-new{margin:6px 0 10px;text-align:center}
+  .link-new a{color:var(--ink-secondary);font-size:15px;font-weight:400;text-decoration:none;letter-spacing:.01em;display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:12px}
+  .link-new a:hover{background:rgba(0,0,0,.035)}
+
+  .panel{background:#fff;border:1px solid var(--border-hairline);border-radius:14px;padding:22px;max-width:100%}
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:4px}
+  .panel p{font-size:12.5px;color:var(--ink-secondary);line-height:1.55;margin-bottom:16px}
+  .flex{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .lbl{font-size:12px;color:var(--ink-secondary);margin-top:8px;text-align:center;line-height:1.4}
+  .ph{font-size:11px;color:#9AA0A5;background:#F1F2F3;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:6px}
+  .verdict{background:#fff;border:1.5px solid var(--ink-primary);border-radius:14px;padding:22px 26px;max-width:960px;margin-top:44px}
+  .verdict h3{font-size:15px;font-weight:600;margin-bottom:10px}
+  .verdict li{font-size:13.5px;line-height:1.6;color:var(--ink-primary);margin-left:18px;margin-bottom:7px}
+  .verdict li b{font-weight:600}
+  .verdict .q{color:#8A4B2F}
+  .energy-grp.big{display:flex;gap:10px}
+  .energy-grp.big .tap{width:70px;height:70px}
+  .energy-grp.big .tap svg{width:58px;height:58px}
+</style>
+</head>
+<body>
+
+<h1>Dispenser canónico v2 — Fase 2</h1>
+<div class="sub">Re-render tras las tres resoluciones: energía fuera del mobiliario permanente (check-in diario en la franja), autorreporte numérico con etiquetas de extremo, batería con carga registrada. Tokens reales de DESIGN.md. <b>Las spines ganan sobre este artefacto.</b></div>
+<div class="note">
+  <b>Cadencias representadas:</b> el check-in de energía aparece solo en la <b>primera apertura del día</b> (variantes A y B); el domingo la franja la ocupa el autorreporte (variante C) — máximo uno visible. Ni energía ni agobio se preguntan por tarea.<br>
+  <b>Excepción documentada:</b> la carga de la batería va <b>registrada, sin offset</b> — dentro de un contenedor cerrado la misregistration lee como fuga, y el eje horizontal contra el vector global de 45° sería transversal.<br>
+  <b>Placeholders <span class="ph" style="margin:0 0 0 2px">PH</span>:</b> nombre de zona FlyLady, frase de sugerencia y pregunta del check-in de energía (strings no autorizadas). El autorreporte y sus etiquetas sí van a autorizar hoy.
+</div>
+
+<!-- ============ SECTION 1 · variants ============ -->
+<h2>1 · La superficie en sus tres momentos</h2>
+<div class="h2sub">A: primera apertura del día (check-in de energía, franja desnuda) · B: la variante concentrada al pie, ahora sin energía en el mueblario (riesgo dock reducido, a re-juzgar) · C: domingo (autorreporte semanal, franja con hairline por persistente).</div>
+<div class="row">
+
+  <!-- A -->
+  <div>
+  <div class="phone"><div class="inner">
+    <div class="furn">
+      <div class="furn-grp">
+        <div class="tap" title="Cámara — scan directo">
+          <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5" fill="var(--mass-neutral)"/></g><g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5"/><path d="M8.5 7.5 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h3.8 a1.6 1.6 0 0 1 1.6 1.6 V7.5"/><circle cx="12" cy="13.2" r="3.6"/></g></svg>
+        </div>
+        <div class="tap" title="Lápiz — anotar">
+          <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><g transform="rotate(45 12 12)"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1" fill="var(--mass-neutral)"/></g></g><g transform="rotate(45 12 12)" fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1"/><path d="M18 9.75 L22 12 L18 14.25 Z"/><line x1="6" y1="9.75" x2="6" y2="14.25"/></g></svg>
+        </div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="card">
+      <span class="chip">3 min</span>
+      <div class="task">Despeja la mesa del salón</div>
+      <div class="done">Hecho</div>
+      <div class="skip">Otra más fácil / Ahora no</div>
+      <div class="zone">
+        <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z" fill="var(--mass-ochre)"/></g><g fill="none" stroke="var(--ink-secondary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z"/><path d="M6.6 12.7 C10 11.4 15 11.3 18.3 12.1"/><path d="M5 13 L2.6 14.4"/></g></svg>
+        <span>Zona: Salón <span class="ph">PH</span></span>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="line1">
+        <div class="txt">¿Cuánta energía tienes hoy? <span class="ph">PH</span></div>
+        <div class="x">✕</div>
+      </div>
+      <div class="batt-row" data-batt="bA"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="link-new"><a href="#">Nuevo proyecto</a></div>
+  </div></div>
+  <div class="cap"><span class="badge">A · PRIMERA APERTURA DEL DÍA</span><br>Mueblario permanente: cámara y lápiz arriba, enlace abajo. La franja trae el check-in de energía solo hoy; respondida o descartada, no vuelve hasta mañana. Franja <b>desnuda</b> — efímera.</div>
+  </div>
+
+  <!-- B -->
+  <div>
+  <div class="phone"><div class="inner">
+    <div class="spacer"></div>
+    <div class="card">
+      <span class="chip">3 min</span>
+      <div class="task">Despeja la mesa del salón</div>
+      <div class="done">Hecho</div>
+      <div class="skip">Otra más fácil / Ahora no</div>
+      <div class="zone">
+        <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z" fill="var(--mass-ochre)"/></g><g fill="none" stroke="var(--ink-secondary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z"/><path d="M6.6 12.7 C10 11.4 15 11.3 18.3 12.1"/><path d="M5 13 L2.6 14.4"/></g></svg>
+        <span>Zona: Salón <span class="ph">PH</span></span>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="line1">
+        <div class="txt">¿Cuánta energía tienes hoy? <span class="ph">PH</span></div>
+        <div class="x">✕</div>
+      </div>
+      <div class="batt-row" data-batt="bB"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="furn" style="justify-content:center">
+      <div class="furn-grp">
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5" fill="var(--mass-neutral)"/></g><g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5"/><path d="M8.5 7.5 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h3.8 a1.6 1.6 0 0 1 1.6 1.6 V7.5"/><circle cx="12" cy="13.2" r="3.6"/></g></svg></div>
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><g transform="rotate(45 12 12)"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1" fill="var(--mass-neutral)"/></g></g><g transform="rotate(45 12 12)" fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1"/><path d="M18 9.75 L22 12 L18 14.25 Z"/><line x1="6" y1="9.75" x2="6" y2="14.25"/></g></svg></div>
+      </div>
+    </div>
+    <div class="link-new"><a href="#">Nuevo proyecto</a></div>
+  </div></div>
+  <div class="cap"><span class="badge">B · CONCENTRADA AL PIE</span><br>La tarjeta abre en aire puro. Con la energía fuera, la fila al pie son ya solo dos glifos + el enlace — el riesgo dock baja, pero sigue: masa-trabajo y texto-marcharse comparten borde inferior.</div>
+  </div>
+
+  <!-- C -->
+  <div>
+  <div class="phone"><div class="inner">
+    <div class="furn">
+      <div class="furn-grp">
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5" fill="var(--mass-neutral)"/></g><g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5"/><path d="M8.5 7.5 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h3.8 a1.6 1.6 0 0 1 1.6 1.6 V7.5"/><circle cx="12" cy="13.2" r="3.6"/></g></svg></div>
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><g transform="rotate(45 12 12)"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1" fill="var(--mass-neutral)"/></g></g><g transform="rotate(45 12 12)" fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1"/><path d="M18 9.75 L22 12 L18 14.25 Z"/><line x1="6" y1="9.75" x2="6" y2="14.25"/></g></svg></div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="card">
+      <span class="chip">3 min</span>
+      <div class="task">Despeja la mesa del salón</div>
+      <div class="done">Hecho</div>
+      <div class="skip">Otra más fácil / Ahora no</div>
+      <div class="zone">
+        <svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z" fill="var(--mass-ochre)"/></g><g fill="none" stroke="var(--ink-secondary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z"/><path d="M6.6 12.7 C10 11.4 15 11.3 18.3 12.1"/><path d="M5 13 L2.6 14.4"/></g></svg>
+        <span>Zona: Salón <span class="ph">PH</span></span>
+      </div>
+    </div>
+    <div class="strip hairline">
+      <div class="line1">
+        <div class="txt">Esta semana, ¿cuánto te ha agobiado la casa?</div>
+        <div class="x">✕</div>
+      </div>
+      <div class="subrow">
+        <div class="nums">
+          <div class="tap">1</div><div class="tap">2</div><div class="tap">3</div><div class="tap">4</div><div class="tap">5</div>
+        </div>
+      </div>
+      <div class="ends"><span>Nada</span><span>Muchísimo</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="link-new"><a href="#">Nuevo proyecto</a></div>
+  </div></div>
+  <div class="cap"><span class="badge">C · DOMINGO</span><br>El autorreporte ocupa la franja (el check-in de energía cede: máximo uno visible). Escala numérica 1–5 con extremos etiquetados — <b>cero ambigüedad</b>. Franja <b>con hairline</b>: persiste hasta responder esa semana.</div>
+  </div>
+
+</div>
+
+<!-- ============ SECTION 2 · battery ============ -->
+<h2>2 · La batería — el estado seleccionado en azul</h2>
+<div class="h2sub">Propuesta de Sergio: la carga del nivel actual toma un color; las no seleccionadas quedan neutras. Azul calculado con el método del trío para nacer dentro de la banda del sistema.</div>
+<div class="row">
+  <div class="panel">
+    <h3>Carga azul al seleccionar</h3>
+    <p>Seleccionada: carga <b>#9BC1D2</b> + carcasa en tinta primaria. No seleccionadas: carga neutra + carcasa secundaria.</p>
+    <div class="flex">
+      <div><div class="energy-grp big" data-batt="p1" data-sel="0" data-variant="blue"></div><div class="lbl">actual = llena · 2,4×</div></div>
+      <div><div class="energy-grp big" data-batt="p2" data-sel="2" data-variant="blue"></div><div class="lbl">actual = baja (UJ-4) · 2,4×</div></div>
+      <div><div class="energy-grp big" data-batt="p3" data-sel="1" data-variant="blue"></div><div class="lbl">actual = media · 2,4×</div></div>
+    </div>
+    <p style="margin:14px 0 0">La franja arranca con «llena» en azul — el default en pie (A5). Un tap mueve el color; respondida la franja, desaparece por hoy.</p>
+  </div>
+  <div class="panel">
+    <h3>La medida, junto a la fila de destinaciones</h3>
+    <div class="flex" style="align-items:center">
+      <div style="text-align:center">
+        <svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#9BC1D2"/></svg>
+        <div class="lbl">azul de carga<br>#9BC1D2 · L*75.9 · C15.2 · h255</div>
+      </div>
+      <div style="text-align:center">
+        <svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#9EC3B5"/></svg>
+        <div class="lbl">dest-keep<br>h169 · sep 86</div>
+      </div>
+      <div style="text-align:center">
+        <svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#BCB8D4"/></svg>
+        <div class="lbl">dest-donate<br>h297 · sep 41.9</div>
+      </div>
+      <div style="text-align:center">
+        <svg width="58" height="58" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#D9B2B6"/></svg>
+        <div class="lbl">dest-trash<br>h12.6 · sep 117</div>
+      </div>
+    </div>
+    <p style="margin:14px 0 0">Nace en la banda (L* ~76, C ~15, el mismo método verificado del ocre de la Hoja). Separación mínima 41.9 contra el umbral de 15 — ninguna destinación puede confundirse con él, y él no puede leerse como una cuarta destinación. El azul es además el hue universal de «seleccionado», sin registro de alarma ni de juicio.</p>
+  </div>
+</div>
+<div class="panel" style="margin-top:22px;max-width:960px">
+  <h3>Registro de candidatos descartados y notas en pie</h3>
+  <p><b>Descartados:</b> anillo (Sergio: «no queda nada bien») · carga rosada (colisión con dest-trash + metáfora de ansiedad de batería roja + el momento de pedir menos como lo más llamativo).<br>
+  <b>En pie:</b> carga registrada, sin offset (contenedor cerrado = fuga; eje horizontal vs vector 45° = transversal) · tres blancos, un tap cada uno (FR-4) · «media» filtra lo mismo que «llena», aceptado con re-filtro &lt;500 ms · a 24px la carga «baja» es una barra de ~3px, marginal pero legible. <b>Consecuencia para el pase de dark mode (Fase 5):</b> este azul necesita contraparte oscura.</p>
+</div>
+
+<!-- ============ SECTION 3 · self-report ============ -->
+<h2>3 · El autorreporte, ahora numérico</h2>
+<div class="row">
+  <div class="panel" style="max-width:430px">
+    <h3>Escala 1–5 con extremos</h3>
+    <p>La string de SM-2 no cambia; solo su representación. Números tocables (48dp), extremos etiquetados en support.</p>
+    <div class="strip hairline">
+      <div class="line1">
+        <div class="txt">Esta semana, ¿cuánto te ha agobiado la casa?</div>
+        <div class="x">✕</div>
+      </div>
+      <div class="subrow"><div class="nums"><div class="tap">1</div><div class="tap">2</div><div class="tap">3</div><div class="tap">4</div><div class="tap">5</div></div></div>
+      <div class="ends"><span>Nada</span><span>Muchísimo</span></div>
+    </div>
+    <p style="margin:14px 0 0"><b>A autorizar como strings fijas:</b> «Nada» y «Muchísimo» (los dígitos 1–5 no son strings). La dirección de la escala queda fijada por las etiquetas — sin ellas, «4» no dice si es bueno.</p>
+  </div>
+  <div class="panel" style="max-width:430px">
+    <h3>Sugerencia desechable (recordatorio)</h3>
+    <p>Sin caja, frase tocable = aceptar, ✕ descarta. Copy de muestra NO autorizado.</p>
+    <div class="strip">
+      <div class="line1">
+        <div class="txt">¿Un empujón a la mesa del salón? <span class="ph">PH</span></div>
+        <div class="x">✕</div>
+      </div>
+    </div>
+    <p style="margin:14px 0 0">Regla de chrome propuesta: <b>efímera = desnuda, persistente = hairline</b>. El check-in de energía (A/B) va desnudo; el autorreporte (C) con hairline.</p>
+  </div>
+</div>
+
+<!-- ============ SECTION 4 · 200% ============ -->
+<h2>4 · Domingo al 200%</h2>
+<div class="h2sub">El caso con más texto nuevo: números grandes, etiquetas de extremo, franja completa.</div>
+<div class="row">
+  <div>
+  <div class="phone" style="min-height:0"><div class="inner">
+    <div class="furn">
+      <div class="furn-grp">
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5" fill="var(--mass-neutral)"/></g><g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="7.5" width="17" height="11.5" rx="2.5"/><path d="M8.5 7.5 V6.2 a1.6 1.6 0 0 1 1.6 -1.6 h3.8 a1.6 1.6 0 0 1 1.6 1.6 V7.5"/><circle cx="12" cy="13.2" r="3.6"/></g></svg></div>
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><g transform="rotate(45 12 12)"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1" fill="var(--mass-neutral)"/></g></g><g transform="rotate(45 12 12)" fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="9.75" width="14.5" height="4.5" rx="1"/><path d="M18 9.75 L22 12 L18 14.25 Z"/><line x1="6" y1="9.75" x2="6" y2="14.25"/></g></svg></div>
+      </div>
+    </div>
+    <div class="card">
+      <span class="chip" style="font-size:30px;padding:8px 24px">3 min</span>
+      <div class="task" style="font-size:52px;margin-top:16px">Despeja la mesa del salón</div>
+      <div class="done" style="font-size:38px;min-height:64px;margin-top:28px">Hecho</div>
+      <div class="skip" style="font-size:30px">Otra más fácil /<br>Ahora no</div>
+      <div class="zone" style="margin-top:18px"><svg width="24" height="24" viewBox="0 0 24 24"><g transform="translate(1.358,-1.358)"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z" fill="var(--mass-ochre)"/></g><g fill="none" stroke="var(--ink-secondary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M5 13 C6.8 8.2 14.6 7.6 19.6 12 C14.6 16.6 6.8 16 5 13 Z"/><path d="M6.6 12.7 C10 11.4 15 11.3 18.3 12.1"/><path d="M5 13 L2.6 14.4"/></g></svg><span style="font-size:26px">Zona: Salón</span></div>
+    </div>
+    <div class="strip hairline">
+      <div class="line1">
+        <div class="txt" style="font-size:26px;line-height:1.45">Esta semana, ¿cuánto te ha agobiado la casa?</div>
+        <div class="x" style="font-size:30px">✕</div>
+      </div>
+      <div class="subrow"><div class="nums"><div class="tap" style="font-size:30px">1</div><div class="tap" style="font-size:30px">2</div><div class="tap" style="font-size:30px">3</div><div class="tap" style="font-size:30px">4</div><div class="tap" style="font-size:30px">5</div></div></div>
+      <div class="ends" style="font-size:24px"><span>Nada</span><span>Muchísimo</span></div>
+    </div>
+    <div class="link-new"><a href="#" style="font-size:30px">Nuevo proyecto</a></div>
+  </div></div>
+  <div class="cap"><b>200%.</b> Los números crecen dentro de blancos de 48dp (constante de plataforma). La fila numérica (5×48 = 240dp) cabe; las etiquetas de extremo crecen y el renglón scrollea si hace falta. Nada se trunca.</div>
+  </div>
+</div>
+
+<!-- ============ VERDICT ============ -->
+<div class="verdict">
+  <h3>Veredicto y preguntas</h3>
+  <ol>
+    <li><b>Layout A: confirmada.</b> Cámara + lápiz arriba, tarjeta, una franja, enlace abajo. Variante B retirada.</li>
+    <li><b>Estado seleccionado de la batería: azul de carga #9BC1D2</b> — calculado en la banda del sistema (L*75.9 · C15.2 · h255), separación mínima 41.9 de la destinación más próxima. <span class="q">¿Confirmado?</span></li>
+    <li><b>Falso gradiente: aceptado</b> — la mitad no filtra nada y el re-filtro corrige al instante.</li>
+    <li><b>Chrome de la franja: confirmado</b> — efímera = desnuda, persistente = hairline.</li>
+    <li><b>Strings autorizadas:</b> «Nada» · «Muchísimo» · «¿Cuánta energía tienes hoy?».</li>
+  </ol>
+</div>
+
+<script>
+function batterySVG(level, sel, big, variant){
+  const S = big ? 58 : 24;
+  const ink = sel ? 'var(--ink-primary)' : 'var(--ink-secondary)';
+  const w = level===0 ? 12.8 : level===1 ? 6.4 : 3.2;
+  const fill = (variant==='blue' && sel) ? '#9BC1D2' : 'var(--mass-neutral)';
+  const ring = '';
+  return `<div class="tap"><svg width="${S}" height="${S}" viewBox="0 0 24 24">${ring}`+
+    `<rect x="4.6" y="9.1" width="${w}" height="6.3" rx="1" fill="${fill}"/>`+
+    `<g fill="none" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">`+
+    `<rect x="3" y="7.5" width="16" height="9.5" rx="2"/><rect x="20.2" y="10.25" width="1.8" height="4" rx="0.9"/></g></svg></div>`;
+}
+function batteryRow(el){
+  const sel = parseInt(el.dataset.sel || '0', 10);
+  const big = el.classList.contains('big');
+  const variant = el.dataset.variant || 'blue';
+  el.innerHTML = batterySVG(0, sel===0, big, variant)+batterySVG(1, sel===1, big, variant)+batterySVG(2, sel===2, big, variant);
+}
+document.querySelectorAll('[data-batt]').forEach(el=>batteryRow(el));
+</script>
+
+</body>
+</html>

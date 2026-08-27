@@ -67,7 +67,7 @@ Overwhelmed people need household and personal work converted into one small, ac
 ## Constraints
 
 - The validation build is a single-user Android app: local-first, backend-free, Flutter 3.47 and Dart 3.13, with a pure-Dart functional core and an imperative Flutter/adapters shell.
-- Zero cognitive load and uncompromising anti-shaming govern every surface: no pending-work list, overdue state, streak, undone count, failure framing, or app-led pressure to continue. Only PRD exceptions E1 and E2 may bend the one-action/no-list rule, and only at genesis and Evergreen cluster selection.
+- Zero cognitive load and uncompromising anti-shaming govern every surface: no pending-work list, overdue state, streak, undone count, failure framing, or app-led pressure to continue. Only PRD exception E1 may bend the no-list rule, and only at Evergreen cluster selection.
 - The task pool and event log are immutable, insert-only facts; plans, sessions, settings, eligibility, counters, targets, and validation signals are deterministic derivations under the Architecture Spine.
 - Network egress is sealed to the three Smart Slicer payload shapes. No analytics, crash-reporting, remote-config, feature-flag, or other network SDK may enter the app.
 - Every scan requires per-scan consent after on-device person detection. Scan files die on every terminal path; voice audio is never stored, exported, or transmitted.

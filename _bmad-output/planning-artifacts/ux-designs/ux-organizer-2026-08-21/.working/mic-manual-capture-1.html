@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Micrófono + Manual Capture — ux-organizer · Fase 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&family=Lora:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface-base:#F7F8F9; --surface-raised:#FFFFFF;
+    --ink-primary:#1E2124; --ink-secondary:#5C6368;
+    --border-hairline:#E1E5E8; --accent-soft:#D5E0DC;
+    --mass-neutral:#B3BEBA; --mass-blue:#9BC1D2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#ECEDEE;font-family:'Lexend',sans-serif;color:var(--ink-primary);padding:32px 24px 80px}
+  h1{font-size:22px;font-weight:600;letter-spacing:.01em;margin-bottom:6px}
+  .sub{font-size:13px;color:var(--ink-secondary);line-height:1.5;max-width:900px;margin-bottom:8px}
+  .note{background:#fff;border:1px solid var(--border-hairline);border-radius:10px;padding:14px 18px;font-size:13px;line-height:1.55;color:var(--ink-secondary);max-width:900px;margin:14px 0 34px}
+  .note b{color:var(--ink-primary)}
+  h2{font-size:16px;font-weight:600;margin:44px 0 4px;letter-spacing:.01em}
+  .h2sub{font-size:13px;color:var(--ink-secondary);margin-bottom:18px;line-height:1.5}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .panel{background:#fff;border:1px solid var(--border-hairline);border-radius:14px;padding:22px;max-width:100%}
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:4px}
+  .panel p{font-size:12.5px;color:var(--ink-secondary);line-height:1.55;margin-bottom:16px}
+  .flex{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .lbl{font-size:12px;color:var(--ink-secondary);margin-top:8px;text-align:center;line-height:1.4}
+  .ph{font-size:11px;color:#9AA0A5;background:#F1F2F3;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:6px}
+  .verdict{background:#fff;border:1.5px solid var(--ink-primary);border-radius:14px;padding:22px 26px;max-width:960px;margin-top:44px}
+  .verdict h3{font-size:15px;font-weight:600;margin-bottom:10px}
+  .verdict li{font-size:13.5px;line-height:1.6;margin-left:18px;margin-bottom:7px}
+  .verdict li b{font-weight:600}
+  .verdict .q{color:#8A4B2F}
+  .phone{width:380px;background:var(--surface-base);border:1px solid #D6DADD;border-radius:26px;padding:22px 24px;min-height:700px;display:flex;flex-direction:column}
+  .cap{font-size:12.5px;color:var(--ink-secondary);margin-top:12px;line-height:1.5;max-width:380px}
+  .cap b{color:var(--ink-primary)}
+  .heading{font-size:19px;font-weight:600;line-height:1.25;letter-spacing:.01em}
+  .helper{font-size:13px;line-height:1.45;letter-spacing:.02em;color:var(--ink-secondary);margin-top:12px}
+  .example{font-family:'Lora',serif;font-size:16px;line-height:1.4;margin-top:10px;color:var(--ink-primary)}
+  .fieldrow{display:flex;align-items:center;gap:8px;margin-top:24px}
+  .field{flex:1;border:1px solid var(--border-hairline);border-radius:14px;background:var(--surface-raised);min-height:48px;display:flex;align-items:center;padding:0 16px;font-family:'Lora',serif;font-size:16px}
+  .field.placeholder{color:#A6ADB2;font-family:'Lexend',sans-serif;font-size:15px}
+  .tap{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer}
+  .tap:hover{background:rgba(0,0,0,.035)}
+  .sizes{display:flex;gap:12px;margin-top:24px}
+  .opt{min-height:48px;padding:0 18px;border-radius:9999px;display:flex;align-items:center;font-size:15px;font-weight:500;letter-spacing:.01em}
+  .opt.sel{background:var(--accent-soft);color:var(--ink-primary)}
+  .opt.uns{background:var(--surface-raised);border:1px solid var(--border-hairline);color:var(--ink-primary)}
+  .save{margin-top:32px;background:var(--accent-soft);color:var(--ink-primary);font-size:19px;font-weight:600;letter-spacing:.01em;border-radius:14px;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .save.dis{opacity:.45}
+  .discard{margin-top:12px;text-align:center;color:var(--ink-secondary);font-size:15px;min-height:48px;display:flex;align-items:center;justify-content:center}
+  .sizeset{display:flex;gap:0;align-items:flex-end}
+</style>
+</head>
+<body>
+
+<h1>Micrófono + Manual Capture — Fase 3</h1>
+<div class="sub">El glifo de FR-32 y el layout final de la superficie de captura. Tokens reales. <b>Las spines ganan.</b></div>
+<div class="note">
+  <b>El problema legal:</b> la cápsula vertical universal tiene eje vertical; el vector global de offset va a 45° — su masa se desplazaría en <b>transversal</b>, la lectura prohibida, y su anchura (~7u) rompe el mínimo de 8u. Candidata A: <b>micrófono de mano a 45°</b> (bola en línea + mango como masa axial — el truco del Lápiz, cero excepciones). Candidata B: <b>cápsula vertical registrada</b> (EL icono universal de dictado, pero amplía la excepción de carga registrada a un segundo glifo).<br>
+  <b>La demanda nueva que ningún glifo carga hoy:</b> leer como «pulsa para hablar» sin animación. El emplazamiento hace la mitad del trabajo (junto al campo); la forma hace la otra mitad.<br>
+  <b>Placeholders <span class="ph" style="margin:0 0 0 2px">PH</span>:</span> título, helper y ejemplo de Manual Capture (drafts de key-screens, sin autorizar — OQ-17 de EXPERIENCE).
+</div>
+
+<!-- ============ SECTION 1 · glyph candidates ============ -->
+<h2>1 · Los dos candidatos a tres tamaños</h2>
+<div class="h2sub">El tamaño que importa es 24px — el mic vive solo junto al campo de Manual Capture. 36/48 se muestran para verificar que la forma escala sin romperse.</div>
+<div class="row">
+  <div class="panel">
+    <h3>Candidata A — mano a 45°</h3>
+    <p>Bola en línea (tinta primaria) + mango como masa axial neutra bajo el offset global. El eje del mango coincide con el vector: desplazamiento 100% axial, como el Lápiz.</p>
+    <div class="flex">
+      <div style="text-align:center"><svg width="24" height="24" viewBox="0 0 24 24" class="micA"></svg><div class="lbl">24px</div></div>
+      <div style="text-align:center"><svg width="36" height="36" viewBox="0 0 24 24" class="micA"></svg><div class="lbl">36px</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micA"></svg><div class="lbl">48px</div></div>
+    </div>
+    <p style="margin:16px 0 0"><b>Riesgo a juzgar:</b> a 24px, ¿lee como micrófono — o como helado / seta? La bola con rejilla fina muere (problema Ajustes); se dibuja con dos arcos gruesos de rejilla, que a 24px pueden fundirse.</p>
+  </div>
+  <div class="panel">
+    <h3>Candidata B — cápsula vertical registrada</h3>
+    <p>La forma que todo teléfono usa para dictado: cápsula + pie + arco. La masa va <b>registrada, sin offset</b> — el mismo recurso de la batería, pero eso convierte la excepción en regla de dos casos.</p>
+    <div class="flex">
+      <div style="text-align:center"><svg width="24" height="24" viewBox="0 0 24 24" class="micB"></svg><div class="lbl">24px</div></div>
+      <div style="text-align:center"><svg width="36" height="36" viewBox="0 0 24 24" class="micB"></svg><div class="lbl">36px</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micB"></svg><div class="lbl">48px</div></div>
+    </div>
+    <p style="margin:16px 0 0"><b>Coste de regla, no de dibujo:</b> «la batería es la única masa registrada» acaba de escribirse en DESIGN.md como excepción acotada. B la ensancha a «las formas de eje vertical se registran» — verificable pero más floja.</p>
+  </div>
+</div>
+
+<!-- ============ SECTION 2 · states ============ -->
+<h2>2 · El estado de presión — la mitad visible de «pulsa para hablar»</h2>
+<div class="h2sub">FR-32: una pulsación explícita inicia el dictado; nada escucha fuera de ella. Sin animación disponible, el estado activo tiene que decirlo la tinta. Candidata: masa azul — el hue de «activo/seleccionado» del sistema.</div>
+<div class="row">
+  <div class="panel">
+    <h3>Reposo → dictando</h3>
+    <div class="flex">
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micA"></svg><div class="lbl">reposo · neutro</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micA on"></svg><div class="lbl">dictando · masa azul</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micB"></svg><div class="lbl">reposo (B)</div></div>
+      <div style="text-align:center"><svg width="48" height="48" viewBox="0 0 24 24" class="micB on"></svg><div class="lbl">dictando (B)</div></div>
+    </div>
+    <p style="margin:16px 0 0"><b>Nota de alcance:</b> el azul pasa a ser el hue de <b>estado activo</b> del sistema (batería seleccionada + mic dictando) — misma banda, mismos índices. Y para el «algo más» que pide el estado de dictado, dos mecanismos legales:</p>
+    <div style="margin-top:14px;max-width:360px">
+      <div class="fieldrow" style="margin-top:0">
+        <div class="field">regar las plantas de la vecina</div>
+        <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24" class="micB on"></svg></div>
+      </div>
+      <div style="font-size:13px;color:var(--ink-secondary);margin:2px 0 0 16px;letter-spacing:.02em">Escuchando…</div>
+    </div>
+    <p style="margin:14px 0 0"><b>(a) El pie «Escuchando…»</b> — la prosa declara el estado, como siempre en este sistema; visible también para quien no distingue el matiz de la masa, y honesto en la dirección que importa: mientras el micrófono vive, la pantalla lo dice (FR-32). <b>(b) La respiración</b> — una oscilación sutil de opacidad sobre la masa azul existente (el arquetipo universal de «te escucho»); ninguna regla grabada la prohíbe: no es gradiente, no es glow, no abre puertas ni escala con cantidad. Ambos son añadidos de <b>estado</b>, no de forma.</p>
+  </div>
+</div>
+
+<!-- ============ SECTION 3 · in situ ============ -->
+<h2>3 · In situ — Manual Capture completo</h2>
+<div class="h2sub">La superficie con el mic al final del campo (el emplazamiento estándar de dictado hace media pregunta), el picker de tres tamaños, Guardar deshabilitado hasta que la línea tenga texto, Descartar como salida única.</div>
+<div class="row">
+  <div>
+  <div class="phone">
+    <div class="heading">Un rincón de la casa <span class="ph">PH</span></div>
+    <div class="helper">Una cosa que se pueda señalar con la mano: un cajón, una estantería, una silla, un rincón. <span class="ph">PH</span></div>
+    <div class="example">Vaciar la caja de la entrada <span class="ph">PH</span></div>
+    <div class="fieldrow">
+      <div class="field placeholder">Escríbelo o dilo en voz alta <span class="ph">PH</span></div>
+      <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24" class="micB"></svg></div>
+    </div>
+    <div class="fieldrow" style="margin-top:14px">
+      <div class="field">regar las plantas de la vecina</div>
+      <div class="tap"><svg width="24" height="24" viewBox="0 0 24 24" class="micB on"></svg></div>
+    </div>
+    <div style="font-size:13px;color:var(--ink-secondary);margin:2px 0 0 16px;letter-spacing:.02em">Escuchando…</div>
+    <div class="sizes">
+      <div class="opt uns">30 s</div>
+      <div class="opt sel">3 min</div>
+      <div class="opt uns">10–15 min</div>
+    </div>
+    <div class="save">Guardar</div>
+    <div class="discard">Descartar</div>
+  </div>
+  <div class="cap"><b>Arriba:</b> campo vacío, mic en reposo, Guardar deshabilitado. <b>Abajo:</b> línea con texto dictado (Lora — la única Lora de la pantalla, la regla del pairing aterrizando sola), mic en azul = dictando, Guardar ya activo. El teclado nunca se quita: el mic está al lado del campo, no en su lugar.</div>
+  </div>
+</div>
+
+<!-- ============ VERDICT ============ -->
+<div class="verdict">
+  <h3>Veredicto y preguntas</h3>
+  <ol>
+    <li><b>Forma:</b> A (mano a 45°, cero excepciones, riesgo de reconocimiento a 24px) vs B (cápsula universal, segunda excepción registrada). <span class="q">¿Cuál?</span></li>
+    <li><b>El «algo más» del estado dictando:</b> (a) pie «Escuchando…», (b) respiración sutil de la masa azul, o (c) ambos. <span class="q">¿Cuál?</span></li>
+    <li><b>Layout:</b> ¿el mic al final del campo como está renderizado? <span class="q">¿Confirmado?</span></li>
+    <li><b>Strings PH:</b> título, helper y ejemplo siguen sin autorizar (OQ-17) — ¿los autorizamos hoy o quedan para su propio pase de copia? <span class="q">Decisión de agenda</span></li>
+  </ol>
+</div>
+
+<script>
+/* A: handheld at 45° — ball line top-right, handle axial mass along the diagonal.
+   Built in a rotated frame: handle along local x, ball at its end. */
+document.querySelectorAll('.micA').forEach(el=>{
+  const on = el.classList.contains('on');
+  const mass = on ? 'var(--mass-blue)' : 'var(--mass-neutral)';
+  el.innerHTML =
+   `<g transform="rotate(45 12 12)">`+
+     `<g transform="translate(1.358,-1.358)"><g transform="rotate(-45 12 12)"><g transform="rotate(45 12 12)">`+
+       `<rect x="4.2" y="10" width="9.2" height="4" rx="2" fill="${mass}"/>`+
+     `</g></g></g>`+
+     `<g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">`+
+       `<circle cx="17.2" cy="12" r="4.4"/>`+
+       `<line x1="9.8" y1="10.8" x2="9.8" y2="13.2"/>`+
+       `<path d="M13.2 10.6 A3.1 3.1 0 0 0 13.2 13.4"/>`+
+     `</g>`+
+   `</g>`;
+});
+/* B: universal capsule, registered mass (no offset) */
+document.querySelectorAll('.micB').forEach(el=>{
+  const on = el.classList.contains('on');
+  const mass = on ? 'var(--mass-blue)' : 'var(--mass-neutral)';
+  el.innerHTML =
+   `<rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4" fill="${mass}"/>`+
+   `<g fill="none" stroke="var(--ink-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">`+
+     `<rect x="8.6" y="3.6" width="6.8" height="10.4" rx="3.4"/>`+
+     `<path d="M6.2 10.6 v0.8 a5.8 5.8 0 0 0 11.6 0 v-0.8"/>`+
+     `<line x1="12" y1="17.2" x2="12" y2="20.4"/>`+
+   `</g>`;
+});
+</script>
+
+</body>
+</html>

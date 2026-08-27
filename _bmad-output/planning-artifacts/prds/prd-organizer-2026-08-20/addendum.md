@@ -29,7 +29,7 @@ Market caution: ChoreMonster (dead ~2018), OurHome (discontinued) — kid-chore 
 
 ## A2. Technology Options for the Smart Slicer (→ bmad-architecture decides)
 
-Open questions OQ-1 and OQ-10. Updated 2026-08-21 for the three-path access model (FR-28).
+Open question OQ-1 (OQ-10 closed 2026-08-26 at `bmad-architecture`). Updated 2026-08-21 for the three-path access model (FR-28).
 
 **Cloud candidates (BYOK, shipped in v1).** Multimodal vision LLM APIs with written no-training terms: OpenAI GPT vision class, Google Gemini vision class, Anthropic Claude vision class — all three verified 2026-08-26 and all three shipped in the initial allowlist (OQ-10, closed). Evaluation order matters — no-training terms come first because they are the allowlist gate (FR-28), not a tiebreaker; then Spanish output quality; then structured-output reliability for micro-step JSON. Two criteria have since been dropped rather than reordered: latency (OQ1 demoted it, and the stale 30 s budget is gone from §7) and **cost** — a room photo prices at roughly 0.003–0.006 USD per scan across the candidates, so A8's target is met by all of them with room to spare and the figure discriminates nothing. Retention is likewise not a criterion (FR-28).
 
@@ -50,7 +50,7 @@ Android-only, single device (the builder's daily phone): validation does not nee
 - The 1-3-5 composition is a daily *regenerable* set, not a checklist: re-weaving (not "failing the day") is the invariant the scheduler state machine must hold.
 - "No overdue concept" (FR-14) should be pushed as deep into the data model as possible — overdue-shaped data breeds overdue-shaped UI.
 - Anti-Marathon Cap interacts with Time Bag: cap is per-session, bag is per-day; multiple pockets per day are legitimate and celebrated (leisure respect cuts both ways).
-- Energy check-in should be ambient and optional: a default of 🟢 with gentle decay toward 🟡 late in the day was floated in brainstorming but left undecided — UX decision.
+- Energy check-in should be ambient and optional — decided at `bmad-ux` (2026-08-27; carried in FR-4): default 🟢, fixed, no decay, offered once per day at the first opening and skippable. Late-day decay toward 🟡 was floated in brainstorming and rejected: it would shrink the pool precisely during the app's real usage window (evenings) and would turn an ambient, optional check-in into a necessary correction.
 
 ## A6. Mechanism Notes — Ambient Invitation (FR-24)
 
@@ -58,7 +58,7 @@ Added 2026-08-20 when the zero-notification stance was traded for one opt-in sil
 
 - **Channel design is the enforcement point.** On Android, a low-importance notification channel (`IMPORTANCE_LOW`) gives silence and no heads-up by construction, and the user can tighten it further in system settings but the app can never widen it back — the channel importance is fixed at creation. That property is what makes "incapable of escalating" real rather than aspirational. Do not create a second channel.
 - **No badge, no count.** Suppress the launcher badge explicitly (`setShowBadge(false)`); a badge is a counter, and a counter is a debt display.
-- **Scheduling tradeoff (OQ-8).** `setInexactRepeating` / WorkManager survives Doze cheaply but may drift by up to an hour; exact alarms need `SCHEDULE_EXACT_ALARM` and read as urgent-app behavior to the OS. Recommendation to evaluate: inexact is philosophically consistent (an invitation that arrives whenever is still an invitation) and avoids a permission that only nagging apps need.
+- **Scheduling tradeoff (OQ-8, closed 2026-08-26).** `setInexactRepeating` / WorkManager survives Doze cheaply but may drift by up to an hour; exact alarms need `SCHEDULE_EXACT_ALARM` and read as urgent-app behavior to the OS. Ruled at `bmad-architecture`: inexact — `USE_EXACT_ALARM` is Play-restricted to apps whose core function is precise timing, which this app is the negation of, and FR-24's copy carries no clock to be wrong about. The prior recommendation to evaluate was adopted.
 - **Statelessness is a requirement, not an optimization.** The invitation must be composed from nothing but the configured hour and the Time Bag value — no read of plan state, completion history, or last-open time. If it cannot see whether Sergio has been away, it cannot acquire pressure later, no matter who edits the copy.
 - **Rejected alternative:** home-screen widget instead of a notification. Cheaper philosophically (fully passive, no permission), but widgets are out of scope (§5.1) and a widget requires an intentional glance at the home screen — the memory problem SM-1 faces is precisely that the app leaves attention entirely. Revisit post-validation as a possible replacement for FR-24.
 
@@ -273,7 +273,7 @@ Named so nobody adds them back by accident.
 
 - **Cocinar**, and any other task with an hour attached (§5.2, FR-31, A11).
 - **Cambio de armario de temporada** and **ordenar el trastero** — these are Epic Projects, personal to a home, and only the Slicer authors them (§1.1 principle 6, FR-11). A catalogue entry for either would be exactly the template-standing-in-for-the-Slicer fiction FR-29 removed.
-- **Non-spatial errands** (llamar al dentista, entregar el formulario) — the catalogue is spatial throughout, and whether such work belongs in the product at all is OQ-11, unresolved.
+- **Non-spatial errands** (llamar al dentista, entregar el formulario) — the catalogue is spatial throughout, and whether such work belongs in the product at all was OQ-11 — closed 2026-08-27: the app neither invites nor refuses it (spatial framing, no validation, silent acceptance; FR-27). The catalogue itself stays spatial.
 
 ## A13. Decision Rationale — voice as an input method, not as a path (2026-08-26)
 
@@ -302,7 +302,7 @@ Named so nobody adds them back by accident.
 - **Voice commands for the Dispenser** (saying "hecho", "otra más fácil"). Rejected on §1.1 principle 1 and on honesty: the Dispenser has two buttons and one card, so voice would add a modality to the one surface that is already effortless while doing nothing for the one that is not.
 - **Spoken sizes** ("tres minutos"). Rejected because parsing a duration out of speech is the first step of the deferred slicer, and because the three sizes are three taps — the cheapest interaction in the app. There is nothing to save.
 
-**Deliberately left open.** What the app does when on-device Spanish recognition is missing (OQ-13). The standing answer is absent-and-silent, which follows from §1.1 principle 2 — a greyed-out microphone is pending work in the Dispenser's own house. The counter-argument is that a user who never sees the affordance concludes the product has no voice and never looks, and settings is the only place §7 would let a pointer live.
+**Deliberately left open, then closed.** What the app does when on-device Spanish recognition is missing was OQ-13 — closed 2026-08-27: absent-and-silent is the decision, no language-pack pointer anywhere. The standing answer followed from §1.1 principle 2 — a greyed-out microphone is pending work in the Dispenser's own house; the counter-argument, that a user who never sees the affordance concludes the product has no voice, was weighed and overruled. A refused *permission* differs from *unavailability*: it carries a settings reactivation row, unified with the camera's pattern (FR-16, FR-32).
 
 **What the window should watch.** FR-32 records a local dictation boolean on each capture, settings-visible only. Read against SM-4's origin mix it answers two separate questions: whether voice was used at all, and whether cheap capture turned the floor into the road (§10.2). The second is the one that would matter, because its only obvious remedy is a list.
 
