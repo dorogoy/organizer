@@ -101,6 +101,7 @@ Source of record: **PRD §4** (status final, updated 2026-08-27). FR IDs are sta
 - **NFR18: Testing shape.** Core invariants are exercised with `dart test` on the machine, no emulator. Widget tests only where a surface consumes the read facade or a command. No golden tests; visual and behavioural verification is manual on the three validation handsets.
 - **NFR19: Theme selection is the platform's.** Light/dark **follows the system, with no settings row** — an override row would be the app's only duplicated preference, and the Foundation rule is that everything unstated is the platform's *(decided 2026-08-27, closing its OQ with zero UI)*.
 - **NFR20: One `Makefile` at the repository root is the entry point for every development command.** Tests, formatting, linting, analysis, localisation regeneration, the `tool/` build-time checks, running and building — no development operation is invoked by a remembered incantation. **`make gate` runs exactly NFR17's three commands** (`flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze`) so the story completion gate is one command, and **CI invokes the same targets** so local green means CI green. `make help` lists every target with a one-line description. The file grows additively: every story that introduces a `tool/` check or a build-time guard registers its own target in the same pass. *(Builder requirement, 2026-08-27.)*
+- **NFR21: devbox owns the development environment.** The repository root carries `devbox.json` and a committed `devbox.lock`; the toolchain (Flutter 3.47.1, Dart 3.13.1, JDK 17, the Android SDK, `make`) is provisioned by devbox, and every development command — NFR17's gate included — runs inside `devbox shell` or `devbox run --`, never against the host toolchain. CI installs devbox and invokes the same targets through it, so local, CI and every contributor resolve the identical environment. The pinned Flutter SDK is the official 3.47.1 stable tarball, sha256-pinned by the devbox bootstrap: **`devbox add flutter` is forbidden** — nixpkgs tops out at 3.47.0 (`devbox search flutter`, 2026-08-27), and NFR12's pins do not move to match a package index. *(Builder requirement, 2026-08-27.)*
 
 ### Additional Requirements (index)
 
@@ -240,7 +241,7 @@ Legend: **E1–E9** are the epics below. Two FRs are deliberately split across t
 
 **Coverage: 32 of 32 FRs mapped.** No FR is unassigned, and no epic depends on a later epic to function.
 
-**Where the NFRs land.** NFR1–NFR20 are build-wide and owned by no single epic; NFR9 (no overdue at the schema level), NFR16 (determinism), NFR7 (the ARB as the single string table) and NFR12 (the pinned stack) are established by Epic 1 and inherited. The rest are verified per story through the `tool/` checks, the lints and NFR17's completion gate.
+**Where the NFRs land.** NFR1–NFR21 are build-wide and owned by no single epic; NFR9 (no overdue at the schema level), NFR16 (determinism), NFR7 (the ARB as the single string table), NFR12 (the pinned stack) and NFR21 (the devbox environment) are established by Epic 1 and inherited. The rest are verified per story through the `tool/` checks, the lints and NFR17's completion gate.
 
 ## Epic List
 
@@ -297,7 +298,7 @@ Checked by hand against the inventory tables on 2026-08-27 — no tooling exists
 | Inventory | Covered | Note |
 |---|---|---|
 | **FR-1 … FR-32** | **32 / 32** | FR-11 and FR-31 are each split across two epics, declared in the coverage map |
-| **NFR1 … NFR20** | **20 / 20** | Build-wide constraints; four are *established* by Epic 1 and inherited thereafter |
+| **NFR1 … NFR21** | **21 / 21** | Build-wide constraints; five are *established* by Epic 1 and inherited thereafter |
 | **AD-1 … AD-26** | **26 / 26** | Every architectural invariant is cited by the story that must honour it |
 | **UX-DR1 … UX-DR62** | **58 / 62** | The four exceptions are listed below |
 
@@ -358,6 +359,7 @@ A fresh install — in airplane mode, with no key, no account and no model — p
 - **Only the ports this epic consumes are declared** — `Clock` and `Store`. The remaining five (`Slicer`, `Notifier`, `Recognizer`, `Folder`, `Files`) arrive with their first consumer, per the create-only-what-the-story-needs principle.
 - **Epic 1 runs on defaults.** The Time Bag sits at its 15-minute default and energy at 🟢, with no surface to change either; Epic 2 makes both settable. The weave takes them as inputs from the first line, so this is additive rather than a rewrite.
 - **The root `Makefile` is created in Story 1.1 and grows additively (NFR20).** It cannot invoke checks that do not exist yet — the catalogue floor arrives in 1.5, the egress seal in Epic 4 — so 1.1 lays down the development loop and the `gate` target, and **every later story that introduces a `tool/` check or build-time guard registers its target in the same pass.** That way the file is useful from the first story rather than assembled at the end. AD-18's release-ritual targets (build, install-on-top, export, import) are owed by Epic 9, where the export and import they drive actually land.
+- **The devbox environment lands with the scaffold (NFR21).** Story 1.1 creates `devbox.json`, commits `devbox.lock` and proves the pins inside `devbox shell` — JDK 17 from nixpkgs, Flutter 3.47.1 from the sha256-pinned official tarball, never `devbox add flutter` (nixpkgs tops out at 3.47.0). Every later story inherits the environment and adds toolchain needs to `devbox.json` in the same pass it first uses them, mirroring the Makefile rule above.
 - **`Otra más fácil / Ahora no` ships with its final string and only its skip half wired.** `Ahora no` is FR-3 and belongs here; `Otra más fácil` is FR-5's Rescue Mode and arrives in Epic 4. The control is a shared component completed across two epics — the same pattern as the ambient strip and Settings — not a forward dependency, and not a defect to file.
 
 **Implementation notes:** establishes the greenfield scaffold (`packages/core` + shell + `tool/` + `assets/evergreen/`), the seven ports of which only `Clock` and `Store` are consumed here, AD-2's SQL triggers declared in `.drift` and created in the initial migration, AD-4's `Calendar`, AD-21's full log vocabulary, and AD-20's resolver as the extension point later epics feed. Ships `tokens.dart`, the `dispenser-card`, `action-primary`, the unsplit `action-secondary`, `duration-chip` and `zone-marker`. Four `tool/` checks land here — core purity, the catalogue floor, the catalogue id diff and the no-literal-strings lint — plus the forbidden-vocabulary lint and the 28-deal rotation test. FR-14 is discharged as a proven property, not code.
@@ -430,6 +432,11 @@ So that every invariant the product rests on is checkable from the first commit 
 **Given** the story is complete
 **When** the completion gate runs
 **Then** `flutter test`, `dart format --set-exit-if-changed .` and `flutter analyze` are all green (NFR17)
+
+**Given** the repository root
+**When** `devbox shell` is entered and `flutter --version` and `java -version` are read
+**Then** Flutter 3.47.1 / Dart 3.13.1 and JDK 17 are on PATH from the devbox environment, and `devbox.json` and `devbox.lock` are committed
+**And** the pinned Flutter SDK is the official 3.47.1 tarball — the nixpkgs `flutter` package is not used (NFR21)
 
 ### Story 1.2: Both palettes, the glyph set and the single string table
 
