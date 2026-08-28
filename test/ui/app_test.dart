@@ -23,11 +23,15 @@ void main() {
     expect(app.theme, isNotNull);
     expect(app.darkTheme, isNotNull);
     expect(app.theme!.colorScheme.surface, FieldPalette.surfaceBase);
+    expect(app.theme!.colorScheme.primary, FieldPalette.accentSoft);
+    expect(app.theme!.colorScheme.onPrimary, FieldPalette.inkPrimary);
     expect(
       app.darkTheme!.colorScheme.surface,
       DarkPalette.surfaceBaseDark,
       reason: 'the dark palette is separately authored (UX-DR12)',
     );
+    expect(app.darkTheme!.colorScheme.primary, DarkPalette.accentSoftDark);
+    expect(app.darkTheme!.colorScheme.onPrimary, DarkPalette.inkPrimaryDark);
     // No override surface exists — theming is system-only (NFR19).
   });
 

@@ -59,6 +59,15 @@ void main() {
       );
     });
 
+    test('a whitespace-only reviewer name is a finding', () {
+      final arb = _pinnedSigned();
+      arb['@noSlicerOffline']['x-signoff'] = '   , 2026-08-27';
+      expect(
+        auditStringTable(arb).findings,
+        contains(contains('reviewer name is empty')),
+      );
+    });
+
     test('a placeholder-shaped pinned string is a finding', () {
       for (final placeholder in ['TODO: write me', 'TBD', 'FIXME', 'pending']) {
         final arb = _pinnedSigned();
@@ -101,6 +110,29 @@ void main() {
       expect(result.auditList, isNot(contains('reviewedKey')));
       expect(result.auditList, contains('noSlicerOffline'));
       expect(result.isClean, isTrue);
+    });
+
+    test('a whitespace-only exclusion stays audited and is a finding', () {
+      final arb = _pinnedSigned()
+        ..addAll({
+          'reviewedKey': 'Cadena revisada',
+          '@reviewedKey': {'x-audit-exclude': '   '},
+        });
+      final result = auditStringTable(arb);
+      expect(result.auditList, contains('reviewedKey'));
+      expect(
+        result.findings,
+        contains(contains('must contain a reviewed reason')),
+      );
+    });
+
+    test('leading whitespace does not hide a placeholder', () {
+      final arb = _pinnedSigned();
+      arb['noSlicerOffline'] = '   TODO: write me';
+      expect(
+        auditStringTable(arb).findings,
+        contains(contains('missing or a placeholder')),
+      );
     });
 
     test('a pinned key can never be excluded from the audit', () {

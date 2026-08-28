@@ -97,36 +97,44 @@ AuditResult auditStringTable(Map<String, dynamic> arb) {
     }
 
     final excluded = meta?['x-audit-exclude'];
-    if (excluded is String && excluded.isNotEmpty) {
-      if (pinnedNoSlicerKeys.contains(key)) {
-        findings.add(
-          '$key: a pinned no-Slicer key cannot be excluded from the '
-          'SM-C2 audit (AD-15)',
-        );
+    if (excluded is String) {
+      if (excluded.trim().isEmpty) {
+        findings.add('@$key.x-audit-exclude must contain a reviewed reason');
       } else {
-        // Explicitly reviewed exclusion — the only way off the audit list.
-        return;
+        if (pinnedNoSlicerKeys.contains(key)) {
+          findings.add(
+            '$key: a pinned no-Slicer key cannot be excluded from the '
+            'SM-C2 audit (AD-15)',
+          );
+        } else {
+          // Explicitly reviewed exclusion — the only way off the audit list.
+          return;
+        }
       }
     }
     auditList.add(key);
 
     if (pinnedNoSlicerKeys.contains(key)) {
       final text = value;
-      if (text is! String || _placeholderShape.hasMatch(text)) {
+      if (text is! String || _placeholderShape.hasMatch(text.trim())) {
         findings.add(
           '$key: pinned no-Slicer string is missing or a '
           'placeholder (AD-15)',
         );
       }
       final signoff = meta?['x-signoff'];
-      if (signoff is! String || signoff.isEmpty) {
+      if (signoff is! String || signoff.trim().isEmpty) {
         findings.add(
           '@$key: pinned no-Slicer key lacks an x-signoff reviewer marker '
           '"<name>, <date>" (AD-15)',
         );
       } else {
-        final shape = _signoffShape.firstMatch(signoff);
-        if (shape == null) {
+        final trimmedSignoff = signoff.trim();
+        final comma = trimmedSignoff.indexOf(',');
+        final shape = _signoffShape.firstMatch(trimmedSignoff);
+        if (comma >= 0 && trimmedSignoff.substring(0, comma).trim().isEmpty) {
+          findings.add('@$key: x-signoff reviewer name is empty (AD-15)');
+        } else if (shape == null) {
           findings.add(
             '@$key: x-signoff "$signoff" is not "<name>, <date>" (AD-15)',
           );

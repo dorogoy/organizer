@@ -24,13 +24,15 @@ void main() {
       },
     );
 
-    test('a sentence assembled by concatenation is banned', () {
-      // The quotes themselves are the literal: with literals banned outright
-      // there is nothing left to concatenate at runtime (AD-15).
-      const source = "String sentence = '\$first \$second';\n";
+    test('a sentence assembled from localized accessors is banned', () {
+      const source = '''
+String sentence(AppStrings strings) =>
+    strings.actionDone + strings.captureSave;
+''';
       final findings = scanSource(file: 'concat.dart', source: source);
       expect(findings, hasLength(1));
-      expect(findings.single.line, 1);
+      expect(findings.single.line, 2);
+      expect(findings.single.message, contains('concatenated at runtime'));
     });
 
     test('numerals ride ARB placeholders through accessors — clean', () {
@@ -94,21 +96,52 @@ final t = '${foo(
   });
 
   group('scanLib', () {
-    test('generated accessors and the token file are exempt', () {
+    test('marked generated accessors and named token strings are exempt', () {
       final temp = _makeTemp('exemptions');
       final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
       Directory('${lib.path}/strings').createSync();
       Directory('${lib.path}/ui').createSync();
       File('${lib.path}/main.dart')
           .writeAsStringSync("Widget build() => Text('Hecho');\n");
-      File('${lib.path}/strings/app_strings.dart')
-          .writeAsStringSync("String get actionDone => 'Hecho';\n");
-      File('${lib.path}/ui/tokens.dart')
-          .writeAsStringSync("static const String date = 'd\\u00A0MMM';\n");
+      File('${lib.path}/strings/app_strings.dart').writeAsStringSync(
+        "$generatedStringsHeader\nString get actionDone => 'Hecho';\n",
+      );
+      File('${lib.path}/strings/app_strings_es.dart').writeAsStringSync(
+        "$generatedStringsHeader\nString get actionDone => 'Hecho';\n",
+      );
+      File('${lib.path}/ui/tokens.dart').writeAsStringSync(
+        "static const String shortDateFormat = 'd\\u00A0MMM';\n",
+      );
 
       final findings = scanLib(lib);
       expect(findings, hasLength(1));
       expect(findings.single.file, endsWith('lib/main.dart'));
+    });
+
+    test('handwritten string files and arbitrary token copy are rejected', () {
+      final temp = _makeTemp('narrow_exemptions');
+      final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
+      Directory('${lib.path}/strings').createSync();
+      Directory('${lib.path}/ui').createSync();
+      for (final name in ['app_strings.dart', 'app_strings_es.dart']) {
+        File('${lib.path}/strings/$name')
+            .writeAsStringSync('$generatedStringsHeader\n');
+      }
+      File('${lib.path}/strings/custom.dart')
+          .writeAsStringSync("String copy = 'Hecho';\n");
+      File('${lib.path}/ui/tokens.dart')
+          .writeAsStringSync("static const String copy = 'Hecho';\n");
+
+      final findings = scanLib(lib);
+      expect(findings, hasLength(2));
+      expect(
+        findings.map((finding) => finding.file),
+        contains(endsWith('lib/strings/custom.dart')),
+      );
+      expect(
+        findings.map((finding) => finding.file),
+        contains(endsWith('lib/ui/tokens.dart')),
+      );
     });
   });
 

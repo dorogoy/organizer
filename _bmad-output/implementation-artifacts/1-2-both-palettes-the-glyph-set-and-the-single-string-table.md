@@ -3,7 +3,7 @@ title: 'Both palettes, the glyph set and the single string table'
 type: 'feature'
 created: '2026-08-28'
 status: 'done'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: 'ae6b225fde9a113e20caa22c17eea2ab1c7e52a4'
 context: []
 ---
@@ -19,12 +19,12 @@ context: []
 ## Boundaries & Constraints
 
 **Always:**
-- Every token value lands exactly once in `lib/ui/tokens.dart` (6 field colours, 6 icon-mass colours at L*76.0, 11 dark colours, 8 typography roles — Lora for `task` only, Lexend for the rest, `sp` sizes with multiplier line-heights —, 3 radii, 14 spacing values, 2 format rules); referenced nowhere else by literal (UX-DR1).
+- Every token value lands exactly once in `lib/ui/tokens.dart` (6 field colours, 6 icon-mass colours at L*76.0, 12 dark colours, 8 typography roles — Lora for `task` only, Lexend for the rest, `sp` sizes with multiplier line-heights —, 3 radii, 13 spacing values, 2 format rules); referenced nowhere else by literal (UX-DR1).
 - Field tier and icon-mass tier never touch: field colours at Aliento's baseline, icon-mass fixed at L*76.0 inside glyphs only (UX-DR2).
 - Dark palette is separately authored, never an inversion; `border-strong-dark` is omitted as an orphan (UX-DR12).
 - Theme follows the system; no settings row (NFR19).
 - All ten glyphs share the two-plate treatment and the global 45° offset, except batería and Micrófono capsule (registered exception); no Ajustes glyph exists (UX-DR8, UX-DR10, UX-DR11).
-- `lib/l10n/app_es.arb` is the single string table; `lib/strings/` holds only generated accessors; a lint fails any literal reaching a widget; numeral-into-fixed-sentence is the sole permitted interpolation (AD-15).
+- `lib/l10n/app_es.arb` is the single string table; `lib/strings/` holds only generated accessors; a lint fails any literal reaching a widget; one atomic value (a numeral or proper name) substituted into an otherwise fixed ARB sentence is the sole permitted interpolation (AD-15).
 - Per-key audit metadata (`x-signoff`, `x-audit-exclude`) lives inside each key's `@key` block in `app_es.arb` itself — never a second file — as free-text strings (`"<name>, <date>"` / `"<reason>"`), never booleans, so existence and review stay separately verifiable (AD-15, AD-21).
 - The text-scaling lint bans all five escapes: `maxLines`, `TextOverflow.ellipsis`, `FittedBox`, a `TextScaler`/`textScaleFactor` override, a fixed-height text container (UX-DR45, NFR6).
 - Screen-reader interim convention: no custom semantics, no manual announcements, platform traversal order only (UX-DR48).
@@ -41,7 +41,7 @@ context: []
 |----------|--------------|---------------------------|----------------|
 | Literal string in a widget | `Text('Hecho')` hardcoded | `make check` fails, names file:line | N/A |
 | Sentence built by concatenation | `'$a $b'` joining two ARB values | `make check` fails | N/A |
-| Numeral into fixed sentence | ARB placeholder `{count}` substituted | Passes — the sole exception | N/A |
+| Atomic value into fixed sentence | ARB placeholder `{count}` or `{provider}` substituted | Passes — the sole exception | N/A |
 | Text widget escapes the scale floor | `Text(..., maxLines: 2)` | `make check` fails | N/A |
 | Pinned no-Slicer key missing sign-off | ARB `@key` block lacks `x-signoff` | Audit check fails | N/A |
 | New ARB key added silently | Key added, no `x-audit-exclude` | Surfaces in the SM-C2 audit list | N/A |
@@ -87,9 +87,24 @@ context: []
 - Given any string entering the ARB, when reviewed, then it is checked against the Voice-and-Tone table
 - Given the seed glyph's drawn pompom radius, when its golden test runs, then the radius constant exceeds 1.70u and the rendered image matches the pinned golden file
 
+### Review Findings
+
+- [x] [Review][Decision] Token cardinalities contradict the frozen contract — Resolved by human decision: authoritative `DESIGN.md` counts are ratified at 12 dark colours and 13 spacing values; the frozen constraint is corrected accordingly.
+- [x] [Review][Decision] The provider placeholder exceeds the frozen interpolation exception — Resolved by human decision: one atomic numeral or proper name may be substituted into an otherwise fixed ARB sentence; fragments and runtime sentence concatenation remain banned.
+- [x] [Review][Patch] High: ARB accessor concatenation bypasses the no-literal-strings check [tool/check_no_literal_strings.dart:189]
+- [x] [Review][Patch] High: Whole-file exemptions leave generated strings and `tokens.dart` unaudited [tool/check_no_literal_strings.dart:199]
+- [x] [Review][Patch] High: Standard fixed-height and text-scaler overrides bypass the scaling check [tool/check_text_scaling.dart:75]
+- [x] [Review][Patch] Medium: The fixed-height scan rejects legal sibling spacers as text containers [tool/check_text_scaling.dart:87]
+- [x] [Review][Patch] High: Whitespace can forge audit exclusions, sign-offs and non-placeholder values [tool/check_string_table_audit.dart:99]
+- [x] [Review][Patch] Medium: Material primary actions resolve to ink instead of `accent-soft` [lib/ui/theme.dart:29]
+- [x] [Review][Patch] Medium: The no-Ajustes test does not pin the exact ten-glyph allowlist [test/ui/glyphs/glyph_set_test.dart:123]
+- [x] [Review][Patch] Medium: Battery levels and active blue states are not behaviorally verified [test/ui/glyphs/glyph_set_test.dart:138]
+- [x] [Review][Patch] Medium: The destination seed's required 64px at-rest state has no golden [test/ui/glyphs/glyph_set_test.dart:255]
+
 ## Spec Change Log
 
-<!-- Empty until the first bad_spec loopback. -->
+- 2026-08-28 — Human review ratified `DESIGN.md` as the counted-set authority: 12 dark colours and 13 spacing values replace the contradictory 11/14 figures in the frozen Always constraint. No implementation change.
+- 2026-08-28 — Human review ratified the consent provider as the same narrow interpolation class as a count: one atomic value inside an otherwise fixed ARB sentence. AD-15 was aligned; sentence fragments and runtime concatenation remain forbidden.
 
 ## Design Notes
 
@@ -110,7 +125,7 @@ ARB keys are load-bearing for later stories (1.5's catalogue names are ARB entri
 Implementation-time clarifications (verified against sources, no intent change):
 - Counted-set deltas: the frozen intent says 11 dark colours and 14 spacing values, but `DESIGN.md` enumerates 12 dark tokens (the light mirror minus the deleted `border-strong-dark`) and 13 spacing tokens (9 layout + 4 glyph sizes). `tokens.dart` follows `DESIGN.md`, which this spec's Code Map names the source of truth for every token value.
 - `tool/check_string_table_audit.dart`: an excluded key left the audit-list computation adding every key; fixed so `x-audit-exclude` is the only way off the list, and a pinned key carrying an exclusion is a finding (it must never leave the SM-C2 audit). All three new lints now carry test suites under `test/tool/` following `check_core_purity`'s pattern — this is what covers the I/O matrix rows.
-- The frozen bullet "numeral-into-fixed-sentence is the sole permitted interpolation" meets EXPERIENCE.md's consent body `La foto se procesará por [proveedor]…` — EXPERIENCE.md itself declares it "one parameterized localized body". The one coherent reading: a single token (name or numeral) substituted into a fixed sentence is permitted — what AD-15 bans is assembling a sentence from fragments — so the ARB ships `consentGateBody` with a `{provider}` placeholder, and the no-literal lint's header records the same. Resolved without renegotiation; flagged for the human at review.
+- The original frozen bullet "numeral-into-fixed-sentence is the sole permitted interpolation" met EXPERIENCE.md's consent body `La foto se procesará por [proveedor]…`, which declares itself "one parameterized localized body". Human review ratified the coherent rule: a single atomic token (name or numeral) substituted into a fixed sentence is permitted; AD-15 still bans assembling a sentence from fragments. The ARB therefore ships `consentGateBody` with a `{provider}` placeholder.
 
 ## Verification
 

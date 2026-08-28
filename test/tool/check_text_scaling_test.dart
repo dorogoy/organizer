@@ -32,11 +32,10 @@ void main() {
       expect(findings.single.message, contains('FittedBox'));
     });
 
-    test('a textScaler: or TextScaler override', () {
+    test('a textScaler: override', () {
       const source = "Text('Hola', textScaler: TextScaler.noScaling);\n";
       final findings = scanSource(file: 'scaler.dart', source: source);
       expect(findings.map((f) => f.message), contains(contains('textScaler')));
-      expect(findings.map((f) => f.message), contains(contains('TextScaler')));
     });
 
     test('a textScaleFactor override', () {
@@ -86,6 +85,43 @@ void main() {
         contains(contains('fixed-height container')),
       );
     });
+
+    test('a token-derived fixed height is still fixed', () {
+      const source =
+          "SizedBox(height: Spacing.touchTargetMin, child: Text('Hola'));\n";
+      expect(
+        scanSource(file: 'token.dart', source: source).map((f) => f.message),
+        contains(contains('fixed-height container')),
+      );
+    });
+
+    test('alternate SizedBox constructors around text are fixed', () {
+      for (final source in [
+        "SizedBox.square(dimension: 48, child: Text('Hola'));",
+        "SizedBox.fromSize(size: Size.square(48), child: Text('Hola'));",
+        "SizedBox.expand(child: Text('Hola'));",
+      ]) {
+        expect(
+          scanSource(file: 'sized.dart', source: source),
+          hasLength(1),
+          reason: source,
+        );
+      }
+    });
+
+    test('MediaQuery scaling wrappers are overrides', () {
+      for (final source in [
+        "MediaQuery.withNoTextScaling(child: Text('Hola'));",
+        'MediaQuery.withClampedTextScaling(maxScaleFactor: 1.0, '
+            "child: Text('Hola'));",
+      ]) {
+        expect(
+          scanSource(file: 'media_query.dart', source: source),
+          hasLength(1),
+          reason: source,
+        );
+      }
+    });
   });
 
   group('legal forms stay clean', () {
@@ -107,10 +143,32 @@ final maybe = MediaQuery.maybeTextScalerOf(context);
       expect(scanSource(file: 'spacer.dart', source: source), isEmpty);
     });
 
-    test('a token-pulled height is a review matter, not a literal one', () {
+    test('a minimum height lets text grow', () {
       const source =
-          "SizedBox(height: Spacing.touchTargetMin, child: Text('Hola'));\n";
-      expect(scanSource(file: 'token.dart', source: source), isEmpty);
+          'ConstrainedBox(constraints: BoxConstraints(minHeight: 48), '
+          "child: Text('Hola'));\n";
+      expect(scanSource(file: 'minimum.dart', source: source), isEmpty);
+    });
+
+    test('a sibling spacer does not constrain nearby text', () {
+      const source = '''
+Container(
+  child: Column(children: [
+    SizedBox(height: 48),
+    Text('Hola'),
+  ]),
+);
+''';
+      expect(scanSource(file: 'siblings.dart', source: source), isEmpty);
+    });
+
+    test('ambient TextScaler values and unrelated identifiers stay legal', () {
+      const source = '''
+final TextScaler ambient = MediaQuery.textScalerOf(context);
+final ellipsis = 3;
+final maxLines = computeLimit();
+''';
+      expect(scanSource(file: 'identifiers.dart', source: source), isEmpty);
     });
   });
 

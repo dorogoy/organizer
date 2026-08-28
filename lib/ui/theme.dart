@@ -22,14 +22,17 @@ abstract final class OrganizerTheme {
     final inkSecondary = dark
         ? DarkPalette.inkSecondaryDark
         : FieldPalette.inkSecondary;
+    final accent = dark ? DarkPalette.accentSoftDark : FieldPalette.accentSoft;
     final hairline = dark
         ? DarkPalette.borderHairlineDark
         : FieldPalette.borderHairline;
 
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: ink,
-      onPrimary: raised,
+      // Material's primary pair backs the one recommended action: the only
+      // pastel allowed to carry text, with ordinary primary ink on top.
+      primary: accent,
+      onPrimary: ink,
       secondary: inkSecondary,
       onSecondary: surface,
       // The system admits no alarm register (no red as alarm, no error

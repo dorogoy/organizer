@@ -13,10 +13,6 @@
   evidence: The story ships three lints (strings, text-scaling, audit); `Color(0xFF9EC3B5)`, a raw `fontSize: 26`, or `SizedBox(width: 24)` anywhere in `lib/` passes `make check` today — AC 1's "no literal duplicated elsewhere" rests entirely on review.
 
 - source_spec: `_bmad-output/implementation-artifacts/1-2-both-palettes-the-glyph-set-and-the-single-string-table.md`
-  summary: Detect generated-accessor drift — either gitignore `lib/strings/` or add a check that `flutter gen-l10n` is a no-op against the committed accessors.
-  evidence: `lib/strings/*.dart` are committed and load-bearing, but nothing in `make check`/`make gate` regenerates and compares; an ARB edit can ship with stale accessors and every check stays green.
-
-- source_spec: `_bmad-output/implementation-artifacts/1-2-both-palettes-the-glyph-set-and-the-single-string-table.md`
   summary: Fold `make check` into `make gate` (or have CI run both), and pin the Makefile's check registration with a test asserting every `tool/check_*.dart` is reachable from the `check` target (NFR20).
   evidence: The gate (NFR17) runs only test+format+analyze, so this story's three lints sit outside the completion gate; deleting a `check`-target line also ships silently — the tool tests invoke the scripts directly, never through the Makefile.
 

@@ -122,20 +122,30 @@ void main() {
 
   group('the glyph set', () {
     test(
-      'no Ajustes glyph exists — Settings is quiet text, never a drawing',
+      'the exact ten glyphs exist — Settings is quiet text, never a drawing',
       () {
-        final glyphs = Directory('lib/ui/glyphs').listSync();
-        expect(
-          glyphs.where((e) => e.path.toLowerCase().contains('ajustes')),
-          isEmpty,
-          reason:
-              'the Ajustes glyph is dissolved (UX-DR8); nothing may '
-              'resurrect it',
-        );
+        final glyphs = Directory('lib/ui/glyphs')
+            .listSync()
+            .whereType<File>()
+            .map((file) => file.uri.pathSegments.last)
+            .where((name) => name.endsWith('_glyph.dart'))
+            .toSet();
+        expect(glyphs, {
+          'album_glyph.dart',
+          'bag_glyph.dart',
+          'battery_glyph.dart',
+          'box_glyph.dart',
+          'camera_glyph.dart',
+          'clock_glyph.dart',
+          'leaf_glyph.dart',
+          'microphone_glyph.dart',
+          'pencil_glyph.dart',
+          'seed_glyph.dart',
+        }, reason: 'the set is exactly ten and Ajustes is dissolved (UX-DR8)');
       },
     );
 
-    testWidgets('a battery level change repaints — paths are rebuild-driven', (
+    testWidgets('battery levels change the rendered charge width', (
       tester,
     ) async {
       Future<TreatmentPainter> pumpLevel(BatteryLevel level) async {
@@ -150,13 +160,53 @@ void main() {
       }
 
       final low = await pumpLevel(BatteryLevel.low);
+      final medium = await pumpLevel(BatteryLevel.medium);
       final full = await pumpLevel(BatteryLevel.full);
-      // Same colors and scale for both levels (unselected); only the
-      // charge width changes, which lives in massPaths.
-      expect(low.massColor, full.massColor);
-      expect(low.scale, full.scale);
-      expect(low.shouldRepaint(full), isTrue);
+      expect(low.massPaths.single.getBounds().width, closeTo(3.2, 1e-6));
+      expect(medium.massPaths.single.getBounds().width, closeTo(6.4, 1e-6));
+      expect(full.massPaths.single.getBounds().width, closeTo(12.8, 1e-6));
     });
+
+    testWidgets(
+      'battery and microphone active states use blue in both themes',
+      (tester) async {
+        Future<TreatmentPainter> pump(Widget glyph, ThemeData theme) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Center(child: glyph),
+            ),
+          );
+          await tester.pumpAndSettle();
+          return _treatmentPainterOf(tester);
+        }
+
+        for (final brightness in Brightness.values) {
+          final dark = brightness == Brightness.dark;
+          final theme = dark ? OrganizerTheme.dark() : OrganizerTheme.light();
+          final expectedMass = dark
+              ? DarkPalette.iconMassBlueDark
+              : IconMassPalette.iconMassBlue;
+          final expectedInk = dark
+              ? DarkPalette.inkPrimaryDark
+              : FieldPalette.inkPrimary;
+
+          final battery = await pump(
+            const BatteryGlyph(48, level: BatteryLevel.full, selected: true),
+            theme,
+          );
+          expect(battery.massColor, expectedMass);
+          expect(battery.lineColor, expectedInk);
+
+          final microphone = await pump(
+            const MicrophoneGlyph(48, dictating: true),
+            theme,
+          );
+          expect(microphone.massColor, expectedMass);
+          expect(microphone.lineColor, expectedInk);
+        }
+      },
+    );
   });
 
   group('the shared treatment, per glyph', () {
@@ -264,6 +314,17 @@ void main() {
         () => const BagGlyph(64),
         'glyph_set/bag_64_light',
         OrganizerTheme.light(),
+      );
+      await pumpAndMatch(
+        tester,
+        () => const SeedGlyph(64, motionDashes: false),
+        'glyph_set/seed_64_light',
+        OrganizerTheme.light(),
+      );
+      expect(
+        _treatmentPainterOf(tester).linePaths,
+        hasLength(2),
+        reason: 'the destination seed is at rest even above 56px',
       );
     });
   });

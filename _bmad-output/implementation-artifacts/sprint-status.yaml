@@ -37,7 +37,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-the-sealed-scaffold: done
-  1-2-both-palettes-the-glyph-set-and-the-single-string-table: review
+  1-2-both-palettes-the-glyph-set-and-the-single-string-table: done
   1-3-the-insert-only-substrate: backlog
   1-4-one-calendar-authority: backlog
   1-5-the-shipped-evergreen-catalogue: backlog
