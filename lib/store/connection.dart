@@ -8,5 +8,6 @@ import 'package:drift_flutter/drift_flutter.dart';
 /// (AD-15's ban is on literals reaching a widget).
 const String substrateFileName = 'organizer_substrate';
 
-/// The production connection for the substrate database.
+/// The production connection for the substrate database. Bootstrap owns its
+/// construction so callers outside this module cannot reach Drift directly.
 DatabaseConnection connectSubstrate() => driftDatabase(name: substrateFileName);

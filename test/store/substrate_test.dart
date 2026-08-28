@@ -213,6 +213,60 @@ void main() {
               .read<int>('n');
       expect(count, 1);
     });
+
+    test(
+      'INSERT OR REPLACE on pool_facts raises and leaves the row unchanged',
+      () async {
+        final id = const Uuid().v7();
+        await store.appendPoolFact(_fact(id: id));
+        await expectLater(
+          db.customUpdate(
+            "INSERT OR REPLACE INTO pool_facts "
+            "(id, origin, size, instant_utc_micros, offset_seconds) "
+            "VALUES (?, 'cloud', 'focus', 1, 0)",
+            variables: [Variable.withString(id)],
+          ),
+          throwsA(
+            isA<SqliteException>().having(
+              (e) => e.message,
+              'message',
+              contains('insert-only (AD-2)'),
+            ),
+          ),
+        );
+        final row = await (db.select(
+          db.poolFacts,
+        )..where((row) => row.id.equals(id))).getSingle();
+        expect(row.origin, 'manual');
+      },
+    );
+
+    test(
+      'INSERT OR REPLACE on log_entries raises and leaves the row unchanged',
+      () async {
+        final id = const Uuid().v7();
+        await store.appendLogEntry(_entry(id: id));
+        await expectLater(
+          db.customUpdate(
+            "INSERT OR REPLACE INTO log_entries "
+            "(id, kind, instant_utc_micros, offset_seconds) "
+            "VALUES (?, 'card_skipped', 1, 0)",
+            variables: [Variable.withString(id)],
+          ),
+          throwsA(
+            isA<SqliteException>().having(
+              (e) => e.message,
+              'message',
+              contains('insert-only (AD-2)'),
+            ),
+          ),
+        );
+        final row = await (db.select(
+          db.logEntries,
+        )..where((row) => row.id.equals(id))).getSingle();
+        expect(row.kind, 'card_done');
+      },
+    );
   });
 
   test(

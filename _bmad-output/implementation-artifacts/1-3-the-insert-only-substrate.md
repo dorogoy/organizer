@@ -97,6 +97,13 @@ context: []
 - [x] [Review][Patch] Low: DST window in the crash offset assertion; orphaned doc comment; non-banned `queuedItems` fixture; vacuous pass when no scope root exists; wrapped-declaration allowance lookup; no-FK/no-CHECK and seal-scope decisions undocumented [tool/check_forbidden_vocabulary.dart, tool/check_store_seal.dart, tool/check_no_literal_strings.dart, lib/store/substrate.drift, test/fixtures/forbidden_vocabulary/banned.dart]
 - [ ] [Review][Defer] Log-record shape validation (item pair, stack-only-on-crash, kind-subtype consistency) belongs to the 1.6 read/parse boundary — recorded in `deferred-work.md`
 - [x] [Review][Reject] Exception message in the crash payload (AD-12 forbids anything beyond stack + timestamp); FK/CHECK constraints (break AD-23 import tolerance); provider wiring for `DriftStore` (no consumer until 1.6); `main()` bootstrap-seam refactor (guard itself is tested; wiring is four reviewable lines)
+- [x] [Review][Patch] `INSERT OR REPLACE` can rewrite an existing row without firing the DELETE refusal trigger [lib/store/substrate.drift:17]
+- [x] [Review][Patch] Public drift database APIs let code outside `lib/store/` issue raw persistence calls without tripping the store seal [lib/store/substrate.dart:16]
+- [x] [Review][Patch] A Flutter error with no supplied stack writes a `crash_recorded` entry without its required stack payload [lib/crash.dart:15]
+- [x] [Review][Patch] Forbidden-vocabulary identifiers can evade a banned token by appending digits [tool/check_forbidden_vocabulary.dart:60]
+- [x] [Review][Patch] Forbidden-vocabulary scan treats directive URIs as identifiers despite its strings-masked contract [tool/check_forbidden_vocabulary.dart:141]
+- [x] [Review][Patch] Both source checks exclude any directory named `fixtures`, including valid production paths under `lib/` [tool/check_forbidden_vocabulary.dart:168]
+- [x] [Review][Patch] Store-seal directives must begin a physical line, so valid same-line imports can bypass the check [tool/check_store_seal.dart:75]
 
 ## Spec Change Log
 

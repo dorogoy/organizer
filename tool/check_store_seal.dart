@@ -69,11 +69,12 @@ bool packageIsPersistence(String packageName) =>
     persistenceImportPrefixes.any(packageName.startsWith) ||
     persistedPackageDenylist.contains(packageName);
 
-/// A directive span: the keyword at a line start, through URIs and
+/// A directive span: the keyword at a line start or immediately after a
+/// preceding directive's semicolon, through URIs and
 /// configuration, to the terminating `;` — the same shape
 /// check_core_purity scans.
 final RegExp _directiveRegExp = RegExp(
-  "^[ \\t]*(import|export|part(?:[ \\t]+of)?)(?:[^;'\"|'[^']*'|\"[^\"]*\")*;",
+  "(?:^|;)[ \\t]*(import|export|part(?:[ \\t]+of)?)(?:[^;'\"|'[^']*'|\"[^\"]*\")*;",
   multiLine: true,
 );
 
@@ -84,6 +85,11 @@ int _lineOf(String text, int index) =>
 
 String _normalize(String path) =>
     path.replaceAll('\\', '/').replaceFirst('./', '');
+
+const Set<String> rawStoreLibraries = {
+  'package:organizer/store/connection.dart',
+  'package:organizer/store/substrate.dart',
+};
 
 /// Scans one file's source for persistence imports outside the allowlist.
 List<Finding> scanSource({
@@ -102,6 +108,17 @@ List<Finding> scanSource({
     final span = directive.group(0)!;
     for (final quoted in _quotedUriRegExp.allMatches(span)) {
       final uri = quoted.group(1) ?? quoted.group(2) ?? '';
+      if (rawStoreLibraries.contains(uri)) {
+        findings.add(
+          Finding(
+            file,
+            _lineOf(masked, directive.start + quoted.start),
+            "raw store library '$uri' is legal only inside "
+            '${allowlist.join(', ')} (AD-21 store seal)',
+          ),
+        );
+        continue;
+      }
       if (!uri.startsWith('package:')) {
         continue;
       }
@@ -126,19 +143,14 @@ List<Finding> scanSource({
 /// The directories this check owns, relative to the repository root.
 const List<String> scopeRoots = ['lib', 'packages/core', 'tool', 'test'];
 
-/// Directories inside the scope roots that are fixture data, not shipped
-/// code — this check's own fixtures live there.
-const Set<String> excludedDirectoryNames = {'fixtures', '.dart_tool'};
-
-/// Collects every `.dart` file under [root] recursively, skipping files
-/// inside any directory named in [excluded].
-List<File> _collectFiles(Directory root, Set<String> excluded) {
+/// Collects every `.dart` file under [root] recursively.
+List<File> _collectFiles(Directory root) {
   final files = <File>[];
   void walk(Directory dir) {
     for (final entity in dir.listSync(followLinks: false)) {
       if (entity is Directory) {
         final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
-        if (!excluded.contains(name)) {
+        if (name != '.dart_tool') {
           walk(entity);
         }
       } else if (entity is File && entity.path.endsWith('.dart')) {
@@ -168,12 +180,15 @@ Future<int> runCheck([String repoRoot = '']) async {
     if (!dir.existsSync()) {
       continue;
     }
-    for (final file in _collectFiles(dir, excludedDirectoryNames)) {
+    for (final file in _collectFiles(dir)) {
       // Paths are reported — and matched against the allowlist — relative
       // to the scanned root, so an absolute root still seals correctly.
       final scoped = root.isEmpty
           ? file.path
           : file.path.substring(root.length);
+      if (_normalize(scoped).startsWith('test/fixtures/')) {
+        continue;
+      }
       findings.addAll(
         scanSource(file: scoped, source: file.readAsStringSync()),
       );

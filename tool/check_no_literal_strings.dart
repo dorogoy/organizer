@@ -38,7 +38,10 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// and the store module's file references.
 const Map<String, Set<String>> namedConstantAllowance = {
   'lib/ui/tokens.dart': {'lora', 'lexend', 'shortDateFormat', 'durationFormat'},
-  'lib/store/substrate.dart': {'substrateSchemaFile'},
+  'lib/store/substrate.dart': {
+    'substrateSchemaFile',
+    'recursiveTriggersPragma',
+  },
   'lib/store/connection.dart': {'substrateFileName'},
 };
 

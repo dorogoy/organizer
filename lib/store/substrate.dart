@@ -8,6 +8,10 @@ part 'substrate.g.dart';
 /// `lib/ui/tokens.dart` (AD-15's ban is on literals reaching a widget).
 const String substrateSchemaFile = 'substrate.drift';
 
+/// Makes conflict replacement run the DELETE refusal triggers instead of
+/// silently replacing an existing row.
+const String recursiveTriggersPragma = 'PRAGMA recursive_triggers = ON';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
 /// migration (AD-2). schemaVersion 1 — every later change is additive-only
@@ -24,6 +28,8 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// triggers present after first open on a fresh install — is pinned by
   /// `test/store/substrate_test.dart`.
   @override
-  MigrationStrategy get migration =>
-      MigrationStrategy(onCreate: (m) => m.createAll());
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    beforeOpen: (_) => customStatement(recursiveTriggersPragma),
+  );
 }

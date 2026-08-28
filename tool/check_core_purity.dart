@@ -112,7 +112,8 @@ String maskCommentsAndStrings(String source) {
 
     if (top is! _Str) {
       // Code context: the base of the file, or inside an interpolation.
-      if ((i == 0 || chars[i - 1] == '\n') && !inDirective) {
+      if ((i == 0 || chars[i - 1] == '\n' || chars[i - 1] == ';') &&
+          !inDirective) {
         inDirective = _startsWithDirectiveKeyword(chars, i);
       }
       if (c == '/' && next == '/') {

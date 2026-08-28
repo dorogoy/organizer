@@ -82,6 +82,8 @@ void main() {
     expect(identifierIsBanned('due_date'), isTrue);
     expect(identifierIsBanned('backlog'), isTrue);
     expect(identifierIsBanned('backlogSize'), isTrue);
+    expect(identifierIsBanned('overdue2'), isTrue);
+    expect(identifierIsBanned('skippedCount3'), isTrue);
   });
 
   test('SCREAMING_SNAKE and acronym casing segment like camelCase', () {
@@ -129,6 +131,11 @@ final int visibleCount = 0;
     final findings = scanSource(file: 'sneaky.dart', source: sneaky);
     expect(findings, isNotEmpty);
     expect(findings.first.line, 1);
+  });
+
+  test('directive URIs are masked along with ordinary strings', () {
+    const source = "import 'package:overdue/tools.dart';\n";
+    expect(scanSource(file: 'directive.dart', source: source), isEmpty);
   });
 
   group('the executable', () {
@@ -182,6 +189,20 @@ final int visibleCount = 0;
         root.path,
       ]);
       expect(result.exitCode, 0);
+    });
+
+    test('a production lib/fixtures directory remains in scope', () async {
+      final root = _makeTemp('production_fixtures');
+      Directory('${root.path}/lib/fixtures').createSync(recursive: true);
+      File('${root.path}/lib/fixtures/bad.dart')
+          .writeAsStringSync('final int overdueItems = 0;\n');
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_forbidden_vocabulary.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      expect(result.stdout as String, contains('lib/fixtures/bad.dart'));
     });
   });
 }

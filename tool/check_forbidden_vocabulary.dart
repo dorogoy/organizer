@@ -54,7 +54,8 @@ final RegExp _identifierRegExp = RegExp(r'[A-Za-z_][A-Za-z0-9_]*');
 /// Splits one token into its lowercase segment list.
 List<String> _tokenSegments(String token) => _identifierSegments(token);
 
-/// Splits an identifier into lowercase segments at snake_case underscores
+/// Splits an identifier into lowercase segments at snake_case underscores,
+/// digits,
 /// and camelCase humps (`skippedCount` → `skipped`,`count`;
 /// `warmReturnDue` → `warm`,`return`,`due`).
 List<String> _identifierSegments(String identifier) {
@@ -62,7 +63,7 @@ List<String> _identifierSegments(String identifier) {
   var current = StringBuffer();
   for (var i = 0; i < identifier.length; i++) {
     final c = identifier[i];
-    if (c == '_') {
+    if (c == '_' || _isDigit(c)) {
       if (current.isNotEmpty) {
         segments.add(current.toString().toLowerCase());
         current = StringBuffer();
@@ -98,6 +99,9 @@ List<String> _identifierSegments(String identifier) {
   }
   return segments;
 }
+
+bool _isDigit(String value) =>
+    value.compareTo('0') >= 0 && value.compareTo('9') <= 0;
 
 /// True when [identifier] carries one of the banned tokens as a
 /// consecutive run of its segments.
@@ -138,7 +142,7 @@ bool _isKeywordNotIdentifier(String masked, RegExpMatch match) {
 /// Scans one file's source for banned identifiers.
 List<Finding> scanSource({required String file, required String source}) {
   final findings = <Finding>[];
-  final masked = maskCommentsAndStrings(source);
+  final masked = _maskDirectiveUris(maskCommentsAndStrings(source));
   for (final match in _identifierRegExp.allMatches(masked)) {
     final identifier = match.group(0)!;
     if (!identifierIsBanned(identifier)) {
@@ -160,18 +164,45 @@ List<Finding> scanSource({required String file, required String source}) {
   return findings;
 }
 
+/// Directive URIs remain visible in the shared masker for import checks, but
+/// are strings rather than identifiers and must not affect this scan.
+String _maskDirectiveUris(String source) {
+  final characters = source.split('');
+  for (final directive in _directiveRegExp.allMatches(source)) {
+    final text = directive.group(0)!;
+    for (final uri in _quotedUriRegExp.allMatches(text)) {
+      for (
+        var index = directive.start + uri.start;
+        index < directive.start + uri.end;
+        index++
+      ) {
+        if (characters[index] != '\n') {
+          characters[index] = ' ';
+        }
+      }
+    }
+  }
+  return characters.join();
+}
+
+final RegExp _directiveRegExp = RegExp(
+  "(?:^|;)[ \\t]*(import|export|part(?:[ \\t]+of)?)(?:[^;'\"|'[^']*'|\"[^\"]*\")*;",
+  multiLine: true,
+);
+
+final RegExp _quotedUriRegExp = RegExp("'([^']*)'|\"([^\"]*)\"");
+
 int _lineOf(String text, int index) =>
     '\n'.allMatches(text.substring(0, index)).length + 1;
 
-/// Collects every `.dart` file under [root] recursively, skipping files
-/// inside any directory named in [excluded].
-List<File> _collectFiles(Directory root, Set<String> excluded) {
+/// Collects every `.dart` file under [root] recursively.
+List<File> _collectFiles(Directory root) {
   final files = <File>[];
   void walk(Directory dir) {
     for (final entity in dir.listSync(followLinks: false)) {
       if (entity is Directory) {
         final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
-        if (!excluded.contains(name)) {
+        if (name != '.dart_tool') {
           walk(entity);
         }
       } else if (entity is File && entity.path.endsWith('.dart')) {
@@ -188,10 +219,6 @@ List<File> _collectFiles(Directory root, Set<String> excluded) {
 /// The directories this check owns, relative to the repository root.
 const List<String> scopeRoots = ['lib', 'packages/core/lib', 'tool', 'test'];
 
-/// Directories inside the scope roots that are fixture data, not shipped
-/// code — this check's own fixtures live there.
-const Set<String> excludedDirectoryNames = {'fixtures'};
-
 /// Runs the whole check against [repoRoot], printing one
 /// `file:line: message` line per finding. Returns the process exit code:
 /// 0 clean, 1 findings, 2 no scope root to scan (a vacuous pass — the
@@ -206,9 +233,15 @@ Future<int> runCheck([String repoRoot = '']) async {
       continue;
     }
     scannedRoots++;
-    for (final file in _collectFiles(dir, excludedDirectoryNames)) {
+    for (final file in _collectFiles(dir)) {
+      final scoped = root.isEmpty
+          ? file.path
+          : file.path.substring(root.length);
+      if (scoped.replaceAll('\\', '/').startsWith('test/fixtures/')) {
+        continue;
+      }
       findings.addAll(
-        scanSource(file: file.path, source: file.readAsStringSync()),
+        scanSource(file: scoped, source: file.readAsStringSync()),
       );
     }
   }

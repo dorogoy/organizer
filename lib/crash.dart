@@ -31,6 +31,7 @@ Future<void> appendCrashEntry(
   Uuid idMinter = const Uuid(),
 }) async {
   final now = DateTime.now();
+  final resolvedStack = stack ?? StackTrace.current.toString();
   final LogEntryRecord entry = (
     id: idMinter.v7(),
     kind: LogKind.crashRecorded.name,
@@ -38,7 +39,7 @@ Future<void> appendCrashEntry(
     offsetSeconds: now.timeZoneOffset.inSeconds,
     itemId: null,
     itemOrigin: null,
-    stack: stack,
+    stack: resolvedStack,
   );
   try {
     await store.appendLogEntry(entry);

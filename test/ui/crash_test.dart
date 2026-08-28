@@ -61,6 +61,12 @@ void main() {
     },
   );
 
+  test('a missing Flutter stack is replaced with the current stack', () async {
+    final store = _RecordingStore();
+    await appendCrashEntry(store, null);
+    expect(store.entries.single.stack, isNotEmpty);
+  });
+
   test(
     'installing the guard routes Flutter errors to the crash entry',
     () async {

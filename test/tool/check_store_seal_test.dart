@@ -91,6 +91,20 @@ void main() {
     expect(scanSource(file: 'in_string.dart', source: source), isEmpty);
   });
 
+  test('a raw store library import outside lib/store/ is flagged', () {
+    const source = "import 'package:organizer/store/substrate.dart';\n";
+    final findings = scanSource(file: 'lib/ui/screen.dart', source: source);
+    expect(findings, hasLength(1));
+    expect(findings.single.message, contains('raw store library'));
+  });
+
+  test('a directive after a same-line library declaration is sealed', () {
+    const source = "library fixture; import 'package:drift/drift.dart';\n";
+    final findings = scanSource(file: 'lib/ui/screen.dart', source: source);
+    expect(findings, hasLength(1));
+    expect(findings.single.message, contains('package:drift/drift.dart'));
+  });
+
   group('the executable', () {
     Directory fixtureRoot({required bool violating}) {
       final root = _makeTemp('cli');
@@ -129,6 +143,20 @@ void main() {
       ]);
       expect(result.exitCode, 0);
       expect(result.stdout as String, contains('store seal check passed'));
+    });
+
+    test('a production lib/fixtures directory remains in scope', () async {
+      final root = _makeTemp('production_fixtures');
+      Directory('${root.path}/lib/fixtures').createSync(recursive: true);
+      File('${root.path}/lib/fixtures/bad.dart')
+          .writeAsStringSync("import 'package:drift/drift.dart';\n");
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      expect(result.stdout as String, contains('lib/fixtures/bad.dart'));
     });
   });
 }
