@@ -67,7 +67,7 @@ DESIGN.md body sections in canonical order: Brand & Style → Colors → Typogra
 No misses — strong.
 
 ## Mechanical notes
-- Token reference resolution: 74 unique `{path.to.token}` references across both files, all resolving to frontmatter tokens, including sub-paths (`components.seed-glyph.axis`, `components.seed-glyph.motion-dashes`, `components.photo-frame.aspect`, `components.icon-glyph.offset`). Zero broken cross-references after the 34-edit pass.
+- Token reference resolution: 74 unique `{path.to.token}` references across both files, all resolving to frontmatter tokens, including sub-paths (`components.seed-glyph.axis`, `components.seed-glyph.motion-dashes`, `components.photo-frame.aspect`, `components.icon-glyph.offset`). Zero broken cross-references after the 34-edit pass. *(2026-08-28 correction: `components.seed-glyph.motion-dashes` was deleted when the dash lever was dissolved — the count and the zero-broken-claims verdict above hold for the pre-dissolution state; the Story 1-2 amendment spec `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md` is the record.)*
 - Orphan tokens: `border-strong-dark` and `ink-secondary-dark` (see §2). All other 19 colors, all typography roles, all radii, all spacings, both formats and all components are referenced at least once outside their definition.
 - Name consistency: the behavioural "Microphone affordance" (EXPERIENCE) and visual "Micrófono glyph" (DESIGN OQ-10 / EXPERIENCE OQ-24) are deliberately distinct names, cross-referenced in both directions — no ambiguity for consumers. "Energy control" and "Ambient suggestion" exist only in EXPERIENCE (see §3).
 - Stale count: "thirty FRs" → 32 (see §7).

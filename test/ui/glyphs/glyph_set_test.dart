@@ -317,14 +317,17 @@ void main() {
       );
       await pumpAndMatch(
         tester,
-        () => const SeedGlyph(64, motionDashes: false),
+        () => const SeedGlyph(64),
         'glyph_set/seed_64_light',
         OrganizerTheme.light(),
       );
       expect(
         _treatmentPainterOf(tester).linePaths,
         hasLength(2),
-        reason: 'the destination seed is at rest even above 56px',
+        reason:
+            'at 64px, the destination size, the seed renders exactly two '
+            'line paths — filaments and stem; the every-size claim is the '
+            'structure sweep\'s to make',
       );
     });
   });

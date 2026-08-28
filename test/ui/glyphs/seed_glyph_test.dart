@@ -4,6 +4,10 @@
 // the 1.70u anchor, displaced off hub-centre toward the leeward (dense)
 // side, its entire free edge under filaments — and these tests are what
 // close that decision, not a human check-in.
+//
+// The file's second half is the structure sweep: one drawing, scaled —
+// its parts (filaments + stem, the achene, the pompom circle) pinned by
+// count and by geometry across 24–168px, in both palettes.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:organizer/ui/glyphs/glyph_canvas.dart';
 import 'package:organizer/ui/glyphs/seed_geometry.dart';
 import 'package:organizer/ui/glyphs/seed_glyph.dart';
+import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
 
 void main() {
@@ -93,48 +98,6 @@ void main() {
       expect(coverage.isWhollyCovered, isTrue);
     });
 
-    test('motion dashes follow the 56px threshold', () {
-      expect(
-        SeedGlyph.dashesForSize(Spacing.glyphMin),
-        isFalse,
-        reason: '48px interface minimum: at rest',
-      );
-      expect(SeedGlyph.dashesForSize(55.9), isFalse);
-      expect(SeedGlyph.dashesForSize(motionDashThresholdPx), isTrue);
-      expect(
-        SeedGlyph.dashesForSize(Spacing.glyphDestination),
-        isTrue,
-        reason:
-            '64px clears the threshold in the illustration register; '
-            'the destination trio still passes motionDashes: false '
-            'explicitly',
-      );
-    });
-
-    testWidgets(
-      'an explicit motionDashes: true never bypasses the 56px floor',
-      (tester) async {
-        TreatmentPainter painterOf() {
-          final found = find.byWidgetPredicate(
-            (widget) =>
-                widget is CustomPaint && widget.painter is TreatmentPainter,
-          );
-          return (tester.widget(found) as CustomPaint).painter!
-              as TreatmentPainter;
-        }
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Center(
-              child: SeedGlyph(Spacing.glyphMin, motionDashes: true),
-            ),
-          ),
-        );
-        // Filaments + stem; the dashes path stays off below 56px.
-        expect(painterOf().linePaths, hasLength(2));
-      },
-    );
-
     test('the drawn radius lands as measured', () {
       expect(pompomRadiusU, 1.80);
       expect(pompomDenseDisplacementU, 0.30);
@@ -151,7 +114,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('48px — the interface minimum, dashes off', (tester) async {
+    testWidgets('48px — the interface minimum, at rest', (tester) async {
       await pumpSeed(tester, Spacing.glyphMin);
       await expectLater(
         find.byType(SeedGlyph),
@@ -159,7 +122,7 @@ void main() {
       );
     });
 
-    testWidgets('64px — above the threshold, dashes on', (tester) async {
+    testWidgets('64px — the destination size, at rest', (tester) async {
       await pumpSeed(tester, Spacing.glyphDestination);
       await expectLater(
         find.byType(SeedGlyph),
@@ -167,4 +130,155 @@ void main() {
       );
     });
   });
+
+  group('one drawing, scaled — the structure sweep', () {
+    testWidgets(
+      'the drawing\'s parts are pinned across 24–168px, both palettes',
+      (tester) async {
+        // The claim the goldens cannot make alone: at EVERY size — the
+        // zone marker to the illustration surfaces — the painter exposes
+        // the same parts, and the parts are identified by their geometry,
+        // not just counted: the filament fan and the stem as the line
+        // layer, the achene as the one ink fill, the pompom circle as the
+        // one mass. A different pair of paths would fail the bounds.
+        // The expected rectangles are built from the parts' control
+        // points, which is exact only because Path.getBounds() returns
+        // the control-point hull (Skia's conservative behaviour). An
+        // engine that ever returned tight curve bounds would fail these
+        // assertions; the fix then is containment (actual ⊆ hull), not
+        // equality.
+        final filamentHull = _boundsOf([
+          for (final f in filaments) ...[f.p0, f.c1, f.c2, f.p3],
+        ]);
+        final stemHull = _boundsOf([stemStart, stemControl, hub]);
+        final acheneHull = _boundsOf([
+          acheneStart,
+          acheneC1a,
+          acheneC2a,
+          achenePoint,
+          acheneC1b,
+          acheneC2b,
+        ]);
+        final pompomRect = Rect.fromCircle(
+          center: pompomBaseLocal.offset,
+          radius: pompomRadiusU,
+        );
+
+        for (final brightness in Brightness.values) {
+          final dark = brightness == Brightness.dark;
+          final theme = dark ? OrganizerTheme.dark() : OrganizerTheme.light();
+          final expectedMass = dark
+              ? DarkPalette.destTrashDark
+              : IconMassPalette.destTrash;
+          final expectedInk = dark
+              ? DarkPalette.inkPrimaryDark
+              : FieldPalette.inkPrimary;
+          for (final size in <double>[
+            Spacing.glyphZoneMarker,
+            Spacing.glyphDense,
+            Spacing.glyphMin,
+            // 56 — the boundary size where the movement lines once began
+            // (the dissolved threshold); swept deliberately, and now only
+            // another at-rest size.
+            56,
+            Spacing.glyphDestination,
+            96,
+            150,
+            168,
+          ]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                home: Center(child: SeedGlyph(size)),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final painter = _treatmentPainterOf(tester);
+            final where = '${size}px, ${brightness.name}';
+            expect(
+              painter.linePaths,
+              hasLength(2),
+              reason: '$where: the line layer is filaments + stem — at rest',
+            );
+            expect(
+              painter.inkFillPaths,
+              hasLength(1),
+              reason: '$where: one ink fill — the achene',
+            );
+            expect(
+              painter.massPaths,
+              hasLength(1),
+              reason: '$where: one mass — the pompom circle',
+            );
+            expect(
+              painter.massColor,
+              expectedMass,
+              reason: '$where: the pompom resolves the theme\'s plate',
+            );
+            expect(
+              painter.lineColor,
+              expectedInk,
+              reason: '$where: the line layer resolves the theme\'s ink',
+            );
+            _expectRect(
+              painter.linePaths.first.getBounds(),
+              filamentHull,
+              '$where: the first line path is the filament fan',
+            );
+            _expectRect(
+              painter.linePaths.last.getBounds(),
+              stemHull,
+              '$where: the second line path is the stem',
+            );
+            _expectRect(
+              painter.inkFillPaths.single.getBounds(),
+              acheneHull,
+              '$where: the ink fill is the achene',
+            );
+            _expectRect(
+              painter.massPaths.single.getBounds(),
+              pompomRect,
+              '$where: the mass is the pompom circle',
+            );
+          }
+        }
+      },
+    );
+  });
+}
+
+TreatmentPainter _treatmentPainterOf(WidgetTester tester) {
+  final found = find.byWidgetPredicate(
+    (widget) => widget is CustomPaint && widget.painter is TreatmentPainter,
+  );
+  return (tester.widget(found) as CustomPaint).painter! as TreatmentPainter;
+}
+
+Rect _boundsOf(Iterable<SeedPoint> points) {
+  var left = double.infinity;
+  var top = double.infinity;
+  var right = double.negativeInfinity;
+  var bottom = double.negativeInfinity;
+  for (final p in points) {
+    left = math.min(left, p.x);
+    top = math.min(top, p.y);
+    right = math.max(right, p.x);
+    bottom = math.max(bottom, p.y);
+  }
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
+void _expectRect(Rect actual, Rect expected, String because) {
+  expect(actual.left, closeTo(expected.left, 1e-6), reason: '$because — left');
+  expect(actual.top, closeTo(expected.top, 1e-6), reason: '$because — top');
+  expect(
+    actual.right,
+    closeTo(expected.right, 1e-6),
+    reason: '$because — right',
+  );
+  expect(
+    actual.bottom,
+    closeTo(expected.bottom, 1e-6),
+    reason: '$because — bottom',
+  );
 }

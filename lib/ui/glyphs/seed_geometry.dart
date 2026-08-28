@@ -42,12 +42,6 @@ const double maxPermittedEdgeDistanceU = 0.90;
 /// 53.0° constructed geometry.
 const double seedAxisCorrectionDegrees = 8.0;
 
-/// Motion dashes appear only where the seed is drawn at 56px or above;
-/// below that they are 4px specks that read as dirt. Off at glyph scale,
-/// and off in the destination trio regardless of size (the trio seed is at
-/// rest by decision) — pass `motionDashes: false` there.
-const double motionDashThresholdPx = 56;
-
 /// Filament count, permanently — `Nunca añadir rasgos`.
 const int filamentCount = 8;
 
@@ -132,19 +126,6 @@ const SeedPoint acheneC1a = SeedPoint(4.696, 18.55);
 const SeedPoint acheneC2a = SeedPoint(2.919, 19.837);
 const SeedPoint acheneC1b = SeedPoint(5.541, 21.943);
 const SeedPoint acheneC2b = SeedPoint(6.414, 19.93);
-
-/// The five loose motion arcs, 21.78u of ink at mean 4.36u — the 4th's tail
-/// is trimmed by 0.5u (from (9, 13.4) to (8.5, 13.15)) so its ink never
-/// merges with the stem's at the sizes where dashes render (≥ 56px); the
-/// design's own "no tocan la semilla" is honoured over the mockup's exact
-/// endpoint. Never drawn below [motionDashThresholdPx], never in the trio.
-const List<(SeedPoint, SeedPoint, SeedPoint)> motionDashArcs = [
-  (SeedPoint(18.6, 4.4), SeedPoint(20.6, 3.1), SeedPoint(22.3, 3.8)),
-  (SeedPoint(19.7, 7.7), SeedPoint(21.4, 6.6), SeedPoint(22.5, 7.4)),
-  (SeedPoint(16.2, 2.3), SeedPoint(18.1, 1.25), SeedPoint(19.6, 1.9)),
-  (SeedPoint(2.4, 15.2), SeedPoint(5.6, 12.6), SeedPoint(8.5, 13.15)),
-  (SeedPoint(1.7, 18.1), SeedPoint(3.1, 16.2), SeedPoint(5.1, 15.8)),
-];
 
 /// Bisector of the leeward pair (filaments 6–7, the tightest spacing) — the
 /// dense side, sotavento, toward which the pompom circle is displaced.

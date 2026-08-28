@@ -152,7 +152,7 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 7 | Three radii: 14 default, 9999 for time quantities, 4 for album thumbnails | 1.2, 7.2 |
 | 8 | Printed-matter glyphs: one global 45° offset, mass under line, one stroke width per render | 1.2 |
 | 9 | Registered-mass rule for masses whose axis contradicts the vector (batería, mic capsule) | 2.5, 3.4 |
-| 10 | Seed glyph: exactly 8 filaments, 45° axis, motion dashes only at ≥ 56px | 1.2, 6.3 |
+| 10 | Seed glyph: exactly 8 filaments, 45° axis; the motion-dash clause ("only at ≥ 56px") was dissolved 2026-08-28 — the seed draws at rest at every size (Story 1-2 amendment spec `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`) | 1.2, 6.3 |
 | 11 | Ten-glyph set; the Ajustes glyph is dissolved | 1.2 |
 | 12 | Dark palette separately authored, never an inversion | 1.2 |
 | 13 | Destinations keep their light form in dark mode | 6.3 |
@@ -2279,7 +2279,7 @@ So that letting something go is not the answer the app was pushing me toward.
 
 **Given** the seed glyph in the trio
 **When** it is drawn
-**Then** it carries exactly 8 filaments, its axis at 45.0°, and **no motion dashes** — dashes are reserved for the illustration register at 56px and above, so the trio's seed reads **at rest** by decision (UX-DR8, UX-DR10)
+**Then** it carries exactly 8 filaments, its axis at 45.0°, and **no motion dashes** — the dash lever was dissolved 2026-08-28: the seed draws at rest at every size, register and surface, so no later story may reinstate them, here or on Warm Return (UX-DR8, UX-DR10; amendment spec `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`)
 
 **Given** dark mode
 **When** the trio is rendered

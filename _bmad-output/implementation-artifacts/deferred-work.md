@@ -23,3 +23,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-2-both-palettes-the-glyph-set-and-the-single-string-table.md`
   summary: Test the glyph ink guard-rails the comments claim — destination-trio equal mass weight and Reloj's 211.2u² note — via path-area computation on the authored geometry.
   evidence: `box_glyph.dart`/`clock_glyph.dart` cite mass-area figures ("2.5× the seed", "the row's raw ink guard-rail holds") but no test computes path areas, so a redrawn mass can drift past the equal-weight rule with goldens only catching gross changes.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`
+  summary: Encode the zero-match dash-term gate as a `tool/` check wired into `make check`, following `tool/check_core_purity.dart`'s pattern.
+  evidence: Review round 3: the "no dash term in lib/test/tool" invariant is a hand-run `rg` command, not a guard — a reintroduced lever (even defaulted off) would pass every existing check; the repo's established pattern for invariants is a tool/ scan registered under the Makefile's check target.

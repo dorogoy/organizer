@@ -134,10 +134,9 @@ class TreatmentPainter extends CustomPainter {
   @override
   // The paths are rebuilt on every widget build (painterFor constructs
   // fresh Path instances), and Path has no value equality — inputs such as
-  // the battery's level or the seed's motion-dash threshold change the
-  // paths without changing any compared field. Repainting a few paths is
-  // trivially cheap, so the painter always repaints rather than risk a
-  // stale render.
+  // the battery's level change the paths without changing any compared
+  // field. Repainting a few paths is trivially cheap, so the painter
+  // always repaints rather than risk a stale render.
   bool shouldRepaint(covariant TreatmentPainter oldDelegate) => true;
 }
 

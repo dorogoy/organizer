@@ -9,25 +9,10 @@ import '../tokens.dart';
 import 'glyph_canvas.dart';
 import 'seed_geometry.dart';
 
-/// The seed at any drawn size. One drawing, scaled — no fidelity ladder.
-///
-/// Motion dashes render only at [motionDashThresholdPx] and above, and are
-/// never drawn in the 3-Destination Flow regardless of its 64px — the trio
-/// seed is at rest by decision, so its surface passes `motionDashes: false`
-/// explicitly.
+/// The seed at any drawn size. One drawing, scaled — no fidelity ladder —
+/// and always at rest: the filaments and the stem are the whole line layer.
 class SeedGlyph extends IconGlyph {
-  const SeedGlyph(super.size, {super.key, this.motionDashes});
-
-  /// Overrides the size threshold. Null = follow the threshold.
-  final bool? motionDashes;
-
-  /// The threshold rule, exposed for tests and surfaces.
-  static bool dashesForSize(double size) => size >= motionDashThresholdPx;
-
-  /// Dashes need the threshold met AND no explicit opt-out — an explicit
-  /// `true` never overrides the 56px floor (UX-DR45's sibling guarantee:
-  /// below the threshold they are 4px specks that read as dirt).
-  bool get _dashes => motionDashes != false && dashesForSize(size);
+  const SeedGlyph(super.size, {super.key});
 
   @override
   TreatmentPainter painterFor(BuildContext context) {
@@ -74,15 +59,6 @@ class SeedGlyph extends IconGlyph {
         ..close();
     }
 
-    Path dashesPath() {
-      final path = Path();
-      for (final (p0, p1, p2) in motionDashArcs) {
-        path.moveTo(p0.x, p0.y);
-        path.quadraticBezierTo(p1.x, p1.y, p2.x, p2.y);
-      }
-      return path;
-    }
-
     return TreatmentPainter(
       scale: size / 24,
       massColor: mass,
@@ -98,7 +74,7 @@ class SeedGlyph extends IconGlyph {
           ),
         ),
       ],
-      linePaths: [filamentPath(), stemPath(), if (_dashes) dashesPath()],
+      linePaths: [filamentPath(), stemPath()],
       inkFillPaths: [achenePath()],
     );
   }
