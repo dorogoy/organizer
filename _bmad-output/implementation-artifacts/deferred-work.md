@@ -30,3 +30,13 @@
   summary: Validate log-record shape at the core's read/parse boundary (Story 1.6): item-id/item-origin travelling as a pair, stack only on `crash_recorded`, kind-subtype consistency.
   evidence: Review round 1: `LogEntryRecord` (typedef) permits half-populated item references and off-kind payloads; writers today are only the crash path (always null/null + stack), but nothing validates records at write or read time — malformed rows would accumulate silently until derivations consume them. Schema-level CHECK/FK constraints were rejected deliberately (they would break AD-23's forward-only import tolerance), so the parse layer is the right home.
 
+- source_spec: `_bmad-output/implementation-artifacts/1-4-one-calendar-authority.md`
+  summary: The `energy_set` log vocabulary kind, energy-level storage, the port DTO growth and the check-in writer land in Story 2.5, together with the mapping from stored entries to `EnergyObservation` records and the Spanish ARB copy for the check-in surface.
+  evidence: Story 1.4 ships only the pure day-scoped derivation `deriveEnergyForLivePool(observations, instantUtcMicros, offsetSeconds)` over inert `EnergyObservation` records — by the spec's Never clause there is no `energy_set` kind, no stored level and no writer anywhere today, so nothing maps persisted rows into the derivation until 2.5 adds them.
+- source_spec: `_bmad-output/implementation-artifacts/1-4-one-calendar-authority.md`
+  summary: Period arithmetic (adjacency, iteration, ordinals — "next day", "days between", week/season ordering) grows on the one `Calendar` with its first needing consumer (1.6 weave, 1.7 zone rotation, 2.6 SM-2), never beside it.
+  evidence: Review round 1: consumers will need adjacency and distance math AD-4 reserves for the Calendar; nothing records where it lands, inviting exactly the ad-hoc boundary math the authority exists to prevent.
+- source_spec: `_bmad-output/implementation-artifacts/1-4-one-calendar-authority.md`
+  summary: Wire `make test-core` into the story-completion gate (or CI) so the gate trio cannot pass with the `packages/core` suite red.
+  evidence: Review round 1: `make gate` runs root `flutter test` + format + analyze only; the core suite — where this story's entire verification lives — is reachable only through separately invoked `make test-core`, so a core-only regression passes the gate (Makefile structure predates this story).
+
