@@ -1,6 +1,11 @@
+---
+status: done
+baseline_commit: 4eadb7abcd42b84e03608718eb6d5d89887c6883
+---
+
 # Story 1.1: The sealed scaffold
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,78 +35,78 @@ so that every invariant the product rests on is checkable from the first commit 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 0 — Verify the toolchain inside devbox before writing anything** (AC: 6, 14, 15) — *see Blocking Environment Prerequisites; do not proceed past this task until the checks pass*
-  - [ ] Devbox CLI present (`devbox version`; 0.18.0 verified on this machine). **Every check below and every later task runs inside `devbox shell`**, never against the host toolchain (NFR21).
-  - [ ] Inside the shell, `flutter --version` reports the **latest stable patch of the 3.47 line** (Dart 3.13.x; 3.47.2 at the time of writing). Neither binary is on the host `PATH` today — the SDK arrives with Task 1's devbox environment. Do **not** jump lines (3.46, 3.48) and do **not** "fix" the pubspec to match an installed SDK. **Never `devbox add flutter`** — nixpkgs lags the line's patches (3.47.0 while stable is 3.47.2, 2026-08-27) and is not the official SDK.
-  - [ ] Inside the shell, `java -version` reports a **current LTS — 21** (devbox `jdk21`), or **25** if the template's Gradle is 9.1+ (check `android/gradle/wrapper/gradle-wrapper.properties`; Gradle needed 9.1 for Java 25). 17 is the *minimum* the 3.47 toolchain verifies against, not a pin — the build JVM takes a current LTS, the bytecode level stays whatever the template generates (Task 3), and a non-LTS (the host's 26) is never used. The host's JDK 26 is irrelevant inside the shell; set `org.gradle.java.home` or `flutter config --jdk-dir` only if Gradle still resolves the host JDK.
-  - [ ] `make build` / `make run` additionally need Android SDK platform 36 — verify the devbox package that provides it (`devbox search android-sdk`) or expose an existing SDK via `ANDROID_HOME` in `devbox.json`. The gate itself needs no Android SDK.
-  - [ ] If any of the above cannot be satisfied, **stop and report** — a story cannot be closed with the NFR17 gate unrun (`project-context.md`, `AGENTS.md` → Policy).
+- [x] **Task 0 — Verify the toolchain inside devbox before writing anything** (AC: 6, 14, 15) — *see Blocking Environment Prerequisites; do not proceed past this task until the checks pass*
+  - [x] Devbox CLI present (`devbox version`; 0.18.0 verified on this machine). **Every check below and every later task runs inside `devbox shell`**, never against the host toolchain (NFR21).
+  - [x] Inside the shell, `flutter --version` reports the **latest stable patch of the 3.47 line** (Dart 3.13.x; 3.47.2 at the time of writing). Neither binary is on the host `PATH` today — the SDK arrives with Task 1's devbox environment. Do **not** jump lines (3.46, 3.48) and do **not** "fix" the pubspec to match an installed SDK. **Never `devbox add flutter`** — nixpkgs lags the line's patches (3.47.0 while stable is 3.47.2, 2026-08-27) and is not the official SDK.
+  - [x] Inside the shell, `java -version` reports a **current LTS — 21** (devbox `jdk21`), or **25** if the template's Gradle is 9.1+ (check `android/gradle/wrapper/gradle-wrapper.properties`; Gradle needed 9.1 for Java 25). 17 is the *minimum* the 3.47 toolchain verifies against, not a pin — the build JVM takes a current LTS, the bytecode level stays whatever the template generates (Task 3), and a non-LTS (the host's 26) is never used. The host's JDK 26 is irrelevant inside the shell; set `org.gradle.java.home` or `flutter config --jdk-dir` only if Gradle still resolves the host JDK.
+  - [x] `make build` / `make run` additionally need Android SDK platform 36 — verify the devbox package that provides it (`devbox search android-sdk`) or expose an existing SDK via `ANDROID_HOME` in `devbox.json`. The gate itself needs no Android SDK.
+  - [x] If any of the above cannot be satisfied, **stop and report** — a story cannot be closed with the NFR17 gate unrun (`project-context.md`, `AGENTS.md` → Policy).
 
-- [ ] **Task 1 — Create the devbox environment** (AC: 15)
-  - [ ] `devbox.json` at the repository root: nixpkgs `jdk21` (the current LTS chosen in Task 0 — 25 if the template's Gradle is 9.1+; verify the attr with `devbox search jdk`, where plain `jdk` is JDK 8 and **must not be used**), `make`, `git`, and the Android SDK tooling verified in Task 0. **No `flutter` package** — nixpkgs lags the 3.47 line's patches and is not the official SDK; see *The devbox environment* in Dev Notes.
-  - [ ] A bootstrap (a run-once-guarded devbox `init_hook`, or the first step of `make deps`) downloads the official `flutter_linux_3.47.x-stable.tar.xz` — the line's current stable patch — **verifies its sha256**, unpacks it under a gitignored `.toolchain/flutter/`, and puts `.toolchain/flutter/bin` on `PATH` inside the shell. `dart` 3.13.x ships inside that SDK — nothing pins it separately. A patch bump within the line is exactly two edited values here (version, sha256) plus a re-lock and the gate; nothing else changes.
-  - [ ] Generate and **commit `devbox.json` and `devbox.lock`**; `.gitignore` (created here if Task 2 has not yet) gains `.toolchain/`.
-  - [ ] Proof of AC 15: inside `devbox shell`, `flutter --version` → 3.47.x (the recorded patch) / Dart 3.13.x, `java -version` → the chosen LTS (21, or 25).
-  - [ ] This file is the environment of record: a later story needing a toolchain piece adds it here and re-commits the lock in the same pass (NFR21), mirroring AC 13's Makefile rule.
+- [x] **Task 1 — Create the devbox environment** (AC: 15)
+  - [x] `devbox.json` at the repository root: nixpkgs `jdk21` (the current LTS chosen in Task 0 — 25 if the template's Gradle is 9.1+; verify the attr with `devbox search jdk`, where plain `jdk` is JDK 8 and **must not be used**), `make`, `git`, and the Android SDK tooling verified in Task 0. **No `flutter` package** — nixpkgs lags the 3.47 line's patches and is not the official SDK; see *The devbox environment* in Dev Notes.
+  - [x] A bootstrap (a run-once-guarded devbox `init_hook`, or the first step of `make deps`) downloads the official `flutter_linux_3.47.x-stable.tar.xz` — the line's current stable patch — **verifies its sha256**, unpacks it under a gitignored `.toolchain/flutter/`, and puts `.toolchain/flutter/bin` on `PATH` inside the shell. `dart` 3.13.x ships inside that SDK — nothing pins it separately. A patch bump within the line is exactly two edited values here (version, sha256) plus a re-lock and the gate; nothing else changes.
+  - [x] Generate and **commit `devbox.json` and `devbox.lock`**; `.gitignore` (created here if Task 2 has not yet) gains `.toolchain/`.
+  - [x] Proof of AC 15: inside `devbox shell`, `flutter --version` → 3.47.x (the recorded patch) / Dart 3.13.x, `java -version` → the chosen LTS (21, or 25).
+  - [x] This file is the environment of record: a later story needing a toolchain piece adds it here and re-commits the lock in the same pass (NFR21), mirroring AC 13's Makefile rule.
 
-- [ ] **Task 2 — Create the Flutter shell app at the repository root** (AC: 5, 6)
-  - [ ] Inside `devbox shell`: `flutter create` into the existing repo root with `--platforms=android --org <reverse-dns>`, then **delete every generated artefact this story does not need**: the sample counter widget, the sample widget test, `README.md` boilerplate, iOS/web/desktop folders if any slipped in. Android only (SPEC Non-goals).
-  - [ ] Do not touch `_bmad/`, `_bmad-output/`, `.claude/`, `.agents/`, `.opencode/`, `AGENTS.md`, `project-context.md`.
-  - [ ] `pubspec.yaml`: `environment: sdk: ^3.13.0`; dependencies `flutter` (sdk) and `flutter_riverpod: 3.4.2` only; path dependency on `packages/core`. **Add nothing else** — see *Dependency scope ruling*.
-  - [ ] Assert absence: neither `material_ui` nor `cupertino_ui` appears. `package:flutter/material.dart` still ships with the SDK and needs no dependency (Stack table).
-  - [ ] `lib/main.dart`: root widget wrapped in `ProviderScope` (Riverpod is shell-only, Consistency Conventions → *State — Dart state management*). No surface, no strings — 1.2 owns tokens and the ARB, 1.8 owns the Dispenser.
-  - [ ] `analysis_options.yaml` at the root (and one in `packages/core`), so `flutter analyze` and `dart analyze` have a configuration to read. Story 1.2's custom lints extend these files rather than replacing them.
-  - [ ] `.gitignore` covering the Flutter/Dart/Gradle artefacts (`.dart_tool/`, `build/`, `.flutter-plugins*`, `android/.gradle/`, `*.iml`, `local.properties`). The repo has none today; without it the first `flutter pub get` stages generated files.
+- [x] **Task 2 — Create the Flutter shell app at the repository root** (AC: 5, 6)
+  - [x] Inside `devbox shell`: `flutter create` into the existing repo root with `--platforms=android --org <reverse-dns>`, then **delete every generated artefact this story does not need**: the sample counter widget, the sample widget test, `README.md` boilerplate, iOS/web/desktop folders if any slipped in. Android only (SPEC Non-goals).
+  - [x] Do not touch `_bmad/`, `_bmad-output/`, `.claude/`, `.agents/`, `.opencode/`, `AGENTS.md`, `project-context.md`.
+  - [x] `pubspec.yaml`: `environment: sdk: ^3.13.0`; dependencies `flutter` (sdk) and `flutter_riverpod: 3.4.2` only; path dependency on `packages/core`. **Add nothing else** — see *Dependency scope ruling*.
+  - [x] Assert absence: neither `material_ui` nor `cupertino_ui` appears. `package:flutter/material.dart` still ships with the SDK and needs no dependency (Stack table).
+  - [x] `lib/main.dart`: root widget wrapped in `ProviderScope` (Riverpod is shell-only, Consistency Conventions → *State — Dart state management*). No surface, no strings — 1.2 owns tokens and the ARB, 1.8 owns the Dispenser.
+  - [x] `analysis_options.yaml` at the root (and one in `packages/core`), so `flutter analyze` and `dart analyze` have a configuration to read. Story 1.2's custom lints extend these files rather than replacing them.
+  - [x] `.gitignore` covering the Flutter/Dart/Gradle artefacts (`.dart_tool/`, `build/`, `.flutter-plugins*`, `android/.gradle/`, `*.iml`, `local.properties`). The repo has none today; without it the first `flutter pub get` stages generated files.
 
-- [ ] **Task 3 — Configure Android to the stack** (AC: 5)
-  - [ ] `android/app/build.gradle.kts`: `compileSdk = 36`, `targetSdk = 36`, `minSdk = 33`. Do not use `flutter.minSdkVersion`.
-  - [ ] `ndk { abiFilters += listOf("arm64-v8a", "x86_64") }` — every 32-bit ABI excluded (`armeabi-v7a`, `x86`). This is also the 16 KB page-size condition and Story 5.1's ML Kit precondition (NFR12, Stack table → `google_mlkit_face_detection`).
-  - [ ] Keep the template's Java source/target and Kotlin `jvmTarget` values as generated (17 in the 3.47 template). The bytecode level is the template's knob — not ours to choose — and it is independent of the build JVM (Task 0). ART runs DEX and D8 desugars newer features, so on a Dart app the level buys nothing; only a story that actually needs a newer Java/Kotlin language feature touches it, and that story verifies D8 desugars the feature. Kotlin 2.4.0 comes from the Flutter Android template — do not pin it yourself (Stack table).
-  - [ ] `AndroidManifest.xml`: **declare no permission at all in this story.** AD-17's three runtime permissions and `RECEIVE_BOOT_COMPLETED` arrive with their features. AD-7's manifest allowlist check (Epic 4) will read this file — an early speculative permission is a defect there.
+- [x] **Task 3 — Configure Android to the stack** (AC: 5)
+  - [x] `android/app/build.gradle.kts`: `compileSdk = 36`, `targetSdk = 36`, `minSdk = 33`. Do not use `flutter.minSdkVersion`.
+  - [x] `ndk { abiFilters += listOf("arm64-v8a", "x86_64") }` — every 32-bit ABI excluded (`armeabi-v7a`, `x86`). This is also the 16 KB page-size condition and Story 5.1's ML Kit precondition (NFR12, Stack table → `google_mlkit_face_detection`).
+  - [x] Keep the template's Java source/target and Kotlin `jvmTarget` values as generated (17 in the 3.47 template). The bytecode level is the template's knob — not ours to choose — and it is independent of the build JVM (Task 0). ART runs DEX and D8 desugars newer features, so on a Dart app the level buys nothing; only a story that actually needs a newer Java/Kotlin language feature touches it, and that story verifies D8 desugars the feature. Kotlin 2.4.0 comes from the Flutter Android template — do not pin it yourself (Stack table).
+  - [x] `AndroidManifest.xml`: **declare no permission at all in this story.** AD-17's three runtime permissions and `RECEIVE_BOOT_COMPLETED` arrive with their features. AD-7's manifest allowlist check (Epic 4) will read this file — an early speculative permission is a defect there.
 
-- [ ] **Task 4 — Create `packages/core` as a separate, sealed, pure-Dart package** (AC: 1, 4)
-  - [ ] `packages/core/pubspec.yaml`: `environment: sdk: ^3.13.0`; **no `flutter:` key, no `flutter` dependency, no `drift`, no plugin**. `dev_dependencies`: `test` and a lints package only.
-  - [ ] Create the directory skeleton this story needs and no more: `packages/core/lib/ports/`. The remaining core directories (`day/`, `pool/`, `log/`, `weave/`, `derive/`, `export/`) arrive with their first consumer — 1.3 through 1.7. Do not pre-create empty folders.
-  - [ ] `packages/core/lib/ports/clock_port.dart` → `abstract interface class ClockPort` returning an instant to the core. `packages/core/lib/ports/store_port.dart` → `abstract interface class StorePort`. `snake_case.dart` filenames, plain Dart types, **no annotations** (Consistency Conventions → *Naming — files & types*).
-  - [ ] Both ports are declared here and consumed later; keep their surfaces minimal — a port grows with its consumer, and 1.3/1.4 own `StorePort`'s and `ClockPort`'s real shape.
-  - [ ] **Exactly two ports.** The other five (`Slicer`, `Notifier`, `Recognizer`, `Folder`, `Files`) are named in the spine's Structural Seed but arrive with their first consumer (Epic 1 scope note). Declaring them now fails AC 4.
-  - [ ] No adapter type name (`DriftStore`, `SafFolder`, `ByokSlicer`, …) appears anywhere in the core (AD-5).
-  - [ ] `packages/core/test/` holds the core suite. Add one real test now so `make test-core` is not vacuous — e.g. asserting the ports package exports exactly the two port types.
+- [x] **Task 4 — Create `packages/core` as a separate, sealed, pure-Dart package** (AC: 1, 4)
+  - [x] `packages/core/pubspec.yaml`: `environment: sdk: ^3.13.0`; **no `flutter:` key, no `flutter` dependency, no `drift`, no plugin**. `dev_dependencies`: `test` and a lints package only.
+  - [x] Create the directory skeleton this story needs and no more: `packages/core/lib/ports/`. The remaining core directories (`day/`, `pool/`, `log/`, `weave/`, `derive/`, `export/`) arrive with their first consumer — 1.3 through 1.7. Do not pre-create empty folders.
+  - [x] `packages/core/lib/ports/clock_port.dart` → `abstract interface class ClockPort` returning an instant to the core. `packages/core/lib/ports/store_port.dart` → `abstract interface class StorePort`. `snake_case.dart` filenames, plain Dart types, **no annotations** (Consistency Conventions → *Naming — files & types*).
+  - [x] Both ports are declared here and consumed later; keep their surfaces minimal — a port grows with its consumer, and 1.3/1.4 own `StorePort`'s and `ClockPort`'s real shape.
+  - [x] **Exactly two ports.** The other five (`Slicer`, `Notifier`, `Recognizer`, `Folder`, `Files`) are named in the spine's Structural Seed but arrive with their first consumer (Epic 1 scope note). Declaring them now fails AC 4.
+  - [x] No adapter type name (`DriftStore`, `SafFolder`, `ByokSlicer`, …) appears anywhere in the core (AD-5).
+  - [x] `packages/core/test/` holds the core suite. Add one real test now so `make test-core` is not vacuous — e.g. asserting the ports package exports exactly the two port types.
 
-- [ ] **Task 5 — Write the `tool/` core-purity check** (AC: 2, 3)
-  - [ ] `tool/check_core_purity.dart` — a plain Dart script (no Flutter import; it must run under `dart run`). It walks `packages/core/lib/**.dart`.
-  - [ ] **Import bans:** any `package:flutter/…`, `package:drift…`, `dart:io`, `dart:ui`, `dart:isolate`, and any package not declared in `packages/core/pubspec.yaml`'s `dependencies`. Deriving the allowlist from that pubspec — rather than hard-coding a plugin list — is what makes the check survive a future plugin nobody thought to name.
-  - [ ] **Determinism bans (AD-3, NFR16):** `Random` (`dart:math`'s `Random`, including `Random.secure()`), `DateTime.now()`, `Stopwatch`, `Timer`, `clock.now()`, `Process`, `File`, `Directory`, and mutable top-level or static state (a non-`final`/non-`const` top-level variable or static field).
-  - [ ] **Dependency-graph ban (AC 1):** additionally assert that `packages/core/pubspec.yaml` declares no `flutter` key and that its resolved dependency closure contains no `flutter`, `drift` or plugin package. A source-only scan misses a transitive pull-in; this closes it.
-  - [ ] **Output contract:** on failure the script prints **the offending file path and the offending line**, one per finding, and exits non-zero. AC 2 says "names the offending file" — a bare non-zero exit fails the AC.
-  - [ ] Register it in `make check`.
+- [x] **Task 5 — Write the `tool/` core-purity check** (AC: 2, 3)
+  - [x] `tool/check_core_purity.dart` — a plain Dart script (no Flutter import; it must run under `dart run`). It walks `packages/core/lib/**.dart`.
+  - [x] **Import bans:** any `package:flutter/…`, `package:drift…`, `dart:io`, `dart:ui`, `dart:isolate`, and any package not declared in `packages/core/pubspec.yaml`'s `dependencies`. Deriving the allowlist from that pubspec — rather than hard-coding a plugin list — is what makes the check survive a future plugin nobody thought to name.
+  - [x] **Determinism bans (AD-3, NFR16):** `Random` (`dart:math`'s `Random`, including `Random.secure()`), `DateTime.now()`, `Stopwatch`, `Timer`, `clock.now()`, `Process`, `File`, `Directory`, and mutable top-level or static state (a non-`final`/non-`const` top-level variable or static field).
+  - [x] **Dependency-graph ban (AC 1):** additionally assert that `packages/core/pubspec.yaml` declares no `flutter` key and that its resolved dependency closure contains no `flutter`, `drift` or plugin package. A source-only scan misses a transitive pull-in; this closes it.
+  - [x] **Output contract:** on failure the script prints **the offending file path and the offending line**, one per finding, and exits non-zero. AC 2 says "names the offending file" — a bare non-zero exit fails the AC.
+  - [x] Register it in `make check`.
 
-- [ ] **Task 6 — Prove the check works** (AC: 2, 3, 7, 14)
-  - [ ] `test/tool/check_core_purity_test.dart` — a **plain Dart unit test** (no `flutter_test` widget harness) that runs the checker against fixture files under `test/fixtures/core_purity/`: a clean file (passes), a file importing `package:flutter/material.dart` (fails, names the file), a file using `DateTime.now()` (fails), a file with a mutable static (fails).
-  - [ ] This test is deliberately **not** a widget test and **not** a golden test, so NFR18 holds; and it is what keeps `flutter test` green and non-vacuous at a story with no surfaces. See *Testing rulings*.
+- [x] **Task 6 — Prove the check works** (AC: 2, 3, 7, 14)
+  - [x] `test/tool/check_core_purity_test.dart` — a **plain Dart unit test** (no `flutter_test` widget harness) that runs the checker against fixture files under `test/fixtures/core_purity/`: a clean file (passes), a file importing `package:flutter/material.dart` (fails, names the file), a file using `DateTime.now()` (fails), a file with a mutable static (fails).
+  - [x] This test is deliberately **not** a widget test and **not** a golden test, so NFR18 holds; and it is what keeps `flutter test` green and non-vacuous at a story with no surfaces. See *Testing rulings*.
 
-- [ ] **Task 7 — Write the root `Makefile`** (AC: 8, 9, 10, 11, 13)
-  - [ ] `help` is the **first and default** target (`.DEFAULT_GOAL := help`), self-documenting from `##` comments on each target. A bare `make` prints help and changes nothing.
-  - [ ] `gate` runs **exactly** `flutter test`, then `dart format --set-exit-if-changed .`, then `flutter analyze`, failing on the first failure. No extra commands, no reordering — this target *is* NFR17.
-  - [ ] Targets that must work at this story: `deps`, `test`, `test-core`, `format`, `format-check`, `analyze`, `check`, `run`, `clean`, plus `help` and `gate`.
+- [x] **Task 7 — Write the root `Makefile`** (AC: 8, 9, 10, 11, 13)
+  - [x] `help` is the **first and default** target (`.DEFAULT_GOAL := help`), self-documenting from `##` comments on each target. A bare `make` prints help and changes nothing.
+  - [x] `gate` runs **exactly** `flutter test`, then `dart format --set-exit-if-changed .`, then `flutter analyze`, failing on the first failure. No extra commands, no reordering — this target *is* NFR17.
+  - [x] Targets that must work at this story: `deps`, `test`, `test-core`, `format`, `format-check`, `analyze`, `check`, `run`, `clean`, plus `help` and `gate`.
     - `test-core` = `cd packages/core && dart test` — pure Dart, **no emulator**.
     - `test` = `flutter test` (root shell suite).
     - `check` = the `tool/` checks that exist today: core purity, and nothing else.
     - `build` = `flutter build apk --debug`. Release signing is owed by Epic 9 under AD-18 and is not this story's.
-  - [ ] Do **not** create `l10n`, `check-catalogue`, `check-egress` or any other target whose script does not exist — the epic scope note forbids invoking checks that do not exist yet. 1.2 registers `l10n`; 1.5 registers the catalogue checks; Epic 4 registers the egress seals.
-  - [ ] Add a short header comment stating AC 13's rule verbatim, so the next story's agent registers its own target without needing to be told.
-  - [ ] `PHONY` every target. No identifier in this file may use the forbidden vocabulary (NFR9).
-  - [ ] The Makefile stays **plain** — no target wraps its commands in `devbox …`; the environment contract is devbox's ("inside `devbox shell`", NFR21). `make deps` may begin with Task 1's idempotent SDK-bootstrap check, and must be a no-op offline once the tarball is fetched.
+  - [x] Do **not** create `l10n`, `check-catalogue`, `check-egress` or any other target whose script does not exist — the epic scope note forbids invoking checks that do not exist yet. 1.2 registers `l10n`; 1.5 registers the catalogue checks; Epic 4 registers the egress seals.
+  - [x] Add a short header comment stating AC 13's rule verbatim, so the next story's agent registers its own target without needing to be told.
+  - [x] `PHONY` every target. No identifier in this file may use the forbidden vocabulary (NFR9).
+  - [x] The Makefile stays **plain** — no target wraps its commands in `devbox …`; the environment contract is devbox's ("inside `devbox shell`", NFR21). `make deps` may begin with Task 1's idempotent SDK-bootstrap check, and must be a no-op offline once the tarball is fetched.
 
-- [ ] **Task 8 — CI that calls the Makefile through devbox** (AC: 12, 15)
-  - [ ] `.github/workflows/ci.yml` — the remote is `github.com/dorogoy/organizer`, so GitHub Actions is the provider.
-  - [ ] Steps: checkout → `jetify-com/devbox-install-action` (version-pinned) → `devbox run -- make deps` → `devbox run -- make gate` → `devbox run -- make check` → `devbox run -- make test-core`. **No `actions/setup-java`, no `subosito/flutter-action`** — the workflow resolves the same `devbox.lock` as every local machine, so local green means CI green at the toolchain level too, and CI becomes the regression test for `devbox.json` itself (NFR21).
-  - [ ] Every step invokes a `make` target. **No workflow step may spell out `flutter test`, `dart format …` or `flutter analyze` directly** — duplicating a command line is what AC 12 forbids.
+- [x] **Task 8 — CI that calls the Makefile through devbox** (AC: 12, 15)
+  - [x] `.github/workflows/ci.yml` — the remote is `github.com/dorogoy/organizer`, so GitHub Actions is the provider.
+  - [x] Steps: checkout → `jetify-com/devbox-install-action` (version-pinned) → `devbox run -- make deps` → `devbox run -- make gate` → `devbox run -- make check` → `devbox run -- make test-core`. **No `actions/setup-java`, no `subosito/flutter-action`** — the workflow resolves the same `devbox.lock` as every local machine, so local green means CI green at the toolchain level too, and CI becomes the regression test for `devbox.json` itself (NFR21).
+  - [x] Every step invokes a `make` target. **No workflow step may spell out `flutter test`, `dart format …` or `flutter analyze` directly** — duplicating a command line is what AC 12 forbids.
 
-- [ ] **Task 9 — Run the completion gate** (AC: 14)
-  - [ ] Inside `devbox shell`: `make gate` green — `flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze`.
-  - [ ] `make check` and `make test-core` green.
-  - [ ] Record the exact resolved Flutter/Dart/Java versions **and the devbox version and lock hash** in the Completion Notes.
+- [x] **Task 9 — Run the completion gate** (AC: 14)
+  - [x] Inside `devbox shell`: `make gate` green — `flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze`.
+  - [x] `make check` and `make test-core` green.
+  - [x] Record the exact resolved Flutter/Dart/Java versions **and the devbox version and lock hash** in the Completion Notes.
 
 ## Dev Notes
 
@@ -266,10 +271,98 @@ None — this is the first story of the first epic. Two things from the reposito
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+GLM (zai-coding-plan/glm-5.3)
 
 ### Debug Log References
 
+- `make gate`, `make check`, `make test-core`, `make build`, `make help`, bare `make`, `make deps` (idempotence), `make clean` + restore — all run inside `devbox run --` on 2026-08-28.
+- APK ABI verification: `unzip -l build/app/outputs/flutter-apk/app-debug.apk | grep '\.so'` → `lib/arm64-v8a/`, `lib/x86_64/` only.
+
 ### Completion Notes List
 
+- **Completion gate green inside devbox** (AC 14): `make gate` → `flutter test` 6/6 (root suite: the purity-checker unit test), `dart format --set-exit-if-changed .` 0 changed, `flutter analyze` no issues. `make check` (core purity) and `make test-core` (2 core tests, plain `dart test`, no emulator) green. `make build` → `✓ Built build/app/outputs/flutter-apk/app-debug.apk`.
+- **Resolved versions inside `devbox shell` (AC 15):** Flutter **3.47.2** (official `flutter_linux_3.47.2-stable.tar.xz`, sha256 `447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185`, recorded in `tool/bootstrap.sh` and verified against `releases_linux.json`), Dart **3.13.2**, JDK **25.0.4** (`openjdk-25.0.4+7`, nixpkgs `jdk25`), devbox **0.18.0**, `devbox.lock` sha256 `46cb8d9a3795abe536e9b4a6c70cfa16d92c3b469060a2503f9cb611409fffc3`.
+- **Build JVM = JDK 25, not 21:** the template's Gradle wrapper is **9.3.1** (≥ 9.1), so Task 0's rule selects 25. Proven by a full `assembleDebug` on that JVM. Bytecode level untouched at the template's 17 (Java `VERSION_17`, Kotlin `JVM_17`), Kotlin 2.4.0 from the template, nothing pinned by us.
+- **Android SDK (deviation from the two named paths, same spirit):** `devbox search android-sdk` returns nothing and no host SDK exists to expose via `ANDROID_HOME`. The bootstrap therefore provisions the Android SDK the same way as Flutter — pinned `commandlinetools-linux-13114758_latest.zip` (sha256 recorded), unpacked under gitignored `.toolchain/android-sdk/`, installing `platform-tools`, `platforms;android-36`, `build-tools;36.0.0`, exposed via `ANDROID_HOME`/`ANDROID_SDK_ROOT` in `tool/env.sh` (sourced by the devbox init_hook). Offline no-op once cached, like the Flutter half.
+- **32-bit exclusion needed one extra switch:** the 3.47 Flutter Gradle plugin's `configureAbiWithoutSplits` *clears* `defaultConfig.ndk.abiFilters` and re-adds the default platform list (read in `.toolchain/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:597`), so `abiFilters` alone leaked `armeabi-v7a/libflutter.so` into the first APK. `android/gradle.properties` now carries `disable-abi-filtering=true` (the plugin's documented escape), making the `ndk { abiFilters += listOf("arm64-v8a", "x86_64") }` block authoritative; the rebuilt APK's `lib/` holds exactly `arm64-v8a` and `x86_64`.
+- **AC 1 proof:** `packages/core/.dart_tool/package_config.json` resolves only pure-Dart packages (test toolchain + lints); the checker's dependency-graph ban re-verifies this on every `make check` (each closure pubspec read, any `flutter:` key fails), plus no `flutter:` key and no flutter/drift dependency in the core pubspec.
+- **`make run`** reaches `flutter run` and exits with Flutter's "no supported devices" error — this machine has no connected handset (expected; the target needs a device, not a fix).
+- **`devbox run --` executes the init_hook** (verified empirically), so CI's `devbox run -- make gate` resolves `.toolchain/flutter/bin` through `tool/env.sh`; the Makefile stays plain with no PATH plumbing.
+- **Nothing committed** — the working tree holds the scaffold for review; Task 1's "commit devbox.json and devbox.lock" (and the rest) awaits the commit pass. No release signing (Epic 9), no l10n/catalogue/egress targets (they do not exist yet — not created, per the epic scope note).
+- Manifest declares no permission; main manifest untouched except nothing, debug/profile template manifests as generated.
+- **Flutter SDK seeded from the machine's existing official install (user-directed, 2026-08-28):** `tool/bootstrap.sh` is now seed-first — when `FLUTTER_SEED` (default `/home/sergio/Proyectos/flutter`, env-overridable, empty disables) holds an official SDK whose `bin/cache/flutter.version.json` reports exactly the pinned 3.47.2, `.toolchain/flutter` becomes a symlink to it: no download, no 4 GB duplication, and the pin marker moved to `.toolchain/flutter.pinned` so nothing writes into the seed tree. Machines without the seed (CI, fresh checkouts) take the sha256-verified tarball path unchanged. Verified: seed and pinned tarball carry the identical framework revision `d3b14c8769`; `make deps` idempotent ("already provisioned"); `make gate`, `make check`, `make test-core` all green inside devbox on the seeded SDK; ~1.5 GB reclaimed (downloaded copy and cached tarball removed).
+
 ### File List
+
+- **Environment (NFR21):** `devbox.json`, `devbox.lock`, `tool/env.sh`, `tool/bootstrap.sh`
+- **Flutter shell:** `pubspec.yaml`, `pubspec.lock`, `analysis_options.yaml`, `lib/main.dart`, `.metadata`, `.gitignore`
+- **Core package (AC 1, 4):** `packages/core/pubspec.yaml`, `packages/core/pubspec.lock`, `packages/core/analysis_options.yaml`, `packages/core/lib/ports/clock_port.dart`, `packages/core/lib/ports/store_port.dart`, `packages/core/test/ports_test.dart`
+- **Purity check (AC 2, 3):** `tool/check_core_purity.dart`, `test/tool/check_core_purity_test.dart`, `test/fixtures/core_purity/{clean,flutter_import,wall_clock,mutable_static}.dart`
+- **Development loop (NFR20):** `Makefile`
+- **CI (AC 12):** `.github/workflows/ci.yml`
+- **Android (AC 5):** `android/app/build.gradle.kts` (minSdk 33, targetSdk 36, compileSdk 36, `ndk.abiFilters` 64-bit), `android/gradle.properties` (`disable-abi-filtering=true`), plus the untouched `flutter create` template under `android/` (wrapper Gradle 9.3.1, Kotlin 2.4.0, `MainActivity.kt`, manifests, launch resources)
+
+## Suggested Review Order
+
+**The machine check that seals the core (AD-3, AD-5)**
+
+- Entry point: the composed check every `make check` runs — source scan, pubspec, closure.
+  [`check_core_purity.dart:580`](../../tool/check_core_purity.dart#L580)
+
+- Comment/string masking, nesting-aware — keeps the scanner honest inside comments and strings.
+  [`check_core_purity.dart:73`](../../tool/check_core_purity.dart#L73)
+
+- Banned dart: libraries enumerated; package bans derive from the core pubspec itself.
+  [`check_core_purity.dart:246`](../../tool/check_core_purity.dart#L246)
+
+- Dependency-graph ban: the resolved closure must contain no flutter/drift/plugin package.
+  [`check_core_purity.dart:439`](../../tool/check_core_purity.dart#L439)
+
+- 18 tests: fixtures, malformed configs, nested dirs, and the subprocess exit-code contract.
+  [`check_core_purity_test.dart:1`](../../test/tool/check_core_purity_test.dart#L1)
+
+**The sealed pure-Dart core**
+
+- No flutter key, no plugins — dev_dependencies only; this is what AC 1 reads.
+  [`pubspec.yaml:1`](../../packages/core/pubspec.yaml#L1)
+
+- The two Epic-1 ports; exactly two, minimal by design (stories 1.3/1.4 grow them).
+  [`clock_port.dart:7`](../../packages/core/lib/ports/clock_port.dart#L7)
+
+- The store port: inert row shapes, never domain objects (AD-5).
+  [`store_port.dart:5`](../../packages/core/lib/ports/store_port.dart#L5)
+
+- Ports pinned by test; implementability proven, not assumed.
+  [`ports_test.dart:10`](../../packages/core/test/ports_test.dart#L10)
+
+**Environment of record (NFR21)**
+
+- Pinned 3.47.2 + sha256; seed-first — reuses a local official SDK when the version is exact.
+  [`bootstrap.sh:30`](../../tool/bootstrap.sh#L30)
+
+- PATH / ANDROID_HOME / JAVA_HOME glue, sourced by the devbox init_hook.
+  [`env.sh:1`](../../tool/env.sh#L1)
+
+- JDK 25 (current LTS — template Gradle 9.3.1 ≥ 9.1), make, git; never nixpkgs flutter.
+  [`devbox.json:1`](../../devbox.json#L1)
+
+**Android to the stack (AC 5)**
+
+- minSdk 33 / targetSdk 36 / 64-bit-only abiFilters (NFR12).
+  [`build.gradle.kts:22`](../../android/app/build.gradle.kts#L22)
+
+- Stops the Flutter Gradle plugin from rewriting abiFilters — this is what makes NFR12 real.
+  [`gradle.properties:11`](../../android/gradle.properties#L11)
+
+**Development loop and CI (NFR20, AC 10–12)**
+
+- help-default Makefile; `gate` is exactly the three NFR17 commands, in order.
+  [`Makefile:45`](../../Makefile#L45)
+
+- CI installs devbox and calls only make targets — no duplicated command lines.
+  [`ci.yml:15`](../../.github/workflows/ci.yml#L15)
+
+**Shell root**
+
+- ProviderScope root; no surface, no strings (1.2 and 1.8 own those).
+  [`main.dart:5`](../../lib/main.dart#L5)
