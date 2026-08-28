@@ -1,0 +1,260 @@
+{
+  "@@locale": "es",
+
+  "actionDone": "Hecho",
+  "@actionDone": {
+    "description": "{components.action-primary} — the one recommended action. Say what happened."
+  },
+
+  "completionAcknowledgement": "¡Buen trabajo!",
+  "@completionAcknowledgement": {
+    "description": "Completion acknowledgement — the explicit narrow exclamation exception; reserved solely for after Hecho."
+  },
+
+  "actionRescueOrSkip": "Otra más fácil / Ahora no",
+  "@actionRescueOrSkip": {
+    "description": "{components.action-secondary} — one control carrying two features: Otra más fácil is Rescue Mode (FR-5), Ahora no the guilt-free skip (FR-3). Never split, never shortened, never ellipsized; the 200% fold is accepted and verified on a real device."
+  },
+
+  "pocketTrigger": "Tengo 15 minutos ahora",
+  "@pocketTrigger": {
+    "description": "{components.duration-chip} / pocket trigger — declares a session pocket and re-filters the pool."
+  },
+
+  "sampleTask": "Despeja la mesa del salón",
+  "@sampleTask": {
+    "description": "The measured sample task, {typography.task} — the string the 26sp hero size was measured against."
+  },
+
+  "destinationKeep": "Quedármelo",
+  "@destinationKeep": {
+    "description": "3-Destination Flow, first choice — the box glyph's meaning."
+  },
+
+  "destinationDonate": "Donar o vender",
+  "@destinationDonate": {
+    "description": "3-Destination Flow, second choice — the bag glyph's meaning."
+  },
+
+  "destinationRelease": "Tirar o soltar",
+  "@destinationRelease": {
+    "description": "3-Destination Flow, third choice — the seed glyph's meaning. A confirmed, intentional change from the PRD's original Tirar o reciclar: soltar dodges both the deletion vocabulary and the compliance vocabulary."
+  },
+
+  "liberatedVolume": "≈ 3 cajas liberadas",
+  "@liberatedVolume": {
+    "description": "Cumulative impact dashboard — the volume figure. It carries no glyph (the glyph-adjacency rule) and no denominator."
+  },
+
+  "weeklySelfReportQuestion": "Esta semana, ¿cuánto te ha agobiado la casa?",
+  "@weeklySelfReportQuestion": {
+    "description": "Sunday self-report, ambient and dismissible; persists until answered, never notified."
+  },
+
+  "ambientInvitationStorage": "Si no tienes nada que hacer, tengo un trabajillo para ti",
+  "@ambientInvitationStorage": {
+    "description": "Ambient Invitation rotating notification set — copy must never acquire task content, counters or urgency."
+  },
+
+  "ambientInvitationImprovement": "Hay algo en la casa que se puede mejorar",
+  "@ambientInvitationImprovement": {
+    "description": "Ambient Invitation rotating notification set."
+  },
+
+  "ambientInvitationPocket": "Con solo 15 minutos podemos avanzar",
+  "@ambientInvitationPocket": {
+    "description": "Ambient Invitation rotating notification set."
+  },
+
+  "ambientInvitationTaskChange": "Si necesitas cambiar de tarea, te puedo ayudar",
+  "@ambientInvitationTaskChange": {
+    "description": "Ambient Invitation rotating notification set."
+  },
+
+  "ambientInvitationBreak": "Te puedes tomar un respiro de 15 minutos haciendo otras cosas",
+  "@ambientInvitationBreak": {
+    "description": "Ambient Invitation rotating notification set."
+  },
+
+  "checkpointStop": "Nada más por el momento",
+  "@checkpointStop": {
+    "description": "Anti-Marathon checkpoint — the primary permission to stop (FR-10)."
+  },
+
+  "checkpointContinue": "Quiero seguir",
+  "@checkpointContinue": {
+    "description": "Anti-Marathon checkpoint — the silent secondary action, never highlighted or animated."
+  },
+
+  "warmReturnGreeting": "Siempre a tu disposición",
+  "@warmReturnGreeting": {
+    "description": "Warm Return — appears without backlog or any reference to missed days; the days away are not representable."
+  },
+
+  "poolExhaustedClose": "por hoy no hay nada más que merezca la pena",
+  "@poolExhaustedClose": {
+    "description": "Session close on pool exhaustion (FR-3) — neutral, warm; never an error, never an empty state styled as absence or debt. Part of the SM-C2 audit table."
+  },
+
+  "noSlicerNoKey": "No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.",
+  "@noSlicerNoKey": {
+    "description": "No-Slicer surface · no key configured — an objective problem of the app, not of the home: state the fact, name the remedy, no cushioning.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "noSlicerInvalidKey": "La clave guardada no es válida. Puedes revisarla en Ajustes.",
+  "@noSlicerInvalidKey": {
+    "description": "No-Slicer surface · invalid key — the rewrite of the PRD's flagged `tu clave no es válida`: the shaming lived in the possessive, not in the judgment.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "noSlicerQuotaExhausted": "El crédito de la clave se ha agotado. Se repone en la cuenta del proveedor, no en la app.",
+  "@noSlicerQuotaExhausted": {
+    "description": "No-Slicer surface · exhausted quota — scopes exactly what is unavailable; none of the seven implies the whole product is degraded.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "noSlicerUnreachable": "El servicio de IA no responde ahora mismo. Puedes intentarlo más tarde.",
+  "@noSlicerUnreachable": {
+    "description": "No-Slicer surface · provider unreachable.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "noSlicerOffline": "El móvil está sin conexión. Los servicios que usan IA no son accesibles.",
+  "@noSlicerOffline": {
+    "description": "No-Slicer surface · no network — precision carries FR-29's plainness requirement: los servicios que usan IA, not the product.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "noSlicerConsentDeclined": "La foto no se ha enviado.",
+  "@noSlicerConsentDeclined": {
+    "description": "No-Slicer surface · consent declined — the one deliberate deviation: it names no remedy, because the remedy would be retry-and-accept, the persuasion the PRD forbids. Anotarlo is the way forward.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "personInFrame": "Se ve una persona en la foto, así que no se ha enviado a ningún sitio. Puedes repetirla sin nadie en el encuadre.",
+  "@personInFrame": {
+    "description": "No-Slicer surface · person detected in frame — refused on-device, before any upload; the refusal is about the frame, never about the user.",
+    "x-signoff": "Sergio, 2026-08-27"
+  },
+
+  "consentGateBody": "La foto se procesará por {provider} para obtener las tareas necesarias.",
+  "@consentGateBody": {
+    "description": "Per-scan consent gate — the one parameterized localized body: the named provider, the scan image and a prompt, nothing else. Declining costs the same number of taps as accepting.",
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+
+  "consentGateSend": "Enviar la foto",
+  "@consentGateSend": {
+    "description": "Per-scan consent gate — first, unfavourable slot; the reading-order residual is recorded, not solved."
+  },
+
+  "consentGateDecline": "No enviarla",
+  "@consentGateDecline": {
+    "description": "Per-scan consent gate — identical weight to Enviar: no fill, no delay, no confirmation."
+  },
+
+  "scanWaitTitle": "Creando tareas",
+  "@scanWaitTitle": {
+    "description": "Scan wait, with an indeterminate animated pencil writing. No latency cap and deliberately no timeout."
+  },
+
+  "noSlicerExit": "Anotarlo",
+  "@noSlicerExit": {
+    "description": "No-Slicer surface — the single exit, to Manual Capture."
+  },
+
+  "newProjectLink": "Nuevo proyecto",
+  "@newProjectLink": {
+    "description": "Dispenser — the quiet text departure, opening typed project genesis. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving."
+  },
+
+  "genesisAnalyze": "Analizar",
+  "@genesisAnalyze": {
+    "description": "Typed project genesis — the consent action, with no provider name and no separate dialog."
+  },
+
+  "genesisBack": "Volver",
+  "@genesisBack": {
+    "description": "Typed project genesis — the quiet way out."
+  },
+
+  "curationInvitation": "Ajustar grupos de tareas",
+  "@curationInvitation": {
+    "description": "One-time first-run curation invitation — appears once ever, never returns once dismissed."
+  },
+
+  "rewardWithoutPhoto": "Un trabajo estupendo",
+  "@rewardWithoutPhoto": {
+    "description": "Transformation reward when no Before photo exists — no one-plate diff, no placeholder."
+  },
+
+  "rewardLabelBefore": "Antes",
+  "@rewardLabelBefore": {
+    "description": "The only labels on a Before/After pair, outside the frames. No caption, no adjective, no sharing."
+  },
+
+  "rewardLabelAfter": "Después",
+  "@rewardLabelAfter": {
+    "description": "The only labels on a Before/After pair, outside the frames."
+  },
+
+  "snowballDismissAcknowledgement": "Está bien así.",
+  "@snowballDismissAcknowledgement": {
+    "description": "Snowball suggestion dismissal."
+  },
+
+  "energyCheckInQuestion": "¿Cuánta energía tienes hoy?",
+  "@energyCheckInQuestion": {
+    "description": "Energy check-in — the daily ambient strip, first opening; exists to ask for less, never a gate."
+  },
+
+  "selfReportScaleLow": "Nada",
+  "@selfReportScaleLow": {
+    "description": "End label of the Sunday self-report's 1–5 numeric scale — zero ambiguity."
+  },
+
+  "selfReportScaleHigh": "Muchísimo",
+  "@selfReportScaleHigh": {
+    "description": "End label of the Sunday self-report's 1–5 numeric scale."
+  },
+
+  "captureTitle": "Un rincón de la casa",
+  "@captureTitle": {
+    "description": "Manual Capture — title, names a place (the spatial frame, rule 1)."
+  },
+
+  "captureHelper": "Una cosa que se pueda señalar con la mano: un cajón, una estantería, una silla, un rincón.",
+  "@captureHelper": {
+    "description": "Manual Capture — helper, touchable things (the spatial frame, rule 2)."
+  },
+
+  "captureExample": "Vaciar la caja de la entrada",
+  "@captureExample": {
+    "description": "Manual Capture — example, opens with a spatial verb (the spatial frame, rule 3)."
+  },
+
+  "captureFieldPlaceholder": "Escríbelo o dilo en voz alta",
+  "@captureFieldPlaceholder": {
+    "description": "Manual Capture — field placeholder, naming both modalities (FR-32)."
+  },
+
+  "dictationListening": "Escuchando…",
+  "@dictationListening": {
+    "description": "Manual Capture — while dictating; prose declares the live state, ink never moves."
+  },
+
+  "captureSave": "Guardar",
+  "@captureSave": {
+    "description": "Manual Capture — confirm, disabled until the line holds text: a blank capture is not a task (FR-27)."
+  },
+
+  "captureDiscard": "Descartar",
+  "@captureDiscard": {
+    "description": "Manual Capture — the single exit; no Cancelar beside it, and Android's back gesture behaves as Descartar."
+  }
+}

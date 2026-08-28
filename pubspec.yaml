@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   flutter_riverpod: 3.4.2
   core:
     path: packages/core
@@ -21,3 +24,20 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # gen_l10n: lib/l10n/app_es.arb is the single string table (AD-15);
+  # l10n.yaml directs the generated accessors to lib/strings/.
+  generate: true
+
+  # Both variable faces bundled (DESIGN.md Typography): Lora 400..700 +
+  # italic 400, Lexend 300..700. Sizes in the type roles are sp, weights
+  # ride the variable axes.
+  fonts:
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-VariableFont_wght.ttf
+        - asset: assets/fonts/Lora-Italic-VariableFont_wght.ttf
+          style: italic
+    - family: Lexend
+      fonts:
+        - asset: assets/fonts/Lexend-VariableFont_wght.ttf
