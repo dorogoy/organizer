@@ -48,5 +48,8 @@ app.*.map.json
 # Toolchain provisioned by tool/bootstrap.sh (never committed)
 .toolchain/
 
+# Machine-local environment overrides (opt-in seed etc.) — never committed
+tool/env.local.sh
+
 # Devbox environment cache (devbox.json and devbox.lock ARE committed)
 .devbox/

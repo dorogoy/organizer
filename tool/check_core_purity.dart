@@ -23,9 +23,9 @@ class _Str {
   final bool raw;
   final bool triple;
 
-  /// Import/export URIs stay visible so the import scan can run over the
-  /// masked source (an import-shaped line inside a string literal must not
-  /// match).
+  /// Directive URIs stay visible so the directive scan can run over the
+  /// masked source (an import-shaped line inside an ordinary string literal
+  /// must not match, and every URI of a conditional directive must).
   final bool keep;
 }
 
@@ -44,9 +44,10 @@ bool _isIdentPartChar(String c) =>
     c == '_';
 
 /// True when the last non-whitespace word before [quoteIndex] is the
-/// `import` or `export` keyword — i.e. the string starting there is a
-/// directive URI that must survive masking.
-bool _afterImportOrExport(List<String> chars, int quoteIndex) {
+/// `import`, `export` or `part`/`of` keyword — a fallback that keeps a
+/// directive URI visible even when the directive does not start its line
+/// (e.g. a leading block comment on the same line).
+bool _afterDirectiveKeyword(List<String> chars, int quoteIndex) {
   var j = quoteIndex - 1;
   while (j >= 0 &&
       (chars[j] == ' ' ||
@@ -60,7 +61,23 @@ bool _afterImportOrExport(List<String> chars, int quoteIndex) {
     k--;
   }
   final word = chars.sublist(k + 1, j + 1).join();
-  return word == 'import' || word == 'export';
+  return word == 'import' || word == 'export' || word == 'part' || word == 'of';
+}
+
+/// True when the line starting at [lineStart] begins (after spaces/tabs) with
+/// the `import`, `export` or `part` keyword — the entry condition of
+/// directive mode.
+bool _startsWithDirectiveKeyword(List<String> chars, int lineStart) {
+  var j = lineStart;
+  while (j < chars.length && (chars[j] == ' ' || chars[j] == '\t')) {
+    j++;
+  }
+  var k = j;
+  while (k < chars.length && _isIdentPartChar(chars[k])) {
+    k++;
+  }
+  final word = chars.sublist(j, k).join();
+  return word == 'import' || word == 'export' || word == 'part';
 }
 
 /// Masks every comment and string literal with spaces so that banned-identifier
@@ -68,12 +85,18 @@ bool _afterImportOrExport(List<String> chars, int quoteIndex) {
 /// original line structure. Interpolation expressions (`${...}`) stay visible
 /// because they are real code; `$identifier` interpolations are masked along
 /// with their sigil (they cannot contain calls). Block comments nest (`/* /* */
-/// */` is legal Dart) and are masked to their outermost terminator. Strings
-/// that are import/export directive URIs are kept fully visible.
+/// */` is legal Dart) and are masked to their outermost terminator.
+///
+/// Directive context: from a line whose prefix is the `import`, `export` or
+/// `part` keyword, every quoted string stays visible until the terminating
+/// `;` — including across formatter-wrapped continuation lines — because all
+/// of them are URIs or configuration of the directive, never code. A
+/// conditional import's alternative URI therefore stays scannable.
 String maskCommentsAndStrings(String source) {
   final chars = source.split('');
   final out = source.split('');
   final stack = <Object>[]; // _Str or _Interp entries; empty = plain code
+  var inDirective = false;
   var i = 0;
 
   void blank(int index) {
@@ -89,6 +112,9 @@ String maskCommentsAndStrings(String source) {
 
     if (top is! _Str) {
       // Code context: the base of the file, or inside an interpolation.
+      if ((i == 0 || chars[i - 1] == '\n') && !inDirective) {
+        inDirective = _startsWithDirectiveKeyword(chars, i);
+      }
       if (c == '/' && next == '/') {
         while (i < chars.length && chars[i] != '\n') {
           blank(i);
@@ -127,7 +153,7 @@ String maskCommentsAndStrings(String source) {
         }
         final n2 = i + 2 < chars.length ? chars[i + 2] : '';
         final triple = next == c && n2 == c;
-        final keep = _afterImportOrExport(chars, i);
+        final keep = inDirective || _afterDirectiveKeyword(chars, i);
         stack.add(_Str(c, raw, triple, keep));
         final end = i + (triple ? 3 : 1);
         if (!keep) {
@@ -146,6 +172,9 @@ String maskCommentsAndStrings(String source) {
         } else {
           top.depth--;
         }
+        i++;
+      } else if (c == ';' && inDirective && top is! _Interp) {
+        inDirective = false;
         i++;
       } else {
         i++;
@@ -238,10 +267,16 @@ String maskCommentsAndStrings(String source) {
 int _lineOf(String text, int index) =>
     '\n'.allMatches(text.substring(0, index)).length + 1;
 
-final RegExp _importRegExp = RegExp(
-  "^\\s*(?:import|export)\\s+['\"]([^'\"]+)['\"]",
+/// A directive span: the keyword at a line start, through URIs and
+/// configuration, to the terminating `;` — across wrapped continuation lines,
+/// and never stopping at a `;` inside one of the directive's own URIs.
+final RegExp _directiveRegExp = RegExp(
+  "^[ \\t]*(import|export|part(?:[ \\t]+of)?)(?:[^;'\"|'[^']*'|\"[^\"]*\")*;",
   multiLine: true,
 );
+
+/// Every quoted string inside a directive span (all of them URIs).
+final RegExp _quotedUriRegExp = RegExp("'([^']*)'|\"([^\"]*)\"");
 
 const Set<String> _bannedDartLibraries = {
   'dart:io',
@@ -277,24 +312,26 @@ final Map<RegExp, String> _bannedIdentifierRules = {
 /// or a semicolon.
 const String _declarators = r'\w+\s*(?:,\s*\w+\s*)*(?:=(?!>)|;)';
 
-// Raw strings cannot interpolate, so the shared declarator tail is appended
-// by concatenation (the lint prefers interpolation, which is unavailable here).
+// `late final` and `late const` are immutable, so they are excluded from the
+// mutable-state patterns at the lookahead position where the `late` modifier
+// is consumed — both at top level and for static fields.
 final RegExp _topLevelMutableRegExp = RegExp(
-  r'^(?!import\b|export\b|library\b|part\b|typedef\b|class\b|enum\b|mixin\b|extension\b|abstract\b|sealed\b|final\b|const\b|external\b|static\b|void\b|get\b|set\b|operator\b|factory\b|new\b)'
+  r'^(?!import\b|export\b|library\b|part\b|typedef\b|class\b|enum\b|mixin\b|extension\b|abstract\b|sealed\b|final\b|const\b|late\s+final\b|late\s+const\b|external\b|static\b|void\b|get\b|set\b|operator\b|factory\b|new\b)'
           r'(?:late\s+)?(?:[A-Za-z_][\w.<>,\s\[\]?]*?)\s+' +
       _declarators,
   multiLine: true,
 );
 
 final RegExp _staticMutableRegExp = RegExp(
-  r'\bstatic\s+(?!(?:const|final|void)\b)(?:late\s+)?(?:var\b|[A-Za-z_][\w.<>,\s\[\]?]*?)\s+' +
+  r'\bstatic\s+(?!(?:const|final|void|late\s+const|late\s+final)\b)(?:late\s+)?(?:var\b|[A-Za-z_][\w.<>,\s\[\]?]*?)\s+' +
       _declarators,
 );
 
 /// Scans one file's source for every source-level purity rule: banned
-/// imports, banned identifiers, mutable top-level or static state. Both the
-/// import scan and the identifier scans run over the masked source, so a
-/// directive-shaped line inside a string literal cannot false-positive.
+/// imports, banned identifiers, mutable top-level or static state. All scans
+/// run over the masked source, so a directive-shaped line inside an ordinary
+/// string literal cannot false-positive — while every URI of every directive
+/// (including conditional alternatives) is validated.
 List<Finding> scanSource({
   required String file,
   required String source,
@@ -303,39 +340,68 @@ List<Finding> scanSource({
   final findings = <Finding>[];
   final masked = maskCommentsAndStrings(source);
 
-  for (final match in _importRegExp.allMatches(masked)) {
-    final uri = match.group(1)!;
-    final line = _lineOf(masked, match.start);
-    if (uri.startsWith('dart:')) {
-      if (_bannedDartLibraries.contains(uri)) {
+  for (final directive in _directiveRegExp.allMatches(masked)) {
+    final keyword = directive.group(1)!;
+    final span = directive.group(0)!;
+    final spanStart = directive.start;
+    final directiveLine = _lineOf(masked, spanStart);
+    if (keyword.startsWith('part')) {
+      if (_quotedUriRegExp.hasMatch(span)) {
         findings.add(
-          Finding(file, line, "banned SDK import '$uri' (AD-3, AD-5)"),
+          Finding(
+            file,
+            directiveLine,
+            'part directives are banned in the core — the sealed tree holds whole files only (AD-5)',
+          ),
         );
       }
-    } else if (uri.startsWith('package:')) {
-      final name = uri.substring(8).split('/').first;
-      if (name == 'flutter') {
+      continue;
+    }
+    for (final quoted in _quotedUriRegExp.allMatches(span)) {
+      final uri = quoted.group(1) ?? quoted.group(2) ?? '';
+      if (uri.isEmpty) {
+        continue;
+      }
+      final line = _lineOf(masked, spanStart + quoted.start);
+      if (uri.startsWith('dart:')) {
+        if (_bannedDartLibraries.contains(uri)) {
+          findings.add(
+            Finding(file, line, "banned SDK import '$uri' (AD-3, AD-5)"),
+          );
+        }
+      } else if (uri.startsWith('package:')) {
+        final name = uri.substring(8).split('/').first;
+        if (name == 'flutter') {
+          findings.add(
+            Finding(
+              file,
+              line,
+              "Flutter import '$uri' is banned in the core (AD-5)",
+            ),
+          );
+        } else if (name.startsWith('drift')) {
+          findings.add(
+            Finding(
+              file,
+              line,
+              "drift import '$uri' is banned in the core (AD-5)",
+            ),
+          );
+        } else if (name != 'core' && !allowedPackages.contains(name)) {
+          findings.add(
+            Finding(
+              file,
+              line,
+              "import '$uri' is not a dependency of packages/core (AD-5)",
+            ),
+          );
+        }
+      } else if (uri.contains('..')) {
         findings.add(
           Finding(
             file,
             line,
-            "Flutter import '$uri' is banned in the core (AD-5)",
-          ),
-        );
-      } else if (name.startsWith('drift')) {
-        findings.add(
-          Finding(
-            file,
-            line,
-            "drift import '$uri' is banned in the core (AD-5)",
-          ),
-        );
-      } else if (name != 'core' && !allowedPackages.contains(name)) {
-        findings.add(
-          Finding(
-            file,
-            line,
-            "import '$uri' is not a dependency of packages/core (AD-5)",
+            "relative import '$uri' escapes the core lib tree (AD-5)",
           ),
         );
       }
@@ -537,15 +603,26 @@ List<Finding> checkDependencyClosure(Directory corePackage) {
 }
 
 /// Walks every `.dart` file under a core `lib/` directory and returns all
-/// findings, ordered by file then line.
+/// findings, ordered by file then line. The tree is hermetic: a symlinked
+/// `.dart` entry is reported (followLinks stays off), and nothing outside the
+/// tree compiles into it.
 List<Finding> scanCoreLib(
   Directory libDir, {
   Set<String> allowedPackages = const {},
 }) {
   final files = <File>[];
+  final findings = <Finding>[];
   void collect(Directory dir) {
     for (final entity in dir.listSync(followLinks: false)) {
-      if (entity is Directory) {
+      if (entity is Link && entity.path.endsWith('.dart')) {
+        findings.add(
+          Finding(
+            entity.path,
+            1,
+            'a symlinked .dart file is banned in the core lib tree — hermetic files only (AD-5)',
+          ),
+        );
+      } else if (entity is Directory) {
         collect(entity);
       } else if (entity is File && entity.path.endsWith('.dart')) {
         files.add(entity);
@@ -555,7 +632,6 @@ List<Finding> scanCoreLib(
 
   collect(libDir);
   files.sort((a, b) => a.path.compareTo(b.path));
-  final findings = <Finding>[];
   for (final file in files) {
     findings.addAll(
       scanSource(

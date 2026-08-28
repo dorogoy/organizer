@@ -31,9 +31,11 @@ FLUTTER_VERSION=3.47.2
 FLUTTER_SHA256=447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185
 FLUTTER_ARCHIVE="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
 FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/${FLUTTER_ARCHIVE}"
-# A pre-existing official SDK of the exact pinned version seeds .toolchain/
-# flutter as a symlink instead of downloading (empty disables the seed).
-FLUTTER_SEED="${FLUTTER_SEED:-/home/sergio/Proyectos/flutter}"
+# A pre-existing official SDK of the exact pinned version can seed .toolchain/
+# flutter as a symlink instead of downloading. The seed is opt-in per machine:
+# set FLUTTER_SEED in the environment or in gitignored tool/env.local.sh
+# (sourced by tool/env.sh). Empty disables the seed.
+FLUTTER_SEED="${FLUTTER_SEED:-}"
 
 # --- Android SDK (for make build / make run only) -----------------------------
 CMDLINETOOLS_BUILD=13114758

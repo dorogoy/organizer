@@ -13,6 +13,11 @@
 #
 # This script is idempotent and safe to source repeatedly.
 
+# Machine-local overrides, gitignored — e.g. FLUTTER_SEED for
+# tool/bootstrap.sh. Sourced before anything else so overrides can shape the
+# rest of the environment.
+[ -f "$PWD/tool/env.local.sh" ] && . "$PWD/tool/env.local.sh"
+
 # When sourced (devbox init_hook, Makefile recipes, CI), $0 is the sourcing
 # shell — resolve the root from the working directory instead, falling back
 # to $0 for direct execution.

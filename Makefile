@@ -22,7 +22,7 @@ help: ## List every target with a one-line description
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 deps: ## Provision the pinned SDKs (sha256-verified) and fetch pub dependencies
-	./tool/bootstrap.sh && . ./tool/env.sh && flutter pub get && cd packages/core && dart pub get
+	. ./tool/env.sh && ./tool/bootstrap.sh && . ./tool/env.sh && flutter pub get && cd packages/core && dart pub get
 
 test: ## Run the root suite (flutter test)
 	. ./tool/env.sh && flutter test

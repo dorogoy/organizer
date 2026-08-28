@@ -139,6 +139,114 @@ final stamp = '\${DateTime.now()}';
     );
   });
 
+  group('conditional and wrapped directives', () {
+    test('a conditional dart:io alternative is banned and named', () {
+      const source =
+          "import 'stub/no_io.dart' if (dart.library.io) 'dart:io';\n";
+      final findings = scanSource(file: 'cond.dart', source: source);
+      expect(findings, hasLength(1));
+      expect(findings.single.line, 1);
+      expect(findings.single.message, contains('dart:io'));
+    });
+
+    test('a conditional package:core alternative stays clean', () {
+      const source =
+          "import 'stub/no_clock.dart' if (dart.library.io) 'package:core/ports/clock_port.dart';\n";
+      expect(scanSource(file: 'cond_clean.dart', source: source), isEmpty);
+    });
+
+    test('an import-shaped line inside a string literal is not an import', () {
+      const source =
+          "const text = '''\nimport 'package:flutter/material.dart';\n''';\n";
+      final findings = scanSource(file: 'in_string.dart', source: source);
+      expect(findings.where((f) => f.message.contains('import')), isEmpty);
+    });
+
+    test(
+      'a formatter-wrapped conditional directive is caught on its URI line',
+      () {
+        const source =
+            "import 'stub/no_io.dart'\n    if (dart.library.io) 'dart:io';\n";
+        final findings = scanSource(file: 'wrapped.dart', source: source);
+        expect(findings, hasLength(1));
+        expect(findings.single.line, 2);
+        expect(findings.single.message, contains('dart:io'));
+      },
+    );
+  });
+
+  group('sealed-tree containment', () {
+    test('a relative import with .. escapes the core lib tree', () {
+      const source = "import '../../shell/main.dart';\n";
+      final findings = scanSource(file: 'escape.dart', source: source);
+      expect(findings, hasLength(1));
+      expect(findings.single.line, 1);
+      expect(findings.single.message, contains('escapes'));
+    });
+
+    test('a plain intra-lib relative import stays clean', () {
+      const source = "import 'store_port.dart';\n";
+      expect(scanSource(file: 'intra.dart', source: source), isEmpty);
+    });
+
+    test('part and part-of directives carrying a URI are banned', () {
+      const part = "part 'piece.dart';\n";
+      final partFindings = scanSource(file: 'part.dart', source: part);
+      expect(partFindings, hasLength(1));
+      expect(partFindings.single.line, 1);
+      expect(
+        partFindings.single.message,
+        contains('part directives are banned'),
+      );
+      const partOf = "part of 'clock_port.dart';\n";
+      expect(scanSource(file: 'part_of.dart', source: partOf), hasLength(1));
+    });
+
+    test('a symlinked .dart file in the core lib tree is reported', () {
+      final temp = _makeTemp('links');
+      final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
+      File('${lib.path}/real.dart').writeAsStringSync('int ok() => 1;\n');
+      Link('${lib.path}/linked.dart').createSync('${lib.path}/real.dart');
+      final findings = scanCoreLib(lib);
+      expect(findings, hasLength(1));
+      expect(findings.single.file, endsWith('linked.dart'));
+      expect(findings.single.message, contains('symlinked'));
+    });
+  });
+
+  group('late final is final, not mutable state', () {
+    test('late final declarations are clean in both scopes', () {
+      expect(
+        scanSource(file: 'lf_top.dart', source: 'late final answer = 42;\n'),
+        isEmpty,
+      );
+      expect(
+        scanSource(
+          file: 'lf_static.dart',
+          source: 'class C {\n  static late final cached = 42;\n}\n',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('late var and late typed declarations stay banned in both scopes', () {
+      expect(
+        scanSource(
+          file: 'lv_top.dart',
+          source: 'late var count = 0;\n',
+        ).map((f) => f.message),
+        contains(contains('mutable top-level state')),
+      );
+      expect(
+        scanSource(
+          file: 'lv_static.dart',
+          source: 'class C {\n  static late var count = 0;\n}\n',
+        ).map((f) => f.message),
+        contains(contains('mutable static state')),
+      );
+    });
+  });
+
   group('scanPubspec', () {
     test('flags a drift dependency at any indentation', () {
       const pubspec = 'name: core\ndependencies:\n    drift: ^2.34.3\n';
