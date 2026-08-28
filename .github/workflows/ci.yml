@@ -17,6 +17,9 @@ jobs:
       - name: Provision SDKs and dependencies
         run: devbox run -- make deps
 
+      - name: Codegen freshness (stale substrate.g.dart tripwire)
+        run: devbox run -- make codegen-check
+
       - name: Story completion gate (NFR17)
         run: devbox run -- make gate
 

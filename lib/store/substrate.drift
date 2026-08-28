@@ -1,0 +1,53 @@
+-- The insert-only substrate (AD-2): exactly two tables — the task pool and
+-- the event log — each refusing UPDATE and DELETE at the database level.
+-- Corrections are new entries, never edits; pool retirement is a derivation
+-- (AD-25), never a deleted row.
+--
+-- Every row on both tables carries a shell-minted UUIDv7 id and its instant
+-- plus the local offset in force (AD-4), stored as epoch microseconds and
+-- offset seconds — no date-only column, no owner column, no third table.
+--
+-- There are deliberately no FK or CHECK constraints: schema-level
+-- constraints would reject the forward-only evolution AD-23 requires — a
+-- future build's import must tolerate rows this build does not know, and
+-- unknown kinds are preserved verbatim. origin and size are enum-typed at
+-- the DTO boundary in DriftStore, and full validation is the core's job
+-- at the future read/parse boundary, not the schema's.
+
+CREATE TABLE pool_facts (
+  id TEXT NOT NULL PRIMARY KEY,
+  origin TEXT NOT NULL,
+  size TEXT NOT NULL,
+  instant_utc_micros INTEGER NOT NULL,
+  offset_seconds INTEGER NOT NULL
+);
+
+CREATE TABLE log_entries (
+  id TEXT NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  instant_utc_micros INTEGER NOT NULL,
+  offset_seconds INTEGER NOT NULL,
+  item_id TEXT NULL,
+  item_origin TEXT NULL,
+  stack TEXT NULL
+);
+
+CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts
+BEGIN
+  SELECT RAISE(ABORT, 'pool_facts is insert-only (AD-2)');
+END;
+
+CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON pool_facts
+BEGIN
+  SELECT RAISE(ABORT, 'pool_facts is insert-only (AD-2)');
+END;
+
+CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON log_entries
+BEGIN
+  SELECT RAISE(ABORT, 'log_entries is insert-only (AD-2)');
+END;
+
+CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON log_entries
+BEGIN
+  SELECT RAISE(ABORT, 'log_entries is insert-only (AD-2)');
+END;

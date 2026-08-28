@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'crash.dart';
+import 'store/bootstrap.dart';
 import 'strings/app_strings.dart';
 import 'ui/theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // The substrate comes up before the first frame: the drift database is
+  // wired once, and the crash guard — the build's only diagnostics
+  // destination — is installed before runApp so nothing can escape it.
+  final store = openStore();
+  installCrashGuard(store);
   runApp(const ProviderScope(child: OrganizerApp()));
 }
 
