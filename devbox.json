@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.18.0/.schema/devbox.schema.json",
+  "packages": [
+    "jdk25",
+    "gnumake",
+    "git",
+    "curl",
+    "xz",
+    "unzip"
+  ],
+  "shell": {
+    "init_hook": [
+      "[ -f tool/env.sh ] && . ./tool/env.sh"
+    ],
+    "scripts": {}
+  }
+}

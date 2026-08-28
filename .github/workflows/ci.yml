@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install the pinned devbox environment (NFR21)
+        uses: jetify-com/devbox-install-action@v0.15.0
+
+      - name: Provision SDKs and dependencies
+        run: devbox run -- make deps
+
+      - name: Story completion gate (NFR17)
+        run: devbox run -- make gate
+
+      - name: Build-time checks
+        run: devbox run -- make check
+
+      - name: Core suite (no emulator)
+        run: devbox run -- make test-core
