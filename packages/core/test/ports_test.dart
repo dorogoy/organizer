@@ -18,6 +18,12 @@ class _ShellClock implements ClockPort {
 /// declaring library; adapters return inert rows, never domain objects (AD-5).
 class _ShellStore implements StorePort {
   const _ShellStore();
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {}
 }
 
 void main() {

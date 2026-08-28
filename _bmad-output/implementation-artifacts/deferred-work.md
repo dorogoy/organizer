@@ -26,3 +26,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`
   summary: Encode the zero-match dash-term gate as a `tool/` check wired into `make check`, following `tool/check_core_purity.dart`'s pattern.
   evidence: Review round 3: the "no dash term in lib/test/tool" invariant is a hand-run `rg` command, not a guard — a reintroduced lever (even defaulted off) would pass every existing check; the repo's established pattern for invariants is a tool/ scan registered under the Makefile's check target.
+- source_spec: `_bmad-output/implementation-artifacts/1-3-the-insert-only-substrate.md`
+  summary: Validate log-record shape at the core's read/parse boundary (Story 1.6): item-id/item-origin travelling as a pair, stack only on `crash_recorded`, kind-subtype consistency.
+  evidence: Review round 1: `LogEntryRecord` (typedef) permits half-populated item references and off-kind payloads; writers today are only the crash path (always null/null + stack), but nothing validates records at write or read time — malformed rows would accumulate silently until derivations consume them. Schema-level CHECK/FK constraints were rejected deliberately (they would break AD-23's forward-only import tolerance), so the parse layer is the right home.
+

@@ -143,6 +143,50 @@ final t = '${foo(
         contains(endsWith('lib/ui/tokens.dart')),
       );
     });
+
+    test('marked .g.dart files are exempt; unmarked ones still flag', () {
+      final temp = _makeTemp('generated_marker');
+      final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
+      Directory('${lib.path}/strings').createSync();
+      for (final name in ['app_strings.dart', 'app_strings_es.dart']) {
+        File('${lib.path}/strings/$name')
+            .writeAsStringSync('$generatedStringsHeader\n');
+      }
+      File('${lib.path}/strings.dart.g.dart').writeAsStringSync(
+        '$generatedCodeHeader\n'
+        "const String table = 'CREATE TABLE pool_facts …';\n",
+      );
+      File('${lib.path}/unmarked.g.dart')
+          .writeAsStringSync("const String table = 'handwritten';\n");
+
+      final findings = scanLib(lib);
+      expect(findings, hasLength(1));
+      expect(findings.single.file, endsWith('lib/unmarked.g.dart'));
+    });
+
+    test(
+      'the named-constant allowance is store-path-scoped and wrap-aware',
+      () {
+        final temp = _makeTemp('allowance_scope');
+        final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
+        Directory('${lib.path}/strings').createSync();
+        for (final name in ['app_strings.dart', 'app_strings_es.dart']) {
+          File('${lib.path}/strings/$name')
+              .writeAsStringSync('$generatedStringsHeader\n');
+        }
+        Directory('${lib.path}/store').createSync();
+        File('${lib.path}/store/substrate.dart').writeAsStringSync(
+          "const String substrateSchemaFile =\n    'substrate.drift';\n",
+        );
+        File('${lib.path}/main.dart').writeAsStringSync(
+          "const String substrateSchemaFile = 'substrate.drift';\n",
+        );
+
+        final findings = scanLib(lib);
+        expect(findings, hasLength(1));
+        expect(findings.single.file, endsWith('lib/main.dart'));
+      },
+    );
   });
 
   group('the executable', () {

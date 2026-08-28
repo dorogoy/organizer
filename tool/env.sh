@@ -51,3 +51,22 @@ if [ -n "$JAVA_BIN" ]; then
   [ -d "$_JAVA_HOME" ] && export JAVA_HOME="$_JAVA_HOME"
 fi
 unset _JAVA_HOME JAVA_BIN
+
+# libsqlite3 for drift's host-side tests (Story 1.3): NativeDatabase loads
+# libsqlite3.so through the dynamic loader, whose default search does not
+# include the nix profile's package directories. The devbox sqlite package
+# ships the library next to its sqlite3 binary, so resolve it there and put
+# it on LD_LIBRARY_PATH — deterministic in every devbox environment (CI
+# included), independent of any host leak.
+SQLITE3_BIN=$(command -v sqlite3 2>/dev/null || true)
+if [ -n "$SQLITE3_BIN" ]; then
+  SQLITE3_REAL=$(readlink -f "$SQLITE3_BIN" 2>/dev/null || printf '%s' "$SQLITE3_BIN")
+  SQLITE3_LIB=$(dirname "$(dirname "$SQLITE3_REAL")")/lib
+  if [ -f "$SQLITE3_LIB/libsqlite3.so" ]; then
+    case ":${LD_LIBRARY_PATH:-}:" in
+      *":$SQLITE3_LIB:"*) ;;
+      *) LD_LIBRARY_PATH="$SQLITE3_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" && export LD_LIBRARY_PATH ;;
+    esac
+  fi
+fi
+unset SQLITE3_BIN SQLITE3_REAL SQLITE3_LIB

@@ -6,7 +6,8 @@
     "git",
     "curl",
     "xz",
-    "unzip"
+    "unzip",
+    "sqlite"
   ],
   "shell": {
     "init_hook": [

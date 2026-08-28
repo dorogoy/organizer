@@ -39,11 +39,13 @@ format-check: ## Verify formatting without rewriting anything
 analyze: ## Static analysis (flutter analyze; see check for the tool/ checks)
 	. ./tool/env.sh && flutter analyze
 
-check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45)
+check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21)
 	. ./tool/env.sh && dart run tool/check_core_purity.dart
 	. ./tool/env.sh && dart run tool/check_no_literal_strings.dart
 	. ./tool/env.sh && dart run tool/check_text_scaling.dart
 	. ./tool/env.sh && dart run tool/check_string_table_audit.dart
+	. ./tool/env.sh && dart run tool/check_forbidden_vocabulary.dart
+	. ./tool/env.sh && dart run tool/check_store_seal.dart
 
 gate: ## NFR17 story completion gate: flutter test, format check, analyze
 	. ./tool/env.sh && flutter test

@@ -21,6 +21,10 @@
       "resolved": "github:NixOS/nixpkgs/174eb786fb68e3a13e4e535a3deea479a0c07a6a#jdk25",
       "source": "nixpkg"
     },
+    "sqlite": {
+      "resolved": "github:NixOS/nixpkgs/174eb786fb68e3a13e4e535a3deea479a0c07a6a#sqlite",
+      "source": "nixpkg"
+    },
     "unzip": {
       "resolved": "github:NixOS/nixpkgs/174eb786fb68e3a13e4e535a3deea479a0c07a6a#unzip",
       "source": "nixpkg"
