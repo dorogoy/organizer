@@ -191,6 +191,30 @@ final int visibleCount = 0;
       expect(result.exitCode, 0);
     });
 
+    test(
+      'packages/core/test is in scope, symmetric with the store seal',
+      () async {
+        final root = _makeTemp('core_test_scope');
+        Directory('${root.path}/packages/core/test')
+            .createSync(recursive: true);
+        Directory('${root.path}/lib').createSync(recursive: true);
+        File('${root.path}/lib/ok.dart').writeAsStringSync('var fine = 1;\n');
+        File('${root.path}/packages/core/test/late_session_test.dart')
+            .writeAsStringSync('final int lateSession = 0;\n');
+        final result = await Process.run('dart', [
+          'run',
+          'tool/check_forbidden_vocabulary.dart',
+          root.path,
+        ]);
+        expect(result.exitCode, 1);
+        expect(
+          result.stdout as String,
+          contains('packages/core/test/late_session_test.dart:1:'),
+        );
+        expect(result.stdout as String, contains('lateSession'));
+      },
+    );
+
     test('a production lib/fixtures directory remains in scope', () async {
       final root = _makeTemp('production_fixtures');
       Directory('${root.path}/lib/fixtures').createSync(recursive: true);

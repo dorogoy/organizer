@@ -9,7 +9,11 @@ part 'substrate.g.dart';
 const String substrateSchemaFile = 'substrate.drift';
 
 /// Makes conflict replacement run the DELETE refusal triggers instead of
-/// silently replacing an existing row.
+/// silently replacing an existing row. Applied on two idempotent layers so
+/// no connection can miss it: `beforeOpen` below (covers any executor,
+/// including the tests' `NativeDatabase.memory()`) and the per-connection
+/// `setup` callback in `connection.dart` (covers every underlying native
+/// connection the production host opens, pooled or parallel).
 const String recursiveTriggersPragma = 'PRAGMA recursive_triggers = ON';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE

@@ -6,7 +6,7 @@ import 'store/bootstrap.dart';
 import 'strings/app_strings.dart';
 import 'ui/theme.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // The substrate comes up before the first frame: the drift database is
   // wired once, and the crash guard — the build's only diagnostics

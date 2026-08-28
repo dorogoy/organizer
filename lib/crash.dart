@@ -10,6 +10,10 @@ import 'package:uuid/uuid.dart';
 /// through the store port. No logging framework, no print channel, no third
 /// store — the crash entry is the whole channel, and it swallows its own
 /// write failures so the guard can never become a second crash.
+///
+/// The append is fire-and-forget: if the process dies hard before the write
+/// lands, that entry is lost — an accepted trade-off, since blocking the
+/// error path to guarantee durability is worse.
 void installCrashGuard(StorePort store) {
   FlutterError.onError = (details) {
     unawaited(appendCrashEntry(store, details.stack?.toString()));

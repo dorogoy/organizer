@@ -107,6 +107,8 @@ context: []
 
 ## Spec Change Log
 
+- 2026-08-29 — The PR 3 review follow-ups (guard symmetry, per-connection pragma, doc accuracy, codegen freshness) live in `spec-1-3-pr3-review-suggestions.md`; `make check` now runs seven checks, the seventh being codegen freshness.
+
 ## Design Notes
 
 - **Append-only port, on purpose.** Reads (log/pool snapshots) arrive with their first consumer — weave (1.6) and export (9.x); a speculative read surface now would invite the collection-shaped reads AD-6 exists to prevent.
@@ -122,7 +124,8 @@ context: []
 ## Verification
 
 **Commands:**
-- `devbox run -- make check` -- expected: six checks green (four existing + forbidden vocabulary + store seal)
+- `devbox run -- make check` -- expected: seven checks green (the six scans + codegen freshness)
+- `devbox run -- make codegen-check` -- expected: build_runner no-op, exit 0 — the committed `substrate.g.dart` matches `substrate.drift`
 - `devbox run -- make gate` -- expected: `flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze` all green
 - `devbox run -- make test-core` -- expected: core suite green incl. the new vocabulary/pool tests
 - `devbox run -- flutter test test/store/substrate_test.dart` -- expected: both tables refuse rewrite; schema audit passes
@@ -157,13 +160,13 @@ context: []
 **The diagnostics channel (AD-12, NFR13)**
 
 - Both handlers installed at startup — the build's only diagnostics destination
-  [`crash.dart:13`](../../lib/crash.dart#L13)
+  [`crash.dart:17`](../../lib/crash.dart#L17)
 
 - The one production write: crash payload, id minted in shell, clock read in shell, failures swallowed
-  [`crash.dart:28`](../../lib/crash.dart#L28)
+  [`crash.dart:32`](../../lib/crash.dart#L32)
 
 - Substrate wired and guard installed before `runApp`
-  [`main.dart:18`](../../lib/main.dart#L18)
+  [`main.dart:16`](../../lib/main.dart#L16)
 
 **The two new build-time guards**
 
@@ -176,7 +179,7 @@ context: []
 - The literal-ban's new exemption surface: marker-gated generated files + two named infrastructure constants
   [`check_no_literal_strings.dart:39`](../../tool/check_no_literal_strings.dart#L39)
 
-- Registration: all six checks reachable from `make check`
+- Registration: all seven checks reachable from `make check` (the six scans + codegen freshness)
   [`Makefile:42`](../../Makefile#L42)
 
 **Peripherals**

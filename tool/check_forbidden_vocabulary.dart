@@ -24,8 +24,10 @@
 // expressing lateness, so an exact `late` segment immediately followed by
 // another word is not a finding. `isLate` and `lateSession` still fail.
 //
-// Scope: `lib/`, `packages/core/lib`, `tool/`, `test/` — excluding
-// `test/fixtures/`, which holds this check's own fixtures. Scans run over
+// Scope: `lib/`, `packages/core/lib`, `packages/core/test`, `tool/`,
+// `test/` — excluding `test/fixtures/`, which holds this check's own
+// fixtures. The core packages mirror the store seal's scope over
+// `packages/core` (guard symmetry). Scans run over
 // the masked source (comments and string literals blanked, directive URIs
 // kept) via check_core_purity's masking, so prose and string contents
 // cannot false-positive.
@@ -217,7 +219,13 @@ List<File> _collectFiles(Directory root) {
 }
 
 /// The directories this check owns, relative to the repository root.
-const List<String> scopeRoots = ['lib', 'packages/core/lib', 'tool', 'test'];
+const List<String> scopeRoots = [
+  'lib',
+  'packages/core/lib',
+  'packages/core/test',
+  'tool',
+  'test',
+];
 
 /// Runs the whole check against [repoRoot], printing one
 /// `file:line: message` line per finding. Returns the process exit code:
