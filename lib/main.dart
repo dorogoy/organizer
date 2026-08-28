@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'strings/app_strings.dart';
+import 'ui/theme.dart';
+
 void main() {
   runApp(const ProviderScope(child: OrganizerApp()));
 }
@@ -15,6 +18,17 @@ class OrganizerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: SizedBox.shrink());
+    return MaterialApp(
+      // Light/dark follows the system — ThemeMode.system, no in-app
+      // override row (NFR19). Both themes are authored from tokens.dart.
+      theme: OrganizerTheme.light(),
+      darkTheme: OrganizerTheme.dark(),
+      themeMode: ThemeMode.system,
+      // The shipped ARB is the string table (AD-15); the accessors in
+      // lib/strings/ are generated from it.
+      localizationsDelegates: AppStrings.localizationsDelegates,
+      supportedLocales: AppStrings.supportedLocales,
+      home: const SizedBox.shrink(),
+    );
   }
 }

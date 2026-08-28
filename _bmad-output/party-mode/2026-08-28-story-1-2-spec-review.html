@@ -1,0 +1,476 @@
+<title>Sala de Story 1.2</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,500&display=swap">
+
+<style>
+  :root {
+    --surface-base: #F7F8F9;
+    --surface-raised: #FFFFFF;
+    --ink-primary: #1E2124;
+    --ink-secondary: #5C6368;
+    --border-hairline: #E1E5E8;
+    --accent-soft: #D5E0DC;
+
+    --mary: #BCB8D4;
+    --john: #CAB9A0;
+    --sally: #9EC3B5;
+    --winston: #B3BEBA;
+    --amelia: #9BC1D2;
+    --grumbal: #D9B2B6;
+
+    --radius-card: 14px;
+    --radius-pill: 9999px;
+
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface-base: #1B1E20;
+      --surface-raised: #24282A;
+      --ink-primary: #ECEAE4;
+      --ink-secondary: #99A0A3;
+      --border-hairline: #343A3D;
+      --accent-soft: #313E3B;
+
+      --mary: #9793AA;
+      --john: #A2947E;
+      --sally: #7E9C91;
+      --winston: #8E9894;
+      --amelia: #7B9BA9;
+      --grumbal: #AE8E91;
+
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --surface-base: #1B1E20;
+    --surface-raised: #24282A;
+    --ink-primary: #ECEAE4;
+    --ink-secondary: #99A0A3;
+    --border-hairline: #343A3D;
+    --accent-soft: #313E3B;
+
+    --mary: #9793AA;
+    --john: #A2947E;
+    --sally: #7E9C91;
+    --winston: #8E9894;
+    --amelia: #7B9BA9;
+    --grumbal: #AE8E91;
+
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--surface-base);
+    color: var(--ink-primary);
+    font-family: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+
+  h1 {
+    margin: 0;
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
+    font-size: clamp(28px, 5vw, 38px);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .story-title {
+    margin: 0;
+    color: var(--ink-secondary);
+    font-size: 16px;
+    max-width: 60ch;
+  }
+
+  .date-line {
+    font-size: 13px;
+    color: var(--ink-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cast-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin-top: 8px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .cast-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-secondary);
+  }
+
+  .cast-chip strong {
+    color: var(--ink-primary);
+    font-weight: 600;
+  }
+
+  /* ---------- Stamp (two-plate, 45deg offset — the glyph treatment, borrowed) ---------- */
+
+  .stamp {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    flex: none;
+  }
+
+  .stamp .mass {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--stamp-color);
+    transform: translate(2px, -2px);
+  }
+
+  .stamp .ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.4px solid var(--ink-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: transparent;
+  }
+
+  .stamp.lg {
+    width: 46px;
+    height: 46px;
+  }
+
+  .stamp.lg .mass { transform: translate(3px, -3px); }
+  .stamp.lg .ring { font-size: 21px; border-width: 1.6px; }
+
+  .mary   { --stamp-color: var(--mary); }
+  .john   { --stamp-color: var(--john); }
+  .sally  { --stamp-color: var(--sally); }
+  .winston{ --stamp-color: var(--winston); }
+  .amelia { --stamp-color: var(--amelia); }
+  .grumbal{ --stamp-color: var(--grumbal); }
+
+  /* ---------- Decision cards ---------- */
+
+  .decisions {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 28px 28px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: rise 0.5s ease-out forwards;
+  }
+
+  .card:nth-of-type(1) { animation-delay: 0.05s; }
+  .card:nth-of-type(2) { animation-delay: 0.15s; }
+  .card:nth-of-type(3) { animation-delay: 0.25s; }
+
+  @keyframes rise {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card { animation: none; opacity: 1; transform: none; }
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .card h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .tag {
+    flex: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--ink-secondary);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-pill);
+    padding: 4px 12px;
+    white-space: nowrap;
+  }
+
+  .quote {
+    font-family: "Lora", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.45;
+    color: var(--ink-primary);
+    margin: 2px 0;
+    max-width: 56ch;
+  }
+
+  .quote cite {
+    display: block;
+    margin-top: 8px;
+    font-family: "Lexend", sans-serif;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink-secondary);
+  }
+
+  .card p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--ink-secondary);
+    max-width: 62ch;
+  }
+
+  .card p strong {
+    color: var(--ink-primary);
+    font-weight: 600;
+  }
+
+  .resolution {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--ink-secondary);
+    padding-top: 8px;
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .resolution::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink-secondary);
+    flex: none;
+    margin-top: 5px;
+  }
+
+  /* ---------- Closing callout (the one pastel text-background) ---------- */
+
+  .closing {
+    background: var(--accent-soft);
+    border-radius: var(--radius-card);
+    padding: 30px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .closing .quote { font-size: 21px; }
+
+  /* ---------- Cast footer ---------- */
+
+  .cast-full {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cast-full h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+
+  .cast-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 18px 24px;
+  }
+
+  .cast-entry {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .cast-entry .who {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cast-entry .who strong {
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+
+  .cast-entry .who span {
+    font-size: 13px;
+    color: var(--ink-secondary);
+  }
+
+  .walk-on {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--grumbal);
+    margin-top: 2px;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-secondary);
+    padding-top: 8px;
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow">Organizer · Sala de party mode</div>
+    <h1>Story 1.2 — revisión de sala</h1>
+    <p class="story-title">Both palettes, the glyph set and the single string table</p>
+    <div class="date-line">28 ago</div>
+
+    <div class="cast-row">
+      <span class="cast-chip"><span class="stamp mary"><span class="mass"></span><span class="ring">📊</span></span> <strong>Mary</strong> · Analista</span>
+      <span class="cast-chip"><span class="stamp john"><span class="mass"></span><span class="ring">📋</span></span> <strong>John</strong> · PM</span>
+      <span class="cast-chip"><span class="stamp sally"><span class="mass"></span><span class="ring">🎨</span></span> <strong>Sally</strong> · UX</span>
+      <span class="cast-chip"><span class="stamp winston"><span class="mass"></span><span class="ring">🏗️</span></span> <strong>Winston</strong> · Arquitecto</span>
+      <span class="cast-chip"><span class="stamp amelia"><span class="mass"></span><span class="ring">💻</span></span> <strong>Amelia</strong> · Dev</span>
+      <span class="cast-chip"><span class="stamp grumbal"><span class="mass"></span><span class="ring">😤</span></span> <strong>Grumbal</strong> · invitado sin avisar</span>
+    </div>
+  </div>
+
+  <div class="decisions">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>La metadata no es un archivo aparte</h2>
+        <span class="tag">AD-15 · AD-21</span>
+      </div>
+      <p>Winston abrió el hueco: el audit SM-C2 necesita una lista de exclusión y las siete strings sin Slicer necesitan un marcador de revisión — y el spec no decía dónde vive ninguno de los dos.</p>
+      <p class="quote">
+        &ldquo;Un booleano no puede mentir de forma detectable.&rdquo;
+        <cite>Sally, sobre por qué el sign-off no podía ser <code>true</code>/<code>false</code></cite>
+      </p>
+      <div class="resolution"><strong>Resuelto —</strong>&nbsp;<code>x-signoff</code> y <code>x-audit-exclude</code> viven dentro del propio bloque <code>@key</code> del ARB, como texto libre («nombre, fecha» / «razón»), nunca en un segundo archivo. Plan B nombrado si <code>gen_l10n</code> protesta: <code>audit_exclusions.yaml</code>.</div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>El pompón no se pregunta, se dibuja</h2>
+        <span class="tag">DESIGN.md · Implementation Check</span>
+      </div>
+      <p>El radio del pompón de la semilla es, literalmente, el único número del sistema dejado a propósito para el momento de dibujar. El spec lo había puesto bajo «Ask First» — un hueco por confirmar antes de continuar.</p>
+      <p class="quote">
+        &ldquo;DESIGN.md no pedía permiso, pedía prueba.&rdquo;
+        <cite>Sally, moviéndolo de decisión humana a criterio de aceptación</cite>
+      </p>
+      <div class="resolution"><strong>Resuelto —</strong>&nbsp;lo dibuja y mide el propio agente de implementación, sin punto de aprobación intermedio; <code>seed_glyph_test.dart</code> —imagen dorada más aserción de radio— es el cierre.</div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Un fantasma en el borrador</h2>
+        <span class="tag">hallazgo de Grumbal</span>
+      </div>
+      <p>Sergio preguntó si los bocetos ya existentes de la fase de UX servían para los otros nueve glyphs. La sala encontró uno real y vigente — y uno que no debería tocarse.</p>
+      <p class="quote">
+        &ldquo;El agente abre ese draft, lo confunde con la fuente, y ships un icono de Ajustes que la spec entera prohíbe. Nadie lo pilla hasta que alguien pregunta por qué hay un engranaje en la barra.&rdquo;
+        <cite>Grumbal, sin que nadie le pidiera opinión</cite>
+      </p>
+      <div class="resolution"><strong>Resuelto —</strong>&nbsp;el micrófono tiene referencia real y enlazada (<code>mic-manual-capture-1.html</code>); los otros siete se dibujan desde la fórmula compartida; <code>icon-treatment-1.html</code> queda marcado explícitamente como trampa — sin bandera propia, con un Ajustes disuelto dentro.</div>
+    </section>
+
+  </div>
+
+  <div class="closing">
+    <p class="quote">
+      &ldquo;No es una laguna que encontramos nosotros — es una laguna que el propio proceso declaró a propósito.&rdquo;
+      <cite>Mary, cerrando el hilo del pompón</cite>
+    </p>
+  </div>
+
+  <div class="cast-full">
+    <h2>Reparto de la sesión</h2>
+    <div class="cast-list">
+      <div class="cast-entry">
+        <span class="stamp lg mary"><span class="mass"></span><span class="ring">📊</span></span>
+        <span class="who"><strong>Mary</strong><span>Grounds every finding in evidencia verificable.</span></span>
+      </div>
+      <div class="cast-entry">
+        <span class="stamp lg john"><span class="mass"></span><span class="ring">📋</span></span>
+        <span class="who"><strong>John</strong><span>Cada «por qué» aprieta un poco más el nudo.</span></span>
+      </div>
+      <div class="cast-entry">
+        <span class="stamp lg sally"><span class="mass"></span><span class="ring">🎨</span></span>
+        <span class="who"><strong>Sally</strong><span>Distingue un placeholder perezoso de una duda legítima.</span></span>
+      </div>
+      <div class="cast-entry">
+        <span class="stamp lg winston"><span class="mass"></span><span class="ring">🏗️</span></span>
+        <span class="who"><strong>Winston</strong><span>Mide en aforismos cortos, casi siempre tiene razón.</span></span>
+      </div>
+      <div class="cast-entry">
+        <span class="stamp lg amelia"><span class="mass"></span><span class="ring">💻</span></span>
+        <span class="who"><strong>Amelia</strong><span>Rutas, líneas y AC IDs — nunca relleno.</span></span>
+      </div>
+      <div class="cast-entry">
+        <span class="stamp lg grumbal"><span class="mass"></span><span class="ring">😤</span></span>
+        <span class="who"><strong>Grumbal</strong><span>No estaba invitado.</span><span class="walk-on">Encontró el fantasma igual.</span></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>La sala vuelve a abrirse cuando haga falta.</footer>
+
+</div>
