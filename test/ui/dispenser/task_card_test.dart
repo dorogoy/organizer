@@ -137,6 +137,19 @@ void main() {
     final chipStyle = tester.widget<Text>(find.text('15\u00A0min')).style!;
     expect(chipStyle.color, FieldPalette.inkPrimary);
     expect(chipStyle.fontSize, 15);
+    final chipPadding = tester.widget<Padding>(
+      find.descendant(
+        of: find.byType(DurationChip),
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(
+      chipPadding.padding,
+      const EdgeInsets.symmetric(
+        horizontal: Spacing.chipPaddingHorizontal,
+        vertical: Spacing.chipPaddingVertical,
+      ),
+    );
 
     // The zone footer: the Hoja at 24px beside the canonical word.
     expect(find.byType(LeafGlyph), findsOneWidget);

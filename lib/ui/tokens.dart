@@ -10,7 +10,7 @@
 // Counted set: 6 field colours, 6 icon-mass colours (L* 76.0), 12 dark
 // colours (the dark palette is separately authored, never an inversion;
 // the one-time `border-strong-dark` token stays omitted as an orphan —
-// UX-DR12), 8 typography roles, 3 radii, 13 spacing values, 2 format rules.
+// UX-DR12), 8 typography roles, 3 radii, 15 spacing values, 2 format rules.
 import 'package:flutter/painting.dart';
 
 /// Field tier — palette "Aliento" at its own baseline lightness. Grounds,
@@ -216,6 +216,12 @@ abstract final class Spacing {
 
   /// The duration chip sits tight under this — proximity is the mechanism.
   static const double chipToTask = 8;
+
+  /// Interior horizontal inset of the duration chip.
+  static const double chipPaddingHorizontal = 12;
+
+  /// Interior vertical inset of the duration chip.
+  static const double chipPaddingVertical = 4;
 
   /// Primary action down to the secondary.
   static const double actionGap = 12;

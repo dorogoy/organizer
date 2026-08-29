@@ -27,9 +27,14 @@ import 'task_card.dart';
 const double _cardMaxWidth = 480;
 
 class DispenserScreen extends StatefulWidget {
-  const DispenserScreen({super.key, required this.controller});
+  const DispenserScreen({
+    super.key,
+    required this.controller,
+    this.sessionSettled,
+  });
 
   final DispenserController controller;
+  final Future<void> Function()? sessionSettled;
 
   @override
   State<DispenserScreen> createState() => _DispenserScreenState();
@@ -39,6 +44,8 @@ class _DispenserScreenState extends State<DispenserScreen>
     with WidgetsBindingObserver {
   /// Null until the first read resolves: the empty frame, never a loader.
   DispenserView? _view;
+  int _readGeneration = 0;
+  bool _leftForegroundSinceRead = false;
 
   @override
   void initState() {
@@ -55,27 +62,43 @@ class _DispenserScreenState extends State<DispenserScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Only a real return from off-foreground re-reads (the observer's
-    // own contract, as with SessionController): the launch read is
-    // initState's alone, and a transient occlusion changes nothing.
-    if (state == AppLifecycleState.resumed) {
-      _refresh();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (_leftForegroundSinceRead) {
+          _leftForegroundSinceRead = false;
+          _refresh();
+        }
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _leftForegroundSinceRead = true;
     }
   }
 
   void _refresh() {
-    widget.controller.read().then(
-      (view) {
-        if (mounted) {
-          setState(() => _view = view);
-        }
-      },
-      onError: (Object _) {
-        // A failed catalogue read changes nothing on screen: the empty
-        // frame stands, and the controller's cleared memo makes the next
-        // read a retry.
-      },
-    );
+    final generation = ++_readGeneration;
+    if (_view != null) {
+      setState(() => _view = null);
+    }
+    _readAfterSessionSettles(generation);
+  }
+
+  Future<void> _readAfterSessionSettles(int generation) async {
+    try {
+      // The lifecycle mints and appends the launch/resume deal first. A
+      // screen read only derives from that settled log, never its precursor.
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.read();
+      if (mounted && generation == _readGeneration) {
+        setState(() => _view = view);
+      }
+    } catch (_) {
+      if (mounted && generation == _readGeneration) {
+        // Pending and failed reads intentionally have the same empty frame.
+        setState(() => _view = null);
+      }
+    }
   }
 
   @override

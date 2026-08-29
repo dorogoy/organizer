@@ -144,7 +144,14 @@ void main() {
     );
     // The session wiring and the Dispenser read the same local store —
     // the launch deal the screen renders is the one the log holds.
-    expect(source.contains('installSessionController(store: store'), isTrue);
-    expect(source.contains('DispenserController(store: store'), isTrue);
+    expect(
+      RegExp(r'installSessionController\(\s*store: store').hasMatch(source),
+      isTrue,
+    );
+    expect(
+      RegExp(r'DispenserController\(\s*store: store').hasMatch(source),
+      isTrue,
+    );
+    expect(source.contains('sessionSettled: () => session.settled'), isTrue);
   });
 }

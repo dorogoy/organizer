@@ -22,7 +22,10 @@ void main() {
   // session's first `card_dealt`, `session_ended`. The launch open runs
   // unawaited inside so the first frame never waits on the store; the
   // catalogue loads once there too.
-  installSessionController(store: store, strings: AppStringsEs());
+  final session = installSessionController(
+    store: store,
+    strings: AppStringsEs(),
+  );
   // The Dispenser (Story 1.8) is the home: it reads the launch deal
   // through the same store, and the double asset read behind the shared
   // catalogue is benign — rootBundle caches bytes.
@@ -30,6 +33,7 @@ void main() {
     ProviderScope(
       child: OrganizerApp(
         dispenser: DispenserController(store: store, strings: AppStringsEs()),
+        sessionSettled: () => session.settled,
       ),
     ),
   );
@@ -42,9 +46,10 @@ void main() {
 /// the same store the session wiring holds; a test may construct the shell
 /// without one, and home stays the placeholder in that case.
 class OrganizerApp extends StatelessWidget {
-  const OrganizerApp({super.key, this.dispenser});
+  const OrganizerApp({super.key, this.dispenser, this.sessionSettled});
 
   final DispenserController? dispenser;
+  final Future<void> Function()? sessionSettled;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +66,10 @@ class OrganizerApp extends StatelessWidget {
       supportedLocales: AppStrings.supportedLocales,
       home: dispenser == null
           ? const SizedBox.shrink()
-          : DispenserScreen(controller: dispenser),
+          : DispenserScreen(
+              controller: dispenser,
+              sessionSettled: sessionSettled,
+            ),
     );
   }
 }

@@ -9,8 +9,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/catalogue/catalogue.dart';
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
-import 'package:flutter/material.dart';
+import 'package:core/weave/weave.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -141,13 +144,59 @@ class _FlakyBundle implements AssetBundle {
   void clear() {}
 }
 
+/// Holds the session catalogue load open so the screen can prove it waits for
+/// the persisted launch deal rather than deriving a competing first card.
+class _GatedBundle extends _FakeBundle {
+  _GatedBundle(super.sources, this._gate);
+
+  final Future<void> _gate;
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) async {
+    await _gate;
+    return super.loadString(key, cache: cache);
+  }
+}
+
+class _QueuedReadController extends DispenserController {
+  _QueuedReadController(this._reads)
+    : super(store: _RecordingStore(), strings: AppStringsEs());
+
+  final List<Completer<DispenserView>> _reads;
+  var _nextRead = 0;
+
+  @override
+  Future<DispenserView> read() => _reads[_nextRead++].future;
+}
+
+const _testCard = Card(
+  id: 'prueba',
+  size: Size.focus,
+  name: 'Tarjeta de prueba',
+  origin: Origin.shipped,
+  zone: Zone.z1,
+  estimateSeconds: 900,
+);
+
+const _longCard = Card(
+  id: 'prueba-larga',
+  size: Size.focus,
+  name: 'Despeja la estantería alta del salón y ordena los libros sueltos',
+  origin: Origin.shipped,
+  zone: Zone.z5,
+  estimateSeconds: 900,
+);
+
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 
-Widget _harness(DispenserController controller) => MaterialApp(
+Widget _harness(
+  DispenserController controller, {
+  Future<void> Function()? sessionSettled,
+}) => MaterialApp(
   theme: OrganizerTheme.light(),
   localizationsDelegates: AppStrings.localizationsDelegates,
   supportedLocales: AppStrings.supportedLocales,
-  home: DispenserScreen(controller: controller),
+  home: DispenserScreen(controller: controller, sessionSettled: sessionSettled),
 );
 
 void main() {
@@ -168,6 +217,15 @@ void main() {
   /// pin.
   LogEntryRecord? dealtEntryOf(_RecordingStore store) {
     for (final entry in store.entries) {
+      if (entry.kind == 'card_dealt') {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  LogEntryRecord? latestDealtEntryOf(_RecordingStore store) {
+    for (final entry in store.entries.reversed) {
       if (entry.kind == 'card_dealt') {
         return entry;
       }
@@ -228,6 +286,96 @@ void main() {
     expect(find.text('Hecho'), findsOneWidget);
   });
 
+  testWidgets('the first read waits for the launch lifecycle, then renders '
+      'the persisted deal rather than a competing choice', (tester) async {
+    final store = _RecordingStore();
+    final gate = Completer<void>();
+    final session = SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _GatedBundle({catalogueAssetPath: shipped}, gate.future),
+      nowOf: _fixedClock,
+    );
+    final opening = session.handleAppOpen();
+
+    await tester.pumpWidget(
+      _harness(buildController(store), sessionSettled: () => session.settled),
+    );
+    await tester.pump();
+    expect(find.byType(TaskCard), findsNothing);
+
+    gate.complete();
+    await opening;
+    await tester.pumpAndSettle();
+
+    final dealtEntryId = dealtEntryOf(store)!.itemId!;
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final dealt = catalogue.entries.firstWhere(
+      (entry) => entry.id == dealtEntryId,
+    );
+    expect(find.text(dealt.name), findsOneWidget);
+  });
+
+  testWidgets('a failed session launch keeps the Dispenser empty even when '
+      'its independent catalogue read could succeed', (tester) async {
+    final store = _RecordingStore();
+    final session = SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FlakyBundle(shipped),
+      nowOf: _fixedClock,
+    );
+    final opening = session.handleAppOpen();
+
+    await tester.pumpWidget(
+      _harness(buildController(store), sessionSettled: () => session.settled),
+    );
+    await expectLater(opening, throwsA(isA<Exception>()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+  });
+
+  testWidgets('a real resume waits for the persisted resumed-session deal', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final session = installSessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    addTearDown(() => tester.binding.removeObserver(session));
+    await session.settled;
+
+    await tester.pumpWidget(
+      _harness(buildController(store), sessionSettled: () => session.settled),
+    );
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    final resumedDeal = latestDealtEntryOf(store)!;
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final entry = catalogue.entries.firstWhere(
+      (candidate) => candidate.id == resumedDeal.itemId,
+    );
+    expect(find.text(entry.name), findsOneWidget);
+  });
+
   testWidgets('a null deal shows the warm close verbatim, quiet — never '
       'an error', (tester) async {
     final store = _RecordingStore();
@@ -258,7 +406,7 @@ void main() {
       'truncated, and the screen scrolls (UX-DR14, NFR6)', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearAllTestValues);
-    await tester.binding.setSurfaceSize(const Size(320, 480));
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final store = _RecordingStore();
@@ -308,9 +456,32 @@ void main() {
     expect(scrollable.position.pixels, greaterThan(0));
   });
 
+  testWidgets('200% font scale keeps a long zoned card scrollable and its '
+      'footer reachable', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final first = Completer<DispenserView>();
+    await tester.pumpWidget(_harness(_QueuedReadController([first])));
+    first.complete(const DispenserDealt(_longCard));
+    await tester.pumpAndSettle();
+
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+    await tester.scrollUntilVisible(
+      find.text(AppStringsEs().zoneZ5),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text(AppStringsEs().zoneZ5), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the card caps at its width bound on wide grounds — the '
       'side margins and max-width constraint hold', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(800, 600));
+    await tester.binding.setSurfaceSize(const ui.Size(800, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final store = _RecordingStore();
@@ -368,12 +539,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsNothing);
 
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
     expect(find.byType(TaskCard), findsOneWidget);
     expect(find.text('Hecho'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a newer refresh wins when an earlier read completes last', (
+    tester,
+  ) async {
+    final first = Completer<DispenserView>();
+    final second = Completer<DispenserView>();
+    final controller = _QueuedReadController([first, second]);
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    second.complete(const DispenserClosed());
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+    first.complete(const DispenserDealt(_testCard));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+    expect(find.byType(TaskCard), findsNothing);
+  });
+
+  testWidgets('a failed refresh clears an already rendered card to the empty '
+      'frame', (tester) async {
+    final first = Completer<DispenserView>();
+    final second = Completer<DispenserView>();
+    final controller = _QueuedReadController([first, second]);
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump();
+    first.complete(const DispenserDealt(_testCard));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.byType(TaskCard), findsNothing);
+    second.completeError(StateError('read failed'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
   });
 
   test(

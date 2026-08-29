@@ -121,6 +121,8 @@ components:
     foreground: '{colors.ink-primary}'
     typography: '{typography.duration}'
     radius: '{rounded.full}'
+    padding-horizontal: '12dp'
+    padding-vertical: '4dp'
     position: 'eyebrow, above the task text'
     gap-to-task: '{spacing.chip-to-task}'
   size-option:

@@ -8,12 +8,6 @@ import 'package:flutter/material.dart';
 import '../../strings/app_strings.dart';
 import '../tokens.dart';
 
-/// The chip's own padding, measured on the canonical render
-/// (`mockups/dispenser-canonical-1.html`): a component measurement, not a
-/// gap between anatomy elements, so it carries no `Spacing` token.
-const double _chipPaddingHorizontal = 14;
-const double _chipPaddingVertical = 5;
-
 /// The duration label (DESIGN.md {formats.duration}): value + non-breaking
 /// space + unit. Whole minutes when the estimate is at least a minute and
 /// divides by 60, else seconds — 900 → `15 min`, 180 → `3 min`,
@@ -44,8 +38,8 @@ class DurationChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.radiusFull),
       ),
       padding: const EdgeInsets.symmetric(
-        horizontal: _chipPaddingHorizontal,
-        vertical: _chipPaddingVertical,
+        horizontal: Spacing.chipPaddingHorizontal,
+        vertical: Spacing.chipPaddingVertical,
       ),
       child: Text(
         durationLabel(seconds, AppStrings.of(context)),
