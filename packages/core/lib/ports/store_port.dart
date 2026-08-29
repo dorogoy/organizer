@@ -1,11 +1,12 @@
 /// The store port: the core's only view of persisted facts.
 ///
-/// Deliberately append-only — this is the port's first real surface (Story
-/// 1.3): inserts of pool facts and log entries, and nothing else. Reads
-/// (log and pool snapshots) wait for their first consumer (Story 1.6+); a
-/// speculative read surface now would invite the collection-shaped reads
-/// AD-6 exists to prevent. Corrections are new entries, never edits — the
-/// database itself refuses `UPDATE` and `DELETE` on both tables (AD-2).
+/// Writes are deliberately append-only (Story 1.3): inserts of pool facts
+/// and log entries, and nothing else — corrections are new entries, never
+/// edits, and the database itself refuses `UPDATE` and `DELETE` on both
+/// tables (AD-2). Reads (Story 1.6) are ordered snapshots of inert
+/// records: the log and pool as they were appended, replayable inputs for
+/// the derivations, never collection-shaped work surfaces (AD-6 — the one
+/// work read is the facade's `nextCard()`).
 ///
 /// Adapters return inert row shapes, never domain objects (AD-5): the
 /// record DTOs below are primitives and enums only, and only the core
@@ -48,4 +49,19 @@ abstract interface class StorePort {
 
   /// Appends one log entry. Failing to append rejects the caller's act.
   Future<void> appendLogEntry(LogEntryRecord entry);
+
+  /// Reads the pool-fact snapshot in replay order: by recorded instant,
+  /// then append sequence — derivations read recorded act instants and
+  /// never id bit patterns (AD-3). A row whose `origin` or `size` token
+  /// this build cannot parse stays outside the snapshot: the enum-typed
+  /// record cannot carry it, and the pool's first real writer is where
+  /// AD-23's additive tolerance lands for these columns.
+  Future<List<PoolFactRecord>> readPoolFacts();
+
+  /// Reads the log-entry snapshot in replay order: by recorded instant,
+  /// then append sequence — one shell batch mints one instant for several
+  /// records, and append order breaks that tie. Records are inert and
+  /// verbatim, malformed rows included: shape validation is the core's
+  /// read boundary (AD-23), never the adapter's.
+  Future<List<LogEntryRecord>> readLogEntries();
 }

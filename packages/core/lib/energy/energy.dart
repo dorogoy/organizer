@@ -76,3 +76,12 @@ EnergyLevel deriveEnergyForLivePool(
   }
   return newest ?? EnergyLevel.full;
 }
+
+/// The live pool's energy as this build can derive it at one instant:
+/// [deriveEnergyForLivePool] over the observations this build can
+/// produce — none yet, so the day defaults to 🟢 (AD-4). Story 2.5 maps
+/// stored `energy_set` rows into observations HERE, at this one seam —
+/// never at each caller, where the default would have to change in
+/// lockstep.
+EnergyLevel deriveLivePoolEnergy(int instantUtcMicros, int offsetSeconds) =>
+    deriveEnergyForLivePool(const [], instantUtcMicros, offsetSeconds);

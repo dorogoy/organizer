@@ -307,6 +307,172 @@ void main() {
     },
   );
 
+  group('ordered read snapshots (Story 1.6)', () {
+    LogEntryRecord at(int micros, String id) => (
+      id: id,
+      kind: 'card_dealt',
+      instantUtcMicros: micros,
+      offsetSeconds: 7200,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+    );
+
+    test(
+      'the instant tie-break is append sequence, never id order (AD-3) — '
+      'same-instant rows appended in reverse id order replay appended-first',
+      () async {
+        // Deliberately reverse-lexicographic ids: an ORDER BY id — the
+        // exact thing AD-3 bans — would return them sorted and keep
+        // this suite green; append sequence must win instead.
+        await store.appendLogEntry(at(500, 'zz-appended-first'));
+        await store.appendLogEntry(at(500, 'aa-appended-second'));
+        final logSnapshot = await store.readLogEntries();
+        expect(logSnapshot.map((row) => row.id).toList(), [
+          'zz-appended-first',
+          'aa-appended-second',
+        ]);
+
+        Future<void> fact(String id) => store.appendPoolFact((
+          id: id,
+          origin: Origin.manual,
+          size: Size.maintenance,
+          instantUtcMicros: 500,
+          offsetSeconds: 7200,
+        ));
+
+        await fact('zz-fact-appended-first');
+        await fact('aa-fact-appended-second');
+        final poolSnapshot = await store.readPoolFacts();
+        expect(poolSnapshot.map((row) => row.id).toList(), [
+          'zz-fact-appended-first',
+          'aa-fact-appended-second',
+        ]);
+      },
+    );
+
+    test('readLogEntries replays by recorded instant, append order breaking '
+        'ties (AD-3)', () async {
+      await store.appendLogEntry(at(300, 'third'));
+      await store.appendLogEntry(at(100, 'first'));
+      // One shell batch mints one instant for several records: the tie
+      // breaks by append sequence, never by id bits.
+      await store.appendLogEntry(at(200, 'tie-early'));
+      await store.appendLogEntry(at(200, 'tie-late'));
+
+      final snapshot = await store.readLogEntries();
+      expect(snapshot.map((row) => row.id).toList(), [
+        'first',
+        'tie-early',
+        'tie-late',
+        'third',
+      ]);
+      expect(snapshot.every((row) => row.offsetSeconds == 7200), isTrue);
+    });
+
+    test('a malformed record round-trips verbatim — never coerced (AD-23: '
+        'validation is the core\'s read boundary)', () async {
+      // Half item pair: the adapter returns it exactly as appended.
+      await store.appendLogEntry((
+        id: 'half-pair',
+        kind: 'card_done',
+        instantUtcMicros: 100,
+        offsetSeconds: 0,
+        itemId: 'man-a',
+        itemOrigin: null,
+        stack: null,
+      ));
+      // stack on a moment kind.
+      await store.appendLogEntry((
+        id: 'stack-off-kind',
+        kind: 'session_started',
+        instantUtcMicros: 200,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: '#0      build',
+      ));
+      // An unknown kind.
+      await store.appendLogEntry((
+        id: 'unknown-kind',
+        kind: 'future_kind',
+        instantUtcMicros: 300,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+      ));
+
+      final snapshot = await store.readLogEntries();
+      expect(snapshot, hasLength(3));
+      expect(snapshot[0].id, 'half-pair');
+      expect(snapshot[0].itemId, 'man-a');
+      expect(snapshot[0].itemOrigin, isNull);
+      expect(snapshot[1].id, 'stack-off-kind');
+      expect(snapshot[1].stack, '#0      build');
+      expect(snapshot[2].id, 'unknown-kind');
+      expect(snapshot[2].kind, 'future_kind');
+    });
+
+    test('an origin token this build does not know reads back '
+        'uninterpretable, never fatal', () async {
+      await db.customInsert(
+        'INSERT INTO log_entries '
+        '(id, kind, instant_utc_micros, offset_seconds, item_id, '
+        'item_origin, stack) '
+        "VALUES ('future-origin', 'card_done', 100, 0, 'man-a', "
+        "'future_origin', NULL)",
+      );
+      final snapshot = await store.readLogEntries();
+      expect(snapshot, hasLength(1));
+      expect(snapshot.single.itemId, 'man-a');
+      expect(
+        snapshot.single.itemOrigin,
+        isNull,
+        reason:
+            'the enum-typed record cannot carry an unknown token — the '
+            'core boundary rejects the resulting half pair distinctly',
+      );
+    });
+
+    test('readPoolFacts replays ordered, verbatim', () async {
+      Future<void> fact(String id, int micros) => store.appendPoolFact((
+        id: id,
+        origin: Origin.manual,
+        size: Size.maintenance,
+        instantUtcMicros: micros,
+        offsetSeconds: 7200,
+      ));
+
+      await fact('late', 300);
+      await fact('early', 100);
+      await fact('tie', 100);
+
+      final snapshot = await store.readPoolFacts();
+      expect(snapshot.map((row) => row.id).toList(), ['early', 'tie', 'late']);
+      expect(snapshot.first.origin, Origin.manual);
+      expect(snapshot.first.size, Size.maintenance);
+    });
+
+    test('a pool row whose size token this build does not know stays outside '
+        'the snapshot', () async {
+      await store.appendPoolFact((
+        id: 'known',
+        origin: Origin.manual,
+        size: Size.maintenance,
+        instantUtcMicros: 100,
+        offsetSeconds: 0,
+      ));
+      await db.customInsert(
+        'INSERT INTO pool_facts '
+        '(id, origin, size, instant_utc_micros, offset_seconds) '
+        "VALUES ('unknown', 'manual', 'gigantic', 200, 0)",
+      );
+      final snapshot = await store.readPoolFacts();
+      expect(snapshot.map((row) => row.id), ['known']);
+    });
+  });
+
   group('column audit: no owner column, no date-only column (AD-1)', () {
     Future<List<String>> columns(String table) => db
         .customSelect('PRAGMA table_info($table)')

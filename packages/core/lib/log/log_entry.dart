@@ -4,9 +4,16 @@
 /// This file holds Story 1.3's slice of the vocabulary: the seven kinds the
 /// epic names, plus the unknown-kind carrier every forward-only reader must
 /// tolerate (AD-23). A new kind is a new kind, never a flag on an old one.
+///
+/// It also holds the validated record→entry conversion every read passes
+/// through (Story 1.6, the item 1.3 deferred here): the inert records the
+/// store port returns become domain entries only after their shape checks
+/// out — itemId/itemOrigin travel as a pair, `stack` rides only on
+/// `crash_recorded`, and a known kind's payload must match the kind.
 
 library;
 
+import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 
 /// One entry kind, as a past-tense `snake_case` verb phrase. Instances are
@@ -150,4 +157,149 @@ final class UnknownEntry extends LogEntry {
 
   @override
   final LogKind kind;
+}
+
+/// Why one record was excluded at the read boundary. Surfaced distinctly,
+/// never coerced: AD-23's tolerance is for kinds this build does not know,
+/// not for a known kind whose payload disagrees with it.
+enum LogRecordFlaw {
+  /// Exactly one of itemId/itemOrigin — the pair travels together (AD-14).
+  halfItemPair,
+
+  /// An item act (`card_*`) with no item pair at all.
+  itemPairAbsent,
+
+  /// A `stack` payload on a kind that is not `crash_recorded` (AD-12).
+  stackOffCrashKind,
+
+  /// An item pair on a kind that references no pool item.
+  itemOnNonItemKind,
+
+  /// `crash_recorded` without its stack (AD-12).
+  stackAbsent,
+
+  /// A kind this build knows but this boundary does not classify:
+  /// excluded rather than coerced into a moment. A new kind extends
+  /// `_isItemAct`/`_isMoment` in the same pass that adds it to
+  /// [LogKind], and until then it lands here — never a `MomentEntry`
+  /// carrying a foreign kind.
+  unclassifiedKind,
+}
+
+/// One record's conversion at the read boundary: the domain entry when the
+/// shape checks out, otherwise the flaw that excludes the row — exactly one
+/// of the two is non-null.
+typedef LogEntryConversion = ({LogEntry? entry, LogRecordFlaw? flaw});
+
+bool _isItemAct(LogKind kind) =>
+    kind == LogKind.cardDealt ||
+    kind == LogKind.cardDone ||
+    kind == LogKind.cardSkipped;
+
+bool _isMoment(LogKind kind) =>
+    kind == LogKind.sessionStarted ||
+    kind == LogKind.sessionEnded ||
+    kind == LogKind.appOpened;
+
+/// Converts one inert store record into a domain entry with shape
+/// validation — the boundary Story 1.3 deferred to this story. Unknown
+/// kinds are carried as [UnknownEntry] whatever their payload (AD-23);
+/// a known kind must carry exactly its own payload: an item act its full
+/// item pair and no stack, a moment neither, `crash_recorded` its stack
+/// and nothing else (AD-12, AD-14). An empty string is not a value
+/// here: an itemId that is empty counts as an absent pair, an empty
+/// stack as no stack. A known kind this boundary does not classify is
+/// excluded with [LogRecordFlaw.unclassifiedKind] — never coerced.
+LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
+  final kind = LogKind.parse(record.kind);
+
+  if (!kind.known) {
+    return (
+      entry: UnknownEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        kind: kind,
+      ),
+      flaw: null,
+    );
+  }
+
+  final itemIdIsAbsent = record.itemId?.isEmpty ?? true;
+
+  if (_isItemAct(kind)) {
+    if (itemIdIsAbsent && record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+    }
+    if (itemIdIsAbsent || record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    return (
+      entry: ItemActEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        kind: kind,
+        itemId: record.itemId!,
+        itemOrigin: record.itemOrigin!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.crashRecorded) {
+    if (record.stack?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.stackAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    return (
+      entry: CrashEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        stack: record.stack!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (_isMoment(kind)) {
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    return (
+      entry: MomentEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        kind: kind,
+      ),
+      flaw: null,
+    );
+  }
+
+  return (entry: null, flaw: LogRecordFlaw.unclassifiedKind);
+}
+
+/// The accepted entries of a record snapshot, in snapshot order. A
+/// malformed row is excluded — its flaw is [convertLogEntryRecord]'s to
+/// surface, never a coercion — and an unknown kind is carried (AD-23).
+/// Every derivation consumes this list, never raw records.
+List<LogEntry> logEntriesOf(List<LogEntryRecord> records) {
+  final entries = <LogEntry>[];
+  for (final record in records) {
+    final conversion = convertLogEntryRecord(record);
+    if (conversion.entry != null) {
+      entries.add(conversion.entry!);
+    }
+  }
+  return entries;
 }

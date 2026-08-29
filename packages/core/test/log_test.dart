@@ -1,6 +1,22 @@
 import 'package:core/log/log_entry.dart';
+import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:test/test.dart';
+
+LogEntryRecord _record(
+  String kind, {
+  String? itemId,
+  Origin? itemOrigin,
+  String? stack,
+}) => (
+  id: '0190bbbb-0000-7000-8000-$kind',
+  kind: kind,
+  instantUtcMicros: 7000,
+  offsetSeconds: 3600,
+  itemId: itemId,
+  itemOrigin: itemOrigin,
+  stack: stack,
+);
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
@@ -116,5 +132,141 @@ void main() {
       expect(entry.instantUtcMicros, 6000);
       expect(entry.offsetSeconds, 3600);
     });
+  });
+
+  group('the record→entry read boundary (Story 1.6; AD-12, AD-14, AD-23)', () {
+    test('a well-shaped item act converts with its pair intact', () {
+      final conversion = convertLogEntryRecord(
+        _record('card_dealt', itemId: 'man-a', itemOrigin: Origin.shipped),
+      );
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<ItemActEntry>());
+      expect(entry!.kind, LogKind.cardDealt);
+      expect((entry as ItemActEntry).itemId, 'man-a');
+      expect(entry.itemOrigin, Origin.shipped);
+    });
+
+    test('moments and crash entries convert with their own payloads', () {
+      final moment = convertLogEntryRecord(_record('session_started')).entry;
+      expect(moment, isA<MomentEntry>());
+      expect(moment!.kind, LogKind.sessionStarted);
+
+      final crash = convertLogEntryRecord(
+        _record('crash_recorded', stack: '#0      build'),
+      ).entry;
+      expect(crash, isA<CrashEntry>());
+      expect(crash!.kind, LogKind.crashRecorded);
+    });
+
+    test('an unknown kind is carried whatever its payload (AD-23)', () {
+      final carried = convertLogEntryRecord(
+        _record(
+          'future_kind',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          stack: 'opaque',
+        ),
+      );
+      expect(carried.flaw, isNull);
+      expect(carried.entry, isA<UnknownEntry>());
+      expect(carried.entry!.kind.known, isFalse);
+    });
+
+    test('a half item pair is excluded, distinctly', () {
+      final conversion = convertLogEntryRecord(
+        _record('card_done', itemId: 'man-a'),
+      );
+      expect(conversion.entry, isNull);
+      expect(conversion.flaw, LogRecordFlaw.halfItemPair);
+    });
+
+    test('an item act without its pair at all is excluded', () {
+      final conversion = convertLogEntryRecord(_record('card_dealt'));
+      expect(conversion.entry, isNull);
+      expect(conversion.flaw, LogRecordFlaw.itemPairAbsent);
+    });
+
+    test('stack on a non-crash kind is excluded', () {
+      final onAct = convertLogEntryRecord(
+        _record(
+          'card_done',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          stack: '#0      build',
+        ),
+      );
+      expect(onAct.entry, isNull);
+      expect(onAct.flaw, LogRecordFlaw.stackOffCrashKind);
+
+      final onMoment = convertLogEntryRecord(
+        _record('app_opened', stack: '#0      build'),
+      );
+      expect(onMoment.entry, isNull);
+      expect(onMoment.flaw, LogRecordFlaw.stackOffCrashKind);
+    });
+
+    test('an item pair on a non-item kind is excluded', () {
+      final onMoment = convertLogEntryRecord(
+        _record('session_ended', itemId: 'man-a', itemOrigin: Origin.shipped),
+      );
+      expect(onMoment.entry, isNull);
+      expect(onMoment.flaw, LogRecordFlaw.itemOnNonItemKind);
+
+      final onCrash = convertLogEntryRecord(
+        _record(
+          'crash_recorded',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          stack: '#0      build',
+        ),
+      );
+      expect(onCrash.entry, isNull);
+      expect(onCrash.flaw, LogRecordFlaw.itemOnNonItemKind);
+    });
+
+    test('crash_recorded without its stack is excluded', () {
+      final conversion = convertLogEntryRecord(_record('crash_recorded'));
+      expect(conversion.entry, isNull);
+      expect(conversion.flaw, LogRecordFlaw.stackAbsent);
+    });
+
+    test('an empty itemId string counts as an absent pair, not a value', () {
+      final withOrigin = convertLogEntryRecord(
+        _record('card_done', itemId: '', itemOrigin: Origin.shipped),
+      );
+      expect(withOrigin.entry, isNull);
+      expect(withOrigin.flaw, LogRecordFlaw.halfItemPair);
+
+      final withoutOrigin = convertLogEntryRecord(
+        _record('card_dealt', itemId: ''),
+      );
+      expect(withoutOrigin.entry, isNull);
+      expect(withoutOrigin.flaw, LogRecordFlaw.itemPairAbsent);
+    });
+
+    test('an empty stack string counts as no stack at all', () {
+      final conversion = convertLogEntryRecord(
+        _record('crash_recorded', stack: ''),
+      );
+      expect(conversion.entry, isNull);
+      expect(conversion.flaw, LogRecordFlaw.stackAbsent);
+    });
+
+    test(
+      'logEntriesOf keeps the accepted entries in order and drops the rest',
+      () {
+        final entries = logEntriesOf([
+          _record('session_started'),
+          _record('card_done', itemId: 'man-a'),
+          _record('future_kind'),
+          _record('card_dealt', itemId: 'man-a', itemOrigin: Origin.shipped),
+        ]);
+        expect(entries, hasLength(3));
+        expect(entries[0].kind, LogKind.sessionStarted);
+        expect(entries[1].kind.known, isFalse);
+        expect(entries[2].kind, LogKind.cardDealt);
+      },
+    );
   });
 }
