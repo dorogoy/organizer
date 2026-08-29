@@ -1,0 +1,5 @@
+{
+  "cambiar-las-sabanas": {"size": "focus", "cadence": "weekly", "zone": "z3", "name": "Cambiar las sábanas"},
+  "limpiar-el-horno": {"size": "focus", "cadence": "seasonal", "zone": null, "name": "Limpiar el horno"},
+  "regar-una-planta": {"size": "instant", "cadence": "daily", "zone": null, "name": "Regar una planta"}
+}

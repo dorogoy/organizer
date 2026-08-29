@@ -40,3 +40,10 @@
   summary: Wire `make test-core` into the story-completion gate (or CI) so the gate trio cannot pass with the `packages/core` suite red.
   evidence: Review round 1: `make gate` runs root `flutter test` + format + analyze only; the core suite — where this story's entire verification lives — is reachable only through separately invoked `make test-core`, so a core-only regression passes the gate (Makefile structure predates this story).
 
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-harden-evergreen-catalogue-integrity.md`
+  summary: Epic 5 curation may expose only tuple-derivable anclas, sostén, z1–z5, and fondo; plantas and coche are permanently non-curatable authorial annotations unless a new approved catalogue evolution changes the contract.
+  evidence: The four-field asset has no information that can reproduce the individual A12 plantas/coche annotations, while cadence, size, and zone derive the listed groups without a fifth field or a runtime projection.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-harden-evergreen-catalogue-integrity.md`
+  summary: Epic 5 curation must prove every optional derivable group preserves the non-daily Focus floor or specify its below-floor fallback before it can ship.
+  evidence: This integrity story has no curation implementation; an optional tuple-derived group can reduce the eligible pool even though its grouping itself is representable.

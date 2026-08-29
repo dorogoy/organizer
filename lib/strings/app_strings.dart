@@ -388,6 +388,516 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Descartar'**
   String get captureDiscard;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Sacar brillo al fregadero'**
+  String get catalogueSacarBrilloAlFregadero;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Hacer la cama'**
+  String get catalogueHacerLaCama;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir una ventana a ventilar'**
+  String get catalogueAbrirUnaVentanaAVentilar;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Recoger 3 cosas del suelo'**
+  String get catalogueRecoger3CosasDelSuelo;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Colgar la toalla'**
+  String get catalogueColgarLaToalla;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar el espejo del baño con la toalla usada'**
+  String get catalogueRepasarElEspejoDelBanoConLaToallaUsada;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Meter en el lavavajillas lo que hay en el fregadero'**
+  String get catalogueMeterEnElLavavajillasLoQueHayEnElFregadero;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Arrancar una lavadora'**
+  String get catalogueArrancarUnaLavadora;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Sacar la basura al rellano'**
+  String get catalogueSacarLaBasuraAlRellano;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar los zapatos de la entrada'**
+  String get catalogueGuardarLosZapatosDeLaEntrada;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Regar una planta'**
+  String get catalogueRegarUnaPlanta;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Despejar la mesita de noche'**
+  String get catalogueDespejarLaMesitaDeNoche;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Bajar la tapa y repasar el borde del inodoro'**
+  String get catalogueBajarLaTapaYRepasarElBordeDelInodoro;
+
+  /// Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar la papelera del baño'**
+  String get catalogueVaciarLaPapeleraDelBano;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Poner la mesa'**
+  String get cataloguePonerLaMesa;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Recoger la mesa'**
+  String get catalogueRecogerLaMesa;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar el lavavajillas'**
+  String get catalogueVaciarElLavavajillas;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar la encimera'**
+  String get catalogueRepasarLaEncimera;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar la placa'**
+  String get catalogueLimpiarLaPlaca;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Barrer bajo la mesa del comedor'**
+  String get catalogueBarrerBajoLaMesaDelComedor;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Pasar la mopa por la cocina'**
+  String get cataloguePasarLaMopaPorLaCocina;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar el lavabo y los grifos'**
+  String get catalogueRepasarElLavaboYLosGrifos;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Doblar cinco prendas'**
+  String get catalogueDoblarCincoPrendas;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar la compra que quedó fuera'**
+  String get catalogueGuardarLaCompraQueQuedoFuera;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar los cojines y la manta del sofá'**
+  String get catalogueOrdenarLosCojinesYLaMantaDelSofa;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar y aclarar el cubo de reciclaje'**
+  String get catalogueVaciarYAclararElCuboDeReciclaje;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Recoger la mesa de centro'**
+  String get catalogueRecogerLaMesaDeCentro;
+
+  /// Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Sacar la basura orgánica'**
+  String get catalogueSacarLaBasuraOrganica;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Lavar los platos a mano'**
+  String get catalogueLavarLosPlatosAMano;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Dejar la cocina cerrada'**
+  String get catalogueDejarLaCocinaCerrada;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Tender la colada'**
+  String get catalogueTenderLaColada;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Doblar y guardar una colada'**
+  String get catalogueDoblarYGuardarUnaColada;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Recoger el salón entero'**
+  String get catalogueRecogerElSalonEntero;
+
+  /// Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén.
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar la entrada y el recibidor'**
+  String get catalogueOrdenarLaEntradaYElRecibidor;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Pasar la aspiradora a la cocina'**
+  String get cataloguePasarLaAspiradoraALaCocina;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Fregar el suelo de la cocina'**
+  String get catalogueFregarElSueloDeLaCocina;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Desengrasar la campana extractora'**
+  String get catalogueDesengrasarLaCampanaExtractora;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar una balda del frigorífico y tirar lo caducado'**
+  String get catalogueVaciarUnaBaldaDelFrigorificoYTirarLoCaducado;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar los azulejos detrás de la placa'**
+  String get catalogueRepasarLosAzulejosDetrasDeLaPlaca;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el microondas por dentro'**
+  String get catalogueLimpiarElMicroondasPorDentro;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el frigorífico por fuera y los tiradores'**
+  String get catalogueLimpiarElFrigorificoPorFueraYLosTiradores;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa).
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar el cajón de los cubiertos'**
+  String get catalogueOrdenarElCajonDeLosCubiertos;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar la ducha o la bañera'**
+  String get catalogueLimpiarLaDuchaOLaBanera;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Fregar el suelo del baño'**
+  String get catalogueFregarElSueloDelBano;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar el armario del baño y tirar lo caducado'**
+  String get catalogueOrdenarElArmarioDelBanoYTirarLoCaducado;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el inodoro'**
+  String get catalogueLimpiarElInodoro;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el espejo y los grifos'**
+  String get catalogueLimpiarElEspejoYLosGrifos;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar las toallas'**
+  String get catalogueCambiarLasToallas;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños).
+  ///
+  /// In es, this message translates to:
+  /// **'Destapar el desagüe de la ducha'**
+  String get catalogueDestaparElDesagueDeLaDucha;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar las sábanas'**
+  String get catalogueCambiarLasSabanas;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Pasar la aspiradora al dormitorio'**
+  String get cataloguePasarLaAspiradoraAlDormitorio;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Aspirar debajo de la cama'**
+  String get catalogueAspirarDebajoDeLaCama;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar y airear una balda del armario'**
+  String get catalogueVaciarYAirearUnaBaldaDelArmario;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar el polvo de las superficies'**
+  String get catalogueQuitarElPolvoDeLasSuperficies;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar la mesilla y los cables'**
+  String get catalogueOrdenarLaMesillaYLosCables;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar los espejos del armario'**
+  String get catalogueLimpiarLosEspejosDelArmario;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Pasar la aspiradora al salón'**
+  String get cataloguePasarLaAspiradoraAlSalon;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Fregar el suelo del salón'**
+  String get catalogueFregarElSueloDelSalon;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar el polvo de las estanterías'**
+  String get catalogueQuitarElPolvoDeLasEstanterias;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Aspirar el sofá y los cojines'**
+  String get catalogueAspirarElSofaYLosCojines;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar el mueble de cables y cargadores'**
+  String get catalogueOrdenarElMuebleDeCablesYCargadores;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar la mesa de centro y los mandos'**
+  String get catalogueLimpiarLaMesaDeCentroYLosMandos;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar la pantalla del televisor'**
+  String get catalogueLimpiarLaPantallaDelTelevisor;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Barrer y fregar la entrada'**
+  String get catalogueBarrerYFregarLaEntrada;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Ordenar los zapatos del recibidor'**
+  String get catalogueOrdenarLosZapatosDelRecibidor;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Barrer el balcón o la terraza'**
+  String get catalogueBarrerElBalconOLaTerraza;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el filtro de la lavadora'**
+  String get catalogueLimpiarElFiltroDeLaLavadora;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el cubo de la basura por dentro'**
+  String get catalogueLimpiarElCuboDeLaBasuraPorDentro;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar y regar las plantas'**
+  String get catalogueRevisarYRegarLasPlantas;
+
+  /// Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores).
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar el espejo y la consola de la entrada'**
+  String get catalogueRepasarElEspejoYLaConsolaDeLaEntrada;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar los cristales de una habitación'**
+  String get catalogueLimpiarLosCristalesDeUnaHabitacion;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar las mosquiteras y los rieles de las ventanas'**
+  String get catalogueLimpiarLasMosquiterasYLosRielesDeLasVentanas;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el horno'**
+  String get catalogueLimpiarElHorno;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar y organizar el congelador'**
+  String get catalogueRevisarYOrganizarElCongelador;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Descalcificar los grifos'**
+  String get catalogueDescalcificarLosGrifos;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Repasar las juntas de la ducha'**
+  String get catalogueRepasarLasJuntasDeLaDucha;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar los rodapiés de una habitación'**
+  String get catalogueLimpiarLosRodapiesDeUnaHabitacion;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar las puertas y los marcos'**
+  String get catalogueLimpiarLasPuertasYLosMarcos;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar las lámparas y las pantallas'**
+  String get catalogueLimpiarLasLamparasYLasPantallas;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Aspirar detrás de un mueble grande'**
+  String get catalogueAspirarDetrasDeUnMuebleGrande;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar el botiquín y tirar lo caducado'**
+  String get catalogueRevisarElBotiquinYTirarLoCaducado;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el interior del coche'**
+  String get catalogueLimpiarElInteriorDelCoche;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el filtro del aire acondicionado'**
+  String get catalogueLimpiarElFiltroDelAireAcondicionado;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar el filtro del lavavajillas'**
+  String get catalogueLimpiarElFiltroDelLavavajillas;
+
+  /// Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo.
+  ///
+  /// In es, this message translates to:
+  /// **'Poner a lavar las fundas de los cojines'**
+  String get cataloguePonerALavarLasFundasDeLosCojines;
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

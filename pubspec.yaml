@@ -26,6 +26,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: 2.34.3
   build_runner: ^2.4.0
+  yaml: 3.1.3
 
 flutter:
   uses-material-design: true
@@ -33,6 +34,11 @@ flutter:
   # gen_l10n: lib/l10n/app_es.arb is the single string table (AD-15);
   # l10n.yaml directs the generated accessors to lib/strings/.
   generate: true
+
+  # The shipped Evergreen catalogue (AD-16): a versioned, read-only JSON
+  # asset loaded once by the named shell loader — never written.
+  assets:
+    - assets/evergreen/
 
   # Both variable faces bundled (DESIGN.md Typography): Lora 400..700 +
   # italic 400, Lexend 300..700. Sizes in the type roles are sp, weights

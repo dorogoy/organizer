@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "f-daily-instant",
+      "size": "instant",
+      "cadence": "daily"
+    },
+    {
+      "id": "f-daily-maintenance",
+      "size": "maintenance",
+      "cadence": "daily"
+    },
+    {
+      "id": "f-daily-focus",
+      "size": "focus",
+      "cadence": "daily"
+    },
+    {
+      "id": "f-weekly-focus-01",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z1"
+    },
+    {
+      "id": "f-weekly-focus-02",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z2"
+    },
+    {
+      "id": "f-weekly-focus-03",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z3"
+    },
+    {
+      "id": "f-weekly-focus-04",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z4"
+    },
+    {
+      "id": "f-weekly-focus-05",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z5"
+    },
+    {
+      "id": "f-weekly-focus-06",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z1"
+    },
+    {
+      "id": "f-weekly-focus-07",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z2"
+    },
+    {
+      "id": "f-weekly-focus-08",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z3"
+    },
+    {
+      "id": "f-weekly-focus-09",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z4"
+    },
+    {
+      "id": "f-weekly-focus-10",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z5"
+    },
+    {
+      "id": "f-weekly-focus-11",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z1"
+    },
+    {
+      "id": "f-weekly-focus-12",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z2"
+    },
+    {
+      "id": "f-weekly-focus-13",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z3"
+    },
+    {
+      "id": "f-weekly-focus-14",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z4"
+    },
+    {
+      "id": "f-weekly-focus-15",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z5"
+    },
+    {
+      "id": "f-weekly-focus-16",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z1"
+    },
+    {
+      "id": "f-weekly-focus-17",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z2"
+    },
+    {
+      "id": "f-weekly-focus-18",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z3"
+    },
+    {
+      "id": "f-weekly-focus-19",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z4"
+    },
+    {
+      "id": "f-weekly-focus-20",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z5"
+    },
+    {
+      "id": "f-weekly-maintenance",
+      "size": "maintenance",
+      "cadence": "weekly",
+      "zone": "z1"
+    },
+    {
+      "id": "f-seasonal-focus-01",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-02",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-03",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-04",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-05",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-06",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-07",
+      "size": "focus",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-focus-08",
+      "size": "maintenance",
+      "cadence": "seasonal"
+    },
+    {
+      "id": "f-seasonal-maintenance",
+      "size": "maintenance",
+      "cadence": "seasonal"
+    }
+  ]
+}

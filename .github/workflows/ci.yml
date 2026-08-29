@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Install the pinned devbox environment (NFR21)
         uses: jetify-com/devbox-install-action@v0.15.0
@@ -17,7 +19,7 @@ jobs:
       - name: Provision SDKs and dependencies
         run: devbox run -- make deps
 
-      - name: Codegen freshness (stale substrate.g.dart tripwire)
+      - name: Codegen freshness (Drift, localization, and catalogue outputs)
         run: devbox run -- make codegen-check
 
       - name: Story completion gate (NFR17)
@@ -25,6 +27,8 @@ jobs:
 
       - name: Build-time checks
         run: devbox run -- make check
+        env:
+          CATALOGUE_EVOLUTION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
 
       - name: Core suite (no emulator)
         run: devbox run -- make test-core

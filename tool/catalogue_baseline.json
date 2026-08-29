@@ -1,0 +1,512 @@
+{
+  "abrir-una-ventana-a-ventilar": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Abrir una ventana a ventilar"
+  },
+  "arrancar-una-lavadora": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Arrancar una lavadora"
+  },
+  "aspirar-debajo-de-la-cama": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Aspirar debajo de la cama"
+  },
+  "aspirar-detras-de-un-mueble-grande": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Aspirar detrás de un mueble grande"
+  },
+  "aspirar-el-sofa-y-los-cojines": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Aspirar el sofá y los cojines"
+  },
+  "bajar-la-tapa-y-repasar-el-borde-del-inodoro": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Bajar la tapa y repasar el borde del inodoro"
+  },
+  "barrer-bajo-la-mesa-del-comedor": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Barrer bajo la mesa del comedor"
+  },
+  "barrer-el-balcon-o-la-terraza": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Barrer el balcón o la terraza"
+  },
+  "barrer-y-fregar-la-entrada": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Barrer y fregar la entrada"
+  },
+  "cambiar-las-sabanas": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Cambiar las sábanas"
+  },
+  "cambiar-las-toallas": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Cambiar las toallas"
+  },
+  "colgar-la-toalla": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Colgar la toalla"
+  },
+  "dejar-la-cocina-cerrada": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Dejar la cocina cerrada"
+  },
+  "descalcificar-los-grifos": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Descalcificar los grifos"
+  },
+  "desengrasar-la-campana-extractora": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Desengrasar la campana extractora"
+  },
+  "despejar-la-mesita-de-noche": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Despejar la mesita de noche"
+  },
+  "destapar-el-desague-de-la-ducha": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Destapar el desagüe de la ducha"
+  },
+  "doblar-cinco-prendas": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Doblar cinco prendas"
+  },
+  "doblar-y-guardar-una-colada": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Doblar y guardar una colada"
+  },
+  "fregar-el-suelo-de-la-cocina": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Fregar el suelo de la cocina"
+  },
+  "fregar-el-suelo-del-bano": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Fregar el suelo del baño"
+  },
+  "fregar-el-suelo-del-salon": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Fregar el suelo del salón"
+  },
+  "guardar-la-compra-que-quedo-fuera": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Guardar la compra que quedó fuera"
+  },
+  "guardar-los-zapatos-de-la-entrada": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Guardar los zapatos de la entrada"
+  },
+  "hacer-la-cama": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Hacer la cama"
+  },
+  "lavar-los-platos-a-mano": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Lavar los platos a mano"
+  },
+  "limpiar-el-cubo-de-la-basura-por-dentro": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Limpiar el cubo de la basura por dentro"
+  },
+  "limpiar-el-espejo-y-los-grifos": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Limpiar el espejo y los grifos"
+  },
+  "limpiar-el-filtro-de-la-lavadora": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Limpiar el filtro de la lavadora"
+  },
+  "limpiar-el-filtro-del-aire-acondicionado": {
+    "size": "maintenance",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar el filtro del aire acondicionado"
+  },
+  "limpiar-el-filtro-del-lavavajillas": {
+    "size": "maintenance",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar el filtro del lavavajillas"
+  },
+  "limpiar-el-frigorifico-por-fuera-y-los-tiradores": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Limpiar el frigorífico por fuera y los tiradores"
+  },
+  "limpiar-el-horno": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar el horno"
+  },
+  "limpiar-el-inodoro": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Limpiar el inodoro"
+  },
+  "limpiar-el-interior-del-coche": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar el interior del coche"
+  },
+  "limpiar-el-microondas-por-dentro": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Limpiar el microondas por dentro"
+  },
+  "limpiar-la-ducha-o-la-banera": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Limpiar la ducha o la bañera"
+  },
+  "limpiar-la-mesa-de-centro-y-los-mandos": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Limpiar la mesa de centro y los mandos"
+  },
+  "limpiar-la-pantalla-del-televisor": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Limpiar la pantalla del televisor"
+  },
+  "limpiar-la-placa": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Limpiar la placa"
+  },
+  "limpiar-las-lamparas-y-las-pantallas": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar las lámparas y las pantallas"
+  },
+  "limpiar-las-mosquiteras-y-los-rieles-de-las-ventanas": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar las mosquiteras y los rieles de las ventanas"
+  },
+  "limpiar-las-puertas-y-los-marcos": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar las puertas y los marcos"
+  },
+  "limpiar-los-cristales-de-una-habitacion": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar los cristales de una habitación"
+  },
+  "limpiar-los-espejos-del-armario": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Limpiar los espejos del armario"
+  },
+  "limpiar-los-rodapies-de-una-habitacion": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Limpiar los rodapiés de una habitación"
+  },
+  "meter-en-el-lavavajillas-lo-que-hay-en-el-fregadero": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Meter en el lavavajillas lo que hay en el fregadero"
+  },
+  "ordenar-el-armario-del-bano-y-tirar-lo-caducado": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z2",
+    "name": "Ordenar el armario del baño y tirar lo caducado"
+  },
+  "ordenar-el-cajon-de-los-cubiertos": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Ordenar el cajón de los cubiertos"
+  },
+  "ordenar-el-mueble-de-cables-y-cargadores": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Ordenar el mueble de cables y cargadores"
+  },
+  "ordenar-la-entrada-y-el-recibidor": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Ordenar la entrada y el recibidor"
+  },
+  "ordenar-la-mesilla-y-los-cables": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Ordenar la mesilla y los cables"
+  },
+  "ordenar-los-cojines-y-la-manta-del-sofa": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Ordenar los cojines y la manta del sofá"
+  },
+  "ordenar-los-zapatos-del-recibidor": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Ordenar los zapatos del recibidor"
+  },
+  "pasar-la-aspiradora-a-la-cocina": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Pasar la aspiradora a la cocina"
+  },
+  "pasar-la-aspiradora-al-dormitorio": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Pasar la aspiradora al dormitorio"
+  },
+  "pasar-la-aspiradora-al-salon": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Pasar la aspiradora al salón"
+  },
+  "pasar-la-mopa-por-la-cocina": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Pasar la mopa por la cocina"
+  },
+  "poner-a-lavar-las-fundas-de-los-cojines": {
+    "size": "maintenance",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Poner a lavar las fundas de los cojines"
+  },
+  "poner-la-mesa": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Poner la mesa"
+  },
+  "quitar-el-polvo-de-las-estanterias": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z4",
+    "name": "Quitar el polvo de las estanterías"
+  },
+  "quitar-el-polvo-de-las-superficies": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Quitar el polvo de las superficies"
+  },
+  "recoger-3-cosas-del-suelo": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Recoger 3 cosas del suelo"
+  },
+  "recoger-el-salon-entero": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Recoger el salón entero"
+  },
+  "recoger-la-mesa": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Recoger la mesa"
+  },
+  "recoger-la-mesa-de-centro": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Recoger la mesa de centro"
+  },
+  "regar-una-planta": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Regar una planta"
+  },
+  "repasar-el-espejo-del-bano-con-la-toalla-usada": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Repasar el espejo del baño con la toalla usada"
+  },
+  "repasar-el-espejo-y-la-consola-de-la-entrada": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Repasar el espejo y la consola de la entrada"
+  },
+  "repasar-el-lavabo-y-los-grifos": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Repasar el lavabo y los grifos"
+  },
+  "repasar-la-encimera": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Repasar la encimera"
+  },
+  "repasar-las-juntas-de-la-ducha": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Repasar las juntas de la ducha"
+  },
+  "repasar-los-azulejos-detras-de-la-placa": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Repasar los azulejos detrás de la placa"
+  },
+  "revisar-el-botiquin-y-tirar-lo-caducado": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Revisar el botiquín y tirar lo caducado"
+  },
+  "revisar-y-organizar-el-congelador": {
+    "size": "focus",
+    "cadence": "seasonal",
+    "zone": null,
+    "name": "Revisar y organizar el congelador"
+  },
+  "revisar-y-regar-las-plantas": {
+    "size": "maintenance",
+    "cadence": "weekly",
+    "zone": "z5",
+    "name": "Revisar y regar las plantas"
+  },
+  "sacar-brillo-al-fregadero": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Sacar brillo al fregadero"
+  },
+  "sacar-la-basura-al-rellano": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Sacar la basura al rellano"
+  },
+  "sacar-la-basura-organica": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Sacar la basura orgánica"
+  },
+  "tender-la-colada": {
+    "size": "focus",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Tender la colada"
+  },
+  "vaciar-el-lavavajillas": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Vaciar el lavavajillas"
+  },
+  "vaciar-la-papelera-del-bano": {
+    "size": "instant",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Vaciar la papelera del baño"
+  },
+  "vaciar-una-balda-del-frigorifico-y-tirar-lo-caducado": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z1",
+    "name": "Vaciar una balda del frigorífico y tirar lo caducado"
+  },
+  "vaciar-y-aclarar-el-cubo-de-reciclaje": {
+    "size": "maintenance",
+    "cadence": "daily",
+    "zone": null,
+    "name": "Vaciar y aclarar el cubo de reciclaje"
+  },
+  "vaciar-y-airear-una-balda-del-armario": {
+    "size": "focus",
+    "cadence": "weekly",
+    "zone": "z3",
+    "name": "Vaciar y airear una balda del armario"
+  }
+}
