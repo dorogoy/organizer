@@ -47,3 +47,18 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-harden-evergreen-catalogue-integrity.md`
   summary: Epic 5 curation must prove every optional derivable group preserves the non-daily Focus floor or specify its below-floor fallback before it can ship.
   evidence: This integrity story has no curation implementation; an optional tuple-derived group can reduce the eligible pool even though its grouping itself is representable.
+- source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
+  summary: Decide the durability story for multi-row lifecycle batches and detach-time appends — a transactional batch-append on StorePort or an accepted-loss contract — so process death cannot leave a session_started without its first card_dealt (which nextCard then renders deal-less, and answering records done-without-deal) or lose a session_ended on detach.
+  evidence: Review round 1: SessionController._appendAll awaits record-by-record and the detached/hidden session_ended is only best-effort awaited; the crash path accepts the same loss for crash rows, but session rows feed every derivation (AD-19 day attribution) and no recovery derivation exists for an open session with no dealt card.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
+  summary: Unify composeDay's and nextDeal's gating/ordering policy (composeDay ignores the day's dealt progress; nextDeal caps maintenance/instant draws by dealt counts) when Story 1.7 restructures the resolver for zone precedence.
+  evidence: Review round 1: two parallel implementations of "what the day offers" in packages/core/lib/weave/weave.dart can drift independently; composeDay has no production caller today (nextCard is the shell's only work surface), so divergence is invisible until a consumer reads the composition.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
+  summary: Give pool-fact reads the same distinct-flaw surfacing log reads have (LogRecordFlaw) and test unknown origin/size tokens, when the first pool writer (Epic 3 capture) or restore (Epic 9) makes malformed pool rows possible.
+  evidence: Review round 1: DriftStore.readPoolFacts silently drops rows with unknown origin/size tokens with no observable flaw, while log reads carry LogRecordFlaw discipline; nothing writes pool rows today, so the drop is unreachable except via hand-built databases.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
+  summary: Decide whether a skipped Micro-maintenance or Instant Habit draw frees the day's draw slot (the mirror of AD-20's chunk-skip rule) before Story 1.10 wires the skip control.
+  evidence: Review round 1: walkLog charges dealtCountsByDay at deal time regardless of the answer, so a skipped upkeep permanently consumes one of the day's 3/5 draws; neither the story, the spine excerpt nor the tests pin the intended reading.

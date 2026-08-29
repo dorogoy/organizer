@@ -1,0 +1,287 @@
+import 'package:core/catalogue/catalogue.dart';
+import 'package:core/day/calendar.dart';
+import 'package:core/log/log_entry.dart';
+import 'package:core/pool/pool_fact.dart';
+import 'package:core/weave/session.dart';
+import 'package:test/test.dart';
+
+import 'test_util.dart';
+
+final Catalogue _catalogue = Catalogue(
+  version: 1,
+  entries: const [
+    CatalogueEntry(
+      id: 'zona-a',
+      size: Size.focus,
+      cadence: Cadence.weekly,
+      zone: Zone.z1,
+      name: 'Tarea de zona-a',
+    ),
+    CatalogueEntry(
+      id: 'man-a',
+      size: Size.maintenance,
+      cadence: Cadence.daily,
+      name: 'Tarea de man-a',
+    ),
+    CatalogueEntry(
+      id: 'hab-a',
+      size: Size.instant,
+      cadence: Cadence.daily,
+      name: 'Tarea de hab-a',
+    ),
+    CatalogueEntry(
+      id: 'hab-b',
+      size: Size.instant,
+      cadence: Cadence.daily,
+      name: 'Tarea de hab-b',
+    ),
+  ],
+);
+
+MomentEntry _started(int micros, {String id = 's'}) => MomentEntry(
+  id: '$id-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.sessionStarted,
+);
+
+MomentEntry _ended(int micros) => MomentEntry(
+  id: 'e-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.sessionEnded,
+);
+
+ItemActEntry _act(LogKind kind, int micros, String itemId) => ItemActEntry(
+  id: 'a-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: kind,
+  itemId: itemId,
+  itemOrigin: Origin.shipped,
+);
+
+void main() {
+  test('the open session is the latest session_started with no matching '
+      'session_ended (AD-19)', () {
+    final first = _started(utcMicros(2026, 8, 27, 10), id: 'one');
+    final close = _ended(utcMicros(2026, 8, 27, 11));
+    final second = _started(utcMicros(2026, 8, 28, 9), id: 'two');
+
+    final closed = walkLog([first, close], catalogue: _catalogue);
+    expect(closed.openSessionStart, isNull);
+
+    final reopened = walkLog([first, close, second], catalogue: _catalogue);
+    expect(
+      reopened.openSessionStart!.instantUtcMicros,
+      second.instantUtcMicros,
+    );
+  });
+
+  test('a session crossing 04:00 charges every card act to its start day '
+      '(AD-19): a 03:40 session\'s 04:10 acts belong to the earlier day', () {
+    final log = [
+      _started(utcMicros(2026, 8, 28, 3, 40)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 4, 10), 'man-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 4, 15), 'zona-a'),
+    ];
+    final facts = walkLog(log, catalogue: _catalogue);
+
+    const calendar = Calendar();
+    final day27 = calendar.dayOf(utcMicros(2026, 8, 28, 3, 40), 0);
+    expect(day27.label, '2026-08-27');
+
+    // The dealt maintenance card is charged to the session's day...
+    expect(facts.dealtCountsByDay[day27]?[Size.maintenance], 1);
+    // ...the crossed-into day holds nothing...
+    final day28 = calendar.dayOf(utcMicros(2026, 8, 28, 12), 0);
+    expect(facts.dealtCountsByDay[day28], isNull);
+    // ...and the chunk done inside the crossing session closed the
+    // start day's slot, never the crossed-into day's.
+    expect(facts.focusSlotClosedDays, {day27});
+    expect(facts.focusSlotClosedDays.contains(day28), isFalse);
+  });
+
+  test('the same crossing under a nonzero stored offset: +02:00 entries at '
+      '03:40 charge to the previous domestic day (AD-4)', () {
+    // 03:40 +02:00 on the 29th is 01:40 UTC — the wall clock in the
+    // stored frame is what decides, never the runner's zone.
+    final startUtc = utcMicros(2026, 8, 29, 1, 40);
+    final log = [
+      MomentEntry(
+        id: 's-offset',
+        instantUtcMicros: startUtc,
+        offsetSeconds: 7200,
+        kind: LogKind.sessionStarted,
+      ),
+      ItemActEntry(
+        id: 'd-offset',
+        instantUtcMicros: utcMicros(2026, 8, 29, 2, 10),
+        offsetSeconds: 7200,
+        kind: LogKind.cardDealt,
+        itemId: 'zona-a',
+        itemOrigin: Origin.shipped,
+      ),
+      ItemActEntry(
+        id: 'o-offset',
+        instantUtcMicros: utcMicros(2026, 8, 29, 2, 15),
+        offsetSeconds: 7200,
+        kind: LogKind.cardDone,
+        itemId: 'zona-a',
+        itemOrigin: Origin.shipped,
+      ),
+    ];
+    final facts = walkLog(log, catalogue: _catalogue);
+    const calendar = Calendar();
+    final day28 = calendar.dayOf(startUtc, 7200);
+    expect(day28.label, '2026-08-28');
+    expect(facts.focusSlotClosedDays, {day28});
+    expect(facts.dealtCountsByDay[day28]?[Size.focus], 1);
+  });
+
+  test('the crossed-into direction too: acts before a same-night boundary '
+      'stay on the session\'s day, and a later session opens the new day', () {
+    final log = [
+      _started(utcMicros(2026, 8, 28, 1, 30)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 3, 50), 'zona-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 3, 55), 'zona-a'),
+      _ended(utcMicros(2026, 8, 28, 3, 58)),
+    ];
+    final facts = walkLog(log, catalogue: _catalogue);
+    const calendar = Calendar();
+    expect(facts.focusSlotClosedDays, {
+      calendar.dayOf(utcMicros(2026, 8, 28, 1, 30), 0),
+    });
+
+    final nextNight = [...log, _started(utcMicros(2026, 8, 29, 9))];
+    final reopened = walkLog(nextNight, catalogue: _catalogue);
+    // The new session anchors to its own day, whose slot is untouched.
+    expect(
+      anchorDayOf(reopened, utcMicros(2026, 8, 29, 9, 1), 0),
+      calendar.dayOf(utcMicros(2026, 8, 29, 9), 0),
+    );
+  });
+
+  test('anchorDayOf follows the open session, else the instant itself', () {
+    final crossing = [_started(utcMicros(2026, 8, 28, 3, 40))];
+    final facts = walkLog(crossing, catalogue: _catalogue);
+    expect(
+      anchorDayOf(facts, utcMicros(2026, 8, 28, 12), 0).label,
+      '2026-08-27',
+    );
+
+    final closed = walkLog(const [], catalogue: _catalogue);
+    expect(
+      anchorDayOf(closed, utcMicros(2026, 8, 28, 12), 0).label,
+      '2026-08-28',
+    );
+  });
+
+  test('only a card_done closes the chunk slot; a skip never does', () {
+    final skipped = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      _act(LogKind.cardSkipped, utcMicros(2026, 8, 28, 10, 0, 2), 'zona-a'),
+    ], catalogue: _catalogue);
+    expect(skipped.focusSlotClosedDays, isEmpty);
+
+    final done = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'zona-a'),
+    ], catalogue: _catalogue);
+    expect(done.focusSlotClosedDays, hasLength(1));
+
+    // A non-focus card_done closes nothing.
+    final upkeepDone = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'man-a'),
+    ], catalogue: _catalogue);
+    expect(upkeepDone.focusSlotClosedDays, isEmpty);
+  });
+
+  test('the dealt-but-unanswered card is a fact of the open session only', () {
+    final answeredByDone = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'man-a'),
+    ], catalogue: _catalogue);
+    expect(answeredByDone.dealtUnanswered, isNull);
+
+    final answeredBySkip = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      _act(LogKind.cardSkipped, utcMicros(2026, 8, 28, 10, 0, 2), 'man-a'),
+    ], catalogue: _catalogue);
+    expect(answeredBySkip.dealtUnanswered, isNull);
+
+    final closed = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      _ended(utcMicros(2026, 8, 28, 10, 30)),
+    ], catalogue: _catalogue);
+    expect(closed.dealtUnanswered, isNull);
+
+    final open = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+    ], catalogue: _catalogue);
+    expect(open.dealtUnanswered!.itemId, 'man-a');
+    expect(open.dealtUnanswered!.itemOrigin, Origin.shipped);
+  });
+
+  test('the least-recently-dealt index reads recorded deal instants, latest '
+      'per item (AD-3)', () {
+    final facts = walkLog([
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 26, 10), 'hab-a'),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 27, 10), 'hab-a'),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 25, 10), 'hab-b'),
+    ], catalogue: _catalogue);
+    expect(
+      facts.lastDealtInstantByItemId['hab-a'],
+      utcMicros(2026, 8, 27, 10),
+      reason: 'a repeated deal keeps only the latest instant',
+    );
+    expect(facts.lastDealtInstantByItemId['hab-b'], utcMicros(2026, 8, 25, 10));
+    expect(facts.lastDealtInstantByItemId.containsKey('zona-a'), isFalse);
+  });
+
+  test('unknown kinds and crash entries change no session fact (AD-23)', () {
+    final log = <LogEntry>[
+      _started(utcMicros(2026, 8, 28, 10)),
+      UnknownEntry(
+        id: 'u-1',
+        instantUtcMicros: utcMicros(2026, 8, 28, 10, 0, 1),
+        offsetSeconds: 0,
+        kind: LogKind.parse('future_kind'),
+      ),
+      CrashEntry(
+        id: 'c-1',
+        instantUtcMicros: utcMicros(2026, 8, 28, 10, 0, 2),
+        offsetSeconds: 0,
+        stack: '#0      build',
+      ),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 3), 'man-a'),
+    ];
+    final facts = walkLog(log, catalogue: _catalogue);
+    expect(facts.openSessionStart, isNotNull);
+    expect(facts.dealtUnanswered!.itemId, 'man-a');
+    expect(facts.dealtCountsByDay, isNotEmpty);
+  });
+
+  test('an item the catalogue does not know carries no size: it closes '
+      'nothing and counts by no size', () {
+    final facts = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'capturada'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'capturada'),
+    ], catalogue: _catalogue);
+    expect(facts.focusSlotClosedDays, isEmpty);
+    expect(
+      facts.dealtCountsByDay.values.every((bySize) => bySize.isEmpty),
+      isTrue,
+    );
+    // The deal index still records it — the id discipline is shared.
+    expect(facts.lastDealtInstantByItemId['capturada'], isNotNull);
+  });
+}

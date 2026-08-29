@@ -13,6 +13,14 @@ class _RecordingStore implements StorePort {
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      List.unmodifiable(entries);
 }
 
 class _FailingStore implements StorePort {
@@ -21,6 +29,12 @@ class _FailingStore implements StorePort {
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async => throw Exception();
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => throw Exception();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async => throw Exception();
 }
 
 void main() {

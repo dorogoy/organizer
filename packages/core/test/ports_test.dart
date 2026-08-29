@@ -24,6 +24,12 @@ class _ShellStore implements StorePort {
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async {}
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async => const [];
 }
 
 void main() {

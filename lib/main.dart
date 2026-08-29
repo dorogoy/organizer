@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'crash.dart';
+import 'session/session_controller.dart';
 import 'store/bootstrap.dart';
 import 'strings/app_strings.dart';
+import 'strings/app_strings_es.dart';
 import 'ui/theme.dart';
 
 void main() {
@@ -13,6 +15,13 @@ void main() {
   // destination — is installed before runApp so nothing can escape it.
   final store = openStore();
   installCrashGuard(store);
+  // The session lifecycle wiring (AD-19) sits beside the crash guard:
+  // app opens and backgroundings become log facts — `app_opened`, the
+  // session's first `card_dealt`, `session_ended` — while home stays
+  // empty until Story 1.8's card. The launch open runs unawaited inside
+  // so the first frame never waits on the store; the catalogue loads
+  // once there too.
+  installSessionController(store: store, strings: AppStringsEs());
   runApp(const ProviderScope(child: OrganizerApp()));
 }
 
