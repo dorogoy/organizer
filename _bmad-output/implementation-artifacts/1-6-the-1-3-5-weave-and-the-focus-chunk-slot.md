@@ -3,7 +3,7 @@ title: 'The 1-3-5 weave and the Focus Chunk slot'
 type: 'feature'
 created: '2026-08-29'
 status: 'done'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: '5398987602f1bf10248957da6ed31191f574efbd'
 context: []
 ---
@@ -25,7 +25,7 @@ context: []
 - Slot eligibility: size `focus` AND cadence non-daily (daily focus is Baseline Upkeep and never occupies the slot — FR-12). The "3" draws from `maintenance`-size entries, the "5" from `instant`-size entries.
 - Ties break by least-recently-dealt — recorded `card_dealt` instants, never-dealt first — then by stable id order; never id bit patterns (AD-3).
 - Occupancy is once per domestic day: at most one focus `card_done`, and only `card_done` closes the slot. The day is the **dealing session's own day** — a session is the latest `session_started` with no matching `session_ended`, and one crossing 04:00 charges every `card_*` to its start day (AD-19). A skip re-resolves identity, leaves the slot open and consumes no rotation. `nextCard()` writes nothing; an unanswered card never produces a second `card_dealt`.
-- Scaling: the chunk is composed only when bag ≥ 10 min and derived energy ≠ low; otherwise the day composes without the "1", silently — no debt, no mention (FR-7, FR-12, FR-4). Bag default 15 min is a named core constant; energy comes from `deriveEnergyForLivePool` (no observations → full). Scaling drops counts, never shrinks an estimate; upkeep and habits are never charged to the bag.
+- Scaling: the chunk is composed only when bag ≥ 10 min and derived energy ≠ low; otherwise the day composes without the "1", silently — no debt, no mention (FR-7, FR-12, FR-4). Bag default 15 min is a named core constant; energy comes from `deriveLivePoolEnergy` (no observations → full). Scaling drops counts, never shrinks an estimate; upkeep and habits are never charged to the bag.
 - `StorePort` gains ordered read snapshots returning inert records; a core-side boundary converts records to domain entries with shape validation — itemId/itemOrigin travel as a pair, `stack` only on `crash_recorded`, kind/payload consistency, unknown kinds tolerated and ignored (AD-23). This is 1-3's recorded deferred item landing here.
 - Shell wiring follows `crash.dart`'s pattern exactly: the shell mints UUIDv7 + instant + offset and appends; the core decides content and never mints. `app_opened` on open; `session_started` — appending the session's first `card_dealt` — only when no session is open; `session_ended` on backgrounding.
 - Facade: no function returns a collection of work items; derived signals are named as facts, never verbs (AD-6). `nextCard()` returns at most one card — id, size, resolved Spanish name, origin, per-size duration estimate (seconds). Any period arithmetic the weave needs lands on `Calendar`, never beside it (1-4's deferred rule). Mind the forbidden-vocabulary lint when naming the facade-shape test.
@@ -77,10 +77,10 @@ context: []
 - [x] `lib/store/drift_store.dart` -- implement the read selects
 - [x] `lib/session/session_controller.dart` -- NEW: `WidgetsBindingObserver` wiring — mints ids/instants like `crash.dart`, runs commands, loads the catalogue once
 - [x] `lib/main.dart` -- install the session controller beside the crash guard
-- [x] `packages/core/test/weave_test.dart` + `packages/core/test/session_test.dart` -- NEW: pin every matrix row, both 04:00-crossing directions, determinism (same inputs → same composition) and read-purity (repeated `nextCard()` writes nothing)
+- [x] `packages/core/test/weave_test.dart` + `packages/core/test/session_test.dart` + `packages/core/test/session_commands_test.dart` -- NEW: pin every matrix row, both 04:00-crossing directions, determinism (same inputs → same composition), commands contracts, and read-purity (repeated `nextCard()` writes nothing)
 - [x] `packages/core/test/facade_test.dart` -- NEW: pin the facade shape — single-card surface, no collection-returning function — without using banned tokens
 - [x] `test/store/substrate_test.dart` -- extend (or add `read_test.dart`): append→read round-trip including a malformed row
-- [x] `test/session/session_controller_test.dart` -- NEW: recording store + fake bundle; open→background→reopen cycle appends the exact lifecycle kinds
+- [x] `test/session/session_controller_test.dart` -- NEW: recording store + fake bundle; open→background→reopen cycle appends the exact lifecycle kinds, registration test, offset test
 
 **Acceptance Criteria:**
 - Given a pool, a log and a domestic day, when the day composes, then `core/weave` returns 1 Focus Chunk + 3 Micro-maintenance + 5 Instant Habits scaled to the defaults, and no plan is stored anywhere
@@ -112,16 +112,22 @@ context: []
 - [x] [Review][Patch] Low: `anchorDayOf` duplicated the walk's session-day rule; one shared `_chargedDayOf` [packages/core/lib/weave/session.dart]
 - [x] [Review][Patch] Low: hand-built duplicate catalogue ids read last-wins in the walk; the map build now throws naming the id [packages/core/lib/weave/session.dart]
 - [x] [Review][Patch] Low: the shell path never exercised a nonzero UTC offset; a 03:40-local open→deal test charges the session to the previous domestic day (Dart cannot force an artificial zone on `DateTime`, so the literal offset case is pinned in the core suite) [test/session/session_controller_test.dart, packages/core/test/session_test.dart]
-- [ ] [Review][Defer] Batch atomicity and detach durability for lifecycle rows — recorded in deferred-work.md (transactional batch-append decision)
-- [ ] [Review][Defer] composeDay/nextDeal policy unification — recorded in deferred-work.md (lands with 1.7's precedence restructure)
-- [ ] [Review][Defer] Pool-read flaw surfacing symmetric with `LogRecordFlaw` — recorded in deferred-work.md (first pool writer / restore)
-- [ ] [Review][Defer] Skip-on-upkeep draw-slot semantics — recorded in deferred-work.md (1.10 inherits)
+- [ ] [Review][Defer] Batch atomicity and detach durability for lifecycle rows — recorded in _bmad-output/implementation-artifacts/deferred-work.md (transactional batch-append decision)
+- [ ] [Review][Defer] composeDay/nextDeal policy unification — recorded in _bmad-output/implementation-artifacts/deferred-work.md (lands with 1.7's precedence restructure)
+- [ ] [Review][Defer] Pool-read flaw surfacing symmetric with `LogRecordFlaw` — recorded in _bmad-output/implementation-artifacts/deferred-work.md (first pool writer / restore)
+- [ ] [Review][Defer] Skip-on-upkeep draw-slot semantics — recorded in _bmad-output/implementation-artifacts/deferred-work.md (1.10 inherits)
 - [ ] [Review][Reject] `nextCard` falling through to `nextDeal` when the unanswered card's id is absent from the catalogue — ids are permanent (AD-23, id-diff check) and the proposed fall-through would itself violate AD-3's unanswered-card rule
 - [ ] [Review][Reject] Capping the chunk branch by the day's focus dealt count — AD-20 deliberately overrides FR-7's literal "dealt" with "answered Hecho", so a skip must leave the slot open to re-resolve
 - [ ] [Review][Reject] `readPoolFacts` as speculative surface — the spec's port task names both snapshots; the port doc reserved reads for this story
 - [ ] [Review][Reject] `composeDay` lacking a production caller — it is the composition AC's tested surface; the Dispenser (1.8) consumes `nextCard` by design
 
 ## Spec Change Log
+
+- **2026-08-29 (Review Iteration 1):**
+  - Updated energy derivation reference from `deriveEnergyForLivePool` to `deriveLivePoolEnergy`.
+  - Qualified `deferred-work.md` citations to `_bmad-output/implementation-artifacts/deferred-work.md`.
+  - Added explicit execution task entries for `session_commands_test.dart` and `session_controller_test.dart`.
+  - Completed review loop across Adversarial, Edge-Case Hunter, Editorial Structure, and Prose lenses; all 14 review patches verified and gate passed.
 
 ## Design Notes
 
