@@ -69,3 +69,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-7-review-fixes.md`
   summary: Decide whether `LogFacts.dealtUnanswered` should also hold a `card_dealt` recorded outside any open session — today the walk sets the fact only inside a session, so the AD-3 guards (the pipeline's and `nextDeal`'s) are blind to an out-of-session unanswered deal.
   evidence: Review round 2 (edge-case lens): `session.dart` sets `dealtUnanswered` only `if (openSessionStart != null)`, while out-of-session card acts are tolerated for totality; no command writes a deal outside a session, so the path is unreachable today — but the fact's session-scoping is now load-bearing for two guards instead of one, and Epic 2's derived-session work should confirm the scope deliberately.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-8-one-card-on-screen.md`
+  summary: Serialize the Dispenser's first read against the session lifecycle (or refresh on log change) so a cold-start race cannot render a card the log never dealt when the two independently minted instants straddle the 04:00 or week boundary — consume with Story 1.9's answer-driven refresh wiring.
+  evidence: Review round 1 (blind-hunter lens): `installSessionController` runs `handleAppOpen()` unawaited while `DispenserScreen.initState` fires `read()` concurrently; tests mask the race by awaiting `handleAppOpen()` before pumping. When the instants straddle a boundary, `nextCard`'s `nextDeal` branch can resolve a different card than the `card_dealt` the session appends milliseconds later — the surface then shows a card with no deal row until 1.9's refresh reconciles it.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-8-one-card-on-screen.md`
+  summary: Add a boot-level shell test (factory or integration test) that executes main()'s construction — beyond the 1.8 source pins — so the shipped home cannot regress while `flutter test` stays green.
+  evidence: Review round 1 (verification-gap lens): every test injects `DispenserController` through the seam; `main()` itself is never executed by any test, so dropping `dispenser:` or wiring a second `openStore()` ships a blank home with the full suite green (the 1.8 source pin catches the formatted substring only).

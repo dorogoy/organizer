@@ -26,6 +26,51 @@
     "description": "The measured sample task, {typography.task} — the string the 26sp hero size was measured against."
   },
 
+  "zoneZ1": "Cocina y despensa",
+  "@zoneZ1": {
+    "description": "Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents."
+  },
+
+  "zoneZ2": "Baños",
+  "@zoneZ2": {
+    "description": "Dispenser zone-marker label (A12.4) — weekly zone Z2, the canonical cluster name."
+  },
+
+  "zoneZ3": "Dormitorios",
+  "@zoneZ3": {
+    "description": "Dispenser zone-marker label (A12.4) — weekly zone Z3, the canonical cluster name."
+  },
+
+  "zoneZ4": "Salón y zonas comunes",
+  "@zoneZ4": {
+    "description": "Dispenser zone-marker label (A12.4) — weekly zone Z4, the canonical cluster name."
+  },
+
+  "zoneZ5": "Entrada, lavadero y exteriores",
+  "@zoneZ5": {
+    "description": "Dispenser zone-marker label (A12.4) — weekly zone Z5, the canonical cluster name."
+  },
+
+  "durationMinutes": "{minutes}\u00A0min",
+  "@durationMinutes": {
+    "description": "Duration chip, whole minutes — {formats.duration}: value + non-breaking space + unit. The chip is the cost-before-ask eyebrow; the NBSP is load-bearing at 200%.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+
+  "durationSeconds": "{seconds}\u00A0s",
+  "@durationSeconds": {
+    "description": "Duration chip, seconds — {formats.duration}: value + non-breaking space + unit, for estimates under a whole minute.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+
   "destinationKeep": "Quedármelo",
   "@destinationKeep": {
     "description": "3-Destination Flow, first choice — the box glyph's meaning."

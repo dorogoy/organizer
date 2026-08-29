@@ -27,6 +27,31 @@ class AppStringsEs extends AppStrings {
   String get sampleTask => 'Despeja la mesa del salón';
 
   @override
+  String get zoneZ1 => 'Cocina y despensa';
+
+  @override
+  String get zoneZ2 => 'Baños';
+
+  @override
+  String get zoneZ3 => 'Dormitorios';
+
+  @override
+  String get zoneZ4 => 'Salón y zonas comunes';
+
+  @override
+  String get zoneZ5 => 'Entrada, lavadero y exteriores';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String durationSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
   String get destinationKeep => 'Quedármelo';
 
   @override
