@@ -354,6 +354,33 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
   });
 
+  testWidgets('absent onDone, the Hecho tap stays the 1.8 anatomy\'s '
+      'accepted no-op — never a disabled control', (tester) async {
+    await tester.pumpWidget(_harness(const TaskCard(card: _zonedCard)));
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byType(HechoButton),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(
+      button.onTap,
+      isNotNull,
+      reason:
+          'a null onTap would disable the control — the anatomy '
+          'contract keeps the tap an accepted no-op instead',
+    );
+
+    // The no-op absorbs the tap quietly: no crash, no modal, nothing
+    // moves.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Dialog), findsNothing);
+  });
+
   testWidgets('no origin text is ever surfaced (AD-14)', (tester) async {
     await tester.pumpWidget(_harness(const TaskCard(card: _zonedCard)));
     await tester.pumpWidget(_harness(const TaskCard(card: _zonelessCard)));

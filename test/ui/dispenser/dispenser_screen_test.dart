@@ -255,7 +255,7 @@ class _GatedBundle extends _FakeBundle {
 }
 
 class _QueuedReadController extends DispenserController {
-  _QueuedReadController(this._reads)
+  _QueuedReadController(this._reads, {super.bundle})
     : super(store: _RecordingStore(), strings: AppStringsEs());
 
   final List<Completer<DispenserView>> _reads;
@@ -263,6 +263,40 @@ class _QueuedReadController extends DispenserController {
 
   @override
   Future<DispenserView> read() => _reads[_nextRead++].future;
+}
+
+/// A store whose `card_done` appends fail once, and only once an
+/// earlier one has landed — the second-completion write-failure shape:
+/// a first ack is mid-window and visible when the failed write's catch
+/// must clear the ack-flag class.
+class _FailLaterDoneStore implements StorePort {
+  _FailLaterDoneStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _landedDones = 0;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (entry.kind == 'card_done') {
+      if (_landedDones > 0 && !_thrown) {
+        _thrown = true;
+        throw StateError('append failed');
+      }
+      _landedDones++;
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
 }
 
 const _testCard = Card(
@@ -859,11 +893,12 @@ void main() {
   });
 
   testWidgets('a failed write leaves the empty frame standing with no ack '
-      '— quiet, deliberate, no crash surfaced', (tester) async {
+      '— quiet, deliberate, no crash surfaced — and a healed retry still '
+      'completes: the in-flight guard released', (tester) async {
     final inner = _RecordingStore();
     final store = _FailFirstDoneStore(inner);
     await launchAndCommit(tester, store);
-    _mockPlatformCalls(tester);
+    final calls = _mockPlatformCalls(tester);
 
     await tester.tap(find.byType(HechoButton));
     await tester.pumpAndSettle();
@@ -876,6 +911,88 @@ void main() {
       isEmpty,
       reason: 'the log stayed consistent: nothing landed on the failed write',
     );
+
+    // The foreground heal re-reads: the launch deal is still unanswered
+    // (nothing landed), so the same card returns.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // The guard's finally released the write: Hecho is not bricked. The
+    // retried completion lands — the store already spent its one
+    // failure — and its ack rides the next card as any completion's.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+      reason:
+          'the healed tap completed — a stuck in-flight guard would '
+          'have bricked Hecho with the suite green',
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+    expect(
+      _lightImpacts(calls),
+      hasLength(2),
+      reason: 'the healed tap really fired — its haptic is the witness',
+    );
+  });
+
+  testWidgets('a write that fails under a visible ack clears the ack-flag '
+      'class — the foreground-healed commit carries nothing stale', (
+    tester,
+  ) async {
+    final inner = _RecordingStore();
+    final store = _FailLaterDoneStore(inner);
+    await launchAndCommit(tester, store);
+    final calls = _mockPlatformCalls(tester);
+
+    // Completion 1 lands: zero-duration pumps commit the read without
+    // advancing the clock, so what follows stays inside the ack's
+    // 2000 ms window.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // Completion 2's write fails under that visible ack: the empty
+    // frame stands, and the whole ack-flag class — waiting flag, armed
+    // timer, visible flag — is stale the moment the write is known to
+    // have failed.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+      reason: 'only the first completion landed; the second write failed',
+    );
+
+    // Still inside the first window's remains, the foreground heal
+    // commits the still-unanswered card: nothing ack-shaped may ride
+    // it. Deleting the catch's flag/timer clears fails exactly here —
+    // the stale visible ack would render above the healed card.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(
+      _lightImpacts(calls),
+      hasLength(2),
+      reason: 'the second tap really fired — its haptic is the witness',
+    );
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a rapid double tap appends exactly one card_done — the '
@@ -1076,6 +1193,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+  });
+
+  testWidgets('a stale failed read cannot drop a waiting ack — only the '
+      'current generation\'s failure clears it', (tester) async {
+    final first = Completer<DispenserView>();
+    final second = Completer<DispenserView>();
+    final third = Completer<DispenserView>();
+    final controller = _QueuedReadController([
+      first,
+      second,
+      third,
+    ], bundle: _FakeBundle({catalogueAssetPath: shipped}));
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump();
+    first.complete(const DispenserDealt(_testCard));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    _mockPlatformCalls(tester);
+
+    // The completion's write resolves and arms the ack on the refresh's
+    // read — generation 2, held open.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+
+    // A mid-read return to the foreground supersedes it: generation 3's
+    // read is now the one whose commit owes the ack.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    // The superseded read fails first — a stale failure with no
+    // standing to clear the waiting ack.
+    second.completeError(StateError('read failed'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(ErrorWidget), findsNothing);
+
+    // Then the current generation's read commits: the ack rides it.
+    // Clearing the waiting flag without a generation guard fails
+    // exactly here — the current commit would find nothing waiting.
+    third.complete(const DispenserDealt(_longCard));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_longCard.name), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+    // Drain the ack's window before the binding's teardown invariants.
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pumpAndSettle();
     expect(find.text('¡Buen trabajo!'), findsNothing);
   });
 

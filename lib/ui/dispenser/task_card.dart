@@ -38,7 +38,10 @@ class HechoButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.radiusDefault),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          // Absent, the no-op keeps the 1.8 anatomy contract: the tap
+          // is accepted and does nothing — a null onTap would render a
+          // disabled control instead.
+          onTap: onTap ?? () {},
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: Spacing.touchTargetMin,

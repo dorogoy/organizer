@@ -170,14 +170,17 @@ class _DispenserScreenState extends State<DispenserScreen>
         _commitView(view);
       }
     } catch (_) {
-      // A completion armed for this read does not carry its ack past the
-      // failure: the ack appears only above the post-completion view,
-      // and this read produced none — a later, unrelated commit (the
-      // foreground heal) must find nothing waiting.
-      _completionAckWaiting = false;
-      if (mounted && generation == _readGeneration) {
-        // Pending and failed reads intentionally have the same empty frame.
-        setState(() => _view = null);
+      // A completion armed for the post-completion read does not carry
+      // its ack past the failure — but only this read may say so. A
+      // stale failure (a newer refresh already in flight) has no
+      // standing to clear: its read produced no view, and the current
+      // generation's commit still owes the ack.
+      if (generation == _readGeneration) {
+        _completionAckWaiting = false;
+        if (mounted) {
+          // Pending and failed reads intentionally have the same empty frame.
+          setState(() => _view = null);
+        }
       }
     }
   }
