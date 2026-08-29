@@ -40,3 +40,6 @@
   summary: Wire `make test-core` into the story-completion gate (or CI) so the gate trio cannot pass with the `packages/core` suite red.
   evidence: Review round 1: `make gate` runs root `flutter test` + format + analyze only; the core suite — where this story's entire verification lives — is reachable only through separately invoked `make test-core`, so a core-only regression passes the gate (Makefile structure predates this story).
 
+- source_spec: `_bmad-output/implementation-artifacts/1-5-the-shipped-evergreen-catalogue.md`
+  summary: Cluster tags (anclas/sostén/fondo/plantas/coche) are A12 authorial groupings, not asset data — Epic 5's cluster curation must derive clusters from (cadence, zone, size) or renegotiate AD-16 before any fifth field ships.
+  evidence: The shipped asset carries exactly the four AD-16 fields per entry (id, size, cadence, zone-or-none); the clusters A12 names live only in the addendum's section headings, so onboarding/settings cluster curation has no stored referent until derived from the shipped fields or the spine is renegotiated.

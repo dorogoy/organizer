@@ -172,4 +172,309 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get captureDiscard => 'Descartar';
+
+  @override
+  String get catalogueSacarBrilloAlFregadero => 'Sacar brillo al fregadero';
+
+  @override
+  String get catalogueHacerLaCama => 'Hacer la cama';
+
+  @override
+  String get catalogueAbrirUnaVentanaAVentilar =>
+      'Abrir una ventana a ventilar';
+
+  @override
+  String get catalogueRecoger3CosasDelSuelo => 'Recoger 3 cosas del suelo';
+
+  @override
+  String get catalogueColgarLaToalla => 'Colgar la toalla';
+
+  @override
+  String get catalogueRepasarElEspejoDelBanoConLaToallaUsada =>
+      'Repasar el espejo del baño con la toalla usada';
+
+  @override
+  String get catalogueMeterEnElLavavajillasLoQueHayEnElFregadero =>
+      'Meter en el lavavajillas lo que hay en el fregadero';
+
+  @override
+  String get catalogueArrancarUnaLavadora => 'Arrancar una lavadora';
+
+  @override
+  String get catalogueSacarLaBasuraAlRellano => 'Sacar la basura al rellano';
+
+  @override
+  String get catalogueGuardarLosZapatosDeLaEntrada =>
+      'Guardar los zapatos de la entrada';
+
+  @override
+  String get catalogueRegarUnaPlanta => 'Regar una planta';
+
+  @override
+  String get catalogueDespejarLaMesitaDeNoche => 'Despejar la mesita de noche';
+
+  @override
+  String get catalogueBajarLaTapaYRepasarElBordeDelInodoro =>
+      'Bajar la tapa y repasar el borde del inodoro';
+
+  @override
+  String get catalogueVaciarLaPapeleraDelBano => 'Vaciar la papelera del baño';
+
+  @override
+  String get cataloguePonerLaMesa => 'Poner la mesa';
+
+  @override
+  String get catalogueRecogerLaMesa => 'Recoger la mesa';
+
+  @override
+  String get catalogueVaciarElLavavajillas => 'Vaciar el lavavajillas';
+
+  @override
+  String get catalogueRepasarLaEncimera => 'Repasar la encimera';
+
+  @override
+  String get catalogueLimpiarLaPlaca => 'Limpiar la placa';
+
+  @override
+  String get catalogueBarrerBajoLaMesaDelComedor =>
+      'Barrer bajo la mesa del comedor';
+
+  @override
+  String get cataloguePasarLaMopaPorLaCocina => 'Pasar la mopa por la cocina';
+
+  @override
+  String get catalogueRepasarElLavaboYLosGrifos =>
+      'Repasar el lavabo y los grifos';
+
+  @override
+  String get catalogueDoblarCincoPrendas => 'Doblar cinco prendas';
+
+  @override
+  String get catalogueGuardarLaCompraQueQuedoFuera =>
+      'Guardar la compra que quedó fuera';
+
+  @override
+  String get catalogueOrdenarLosCojinesYLaMantaDelSofa =>
+      'Ordenar los cojines y la manta del sofá';
+
+  @override
+  String get catalogueVaciarYAclararElCuboDeReciclaje =>
+      'Vaciar y aclarar el cubo de reciclaje';
+
+  @override
+  String get catalogueRecogerLaMesaDeCentro => 'Recoger la mesa de centro';
+
+  @override
+  String get catalogueSacarLaBasuraOrganica => 'Sacar la basura orgánica';
+
+  @override
+  String get catalogueLavarLosPlatosAMano => 'Lavar los platos a mano';
+
+  @override
+  String get catalogueDejarLaCocinaCerrada => 'Dejar la cocina cerrada';
+
+  @override
+  String get catalogueTenderLaColada => 'Tender la colada';
+
+  @override
+  String get catalogueDoblarYGuardarUnaColada => 'Doblar y guardar una colada';
+
+  @override
+  String get catalogueRecogerElSalonEntero => 'Recoger el salón entero';
+
+  @override
+  String get catalogueOrdenarLaEntradaYElRecibidor =>
+      'Ordenar la entrada y el recibidor';
+
+  @override
+  String get cataloguePasarLaAspiradoraALaCocina =>
+      'Pasar la aspiradora a la cocina';
+
+  @override
+  String get catalogueFregarElSueloDeLaCocina => 'Fregar el suelo de la cocina';
+
+  @override
+  String get catalogueDesengrasarLaCampanaExtractora =>
+      'Desengrasar la campana extractora';
+
+  @override
+  String get catalogueVaciarUnaBaldaDelFrigorificoYTirarLoCaducado =>
+      'Vaciar una balda del frigorífico y tirar lo caducado';
+
+  @override
+  String get catalogueRepasarLosAzulejosDetrasDeLaPlaca =>
+      'Repasar los azulejos detrás de la placa';
+
+  @override
+  String get catalogueLimpiarElMicroondasPorDentro =>
+      'Limpiar el microondas por dentro';
+
+  @override
+  String get catalogueLimpiarElFrigorificoPorFueraYLosTiradores =>
+      'Limpiar el frigorífico por fuera y los tiradores';
+
+  @override
+  String get catalogueOrdenarElCajonDeLosCubiertos =>
+      'Ordenar el cajón de los cubiertos';
+
+  @override
+  String get catalogueLimpiarLaDuchaOLaBanera => 'Limpiar la ducha o la bañera';
+
+  @override
+  String get catalogueFregarElSueloDelBano => 'Fregar el suelo del baño';
+
+  @override
+  String get catalogueOrdenarElArmarioDelBanoYTirarLoCaducado =>
+      'Ordenar el armario del baño y tirar lo caducado';
+
+  @override
+  String get catalogueLimpiarElInodoro => 'Limpiar el inodoro';
+
+  @override
+  String get catalogueLimpiarElEspejoYLosGrifos =>
+      'Limpiar el espejo y los grifos';
+
+  @override
+  String get catalogueCambiarLasToallas => 'Cambiar las toallas';
+
+  @override
+  String get catalogueDestaparElDesagueDeLaDucha =>
+      'Destapar el desagüe de la ducha';
+
+  @override
+  String get catalogueCambiarLasSabanas => 'Cambiar las sábanas';
+
+  @override
+  String get cataloguePasarLaAspiradoraAlDormitorio =>
+      'Pasar la aspiradora al dormitorio';
+
+  @override
+  String get catalogueAspirarDebajoDeLaCama => 'Aspirar debajo de la cama';
+
+  @override
+  String get catalogueVaciarYAirearUnaBaldaDelArmario =>
+      'Vaciar y airear una balda del armario';
+
+  @override
+  String get catalogueQuitarElPolvoDeLasSuperficies =>
+      'Quitar el polvo de las superficies';
+
+  @override
+  String get catalogueOrdenarLaMesillaYLosCables =>
+      'Ordenar la mesilla y los cables';
+
+  @override
+  String get catalogueLimpiarLosEspejosDelArmario =>
+      'Limpiar los espejos del armario';
+
+  @override
+  String get cataloguePasarLaAspiradoraAlSalon =>
+      'Pasar la aspiradora al salón';
+
+  @override
+  String get catalogueFregarElSueloDelSalon => 'Fregar el suelo del salón';
+
+  @override
+  String get catalogueQuitarElPolvoDeLasEstanterias =>
+      'Quitar el polvo de las estanterías';
+
+  @override
+  String get catalogueAspirarElSofaYLosCojines =>
+      'Aspirar el sofá y los cojines';
+
+  @override
+  String get catalogueOrdenarElMuebleDeCablesYCargadores =>
+      'Ordenar el mueble de cables y cargadores';
+
+  @override
+  String get catalogueLimpiarLaMesaDeCentroYLosMandos =>
+      'Limpiar la mesa de centro y los mandos';
+
+  @override
+  String get catalogueLimpiarLaPantallaDelTelevisor =>
+      'Limpiar la pantalla del televisor';
+
+  @override
+  String get catalogueBarrerYFregarLaEntrada => 'Barrer y fregar la entrada';
+
+  @override
+  String get catalogueOrdenarLosZapatosDelRecibidor =>
+      'Ordenar los zapatos del recibidor';
+
+  @override
+  String get catalogueBarrerElBalconOLaTerraza =>
+      'Barrer el balcón o la terraza';
+
+  @override
+  String get catalogueLimpiarElFiltroDeLaLavadora =>
+      'Limpiar el filtro de la lavadora';
+
+  @override
+  String get catalogueLimpiarElCuboDeLaBasuraPorDentro =>
+      'Limpiar el cubo de la basura por dentro';
+
+  @override
+  String get catalogueRevisarYRegarLasPlantas => 'Revisar y regar las plantas';
+
+  @override
+  String get catalogueRepasarElEspejoYLaConsolaDeLaEntrada =>
+      'Repasar el espejo y la consola de la entrada';
+
+  @override
+  String get catalogueLimpiarLosCristalesDeUnaHabitacion =>
+      'Limpiar los cristales de una habitación';
+
+  @override
+  String get catalogueLimpiarLasMosquiterasYLosRielesDeLasVentanas =>
+      'Limpiar las mosquiteras y los rieles de las ventanas';
+
+  @override
+  String get catalogueLimpiarElHorno => 'Limpiar el horno';
+
+  @override
+  String get catalogueRevisarYOrganizarElCongelador =>
+      'Revisar y organizar el congelador';
+
+  @override
+  String get catalogueDescalcificarLosGrifos => 'Descalcificar los grifos';
+
+  @override
+  String get catalogueRepasarLasJuntasDeLaDucha =>
+      'Repasar las juntas de la ducha';
+
+  @override
+  String get catalogueLimpiarLosRodapiesDeUnaHabitacion =>
+      'Limpiar los rodapiés de una habitación';
+
+  @override
+  String get catalogueLimpiarLasPuertasYLosMarcos =>
+      'Limpiar las puertas y los marcos';
+
+  @override
+  String get catalogueLimpiarLasLamparasYLasPantallas =>
+      'Limpiar las lámparas y las pantallas';
+
+  @override
+  String get catalogueAspirarDetrasDeUnMuebleGrande =>
+      'Aspirar detrás de un mueble grande';
+
+  @override
+  String get catalogueRevisarElBotiquinYTirarLoCaducado =>
+      'Revisar el botiquín y tirar lo caducado';
+
+  @override
+  String get catalogueLimpiarElInteriorDelCoche =>
+      'Limpiar el interior del coche';
+
+  @override
+  String get catalogueLimpiarElFiltroDelAireAcondicionado =>
+      'Limpiar el filtro del aire acondicionado';
+
+  @override
+  String get catalogueLimpiarElFiltroDelLavavajillas =>
+      'Limpiar el filtro del lavavajillas';
+
+  @override
+  String get cataloguePonerALavarLasFundasDeLosCojines =>
+      'Poner a lavar las fundas de los cojines';
 }

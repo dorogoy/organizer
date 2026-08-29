@@ -256,5 +256,430 @@
   "captureDiscard": "Descartar",
   "@captureDiscard": {
     "description": "Manual Capture — the single exit; no Cancelar beside it, and Android's back gesture behaves as Descartar."
+  },
+
+  "catalogueSacarBrilloAlFregadero": "Sacar brillo al fregadero",
+  "@catalogueSacarBrilloAlFregadero": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueHacerLaCama": "Hacer la cama",
+  "@catalogueHacerLaCama": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueAbrirUnaVentanaAVentilar": "Abrir una ventana a ventilar",
+  "@catalogueAbrirUnaVentanaAVentilar": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueRecoger3CosasDelSuelo": "Recoger 3 cosas del suelo",
+  "@catalogueRecoger3CosasDelSuelo": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueColgarLaToalla": "Colgar la toalla",
+  "@catalogueColgarLaToalla": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueRepasarElEspejoDelBanoConLaToallaUsada": "Repasar el espejo del baño con la toalla usada",
+  "@catalogueRepasarElEspejoDelBanoConLaToallaUsada": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueMeterEnElLavavajillasLoQueHayEnElFregadero": "Meter en el lavavajillas lo que hay en el fregadero",
+  "@catalogueMeterEnElLavavajillasLoQueHayEnElFregadero": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueArrancarUnaLavadora": "Arrancar una lavadora",
+  "@catalogueArrancarUnaLavadora": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueSacarLaBasuraAlRellano": "Sacar la basura al rellano",
+  "@catalogueSacarLaBasuraAlRellano": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueGuardarLosZapatosDeLaEntrada": "Guardar los zapatos de la entrada",
+  "@catalogueGuardarLosZapatosDeLaEntrada": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueRegarUnaPlanta": "Regar una planta",
+  "@catalogueRegarUnaPlanta": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueDespejarLaMesitaDeNoche": "Despejar la mesita de noche",
+  "@catalogueDespejarLaMesitaDeNoche": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueBajarLaTapaYRepasarElBordeDelInodoro": "Bajar la tapa y repasar el borde del inodoro",
+  "@catalogueBajarLaTapaYRepasarElBordeDelInodoro": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "catalogueVaciarLaPapeleraDelBano": "Vaciar la papelera del baño",
+  "@catalogueVaciarLaPapeleraDelBano": {
+    "description": "Evergreen catalogue (A12.1) — daily Instant Habit, cluster anclas."
+  },
+
+  "cataloguePonerLaMesa": "Poner la mesa",
+  "@cataloguePonerLaMesa": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueRecogerLaMesa": "Recoger la mesa",
+  "@catalogueRecogerLaMesa": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueVaciarElLavavajillas": "Vaciar el lavavajillas",
+  "@catalogueVaciarElLavavajillas": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueRepasarLaEncimera": "Repasar la encimera",
+  "@catalogueRepasarLaEncimera": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueLimpiarLaPlaca": "Limpiar la placa",
+  "@catalogueLimpiarLaPlaca": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueBarrerBajoLaMesaDelComedor": "Barrer bajo la mesa del comedor",
+  "@catalogueBarrerBajoLaMesaDelComedor": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "cataloguePasarLaMopaPorLaCocina": "Pasar la mopa por la cocina",
+  "@cataloguePasarLaMopaPorLaCocina": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueRepasarElLavaboYLosGrifos": "Repasar el lavabo y los grifos",
+  "@catalogueRepasarElLavaboYLosGrifos": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueDoblarCincoPrendas": "Doblar cinco prendas",
+  "@catalogueDoblarCincoPrendas": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueGuardarLaCompraQueQuedoFuera": "Guardar la compra que quedó fuera",
+  "@catalogueGuardarLaCompraQueQuedoFuera": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueOrdenarLosCojinesYLaMantaDelSofa": "Ordenar los cojines y la manta del sofá",
+  "@catalogueOrdenarLosCojinesYLaMantaDelSofa": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueVaciarYAclararElCuboDeReciclaje": "Vaciar y aclarar el cubo de reciclaje",
+  "@catalogueVaciarYAclararElCuboDeReciclaje": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueRecogerLaMesaDeCentro": "Recoger la mesa de centro",
+  "@catalogueRecogerLaMesaDeCentro": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueSacarLaBasuraOrganica": "Sacar la basura orgánica",
+  "@catalogueSacarLaBasuraOrganica": {
+    "description": "Evergreen catalogue (A12.2) — daily Baseline Upkeep (3 min), cluster sostén."
+  },
+
+  "catalogueLavarLosPlatosAMano": "Lavar los platos a mano",
+  "@catalogueLavarLosPlatosAMano": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "catalogueDejarLaCocinaCerrada": "Dejar la cocina cerrada",
+  "@catalogueDejarLaCocinaCerrada": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "catalogueTenderLaColada": "Tender la colada",
+  "@catalogueTenderLaColada": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "catalogueDoblarYGuardarUnaColada": "Doblar y guardar una colada",
+  "@catalogueDoblarYGuardarUnaColada": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "catalogueRecogerElSalonEntero": "Recoger el salón entero",
+  "@catalogueRecogerElSalonEntero": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "catalogueOrdenarLaEntradaYElRecibidor": "Ordenar la entrada y el recibidor",
+  "@catalogueOrdenarLaEntradaYElRecibidor": {
+    "description": "Evergreen catalogue (A12.3) — daily Baseline Upkeep (10–15 min), cluster sostén."
+  },
+
+  "cataloguePasarLaAspiradoraALaCocina": "Pasar la aspiradora a la cocina",
+  "@cataloguePasarLaAspiradoraALaCocina": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueFregarElSueloDeLaCocina": "Fregar el suelo de la cocina",
+  "@catalogueFregarElSueloDeLaCocina": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueDesengrasarLaCampanaExtractora": "Desengrasar la campana extractora",
+  "@catalogueDesengrasarLaCampanaExtractora": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueVaciarUnaBaldaDelFrigorificoYTirarLoCaducado": "Vaciar una balda del frigorífico y tirar lo caducado",
+  "@catalogueVaciarUnaBaldaDelFrigorificoYTirarLoCaducado": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueRepasarLosAzulejosDetrasDeLaPlaca": "Repasar los azulejos detrás de la placa",
+  "@catalogueRepasarLosAzulejosDetrasDeLaPlaca": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueLimpiarElMicroondasPorDentro": "Limpiar el microondas por dentro",
+  "@catalogueLimpiarElMicroondasPorDentro": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueLimpiarElFrigorificoPorFueraYLosTiradores": "Limpiar el frigorífico por fuera y los tiradores",
+  "@catalogueLimpiarElFrigorificoPorFueraYLosTiradores": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueOrdenarElCajonDeLosCubiertos": "Ordenar el cajón de los cubiertos",
+  "@catalogueOrdenarElCajonDeLosCubiertos": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z1 · Cocina y despensa)."
+  },
+
+  "catalogueLimpiarLaDuchaOLaBanera": "Limpiar la ducha o la bañera",
+  "@catalogueLimpiarLaDuchaOLaBanera": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueFregarElSueloDelBano": "Fregar el suelo del baño",
+  "@catalogueFregarElSueloDelBano": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueOrdenarElArmarioDelBanoYTirarLoCaducado": "Ordenar el armario del baño y tirar lo caducado",
+  "@catalogueOrdenarElArmarioDelBanoYTirarLoCaducado": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueLimpiarElInodoro": "Limpiar el inodoro",
+  "@catalogueLimpiarElInodoro": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueLimpiarElEspejoYLosGrifos": "Limpiar el espejo y los grifos",
+  "@catalogueLimpiarElEspejoYLosGrifos": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueCambiarLasToallas": "Cambiar las toallas",
+  "@catalogueCambiarLasToallas": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueDestaparElDesagueDeLaDucha": "Destapar el desagüe de la ducha",
+  "@catalogueDestaparElDesagueDeLaDucha": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z2 · Baños)."
+  },
+
+  "catalogueCambiarLasSabanas": "Cambiar las sábanas",
+  "@catalogueCambiarLasSabanas": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "cataloguePasarLaAspiradoraAlDormitorio": "Pasar la aspiradora al dormitorio",
+  "@cataloguePasarLaAspiradoraAlDormitorio": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "catalogueAspirarDebajoDeLaCama": "Aspirar debajo de la cama",
+  "@catalogueAspirarDebajoDeLaCama": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "catalogueVaciarYAirearUnaBaldaDelArmario": "Vaciar y airear una balda del armario",
+  "@catalogueVaciarYAirearUnaBaldaDelArmario": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "catalogueQuitarElPolvoDeLasSuperficies": "Quitar el polvo de las superficies",
+  "@catalogueQuitarElPolvoDeLasSuperficies": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "catalogueOrdenarLaMesillaYLosCables": "Ordenar la mesilla y los cables",
+  "@catalogueOrdenarLaMesillaYLosCables": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "catalogueLimpiarLosEspejosDelArmario": "Limpiar los espejos del armario",
+  "@catalogueLimpiarLosEspejosDelArmario": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z3 · Dormitorios)."
+  },
+
+  "cataloguePasarLaAspiradoraAlSalon": "Pasar la aspiradora al salón",
+  "@cataloguePasarLaAspiradoraAlSalon": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueFregarElSueloDelSalon": "Fregar el suelo del salón",
+  "@catalogueFregarElSueloDelSalon": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueQuitarElPolvoDeLasEstanterias": "Quitar el polvo de las estanterías",
+  "@catalogueQuitarElPolvoDeLasEstanterias": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueAspirarElSofaYLosCojines": "Aspirar el sofá y los cojines",
+  "@catalogueAspirarElSofaYLosCojines": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueOrdenarElMuebleDeCablesYCargadores": "Ordenar el mueble de cables y cargadores",
+  "@catalogueOrdenarElMuebleDeCablesYCargadores": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueLimpiarLaMesaDeCentroYLosMandos": "Limpiar la mesa de centro y los mandos",
+  "@catalogueLimpiarLaMesaDeCentroYLosMandos": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueLimpiarLaPantallaDelTelevisor": "Limpiar la pantalla del televisor",
+  "@catalogueLimpiarLaPantallaDelTelevisor": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z4 · Salón y zonas comunes)."
+  },
+
+  "catalogueBarrerYFregarLaEntrada": "Barrer y fregar la entrada",
+  "@catalogueBarrerYFregarLaEntrada": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueOrdenarLosZapatosDelRecibidor": "Ordenar los zapatos del recibidor",
+  "@catalogueOrdenarLosZapatosDelRecibidor": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueBarrerElBalconOLaTerraza": "Barrer el balcón o la terraza",
+  "@catalogueBarrerElBalconOLaTerraza": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueLimpiarElFiltroDeLaLavadora": "Limpiar el filtro de la lavadora",
+  "@catalogueLimpiarElFiltroDeLaLavadora": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueLimpiarElCuboDeLaBasuraPorDentro": "Limpiar el cubo de la basura por dentro",
+  "@catalogueLimpiarElCuboDeLaBasuraPorDentro": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueRevisarYRegarLasPlantas": "Revisar y regar las plantas",
+  "@catalogueRevisarYRegarLasPlantas": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueRepasarElEspejoYLaConsolaDeLaEntrada": "Repasar el espejo y la consola de la entrada",
+  "@catalogueRepasarElEspejoYLaConsolaDeLaEntrada": {
+    "description": "Evergreen catalogue (A12.4) — weekly zone routine (Z5 · Entrada, lavadero y exteriores)."
+  },
+
+  "catalogueLimpiarLosCristalesDeUnaHabitacion": "Limpiar los cristales de una habitación",
+  "@catalogueLimpiarLosCristalesDeUnaHabitacion": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarLasMosquiterasYLosRielesDeLasVentanas": "Limpiar las mosquiteras y los rieles de las ventanas",
+  "@catalogueLimpiarLasMosquiterasYLosRielesDeLasVentanas": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarElHorno": "Limpiar el horno",
+  "@catalogueLimpiarElHorno": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueRevisarYOrganizarElCongelador": "Revisar y organizar el congelador",
+  "@catalogueRevisarYOrganizarElCongelador": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueDescalcificarLosGrifos": "Descalcificar los grifos",
+  "@catalogueDescalcificarLosGrifos": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueRepasarLasJuntasDeLaDucha": "Repasar las juntas de la ducha",
+  "@catalogueRepasarLasJuntasDeLaDucha": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarLosRodapiesDeUnaHabitacion": "Limpiar los rodapiés de una habitación",
+  "@catalogueLimpiarLosRodapiesDeUnaHabitacion": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarLasPuertasYLosMarcos": "Limpiar las puertas y los marcos",
+  "@catalogueLimpiarLasPuertasYLosMarcos": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarLasLamparasYLasPantallas": "Limpiar las lámparas y las pantallas",
+  "@catalogueLimpiarLasLamparasYLasPantallas": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueAspirarDetrasDeUnMuebleGrande": "Aspirar detrás de un mueble grande",
+  "@catalogueAspirarDetrasDeUnMuebleGrande": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueRevisarElBotiquinYTirarLoCaducado": "Revisar el botiquín y tirar lo caducado",
+  "@catalogueRevisarElBotiquinYTirarLoCaducado": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarElInteriorDelCoche": "Limpiar el interior del coche",
+  "@catalogueLimpiarElInteriorDelCoche": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarElFiltroDelAireAcondicionado": "Limpiar el filtro del aire acondicionado",
+  "@catalogueLimpiarElFiltroDelAireAcondicionado": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "catalogueLimpiarElFiltroDelLavavajillas": "Limpiar el filtro del lavavajillas",
+  "@catalogueLimpiarElFiltroDelLavavajillas": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
+  },
+
+  "cataloguePonerALavarLasFundasDeLosCojines": "Poner a lavar las fundas de los cojines",
+  "@cataloguePonerALavarLasFundasDeLosCojines": {
+    "description": "Evergreen catalogue (A12.5) — monthly/seasonal depth work, cluster fondo."
   }
 }

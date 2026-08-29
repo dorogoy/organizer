@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "regar-una-planta",
+      "size": "instant",
+      "cadence": "daily"
+    },
+    {
+      "id": "limpiar-el-horno",
+      "size": "focus",
+      "cadence": "seasonal"
+    }
+  ]
+}

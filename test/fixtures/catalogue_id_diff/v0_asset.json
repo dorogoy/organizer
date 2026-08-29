@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "regar-una-planta",
+      "size": "instant",
+      "cadence": "daily"
+    },
+    {
+      "id": "cambiar-las-sabanas",
+      "size": "focus",
+      "cadence": "weekly",
+      "zone": "z3"
+    },
+    {
+      "id": "limpiar-el-horno",
+      "size": "focus",
+      "cadence": "seasonal"
+    }
+  ]
+}

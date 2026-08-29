@@ -34,6 +34,11 @@ flutter:
   # l10n.yaml directs the generated accessors to lib/strings/.
   generate: true
 
+  # The shipped Evergreen catalogue (AD-16): a versioned, read-only JSON
+  # asset loaded once by the named shell loader — never written.
+  assets:
+    - assets/evergreen/
+
   # Both variable faces bundled (DESIGN.md Typography): Lora 400..700 +
   # italic 400, Lexend 300..700. Sizes in the type roles are sp, weights
   # ride the variable axes.
