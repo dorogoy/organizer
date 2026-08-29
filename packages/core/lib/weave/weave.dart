@@ -1,19 +1,31 @@
 /// The 1-3-5 weave (FR-12) and AD-20's single resolver: the pure
-/// composition of a domestic day out of the catalogue, the log and the
-/// scaling gates. Nothing derived is stored (AD-1) — the composition is
-/// recomputed from replayable facts whenever a deal needs it.
+/// composition of a domestic day out of the catalogue, the log, the
+/// scaling gates and the resolved curation state. Nothing derived is
+/// stored (AD-1) — the composition is recomputed from replayable facts
+/// whenever a deal needs it.
 ///
 /// `core/weave` is the only code that may emit a deal (AD-20): every
 /// work source — today only the shipped catalogue, later captures,
-/// `fondo`, rescue and purge — offers candidates with precedence, and
-/// the resolver below is the single place that turns them into a card.
-/// The module stays deterministic (AD-3): no `Random`, no wall clock, no
+/// rescue and purge — offers candidates with precedence, and the resolver
+/// below is the single place that turns them into a card. The module
+/// stays deterministic (AD-3): no `Random`, no wall clock, no
 /// `dart:io`, and ties break by least-recently-dealt then stable id,
 /// never id bit patterns.
+///
+/// The Focus Chunk slot resolves through ordered tiers (AD-20): the
+/// week's active zone first, then `fondo`, then the least-recently-dealt
+/// eligible entry regardless of zone — repetition before an empty day.
+/// Exactly one zone is active per domestic week (FR-11): the nominal
+/// ring position [Week.weekOrdinal] mod 5 decides, and a disabled zone's
+/// week passes to the next active one. The 3- and 5-draws stay
+/// size-based; only the chunk tier reads the rotation. Consumption is
+/// `card_done` rows only — the floor counts answered deals, not calendar
+/// days, and a skip re-resolves identity while consuming nothing.
 
 library;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/curation/curation.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
@@ -50,14 +62,17 @@ int estimateSecondsOf(Size size) => switch (size) {
 
 /// One composed card (FR-1): the item's id, its taxonomy size, its
 /// resolved Spanish name (a shipped task's Origin Context, AD-16), its
-/// origin, and the per-size duration estimate in seconds. A value: two
-/// cards are the same card iff every field matches.
+/// origin, its zone-or-none, and the per-size duration estimate in
+/// seconds. A value: two cards are the same card iff every field
+/// matches. The zone is inert data for the surface (1.8's zone-marker);
+/// daily and seasonal entries carry none.
 final class Card {
   const Card({
     required this.id,
     required this.size,
     required this.name,
     required this.origin,
+    required this.zone,
     required this.estimateSeconds,
   });
 
@@ -74,6 +89,11 @@ final class Card {
 
   final Origin origin;
 
+  /// The entry's weekly zone, or absent for daily and seasonal entries —
+  /// the zone marker's data, never a zone-name string (that is the ARB
+  /// table's, 1.8's and AD-15's business).
+  final Zone? zone;
+
   final int estimateSeconds;
 
   @override
@@ -83,21 +103,23 @@ final class Card {
       other.size == size &&
       other.name == name &&
       other.origin == origin &&
+      other.zone == zone &&
       other.estimateSeconds == estimateSeconds;
 
   @override
-  int get hashCode => Object.hash(id, size, name, origin, estimateSeconds);
+  int get hashCode =>
+      Object.hash(id, size, name, origin, zone, estimateSeconds);
 
   @override
   String toString() =>
       'Card(${id.toString()}, ${size.name}, ${origin.name}, '
-      '${estimateSeconds}s)';
+      '${zone?.name ?? '-'}, ${estimateSeconds}s)';
 }
 
 /// Where a candidate stands in AD-20's arbitration. One member today —
 /// the shipped catalogue is 1.6's only candidate source; later sources
-/// (capture precedence, `fondo` fill, rescue steps, purge injection)
-/// join as members, never as flags on this one.
+/// (capture precedence, rescue steps, purge injection) join as members,
+/// never as flags on this one.
 enum CandidatePrecedence {
   /// A shipped Evergreen catalogue entry.
   catalogue,
@@ -112,6 +134,7 @@ final class Candidate {
     required this.size,
     required this.name,
     required this.origin,
+    required this.zone,
     required this.precedence,
   });
 
@@ -119,27 +142,59 @@ final class Candidate {
   final Size size;
   final String name;
   final Origin origin;
+
+  /// The entry's weekly zone, or absent for daily and seasonal entries —
+  /// the chunk tier's discriminator: a zone names the weekly tier, no
+  /// zone on a focus candidate names `fondo`.
+  final Zone? zone;
+
   final CandidatePrecedence precedence;
 }
 
 /// The shipped catalogue as a candidate source (AD-16, AD-20): entries
 /// become `Origin.shipped` items — id the permanent catalogue id, name
-/// already resolved — handed to the resolver as inert data, never
-/// materialized as `pool_facts` rows. The focus-size offering excludes
-/// daily entries: Baseline Upkeep, however well its size fits, never
-/// occupies the chunk slot (FR-12).
-List<Candidate> shippedCandidates(Catalogue catalogue) {
+/// already resolved, zone carried as inert data — handed to the resolver,
+/// never materialized as `pool_facts` rows. The focus-size offering
+/// excludes daily entries: Baseline Upkeep, however well its size fits,
+/// never occupies the chunk slot (FR-12). Entries of a cluster outside
+/// [activeClusters] (default: all active, AD-16) are not offered at all
+/// — cluster filtering applies to every candidate, every draw.
+List<Candidate> shippedCandidates(
+  Catalogue catalogue, {
+  Set<CurationCluster>? activeClusters,
+}) {
+  final clusters = activeClusters ?? allCurationClusters;
   return [
     for (final entry in catalogue.entries)
-      if (entry.size != Size.focus || entry.cadence != Cadence.daily)
+      if (clusters.contains(curationClusterOfEntry(entry)) &&
+          (entry.size != Size.focus || entry.cadence != Cadence.daily))
         Candidate(
           itemId: entry.id,
           size: entry.size,
           name: entry.name,
           origin: Origin.shipped,
+          zone: entry.zone,
           precedence: CandidatePrecedence.catalogue,
         ),
   ];
+}
+
+/// The week's one active zone (FR-11, FR-31): the nominal ring position
+/// `Zone.values[weekOrdinal mod 5]`, then the first active zone
+/// at-or-after it cyclically — a disabled zone's week passes to the next
+/// active zone, and with no active zone cluster at all the result is
+/// absent and the chunk tiers are empty while the 3- and 5-draws stand.
+Zone? activeZoneOf(Week week, Set<CurationCluster> activeClusters) {
+  final nominalIndex =
+      ((week.weekOrdinal % Zone.values.length) + Zone.values.length) %
+      Zone.values.length;
+  for (var step = 0; step < Zone.values.length; step++) {
+    final zone = Zone.values[(nominalIndex + step) % Zone.values.length];
+    if (activeClusters.contains(curationClusterOfZone(zone))) {
+      return zone;
+    }
+  }
+  return null;
 }
 
 /// The composed day (FR-12): the Focus Chunk slot — absent when the
@@ -192,19 +247,66 @@ int _resolverOrder(
   return a.itemId.compareTo(b.itemId);
 }
 
-List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
-  final ordered = List.of(ofSize)
+List<Candidate> _orderedByResolver(
+  Iterable<Candidate> candidates,
+  LogFacts facts,
+) {
+  return candidates.toList()
     ..sort((a, b) => _resolverOrder(a, b, facts.lastDealtInstantByItemId));
-  return [
-    for (final candidate in ordered.take(count))
-      Card(
-        id: candidate.itemId,
-        size: candidate.size,
-        name: candidate.name,
-        origin: candidate.origin,
-        estimateSeconds: estimateSecondsOf(candidate.size),
-      ),
-  ];
+}
+
+Card _cardOf(Candidate candidate) => Card(
+  id: candidate.itemId,
+  size: candidate.size,
+  name: candidate.name,
+  origin: candidate.origin,
+  zone: candidate.zone,
+  estimateSeconds: estimateSecondsOf(candidate.size),
+);
+
+List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
+  final ordered = _orderedByResolver(ofSize, facts);
+  return [for (final candidate in ordered.take(count)) _cardOf(candidate)];
+}
+
+/// The chunk slot's candidate (AD-20's tiers, in order): the active
+/// zone's focus entries never **answered** (`card_done`) all-time, then
+/// `fondo` (seasonal focus) never answered, then the least-recently-dealt
+/// eligible focus entry regardless of zone — repetition accepted, never
+/// an empty day while any eligible entry exists. Ties within a tier
+/// break by least-recently-dealt then stable id (AD-3). With no active
+/// zone (FR-11's ring empty) the tiers are empty — this returns absent.
+Candidate? _chunkCandidateOf(
+  List<Candidate> focusCandidates,
+  LogFacts facts,
+  Zone? activeZone,
+) {
+  if (activeZone == null) {
+    return null;
+  }
+  final answered = facts.answeredItemIds;
+  final zoneTier = _orderedByResolver(
+    focusCandidates.where(
+      (candidate) =>
+          candidate.zone == activeZone && !answered.contains(candidate.itemId),
+    ),
+    facts,
+  );
+  if (zoneTier.isNotEmpty) {
+    return zoneTier.first;
+  }
+  final fondoTier = _orderedByResolver(
+    focusCandidates.where(
+      (candidate) =>
+          candidate.zone == null && !answered.contains(candidate.itemId),
+    ),
+    facts,
+  );
+  if (fondoTier.isNotEmpty) {
+    return fondoTier.first;
+  }
+  final leastRecentlyDealt = _orderedByResolver(focusCandidates, facts);
+  return leastRecentlyDealt.isEmpty ? null : leastRecentlyDealt.first;
 }
 
 bool _chunkComposes(
@@ -217,13 +319,76 @@ bool _chunkComposes(
     energy != EnergyLevel.low &&
     !facts.focusSlotClosedDays.contains(day);
 
+/// The one policy pipeline behind both surfaces of the weave (1.6's
+/// deferred unification): eligibility, cluster filtering, the chunk
+/// tiers and the day's ordered draws computed once, so `composeDay` and
+/// `nextDeal` cannot drift. The chunk card is resolved only while the
+/// gate holds and no dealt-but-unanswered card stands (AD-3 — the line
+/// is the pipeline's, so both surfaces read it identically); the draws
+/// are the day's full canonical counts.
+typedef _DayPolicy = ({
+  LogFacts facts,
+  Card? chunk,
+  List<Card> maintenance,
+  List<Card> instantHabits,
+  Map<Size, int> dealtOnDay,
+});
+
+_DayPolicy _resolveDay({
+  required Catalogue catalogue,
+  required List<LogEntry> log,
+  required int instantUtcMicros,
+  required int offsetSeconds,
+  required int bagMinutes,
+  required EnergyLevel energy,
+  required Set<CurationCluster>? activeClusters,
+}) {
+  final facts = walkLog(log, catalogue: catalogue);
+  final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
+  final clusters = activeClusters ?? allCurationClusters;
+  final candidates = shippedCandidates(catalogue, activeClusters: clusters);
+  Card? chunk;
+  if (_chunkComposes(bagMinutes, energy, facts, day) &&
+      facts.dealtUnanswered == null) {
+    final activeZone = activeZoneOf(const Calendar().weekOf(day), clusters);
+    final chunkCandidate = _chunkCandidateOf(
+      candidates.where((candidate) => candidate.size == Size.focus).toList(),
+      facts,
+      activeZone,
+    );
+    if (chunkCandidate != null) {
+      chunk = _cardOf(chunkCandidate);
+    }
+  }
+  return (
+    facts: facts,
+    chunk: chunk,
+    maintenance: _draw(
+      candidates
+          .where((candidate) => candidate.size == Size.maintenance)
+          .toList(),
+      facts,
+      maintenanceDrawsPerDay,
+    ),
+    instantHabits: _draw(
+      candidates.where((candidate) => candidate.size == Size.instant).toList(),
+      facts,
+      instantDrawsPerDay,
+    ),
+    dealtOnDay: facts.dealtCountsByDay[day] ?? const <Size, int>{},
+  );
+}
+
 /// Composes the day (FR-12, AD-20): a pure function of the catalogue,
-/// the log and the scaling inputs. The chunk is composed only when the
-/// bag holds [focusChunkLeastBagMinutes] or more and the derived energy
-/// is not low — otherwise the day composes without the "1", silently;
-/// 🟡 changes nothing (FR-4). A day whose slot a `card_done` already
-/// closed composes upkeep and habits only. Upkeep and habits are never
-/// charged to the bag (FR-7).
+/// the log, the scaling inputs and the resolved active clusters (AD-16
+/// — default: all active). The chunk is composed only when the bag holds
+/// [focusChunkLeastBagMinutes] or more and the derived energy is not low
+/// — otherwise the day composes without the "1", silently; 🟡 changes
+/// nothing (FR-4). A day whose slot a `card_done` already closed composes
+/// upkeep and habits only, and so does a day whose open session still
+/// holds a dealt-but-unanswered card — an unanswered card never produces
+/// a second card (AD-3), the shared pipeline's line now, not just the
+/// deal-level one. Upkeep and habits are never charged to the bag (FR-7).
 DayComposition composeDay({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -231,44 +396,34 @@ DayComposition composeDay({
   required int offsetSeconds,
   int bagMinutes = defaultBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
+  Set<CurationCluster>? activeClusters,
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
-  final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
-  final candidates = shippedCandidates(catalogue);
-  final focusDraws = _draw(
-    candidates.where((candidate) => candidate.size == Size.focus).toList(),
-    facts,
-    1,
-  );
-  final maintenanceDraws = _draw(
-    candidates
-        .where((candidate) => candidate.size == Size.maintenance)
-        .toList(),
-    facts,
-    maintenanceDrawsPerDay,
-  );
-  final instantDraws = _draw(
-    candidates.where((candidate) => candidate.size == Size.instant).toList(),
-    facts,
-    instantDrawsPerDay,
+  final policy = _resolveDay(
+    catalogue: catalogue,
+    log: log,
+    instantUtcMicros: instantUtcMicros,
+    offsetSeconds: offsetSeconds,
+    bagMinutes: bagMinutes,
+    energy: energy,
+    activeClusters: activeClusters,
   );
   return DayComposition(
-    focus:
-        _chunkComposes(bagMinutes, energy, facts, day) && focusDraws.isNotEmpty
-        ? focusDraws[0]
-        : null,
-    maintenance: maintenanceDraws,
-    instantHabits: instantDraws,
+    focus: policy.chunk,
+    maintenance: policy.maintenance,
+    instantHabits: policy.instantHabits,
   );
 }
 
 /// The resolver's next deal (AD-3, AD-20): what the command that answers
 /// the previous card — or `session_started` for a session's first card —
 /// appends. Pure: it computes the card and writes nothing. The chunk
-/// slot resolves first while open and gated; identity re-resolves on
-/// every deal, so a skip yields a different candidate and consumes no
-/// rotation; once the day's maintenance and habit draws are dealt, the
-/// day offers nothing more.
+/// slot resolves first while open and gated — through the same tier
+/// pipeline `composeDay` reads; identity re-resolves on every deal, so a
+/// skip yields a different candidate and consumes no rotation; once the
+/// day's maintenance and habit draws are dealt, the day offers nothing
+/// more. An open session's dealt-but-unanswered card yields no deal at
+/// all — an unanswered card never produces a second `card_dealt` (AD-3),
+/// and the resolver itself holds that line, not only its callers.
 Card? nextDeal({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -276,47 +431,35 @@ Card? nextDeal({
   required int offsetSeconds,
   int bagMinutes = defaultBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
+  Set<CurationCluster>? activeClusters,
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
-  final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
-  final candidates = shippedCandidates(catalogue);
-  final dealtOnDay = facts.dealtCountsByDay[day] ?? const <Size, int>{};
-
-  if (_chunkComposes(bagMinutes, energy, facts, day)) {
-    final chunk = _draw(
-      candidates.where((candidate) => candidate.size == Size.focus).toList(),
-      facts,
-      1,
-    );
-    if (chunk.isNotEmpty) {
-      return chunk[0];
-    }
+  final policy = _resolveDay(
+    catalogue: catalogue,
+    log: log,
+    instantUtcMicros: instantUtcMicros,
+    offsetSeconds: offsetSeconds,
+    bagMinutes: bagMinutes,
+    energy: energy,
+    activeClusters: activeClusters,
+  );
+  if (policy.facts.dealtUnanswered != null) {
+    // The open session still holds its dealt-but-unanswered card: no
+    // second deal exists to append while it stands (AD-3). Answering it
+    // — or closing the session — clears the fact and frees the resolver.
+    return null;
   }
-
-  if ((dealtOnDay[Size.maintenance] ?? 0) < maintenanceDrawsPerDay) {
-    final maintenance = _draw(
-      candidates
-          .where((candidate) => candidate.size == Size.maintenance)
-          .toList(),
-      facts,
-      1,
-    );
-    if (maintenance.isNotEmpty) {
-      return maintenance[0];
-    }
+  final chunk = policy.chunk;
+  if (chunk != null) {
+    return chunk;
   }
-
-  if ((dealtOnDay[Size.instant] ?? 0) < instantDrawsPerDay) {
-    final habits = _draw(
-      candidates.where((candidate) => candidate.size == Size.instant).toList(),
-      facts,
-      1,
-    );
-    if (habits.isNotEmpty) {
-      return habits[0];
-    }
+  if ((policy.dealtOnDay[Size.maintenance] ?? 0) < maintenanceDrawsPerDay &&
+      policy.maintenance.isNotEmpty) {
+    return policy.maintenance[0];
   }
-
+  if ((policy.dealtOnDay[Size.instant] ?? 0) < instantDrawsPerDay &&
+      policy.instantHabits.isNotEmpty) {
+    return policy.instantHabits[0];
+  }
   return null;
 }
 
@@ -335,6 +478,7 @@ Card? cardForItem({
         size: entry.size,
         name: entry.name,
         origin: origin,
+        zone: entry.zone,
         estimateSeconds: estimateSecondsOf(entry.size),
       );
     }

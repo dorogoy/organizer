@@ -150,8 +150,9 @@ void main() {
     expect(contents, isEmpty);
   });
 
-  test('a Hecho naming an item never dealt appends nothing and closes no '
-      'slot', () {
+  test('a Hecho naming an item never dealt appends nothing: no slot closes, '
+      'the standing deal composes upkeep only (AD-3), and the slot proves '
+      'open once the session closes', () {
     final log = [
       _started(utcMicros(2026, 8, 28, 10)),
       _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
@@ -165,17 +166,27 @@ void main() {
       offsetSeconds: 0,
     );
     expect(contents, isEmpty);
-    // Nothing was appended, so the day's slot stays open.
-    expect(
-      composeDay(
-        catalogue: _catalogue,
-        log: log,
-        instantUtcMicros: now,
-        offsetSeconds: 0,
-      ).focus,
-      isNotNull,
-      reason: 'a card_done that never landed closes nothing',
+    // Nothing was appended: the dealt-but-unanswered card stands, so
+    // the day composes upkeep and habits only (AD-3) — the foreign
+    // Hecho closed no slot and consumed nothing.
+    final composition = composeDay(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: now,
+      offsetSeconds: 0,
     );
+    expect(composition.focus, isNull);
+    expect(composition.maintenance, hasLength(3));
+    expect(composition.instantHabits, hasLength(5));
+    // Once the session closes, the slot proves still open: the zone's
+    // entry resolves again.
+    final afterClose = composeDay(
+      catalogue: _catalogue,
+      log: [...log, _ended(utcMicros(2026, 8, 28, 10, 30))],
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+    );
+    expect(afterClose.focus!.id, 'zona-a');
   });
 
   test(

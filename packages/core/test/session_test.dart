@@ -230,6 +230,81 @@ void main() {
     expect(open.dealtUnanswered!.itemOrigin, Origin.shipped);
   });
 
+  test('a card_done of another origin leaves the outstanding deal standing: '
+      'the clear matches (itemId, itemOrigin)', () {
+    final crossOriginDone = ItemActEntry(
+      id: 'done-cross-origin',
+      instantUtcMicros: utcMicros(2026, 8, 28, 10, 0, 2),
+      offsetSeconds: 0,
+      kind: LogKind.cardDone,
+      itemId: 'man-a',
+      itemOrigin: Origin.manual,
+    );
+    final standing = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      crossOriginDone,
+    ], catalogue: _catalogue);
+    expect(
+      standing.dealtUnanswered!.itemId,
+      'man-a',
+      reason:
+          'the answer\'s origin differs from the deal\'s — the deal '
+          'stands',
+    );
+    expect(standing.dealtUnanswered!.itemOrigin, Origin.shipped);
+    // The done still answers all-time — only the clear is origin-scoped.
+    expect(standing.answeredItemIds, {'man-a'});
+
+    // The matching (itemId, itemOrigin) pair clears, as always.
+    final cleared = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      crossOriginDone,
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 3), 'man-a'),
+    ], catalogue: _catalogue);
+    expect(cleared.dealtUnanswered, isNull);
+
+    // The asymmetry's slot-close twin on a focus item: the
+    // pair-mismatched done leaves the deal standing, yet answering
+    // stays bare-id — the day's focus slot closes all the same.
+    final focusCrossOrigin = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      ItemActEntry(
+        id: 'done-focus-cross-origin',
+        instantUtcMicros: utcMicros(2026, 8, 28, 10, 0, 2),
+        offsetSeconds: 0,
+        kind: LogKind.cardDone,
+        itemId: 'zona-a',
+        itemOrigin: Origin.manual,
+      ),
+    ], catalogue: _catalogue);
+    expect(focusCrossOrigin.dealtUnanswered!.itemId, 'zona-a');
+    expect(focusCrossOrigin.dealtUnanswered!.itemOrigin, Origin.shipped);
+    expect(
+      focusCrossOrigin.focusSlotClosedDays,
+      {const Calendar().dayOf(utcMicros(2026, 8, 28, 10), 0)},
+      reason:
+          'the answered index and the slot close stay bare-id — only '
+          'the clear is pair-scoped',
+    );
+  });
+
+  test('the answered index holds card_done rows only, all-time (AD-20)', () {
+    final facts = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'man-a'),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 3), 'hab-a'),
+      _act(LogKind.cardSkipped, utcMicros(2026, 8, 28, 10, 0, 4), 'hab-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 20, 9), 'zona-a'),
+    ], catalogue: _catalogue);
+    // A `card_done` answers whatever size it names; a skip consumes
+    // nothing; and answering is all-time, never windowed.
+    expect(facts.answeredItemIds, {'man-a', 'zona-a'});
+  });
+
   test('the least-recently-dealt index reads recorded deal instants, latest '
       'per item (AD-3)', () {
     final facts = walkLog([

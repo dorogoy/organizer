@@ -253,6 +253,49 @@ void main() {
     );
   });
 
+  group('the week ordinal (FR-31\'s ring input)', () {
+    test(
+      'consecutive weeks differ by exactly one across a Monday boundary',
+      () {
+        // The Sunday and the Monday it hands to: one boundary, one step.
+        final sunday = calendar.dayOf(utcMicros(2026, 8, 30, 12), 0);
+        final monday = calendar.dayOf(utcMicros(2026, 8, 31, 12), 0);
+        final before = calendar.weekOf(sunday).weekOrdinal;
+        final after = calendar.weekOf(monday).weekOrdinal;
+        expect(after - before, 1);
+        // Pinned against the fixed epoch Monday: 1390 whole weeks from
+        // 2000-01-03 to 2026-08-24.
+        expect(before, 1390);
+        expect(after, 1391);
+      },
+    );
+
+    test('the epoch Monday is ordinal 0; earlier weeks go negative and '
+        'still resolve', () {
+      expect(
+        calendar
+            .weekOf(calendar.dayOf(utcMicros(2000, 1, 3, 12), 0))
+            .weekOrdinal,
+        0,
+      );
+      // 1999-12-27 and 1999-12-20 are Mondays of the epoch's own frame —
+      // one and two weeks before it. Negative ordinals are consistent,
+      // never a crash: the consumer's ring normalizes them.
+      expect(
+        calendar
+            .weekOf(calendar.dayOf(utcMicros(1999, 12, 27, 12), 0))
+            .weekOrdinal,
+        -1,
+      );
+      expect(
+        calendar
+            .weekOf(calendar.dayOf(utcMicros(1999, 12, 20, 12), 0))
+            .weekOrdinal,
+        -2,
+      );
+    });
+  });
+
   group('the season is the meteorological quarter (matrix: season edges)', () {
     test(
       '2026-11-30 closes autumn; 2026-12-01 opens winter anchored Dec 2026',
