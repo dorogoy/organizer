@@ -293,6 +293,66 @@ void main() {
     expect(afterDone!.size, Size.maintenance);
   });
 
+  test('the pipeline holds the AD-3 line too: a dealt-but-unanswered card '
+      'composes no chunk, upkeep and habits stand', () {
+    final log = [
+      _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-z1-a'),
+    ];
+    final composition = composeDay(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+    );
+    expect(
+      composition.focus,
+      isNull,
+      reason: 'the day never composes a second card over the standing one',
+    );
+    expect(composition.maintenance, hasLength(3));
+    expect(composition.instantHabits, hasLength(5));
+    expect(
+      nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      ),
+      isNull,
+      reason: 'nextDeal still yields null outright while the deal stands',
+    );
+  });
+
+  test('the AD-3 guard covers a maintenance deal too: a skipped chunk leaves '
+      'the slot open yet composes none while the upkeep deal stands', () {
+    final log = [
+      _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-z1-a'),
+      _skipped(utcMicros(2026, 8, 28, 10, 0, 2), 'zona-z1-a'),
+      _dealt(utcMicros(2026, 8, 28, 10, 0, 3), 'man-a'),
+    ];
+    final standing = composeDay(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+    );
+    expect(standing.focus, isNull, reason: 'a deal — any deal — stands');
+    expect(standing.maintenance, hasLength(3));
+    expect(standing.instantHabits, hasLength(5));
+
+    // The answer frees the pipeline: the skip consumed nothing, so the
+    // zone's tier resolves again.
+    final freed = composeDay(
+      catalogue: _catalogue,
+      log: [...log, _done(utcMicros(2026, 8, 28, 10, 0, 4), 'man-a')],
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+    );
+    expect(freed.focus!.id, 'zona-z1-b');
+  });
+
   test('a skipped zone entry stays in its tier: it deals again before '
       'fondo once its zone-mates are answered (AD-20)', () {
     var log = <LogEntry>[];
@@ -637,6 +697,29 @@ void main() {
     },
   );
 
+  test('two cards differing only in zone compare unequal; toString renders '
+      'the zone and never the literal null', () {
+    // An id and name with no hyphens and no digits, so the exact-string
+    // pins below can only match the rendered shape itself.
+    Card cardOf(Zone? zone) => Card(
+      id: 'k',
+      size: Size.focus,
+      name: 'T',
+      origin: Origin.shipped,
+      zone: zone,
+      estimateSeconds: focusEstimateSeconds,
+    );
+    final plain = cardOf(null);
+    final zoned = cardOf(Zone.z1);
+
+    expect(zoned, isNot(plain), reason: 'the zone participates in equality');
+    expect(cardOf(Zone.z1), zoned);
+    expect(cardOf(Zone.z1).hashCode, zoned.hashCode);
+
+    expect(zoned.toString(), 'Card(k, focus, shipped, z1, 900s)');
+    expect(plain.toString(), 'Card(k, focus, shipped, -, 900s)');
+  });
+
   group('the active-zone ring (FR-11, FR-31)', () {
     const calendar = Calendar();
 
@@ -734,6 +817,89 @@ void main() {
       );
       expect(monday!.zone, Zone.z2);
       expect(monday.id, 'zona-z2-a');
+    });
+
+    test('a whole week with no session passes without catch-up: the new '
+        'week\'s zone deals first (AD-19 × FR-11)', () {
+      // The z1 week passed untouched — not a row in the log. The z2
+      // week's first composition deals z2, never the missed week's
+      // leftover entries.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: utcMicros(2026, 8, 31, 12),
+        offsetSeconds: 0,
+      );
+      expect(composition.focus!.zone, Zone.z2);
+      expect(composition.focus!.id, 'zona-z2-a');
+
+      // The whole z2 week runs its own arithmetic, and the untouched z1
+      // entries never jump the queue: they wait for tier 3 while z2 and
+      // fondo fill the week.
+      var log = <LogEntry>[];
+      final dealt = <String>[];
+      for (var day = 7; day < 14; day++) {
+        final deal = nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: _day(day),
+          offsetSeconds: 0,
+        )!;
+        dealt.add(deal.id);
+        log
+          ..add(_dealt(_day(day), deal.id))
+          ..add(_done(_day(day) + 1, deal.id));
+      }
+      expect(dealt, [
+        'zona-z2-a',
+        'zona-z2-b',
+        'zona-z2-c',
+        'fondo-a',
+        'fondo-b',
+        'fondo-c',
+        'fondo-d',
+      ]);
+
+      // The wait spans four full weeks: z3, z4 and z5 take their turns
+      // and fondo spends its last entries — 27 distinct deals, never a
+      // z1 entry — until only the missed week's entries remain.
+      for (var day = 14; day < 34; day++) {
+        final deal = nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: _day(day),
+          offsetSeconds: 0,
+        )!;
+        dealt.add(deal.id);
+        log
+          ..add(_dealt(_day(day), deal.id))
+          ..add(_done(_day(day) + 1, deal.id));
+      }
+      expect(dealt, hasLength(27));
+      expect(dealt.toSet(), hasLength(27));
+      expect(
+        dealt.where((id) => id.startsWith('zona-z1')),
+        isEmpty,
+        reason: 'the missed week\'s entries wait for the tiers that follow',
+      );
+
+      // Day 35 — the ring's return to z1 — deals the oldest missed
+      // entry as tier 1 of the returned week, never a tier-3
+      // jump-ahead. (Day 34, the spent pool's own tier-3 day, is left
+      // uncomposed: this pin is the ring's, not the repetition's.)
+      final returned = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: _day(35),
+        offsetSeconds: 0,
+      )!;
+      expect(returned.zone, Zone.z1);
+      expect(returned.id, 'zona-z1-a');
+      expect(
+        {...dealt, returned.id},
+        hasLength(28),
+        reason: '28 distinct deals across the whole run',
+      );
     });
 
     test('the ring reaches z5: a z5 week composes and deals z5 entries', () {
@@ -858,6 +1024,69 @@ void main() {
       );
       expect(composition.focus!.zone, Zone.z3);
       expect(composition.focus!.id, 'zona-z3-a');
+    });
+
+    test('a mid-day fondo disable rides activeClustersAt into the weave the '
+        'same day (AD-16 — the daily-cluster half of the seam)', () {
+      // Monday morning answers all five z1 entries; by Thursday the
+      // zone's tier is empty and fondo fills — unless fondo left the
+      // active set that morning.
+      final log = <LogEntry>[
+        for (final (index, id) in [
+          'zona-z1-a',
+          'zona-z1-b',
+          'zona-z1-c',
+          'zona-z1-d',
+          'zona-z1-e',
+        ].indexed) ...[
+          _dealt(_day(0, 8 + index), id),
+          _done(_day(0, 9 + index), id),
+        ],
+      ];
+      final thursdayNoon = _day(3);
+      expect(
+        composeDay(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: thursdayNoon,
+          offsetSeconds: 0,
+        ).focus!.id,
+        'fondo-a',
+        reason: 'the all-active default fills the exhausted zone with fondo',
+      );
+
+      // The disable observed Thursday 08:00 is effective its own
+      // domestic day: the derived set drops fondo, and that same day's
+      // composition follows it.
+      final thursdayMorning = <CurationObservation>[
+        (
+          cluster: CurationCluster.fondo,
+          enabled: false,
+          instantUtcMicros: utcMicros(2026, 8, 27, 8),
+          offsetSeconds: 0,
+        ),
+      ];
+      final derived = activeClustersAt(thursdayMorning, thursdayNoon);
+      expect(derived.contains(CurationCluster.fondo), isFalse);
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: thursdayNoon,
+        offsetSeconds: 0,
+        activeClusters: derived,
+      );
+      expect(
+        composition.focus,
+        isNotNull,
+        reason: 'never an empty day while an eligible entry exists',
+      );
+      expect(
+        composition.focus!.id,
+        'zona-z2-a',
+        reason:
+            'tier 3: the least-recently-dealt eligible entry regardless '
+            'of zone — fondo is out of the offer',
+      );
     });
 
     test('a disabled zone\'s week composes from the zone that took it', () {
@@ -1040,6 +1269,51 @@ void main() {
       expect(repetition!.size, Size.focus);
       expect(repetition.id, 'zona-z1-a');
       expect(dealt.contains(repetition.id), isTrue);
+    });
+
+    test('below the floor with two zones active the ring still advances '
+        'across weeks: 20 distinct deals, then the day-21 repetition — '
+        'never an empty day (AD-20, FR-31)', () {
+      // z3–z5 disabled: 5 z1 + 3 z2 + 12 fondo = 20 eligible, below the
+      // 28 floor. The ring still rotates — z1's week, z2's week, then
+      // the z3 week passes to the next active zone, z1 — and tier 3
+      // repeats only once every eligible entry is answered.
+      final clusters = _clustersWithout([
+        CurationCluster.z3,
+        CurationCluster.z4,
+        CurationCluster.z5,
+      ]);
+      var log = <LogEntry>[];
+      final dealt = <String>[];
+      final dealtZones = <Zone?>[];
+      for (var day = 0; day < 21; day++) {
+        final deal = nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: _day(day),
+          offsetSeconds: 0,
+          activeClusters: clusters,
+        );
+        expect(deal, isNotNull, reason: 'never an empty day (day $day)');
+        dealt.add(deal!.id);
+        dealtZones.add(deal.zone);
+        log
+          ..add(_dealt(_day(day), deal.id))
+          ..add(_done(_day(day) + 1, deal.id));
+      }
+      expect(dealt.take(20).toSet(), hasLength(20));
+      // The ring advanced across weeks while the floor was broken:
+      // z1's five, the weekend's fondo, z2's three, fondo again — and
+      // week three's nominal z3 passes to z1, whose tier is spent, so
+      // fondo carries it to the last entry.
+      expect(dealtZones.sublist(0, 5), everyElement(Zone.z1));
+      expect(dealtZones[7], Zone.z2);
+      expect(dealtZones[9], Zone.z2);
+      expect(dealtZones[10], isNull);
+      expect(dealtZones[14], isNull, reason: 'z1 is spent — fondo fills');
+      // Day 21: tiers 1 and 2 empty — tier 3 repeats the deal of day 1.
+      expect(dealt[20], dealt[0], reason: 'the oldest deal, dealt again');
+      expect(dealt[0], 'zona-z1-a');
     });
 
     test('28 answered chunks over the default state never repeat a '

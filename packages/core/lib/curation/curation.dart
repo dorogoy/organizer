@@ -86,18 +86,28 @@ typedef CurationObservation = ({
 /// The cluster an entry belongs to (AD-16: derivable from the tuple
 /// only): daily instants are `anclas`, daily maintenance and focus are
 /// `sostén`, weekly entries belong to their zone, seasonal entries are
-/// `fondo`. A weekly entry's zone is guaranteed by [parseCatalogue]; a
-/// hand-built entry without one fails fast here, named — never a bare
-/// null dereference — mirroring `walkLog`'s duplicate-id discipline.
-CurationCluster curationClusterOfEntry(CatalogueEntry entry) =>
-    switch (entry.cadence) {
-      Cadence.daily =>
-        entry.size == Size.instant
-            ? CurationCluster.anclas
-            : CurationCluster.sosten,
-      Cadence.weekly => curationClusterOfZone(_weeklyZoneOf(entry)),
-      Cadence.seasonal => CurationCluster.fondo,
-    };
+/// `fondo`. [parseCatalogue] guarantees the tuple's zone discipline on
+/// the asset path — a weekly entry carries a zone and no other cadence
+/// does — so a hand-built entry breaking either half fails fast here,
+/// named — never a bare null dereference or a silently misclustered
+/// zone — mirroring `walkLog`'s duplicate-id discipline.
+CurationCluster curationClusterOfEntry(CatalogueEntry entry) {
+  if (entry.cadence != Cadence.weekly && entry.zone != null) {
+    throw StateError(
+      'non-weekly entry "${entry.id}" carries a zone — a zone is legal '
+      'only on a weekly entry (A12.4); a fixture bypassing '
+      'parseCatalogue has drifted',
+    );
+  }
+  return switch (entry.cadence) {
+    Cadence.daily =>
+      entry.size == Size.instant
+          ? CurationCluster.anclas
+          : CurationCluster.sosten,
+    Cadence.weekly => curationClusterOfZone(_weeklyZoneOf(entry)),
+    Cadence.seasonal => CurationCluster.fondo,
+  };
+}
 
 Zone _weeklyZoneOf(CatalogueEntry entry) {
   final zone = entry.zone;

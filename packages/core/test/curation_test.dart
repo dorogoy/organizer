@@ -80,6 +80,51 @@ void main() {
       clusterOf('zona-manten', Size.maintenance, Cadence.weekly, zone: Zone.z5),
       CurationCluster.z5,
     );
+    expect(
+      () => clusterOf(
+        'diaria-con-zona',
+        Size.focus,
+        Cadence.daily,
+        zone: Zone.z2,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('diaria-con-zona'),
+            contains('A12.4'),
+            contains('parseCatalogue'),
+          ),
+        ),
+      ),
+      reason:
+          'a zone is legal only on a weekly entry; parseCatalogue '
+          'rejects the shape on the asset path, so only a drifted '
+          'fixture reaches this, and it fails named',
+    );
+    expect(
+      () => clusterOf(
+        'estacional-con-zona',
+        Size.focus,
+        Cadence.seasonal,
+        zone: Zone.z3,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('estacional-con-zona'),
+            contains('A12.4'),
+            contains('parseCatalogue'),
+          ),
+        ),
+      ),
+      reason:
+          'seasonal entries carry no zone either — the guard is '
+          'cadence-wide, not daily-only',
+    );
 
     for (final zone in Zone.values) {
       expect(curationClusterOfZone(zone).name, zone.name);
@@ -147,6 +192,38 @@ void main() {
       final exact = activeClustersAt(disabledMidWeek, boundaryExact);
       expect(exact.contains(CurationCluster.z2), isFalse);
       expect(exact, _allBut(CurationCluster.z2));
+    });
+
+    test('an observation made exactly at the boundary belongs to the new '
+        'week: its zone stays active through that week, away the next', () {
+      // z3 disabled at Monday 2026-08-31 04:00 exactly — the opening
+      // instant of the week anchored that day. The observation's own
+      // week is the one opening there, so the change lands at that
+      // week's close: the boundary's week keeps its rotation.
+      final z3OffAtBoundary = [_obs(CurationCluster.z3, false, boundaryExact)];
+      expect(
+        activeClustersAt(
+          z3OffAtBoundary,
+          boundaryExact,
+        ).contains(CurationCluster.z3),
+        isTrue,
+        reason:
+            'the boundary instant is the new week\'s own — the '
+            'rotation argument is theirs',
+      );
+      expect(
+        activeClustersAt(
+          z3OffAtBoundary,
+          utcMicros(2026, 9, 6, 22),
+        ).contains(CurationCluster.z3),
+        isTrue,
+        reason: 'the boundary\'s whole week keeps the zone',
+      );
+      expect(
+        activeClustersAt(z3OffAtBoundary, weekAfterNextBoundary),
+        _allBut(CurationCluster.z3),
+        reason: 'the change is effective only at the next week boundary',
+      );
     });
 
     test('a Sunday change takes effect at Monday 04:00 — hours later, not '

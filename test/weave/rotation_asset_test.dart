@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/curation/curation.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/weave.dart';
@@ -186,5 +187,104 @@ void main() {
     ]);
     expect(dealtZones.where((zone) => zone != null), hasLength(17));
     expect(dealtZones.where((zone) => zone == null), hasLength(11));
+  });
+
+  test('a z5-week run deals the shipped asset\'s z5 entries (FR-11)', () async {
+    final catalogue = await _shippedCatalogue();
+
+    // The asset's z5 focus entries, captured — never hardcoded.
+    final z5Ids = [
+      for (final entry in catalogue.entries)
+        if (entry.size == Size.focus &&
+            entry.cadence == Cadence.weekly &&
+            entry.zone == Zone.z5)
+          entry.id,
+    ]..sort();
+    final fondoIds = {
+      for (final entry in catalogue.entries)
+        if (entry.size == Size.focus && entry.cadence == Cadence.seasonal)
+          entry.id,
+    };
+    expect(z5Ids, hasLength(3), reason: 'the shipped arithmetic: 3 z5 focus');
+
+    // The week anchored Monday 2026-09-21 is ordinal 1394 — mod 5 = 4,
+    // the ring's z5. Seven days of deal+answer run the whole week.
+    var log = <LogEntry>[];
+    final dealt = <String>[];
+    final dealtZones = <Zone?>[];
+    for (var day = 0; day < 7; day++) {
+      final instant = _utcMicros(2026, 9, 21, 12) + day * _microsPerDay;
+      final deal = nextDeal(
+        catalogue: catalogue,
+        log: log,
+        instantUtcMicros: instant,
+        offsetSeconds: 0,
+      );
+      expect(deal, isNotNull, reason: 'day $day of the run holds a chunk');
+      dealt.add(deal!.id);
+      dealtZones.add(deal.zone);
+      log
+        ..add(_dealt(instant, deal.id))
+        ..add(_done(instant + 1, deal.id));
+    }
+
+    expect(dealt, hasLength(7));
+    expect(dealt.toSet(), hasLength(7));
+    expect(dealt.sublist(0, 3), z5Ids, reason: 'the zone\'s entries first');
+    expect(dealtZones.sublist(0, 3), everyElement(Zone.z5));
+    expect(
+      dealtZones.sublist(3),
+      everyElement(isNull),
+      reason: 'the zone spent, fondo fills the week\'s rest',
+    );
+    expect(dealt.sublist(3), everyElement(isIn(fondoIds)));
+  });
+
+  test('a below-floor run against the shipped asset: {z1, fondo} active '
+      'deals 17 distinct ids, then repeats the first (AD-20, FR-31)', () async {
+    final catalogue = await _shippedCatalogue();
+
+    // The eligible set under the curation state, by capture: 5 z1 + 12
+    // fondo = 17, below the 28 floor.
+    final clusters = {
+      CurationCluster.z1,
+      CurationCluster.fondo,
+      CurationCluster.anclas,
+      CurationCluster.sosten,
+    };
+    final eligibleIds = [
+      for (final entry in catalogue.entries)
+        if (entry.size == Size.focus &&
+            entry.cadence != Cadence.daily &&
+            (entry.cadence == Cadence.seasonal || entry.zone == Zone.z1))
+          entry.id,
+    ]..sort();
+    expect(eligibleIds, hasLength(17));
+
+    // Eighteen days of deal+answer from Monday 2026-08-24, the z1 week.
+    var log = <LogEntry>[];
+    final dealt = <String>[];
+    for (var day = 0; day < 18; day++) {
+      final instant = _utcMicros(2026, 8, 24, 12) + day * _microsPerDay;
+      final deal = nextDeal(
+        catalogue: catalogue,
+        log: log,
+        instantUtcMicros: instant,
+        offsetSeconds: 0,
+        activeClusters: clusters,
+      );
+      expect(deal, isNotNull, reason: 'never an empty day (day $day)');
+      dealt.add(deal!.id);
+      log
+        ..add(_dealt(instant, deal.id))
+        ..add(_done(instant + 1, deal.id));
+    }
+
+    // Days 1-17 answer every eligible entry exactly once — the ring
+    // wraps to z1 over the disabled weeks and fondo carries both — then
+    // day 18 falls to tier 3: the oldest deal, dealt again.
+    expect(dealt.take(17).toSet(), hasLength(17));
+    expect(dealt.take(17).toSet(), eligibleIds.toSet());
+    expect(dealt[17], dealt[0], reason: 'tier 3 repeats the oldest deal');
   });
 }

@@ -113,7 +113,7 @@ final class Card {
   @override
   String toString() =>
       'Card(${id.toString()}, ${size.name}, ${origin.name}, '
-      '${zone?.name}, ${estimateSeconds}s)';
+      '${zone?.name ?? '-'}, ${estimateSeconds}s)';
 }
 
 /// Where a candidate stands in AD-20's arbitration. One member today —
@@ -323,7 +323,9 @@ bool _chunkComposes(
 /// deferred unification): eligibility, cluster filtering, the chunk
 /// tiers and the day's ordered draws computed once, so `composeDay` and
 /// `nextDeal` cannot drift. The chunk card is resolved only while the
-/// gate holds; the draws are the day's full canonical counts.
+/// gate holds and no dealt-but-unanswered card stands (AD-3 — the line
+/// is the pipeline's, so both surfaces read it identically); the draws
+/// are the day's full canonical counts.
 typedef _DayPolicy = ({
   LogFacts facts,
   Card? chunk,
@@ -346,7 +348,8 @@ _DayPolicy _resolveDay({
   final clusters = activeClusters ?? allCurationClusters;
   final candidates = shippedCandidates(catalogue, activeClusters: clusters);
   Card? chunk;
-  if (_chunkComposes(bagMinutes, energy, facts, day)) {
+  if (_chunkComposes(bagMinutes, energy, facts, day) &&
+      facts.dealtUnanswered == null) {
     final activeZone = activeZoneOf(const Calendar().weekOf(day), clusters);
     final chunkCandidate = _chunkCandidateOf(
       candidates.where((candidate) => candidate.size == Size.focus).toList(),
@@ -382,8 +385,10 @@ _DayPolicy _resolveDay({
 /// [focusChunkLeastBagMinutes] or more and the derived energy is not low
 /// — otherwise the day composes without the "1", silently; 🟡 changes
 /// nothing (FR-4). A day whose slot a `card_done` already closed composes
-/// upkeep and habits only. Upkeep and habits are never charged to the
-/// bag (FR-7).
+/// upkeep and habits only, and so does a day whose open session still
+/// holds a dealt-but-unanswered card — an unanswered card never produces
+/// a second card (AD-3), the shared pipeline's line now, not just the
+/// deal-level one. Upkeep and habits are never charged to the bag (FR-7).
 DayComposition composeDay({
   required Catalogue catalogue,
   required List<LogEntry> log,

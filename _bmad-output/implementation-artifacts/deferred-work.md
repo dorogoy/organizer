@@ -52,10 +52,6 @@
   evidence: Review round 1: SessionController._appendAll awaits record-by-record and the detached/hidden session_ended is only best-effort awaited; the crash path accepts the same loss for crash rows, but session rows feed every derivation (AD-19 day attribution) and no recovery derivation exists for an open session with no dealt card.
 
 - source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
-  summary: Unify composeDay's and nextDeal's gating/ordering policy (composeDay ignores the day's dealt progress; nextDeal caps maintenance/instant draws by dealt counts) when Story 1.7 restructures the resolver for zone precedence.
-  evidence: Review round 1: two parallel implementations of "what the day offers" in packages/core/lib/weave/weave.dart can drift independently; composeDay has no production caller today (nextCard is the shell's only work surface), so divergence is invisible until a consumer reads the composition.
-
-- source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
   summary: Give pool-fact reads the same distinct-flaw surfacing log reads have (LogRecordFlaw) and test unknown origin/size tokens, when the first pool writer (Epic 3 capture) or restore (Epic 9) makes malformed pool rows possible.
   evidence: Review round 1: DriftStore.readPoolFacts silently drops rows with unknown origin/size tokens with no observable flaw, while log reads carry LogRecordFlaw discipline; nothing writes pool rows today, so the drop is unreachable except via hand-built databases.
 
@@ -65,3 +61,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-7-zone-rotation-fondo-fill-and-the-below-floor-fallback.md`
   summary: Scope `LogFacts.answeredItemIds` by (itemId, origin) rather than bare id when the first second-origin writer (Epic 3 capture) or restore makes id collision across origins representable.
   evidence: Review round 1: the chunk tiers 1-2 exclusion reads a bare-id set while sibling facts (dealtUnanswered) carry the origin pair; catalogue ids are unique and captured items mint UUIDs today, so the collision is unreachable except via hand-built logs, but the fact type is the contract later sources consume.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-7-zone-rotation-fondo-fill-and-the-below-floor-fallback.md`
+  summary: Decide tier 2's membership contract for zone-less focus entries before the first capture writer (Epic 3) lands — today `fondo` is identified by `zone == null` on a focus candidate, so a captured focus item would enter the seasonal tier by construction.
+  evidence: Review round 2: `_chunkCandidateOf`'s tier 2 reads `candidate.zone == null` over the shipped catalogue, where the only zone-less focus entries are seasonal; captures are expected to arrive focus-size with no zone, so without a decided contract (a capture cluster, an assigned zone, or an explicit tier exclusion) Epic 3's items would silently join `fondo` and consume its weekly slots.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-review-fixes.md`
+  summary: Decide whether `LogFacts.dealtUnanswered` should also hold a `card_dealt` recorded outside any open session — today the walk sets the fact only inside a session, so the AD-3 guards (the pipeline's and `nextDeal`'s) are blind to an out-of-session unanswered deal.
+  evidence: Review round 2 (edge-case lens): `session.dart` sets `dealtUnanswered` only `if (openSessionStart != null)`, while out-of-session card acts are tolerated for totality; no command writes a deal outside a session, so the path is unreachable today — but the fact's session-scoping is now load-bearing for two guards instead of one, and Epic 2's derived-session work should confirm the scope deliberately.

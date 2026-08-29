@@ -56,8 +56,8 @@ final class LogFacts {
 
   /// The open session's dealt-but-unanswered card, if any: the last
   /// `card_dealt` inside it with no answering `card_done` or
-  /// `card_skipped` since. An unanswered card never produces a second
-  /// deal (AD-3).
+  /// `card_skipped` on the same (itemId, itemOrigin) since. An
+  /// unanswered card never produces a second deal (AD-3).
   final ({String itemId, Origin itemOrigin})? dealtUnanswered;
 }
 
@@ -158,7 +158,9 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
             }
           }
           final unanswered = dealtUnanswered;
-          if (unanswered != null && unanswered.itemId == itemId) {
+          if (unanswered != null &&
+              unanswered.itemId == itemId &&
+              unanswered.itemOrigin == itemOrigin) {
             dealtUnanswered = null;
           }
         }
