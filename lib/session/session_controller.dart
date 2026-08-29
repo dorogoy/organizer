@@ -15,7 +15,7 @@ import '../strings/app_strings.dart';
 /// open runs once, unawaited, so the first frame never waits on the
 /// store. The registrar is injectable so tests observe the registration
 /// — the crash guard's own testability pattern.
-void installSessionController({
+SessionController installSessionController({
   required StorePort store,
   required AppStrings strings,
   AssetBundle? bundle,
@@ -32,6 +32,7 @@ void installSessionController({
   );
   (addObserver ?? WidgetsBinding.instance.addObserver)(controller);
   unawaited(controller.handleAppOpen());
+  return controller;
 }
 
 /// The session lifecycle wiring (AD-19): the shell observer that turns
@@ -68,6 +69,11 @@ class SessionController with WidgetsBindingObserver {
   /// next starts. Failures clear from the chain itself so one throwing
   /// step never wedges the queue.
   Future<void> _lifecycle = Future<void>.value();
+  Future<void> _settled = Future<void>.value();
+
+  /// Completes after lifecycle work queued so far. Shell readers use this
+  /// before deriving a card, so they see the session's persisted deal.
+  Future<void> get settled => _settled;
 
   /// Whether the app left the foreground since the last open. The
   /// launch open belongs to main's explicit call alone: a spurious
@@ -76,6 +82,9 @@ class SessionController with WidgetsBindingObserver {
 
   Future<void> _enqueue(Future<void> Function() step) {
     final chained = _lifecycle.then((_) => step());
+    // Readers must observe the current attempt's failure, while the queue
+    // itself recovers so a later lifecycle event can retry.
+    _settled = chained;
     _lifecycle = chained.catchError((Object error) {});
     return chained;
   }

@@ -125,6 +125,48 @@ abstract class AppStrings {
   /// **'Despeja la mesa del salón'**
   String get sampleTask;
 
+  /// Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents.
+  ///
+  /// In es, this message translates to:
+  /// **'Cocina y despensa'**
+  String get zoneZ1;
+
+  /// Dispenser zone-marker label (A12.4) — weekly zone Z2, the canonical cluster name.
+  ///
+  /// In es, this message translates to:
+  /// **'Baños'**
+  String get zoneZ2;
+
+  /// Dispenser zone-marker label (A12.4) — weekly zone Z3, the canonical cluster name.
+  ///
+  /// In es, this message translates to:
+  /// **'Dormitorios'**
+  String get zoneZ3;
+
+  /// Dispenser zone-marker label (A12.4) — weekly zone Z4, the canonical cluster name.
+  ///
+  /// In es, this message translates to:
+  /// **'Salón y zonas comunes'**
+  String get zoneZ4;
+
+  /// Dispenser zone-marker label (A12.4) — weekly zone Z5, the canonical cluster name.
+  ///
+  /// In es, this message translates to:
+  /// **'Entrada, lavadero y exteriores'**
+  String get zoneZ5;
+
+  /// Duration chip, whole minutes — {formats.duration}: value + non-breaking space + unit. The chip is the cost-before-ask eyebrow; the NBSP is load-bearing at 200%.
+  ///
+  /// In es, this message translates to:
+  /// **'{minutes} min'**
+  String durationMinutes(int minutes);
+
+  /// Duration chip, seconds — {formats.duration}: value + non-breaking space + unit, for estimates under a whole minute.
+  ///
+  /// In es, this message translates to:
+  /// **'{seconds} s'**
+  String durationSeconds(int seconds);
+
   /// 3-Destination Flow, first choice — the box glyph's meaning.
   ///
   /// In es, this message translates to:
