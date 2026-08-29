@@ -130,9 +130,9 @@ class SessionController with WidgetsBindingObserver {
         }
       case AppLifecycleState.inactive:
         // A transient occlusion (a banner, the app switcher's first
-        // frame) ends no session, but it is a real departure as far as
-        // the next `resumed` is concerned.
-        _leftForegroundSinceOpen = true;
+        // frame) ends no session and its resume opens nothing either —
+        // every real departure reaches hidden/paused below, which raise
+        // the flag and end the session there.
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
