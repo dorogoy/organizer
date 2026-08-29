@@ -31,7 +31,7 @@ context: ['FR-1', 'FR-3', 'NFR5', 'NFR6', 'AD-14', 'AD-15', 'AD-16', 'UX-DR6', '
 
 **Ask First:** None.
 
-**Never:** No core changes (`nextCard`, weave, commands untouched); no new log kinds; no `cardDone`/`cardSkipped` effects; no pocket trigger, Cámara entry, `Nuevo proyecto` link, ambient strip or energy check-in (later epics); no session_controller changes (double asset read is benign — `rootBundle` caches bytes); no new `tool/` checks or Makefile targets; no card goldens (structure + token tests pin the surface).
+**Never:** No core changes (`nextCard`, weave, commands untouched); no new log kinds; no `cardDone`/`cardSkipped` effects; no pocket trigger, Cámara entry, `Nuevo proyecto` link, ambient strip or energy check-in (later epics); no session-controller behavior changes beyond exposing its settled lifecycle future so the Dispenser reads the persisted launch/resume deal; no new `tool/` checks or Makefile targets; no card goldens (structure + token tests pin the surface).
 
 ## I/O & Edge-Case Matrix
 
@@ -94,7 +94,7 @@ context: ['FR-1', 'FR-3', 'NFR5', 'NFR6', 'AD-14', 'AD-15', 'AD-16', 'UX-DR6', '
 - [x] [Review][Patch] Low: `_cardMaxWidth` was untested — an 800×600 test pins the card at 480 wide, centered [test/ui/dispenser/dispenser_screen_test.dart]
 - [x] [Review][Patch] Low: main()'s same-store wiring had no verification — source-pinned (`openStore()` exactly once; both consumers take the one `store`), the `facade_test.dart` precedent [test/ui/app_test.dart]
 - [x] [Review][Patch] Low: `read()`'s mint-before-await contract was unpinned — source-pinned (`nowOf()` precedes the catalogue await) [test/ui/dispenser/dispenser_screen_test.dart]
-- [ ] [Review][Defer] Cold-start ordering race between the unawaited session append and the screen's first read across a 04:00/week boundary — recorded in _bmad-output/implementation-artifacts/deferred-work.md (consume with 1.9's refresh wiring)
+- [x] [Review][Patch] High: cold-start ordering race between the unawaited session append and the screen's first read across a 04:00/week boundary — `SessionController.settled` now gates each Dispenser read, including resumed reads, and a gated lifecycle widget test proves the rendered card is the persisted `card_dealt` [lib/session/session_controller.dart, lib/ui/dispenser/dispenser_screen.dart, test/ui/dispenser/dispenser_screen_test.dart]
 - [ ] [Review][Defer] Boot-level execution of main()'s construction (beyond the source pins) — recorded in deferred-work.md (factory or integration test)
 - [ ] [Review][Reject] A timeout on `read()` — invents a policy the spines do not state; drift/asset reads do not hang in practice
 - [ ] [Review][Reject] Routing swallowed read failures to the crash guard — the session controller's own established pattern swallows lifecycle errors silently (deliberate quietness, `_enqueue`'s catchError)
@@ -103,6 +103,12 @@ context: ['FR-1', 'FR-3', 'NFR5', 'NFR6', 'AD-14', 'AD-15', 'AD-16', 'UX-DR6', '
 - [ ] [Review][Reject] Deduplicating the AssetBundle/store test doubles across suites — the repo's decided stance keeps local duplication loud (1-7's rejection precedent)
 - [ ] [Review][Reject] Guarding `estimateSeconds <= 0` — unreachable: estimates are per-size constants over the fixed build-time asset
 - [ ] [Review][Reject] `didUpdateWidget` on controller swap — no production path ever swaps the controller
+- [x] [Review][Patch] Medium: duration-chip padding bypassed the spacing contract — selected 12dp horizontal and 4dp vertical values are now documented in DESIGN.md, named in `Spacing`, and widget-pinned [DESIGN.md, lib/ui/tokens.dart, lib/ui/dispenser/duration_chip.dart, test/ui/dispenser/task_card_test.dart]
+- [x] [Review][Patch] Medium: an older refresh could overwrite a newer state — generation-gated commits retain only the latest result, with an out-of-order completion test [lib/ui/dispenser/dispenser_screen.dart, test/ui/dispenser/dispenser_screen_test.dart]
+- [x] [Review][Patch] Medium: a failed refresh left an old card visible — a refresh clears to the intentional empty frame before awaiting and keeps it there on failure, pinned from an already-rendered card [lib/ui/dispenser/dispenser_screen.dart, test/ui/dispenser/dispenser_screen_test.dart]
+- [x] [Review][Patch] Medium: session failure could permit an undealt card — `settled` now preserves the current attempt's failure while the serialization queue remains retryable, and a mixed session/dispenser catalogue-failure test pins the quiet empty frame [lib/session/session_controller.dart, test/ui/dispenser/dispenser_screen_test.dart]
+- [x] [Review][Patch] Medium: spurious `resumed` cleared an existing card — the Dispenser now mirrors the session's foreground-departure flag, and an installed-session pause/resume test proves the rendered card is the resumed session's persisted deal [lib/ui/dispenser/dispenser_screen.dart, test/ui/dispenser/dispenser_screen_test.dart]
+- [x] [Review][Patch] Medium: 200% coverage missed long content — a long zoned card with the longest zone label now proves real overflow, footer reachability and no layout exception [test/ui/dispenser/dispenser_screen_test.dart]
 
 ## Spec Change Log
 
@@ -110,7 +116,13 @@ context: ['FR-1', 'FR-3', 'NFR5', 'NFR6', 'AD-14', 'AD-15', 'AD-16', 'UX-DR6', '
   - Completed review loop across Blind Hunter, Edge-Case Hunter and Verification-Gap lenses; 10 patches applied and verified (266 tests, `make check` 10/10, `make gate` green), 2 deferrals recorded, 8 findings rejected with rationale.
   - No bad-spec or intent-gap findings — the frozen intent held; every patch stayed inside the spec's boundaries (the resumed re-read is the matrix's "next read retries" given its trigger, not a new surface).
 
-## Spec Change Log
+- **2026-08-29 (Review Iteration 2):**
+  - User approved lifecycle synchronization and 12dp/4dp duration-chip padding. Four review patches applied: session/read coordination, tokenized chip padding, refresh generation protection, and empty-on-refresh-failure behavior.
+  - Verified: 269 tests, clean format and analysis, `make check`, and `make gate`.
+
+- **2026-08-29 (Review Iteration 3):**
+  - Second review loop resolved lifecycle-failure propagation, spurious-resume refreshes and long-content 200% verification.
+  - Verified: 272 tests, clean format and analysis, `make check`, and `make gate`.
 
 ## Design Notes
 
@@ -127,9 +139,14 @@ context: ['FR-1', 'FR-3', 'NFR5', 'NFR6', 'AD-14', 'AD-15', 'AD-16', 'UX-DR6', '
 - `devbox run -- make gate` -- expected: test, format, analyze all green
 - `devbox run -- flutter test test/ui/dispenser test/ui/app_test.dart` -- expected: new suites green
 
-**Manual checks (if no CLI):**
-- Real handset, light and dark: the 24px Hoja crescent reads as a place-marker (DESIGN.md:505 gates 1.8 on this)
-- Cold start on device, day one: first card within 2 s; the secondary's 200% fold verified on the handset
+**Manual checks (if no CLI):** — verified 2026-08-29, Sergio, on a real handset:
+- [x] Real handset, light and dark: the 24px Hoja crescent reads as a place-marker (DESIGN.md:505 gates 1.8 on this) — verified at standard resolution in both modes
+- [x] Cold start on device, day one: first card within 2 s — measured under the 2-second bound
+- [x] The secondary's 200% fold verified on the handset — at the system's maximum font scale (≥ 200%) everything renders whole; `Otra más fácil / Ahora no` folds with `no` on the next line, exactly the accepted fold
+
+### Completion Notes
+
+- The three manual gates were verified on the builder's handset on 2026-08-29 (observations transcribed above, verbatim in substance). The font-scale check ran at the system maximum rather than exactly 200%, which covers the floor the spec names.
 
 ## Suggested Review Order
 
