@@ -230,6 +230,20 @@ void main() {
     expect(open.dealtUnanswered!.itemOrigin, Origin.shipped);
   });
 
+  test('the answered index holds card_done rows only, all-time (AD-20)', () {
+    final facts = walkLog([
+      _started(utcMicros(2026, 8, 28, 10)),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 10, 0, 2), 'man-a'),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 10, 0, 3), 'hab-a'),
+      _act(LogKind.cardSkipped, utcMicros(2026, 8, 28, 10, 0, 4), 'hab-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 20, 9), 'zona-a'),
+    ], catalogue: _catalogue);
+    // A `card_done` answers whatever size it names; a skip consumes
+    // nothing; and answering is all-time, never windowed.
+    expect(facts.answeredItemIds, {'man-a', 'zona-a'});
+  });
+
   test('the least-recently-dealt index reads recorded deal instants, latest '
       'per item (AD-3)', () {
     final facts = walkLog([

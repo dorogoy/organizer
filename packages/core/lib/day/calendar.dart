@@ -16,7 +16,8 @@
 ///   no DST rule engine — so a transition never creates or destroys a
 ///   period: the fixed-offset frame IS the DST mechanism.
 /// - [Week] — seven domestic days anchored on Monday; identity is the
-///   Monday label, and Sunday is the week's last day.
+///   Monday label, Sunday is the week's last day, and [Week.weekOrdinal]
+///   counts weeks since a fixed epoch Monday for the zone rotation.
 /// - [Season] — the meteorological quarter (DJF/MAM/JJA/SON) on
 ///   domestic-day boundaries, winter anchored on its December.
 ///
@@ -24,6 +25,9 @@
 /// core-test- and review-held, SPINE:242): every later consumer — the
 /// weave, zone rotation, sessions, SM-2, seasonal reports, invitations —
 /// calls this Calendar rather than reimplementing any boundary math.
+/// That includes the week's rotation arithmetic input: the ordinal
+/// [Week.weekOrdinal] returns is the one number FR-31's zone ring may
+/// reduce, never a second week count beside this Calendar.
 ///
 /// The `offsetSeconds` every method takes is the entry's stored offset.
 /// Its real-world domain is UTC offsets — |offset| ≤ 14 h, any
@@ -123,6 +127,19 @@ final class Week {
   /// The anchor Monday's civil-date label — the week's identity.
   String get label => monday.label;
 
+  /// Weeks since the fixed epoch Monday 2000-01-03 — a deterministic
+  /// ordinal that grows by exactly one at every week boundary, so a
+  /// five-slot ring (FR-31's zone rotation) reads `(ordinal mod 5)` off
+  /// this one Calendar and never beside it. Derived from the identity
+  /// label, never stored; consecutive weeks differ by exactly 1.
+  int get weekOrdinal =>
+      DateTime.utc(
+        monday.year,
+        monday.month,
+        monday.day,
+      ).difference(DateTime.utc(2000, 1, 3)).inDays ~/
+      7;
+
   @override
   String toString() => 'week of $label';
 
@@ -212,7 +229,9 @@ final class Calendar {
   }
 
   /// The week holding [day]: seven days anchored on Monday, in [day]'s
-  /// inherited frame. Sunday is the returned week's last day.
+  /// inherited frame. Sunday is the returned week's last day. The week's
+  /// [Week.weekOrdinal] — the zone rotation's ring input — derives from
+  /// the anchor Monday this returns.
   Week weekOf(Day day) {
     final mondayCivil = DateTime.utc(
       day.year,

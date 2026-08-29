@@ -62,3 +62,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-6-the-1-3-5-weave-and-the-focus-chunk-slot.md`
   summary: Decide whether a skipped Micro-maintenance or Instant Habit draw frees the day's draw slot (the mirror of AD-20's chunk-skip rule) before Story 1.10 wires the skip control.
   evidence: Review round 1: walkLog charges dealtCountsByDay at deal time regardless of the answer, so a skipped upkeep permanently consumes one of the day's 3/5 draws; neither the story, the spine excerpt nor the tests pin the intended reading.
+- source_spec: `_bmad-output/implementation-artifacts/1-7-zone-rotation-fondo-fill-and-the-below-floor-fallback.md`
+  summary: Scope `LogFacts.answeredItemIds` by (itemId, origin) rather than bare id when the first second-origin writer (Epic 3 capture) or restore makes id collision across origins representable.
+  evidence: Review round 1: the chunk tiers 1-2 exclusion reads a bare-id set while sibling facts (dealtUnanswered) carry the origin pair; catalogue ids are unique and captured items mint UUIDs today, so the collision is unreachable except via hand-built logs, but the fact type is the contract later sources consume.

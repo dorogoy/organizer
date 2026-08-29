@@ -2,8 +2,8 @@
 /// session fact the weave consumes falls out of a single ordered pass
 /// over the log — which session is open, the domestic day every card act
 /// is charged to, the days whose Focus Chunk slot a `card_done` closed,
-/// the least-recently-dealt index, and the open session's dealt-but-
-/// unanswered card.
+/// the items a `card_done` answered all-time, the least-recently-dealt
+/// index, and the open session's dealt-but-unanswered card.
 ///
 /// Nothing here is stored (AD-1): the walk is a pure function of the
 /// entries, replayed whenever a derivation needs it. Entries arrive in
@@ -25,6 +25,7 @@ final class LogFacts {
     required this.lastDealtInstantByItemId,
     required this.focusSlotClosedDays,
     required this.dealtCountsByDay,
+    required this.answeredItemIds,
     required this.openSessionStart,
     required this.dealtUnanswered,
   });
@@ -42,6 +43,11 @@ final class LogFacts {
   /// Per domestic day, how many `card_dealt` rows were charged to it by
   /// the dealt item's taxonomy size — the day's draw counts.
   final Map<Day, Map<Size, int>> dealtCountsByDay;
+
+  /// Every item id with a recorded `card_done`, all-time: an answered
+  /// deal, the only thing that consumes (AD-20 — FR-31's floor counts
+  /// answered deals, not calendar days, and a skip consumes nothing).
+  final Set<String> answeredItemIds;
 
   /// The open session's start instant and its stored offset, or absent
   /// when no session is open — the latest `session_started` with no
@@ -105,6 +111,7 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
   final lastDealtInstantByItemId = <String, int>{};
   final focusSlotClosedDays = <Day>{};
   final dealtCountsByDay = <Day, Map<Size, int>>{};
+  final answeredItemIds = <String>{};
   ({int instantUtcMicros, int offsetSeconds})? openSessionStart;
   ({String itemId, Origin itemOrigin})? dealtUnanswered;
 
@@ -144,8 +151,11 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
             dealtUnanswered = (itemId: itemId, itemOrigin: itemOrigin);
           }
         } else {
-          if (kind == LogKind.cardDone && sizeByItemId[itemId] == Size.focus) {
-            focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
+          if (kind == LogKind.cardDone) {
+            answeredItemIds.add(itemId);
+            if (sizeByItemId[itemId] == Size.focus) {
+              focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
+            }
           }
           final unanswered = dealtUnanswered;
           if (unanswered != null && unanswered.itemId == itemId) {
@@ -162,6 +172,7 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
     lastDealtInstantByItemId: lastDealtInstantByItemId,
     focusSlotClosedDays: focusSlotClosedDays,
     dealtCountsByDay: dealtCountsByDay,
+    answeredItemIds: answeredItemIds,
     openSessionStart: openSessionStart,
     dealtUnanswered: dealtUnanswered,
   );
