@@ -73,3 +73,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-8-one-card-on-screen.md`
   summary: Add a boot-level shell test (factory or integration test) that executes main()'s construction — beyond the 1.8 source pins — so the shipped home cannot regress while `flutter test` stays green.
   evidence: Review round 1 (verification-gap lens): every test injects `DispenserController` through the seam; `main()` itself is never executed by any test, so dropping `dispenser:` or wiring a second `openStore()` ships a blank home with the full suite green (the 1.8 source pin catches the formatted substring only).
+
+- source_spec: `_bmad-output/implementation-artifacts/1-9-hecho.md`
+  summary: Make the two-row answer batch (`card_done` + bundled `card_dealt`) atomic at the store — a mid-batch append failure or process death can orphan the answer, after which `nextCard`'s resolver fall-through displays a card no `card_dealt` row backs and every later Hecho on it appends nothing (the core guard) while the ack still shows.
+  evidence: 1-9 review (Edge-Case Hunter + Blind Hunter, converging): the store port exposes only single-row `appendLogEntry`, the core command returns the two rows as content and cannot recompute a lost deal after a partial append (`_answered` sees the landed `card_done` and returns `[]`), and `read_facade.dart:39-46`'s fall-through can surface the unanswerable card; fixing needs a design decision (batch port method or core command variant) outside 1.9's no-core-change boundaries.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-9-hecho.md`
+  summary: Give `DispenserController.complete` and `SessionController`'s lifecycle writes one shared serialization (or pin the display invariant "only dealt cards are shown") — a backgrounding inside the ms-wide completion window can interleave `session_ended` between the answer and its bundled deal, stranding an orphan deal row beside a closed session.
+  evidence: 1-9 review (Edge-Case Hunter): the two controllers hold separate `_lifecycle`/`_writes` chains over one store with no coordinator; the insert-only substrate tolerates the orphan rows but no test pins the display invariant the ack's truthfulness rests on; 1-9's read-gating on `_writes` narrows the window without closing it.

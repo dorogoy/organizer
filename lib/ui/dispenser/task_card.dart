@@ -20,11 +20,13 @@ import 'zone_marker.dart';
 
 /// The one recommended action (UX-DR16): full-width, filled `accent-soft`
 /// with an `ink-primary` label, `{rounded.DEFAULT}`, minimum height
-/// `{spacing.touch-target-min}`. In 1.8 the tap is an accepted no-op —
-/// `cardDone`, the haptic and the celebration are 1.9's, against this
-/// same component.
+/// `{spacing.touch-target-min}`. One tap, no confirmation (Story 1.9):
+/// [onTap] is the screen's completion path; absent, the tap stays an
+/// accepted no-op (the 1.8 anatomy harness).
 class HechoButton extends StatelessWidget {
-  const HechoButton({super.key});
+  const HechoButton({super.key, this.onTap});
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +38,10 @@ class HechoButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.radiusDefault),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          // The rendered contract lands first; the wired effect is 1.9's.
-          onTap: () {},
+          // Absent, the no-op keeps the 1.8 anatomy contract: the tap
+          // is accepted and does nothing — a null onTap would render a
+          // disabled control instead.
+          onTap: onTap ?? () {},
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: Spacing.touchTargetMin,
@@ -92,10 +96,14 @@ class SecondaryTextAction extends StatelessWidget {
 /// The dealt card (FR-1): exactly one Micro-task with its estimated
 /// duration always visible. The zone footer renders iff [Card.zone] is
 /// non-null — the card simply ends after the secondary action otherwise.
+/// [onDone] threads the Hecho tap through (Story 1.9); the secondary
+/// stays a no-op here — its wiring is 1.10's.
 class TaskCard extends StatelessWidget {
-  const TaskCard({super.key, required this.card});
+  const TaskCard({super.key, required this.card, this.onDone});
 
   final Card card;
+
+  final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +128,7 @@ class TaskCard extends StatelessWidget {
           // CONTENT role (theme.dart).
           Text(card.name, style: theme.textTheme.headlineMedium),
           const SizedBox(height: Spacing.taskToActions),
-          const HechoButton(),
+          HechoButton(onTap: onDone),
           const SizedBox(height: Spacing.actionGap),
           const SecondaryTextAction(),
           if (card.zone != null) ...[

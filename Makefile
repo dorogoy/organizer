@@ -80,6 +80,13 @@ run: ## Run the app on a connected Android device (needs make deps once)
 build: ## Build a debug APK (release signing arrives with Epic 9, AD-18)
 	. ./tool/env.sh && flutter build apk --debug
 
-clean: ## Remove build outputs and resolution caches (keeps .toolchain SDKs)
+clean: ## Remove build outputs, Gradle project state and resolution caches (keeps .toolchain SDKs)
 	. ./tool/env.sh && flutter clean
 	rm -rf packages/core/.dart_tool
+	# Gradle's project-local state bakes absolute worktree paths into
+	# itself (execution history, configuration cache). Once a sibling
+	# worktree is renamed, moved or deleted, every Android compile here
+	# resolves dead paths — the 1-9 break over the deleted 1-8 worktree's
+	# android.jar. flutter clean never touches this state; only purging
+	# it re-resolves the SDK fresh.
+	rm -rf android/.gradle android/build android/app/build

@@ -1,9 +1,10 @@
-// The dealt card's rendered contract (Story 1.8): the anatomy order and
-// token gaps, Lora's one CONTENT role, the full-width Hecho, the plain
-// text secondary, the footer iff the card carries a zone, the duration
-// labels with their load-bearing NBSP — on the sizes' derived estimates
-// — the hairline/no-shadow surface in both authored palettes, and no
-// origin text anywhere: the I/O matrix's rendering rows, pinned.
+// The dealt card's rendered contract (Stories 1.8–1.9): the anatomy
+// order and token gaps, Lora's one CONTENT role, the full-width Hecho,
+// the plain text secondary, the footer iff the card carries a zone, the
+// duration labels with their load-bearing NBSP — on the sizes' derived
+// estimates — the hairline/no-shadow surface in both authored palettes,
+// the Hecho tap reaching its wired callback, and no origin text
+// anywhere: the I/O matrix's rendering rows, pinned.
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/weave.dart';
@@ -329,6 +330,55 @@ void main() {
     }
     expect(find.text('30\u00A0s'), findsOneWidget);
     expect(find.byType(Text), findsNWidgets(4));
+  });
+
+  testWidgets('the Hecho tap reaches the wired callback — one tap, no '
+      'confirmation, no modal; the secondary stays a no-op (1.10\'s)', (
+    tester,
+  ) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      _harness(TaskCard(card: _zonedCard, onDone: () => taps++)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(taps, 1);
+
+    // The unsplit secondary renders but is not wired yet: tapping it
+    // completes no Hecho.
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+    expect(taps, 1);
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('absent onDone, the Hecho tap stays the 1.8 anatomy\'s '
+      'accepted no-op — never a disabled control', (tester) async {
+    await tester.pumpWidget(_harness(const TaskCard(card: _zonedCard)));
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byType(HechoButton),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(
+      button.onTap,
+      isNotNull,
+      reason:
+          'a null onTap would disable the control — the anatomy '
+          'contract keeps the tap an accepted no-op instead',
+    );
+
+    // The no-op absorbs the tap quietly: no crash, no modal, nothing
+    // moves.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Dialog), findsNothing);
   });
 
   testWidgets('no origin text is ever surfaced (AD-14)', (tester) async {
