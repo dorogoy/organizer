@@ -68,14 +68,68 @@ void main() {
     expect(result.findings, hasLength(1));
     expect(result.findings.single, contains('cambiar-las-sabanas'));
     expect(result.findings.single, contains('catalogueCambiarLasSabanas'));
-    expect(result.findings.single, contains('is missing'));
+    expect(result.findings.single, contains('non-blank string value'));
     expect(result.output, isNull);
   });
 
-  test('two ids deriving one key fail naming both ids', () {
-    // `foo-bar` and `fooBar` both derive catalogueFooBar — the grammar
-    // rules the second out at parse time, but the generator guards its
-    // own input rather than trusting the caller.
+  test('a blank ARB value fails naming the entry and key', () {
+    final result = generate(
+      asset: tinyAsset,
+      arb: tinyArb.replaceFirst('"Regar una planta"', '"   "'),
+    );
+    expect(result.findings, hasLength(1));
+    expect(result.findings.single, contains('regar-una-planta'));
+    expect(result.findings.single, contains('non-blank string value'));
+    expect(result.output, isNull);
+  });
+
+  test('a missing or blank ARB description fails without output', () {
+    final missing = generate(
+      asset: tinyAsset,
+      arb: tinyArb.replaceFirst('"description"', '"note"'),
+    );
+    final blank = generate(
+      asset: tinyAsset,
+      arb: tinyArb.replaceFirst('Evergreen catalogue (A12.1).', '   '),
+    );
+    expect(
+      missing.findings.single,
+      contains('@catalogueRegarUnaPlanta.description'),
+    );
+    expect(
+      blank.findings.single,
+      contains('@catalogueRegarUnaPlanta.description'),
+    );
+    expect(missing.output, isNull);
+    expect(blank.output, isNull);
+  });
+
+  test('duplicate ARB members fail at the duplicate source line', () {
+    final arb = tinyArb.replaceFirst(
+      '"catalogueRegarUnaPlanta": "Regar una planta",',
+      '"catalogueRegarUnaPlanta": "Regar una planta",\n'
+          '  "catalogueRegarUnaPlanta": "Otra planta",',
+    );
+    final result = generate(asset: tinyAsset, arb: arb);
+    expect(result.findings, hasLength(1));
+    expect(result.findings.single, contains('app_es.arb:4:'));
+    expect(result.findings.single, contains('duplicate JSON member'));
+    expect(result.output, isNull);
+  });
+
+  test('a duplicate catalogue member fails before lookup generation', () {
+    final asset = tinyAsset.replaceFirst(
+      '"size": "instant"',
+      '"size": "instant", "size": "focus"',
+    );
+    final result = generate(asset: asset, arb: tinyArb);
+    expect(result.findings, hasLength(1));
+    expect(result.findings.single, contains('catalogue.json:4:'));
+    expect(result.findings.single, contains('duplicate JSON member "size"'));
+    expect(result.output, isNull);
+  });
+
+  test('an invalid id fails the complete asset contract before generation', () {
     const asset = '''
 {
   "version": 1,
@@ -86,13 +140,9 @@ void main() {
 }
 ''';
     final result = generate(asset: asset, arb: tinyArb);
-    final collisions = result.findings
-        .where((finding) => finding.contains('both derive'))
-        .toList();
-    expect(collisions, hasLength(1));
-    expect(collisions.single, contains('"foo-bar"'));
-    expect(collisions.single, contains('"fooBar"'));
-    expect(collisions.single, contains('"catalogueFooBar"'));
+    expect(result.findings, hasLength(1));
+    expect(result.findings.single, contains('fooBar'));
+    expect(result.findings.single, contains('kebab-case'));
   });
 
   test('an orphaned catalogue ARB key fails naming the key', () {
@@ -127,14 +177,14 @@ void main() {
   test('a malformed asset fails instead of generating', () {
     final result = generate(asset: 'not json at all', arb: tinyArb);
     expect(result.findings, hasLength(1));
-    expect(result.findings.single, contains('not valid JSON'));
+    expect(result.findings.single, contains('invalid JSON value'));
     expect(result.output, isNull);
   });
 
   test('a non-object asset fails instead of generating', () {
     final result = generate(asset: '[]', arb: tinyArb);
     expect(result.findings, hasLength(1));
-    expect(result.findings.single, contains('"entries" array'));
+    expect(result.findings.single, contains('top level is not a JSON object'));
     expect(result.output, isNull);
   });
 

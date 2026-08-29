@@ -4,11 +4,18 @@
 /// the generated table keeps its own asset-path constant by necessity.
 library;
 
+import 'package:core/catalogue/strict_json.dart';
+
 final RegExp _entryErrorId = RegExp(r'entry "([^"]+)"');
 
 /// The 1-based line number of [index] in [text].
 int lineOf(String text, int index) =>
     '\n'.allMatches(text.substring(0, index)).length + 1;
+
+/// Uses a strict decoder's source position when available. Generic parse
+/// failures remain anchored at the first line because they name no member.
+int lineForFormatException(String text, FormatException error) =>
+    error is StrictJsonFormatException ? lineOf(text, error.offset) : 1;
 
 /// The reporting line for a core parse failure: the offending entry's own
 /// line when the message names one, otherwise the top of the file. This

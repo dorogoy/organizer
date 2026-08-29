@@ -103,6 +103,26 @@ void main() {
     expect(findings.single.message, contains('f-daily-instant'));
   });
 
+  test('a duplicate JSON member fails at the duplicate source line', () {
+    const asset = '''
+{
+  "version": 1,
+  "entries": [
+    {"id": "f-daily-instant", "id": "other", "size": "instant", "cadence": "daily"}
+  ]
+}
+''';
+    final findings = scanCatalogue(
+      assetFile: 'duplicate_member.json',
+      assetSource: asset,
+      pubspecFile: 'pubspec.yaml',
+      pubspecSource: registeredPubspec,
+    );
+    expect(findings, hasLength(1));
+    expect(findings.single.line, 4);
+    expect(findings.single.message, contains('duplicate JSON member "id"'));
+  });
+
   test('a pubspec without the assets registration fails at flutter:', () {
     final findings = scanFixture('clean.json', pubspec: unregisteredPubspec);
     expect(findings, hasLength(1));
@@ -130,6 +150,60 @@ flutter:
     - assets/evergreen/catalogue.json
 ''';
     expect(scanFixture('clean.json', pubspec: filePubspec), isEmpty);
+  });
+
+  test('quoted file and directory registrations satisfy YAML validation', () {
+    const quotedDirectory = '''
+name: fixture
+flutter:
+  assets:
+    - "assets/evergreen/"
+''';
+    const quotedFile = '''
+name: fixture
+flutter:
+  assets:
+    - 'assets/evergreen/catalogue.json'
+''';
+    expect(scanFixture('clean.json', pubspec: quotedDirectory), isEmpty);
+    expect(scanFixture('clean.json', pubspec: quotedFile), isEmpty);
+  });
+
+  test('uses the parsed quoted flutter key, not earlier text lookalikes', () {
+    const pubspec = '''
+name: fixture
+note: "flutter: is only prose"
+# flutter: is also only a comment
+'flutter':
+  uses-material-design: true
+''';
+    final findings = scanFixture('clean.json', pubspec: pubspec);
+    expect(findings, hasLength(1));
+    expect(findings.single.line, 4);
+    expect(findings.single.message, contains('flutter.assets'));
+  });
+
+  test('non-list or nested flutter.assets declarations fail', () {
+    const scalar = '''
+name: fixture
+flutter:
+  assets: assets/evergreen/
+''';
+    const nested = '''
+name: fixture
+flutter:
+  assets:
+    nested:
+      - assets/evergreen/
+''';
+    for (final pubspec in [scalar, nested]) {
+      final findings = scanFixture('clean.json', pubspec: pubspec);
+      expect(findings, hasLength(1));
+      expect(
+        findings.single.message,
+        contains('flutter.assets must be a YAML list'),
+      );
+    }
   });
 
   group('the executable', () {

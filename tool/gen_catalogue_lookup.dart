@@ -16,8 +16,10 @@
 // Output contract: one `file:line: message` line per finding, exit 1 when
 // any finding exists, exit 2 when an input file is missing. Registered
 // under `make codegen` / `make codegen-check` (NFR20).
-import 'dart:convert';
 import 'dart:io';
+
+import 'package:core/catalogue/catalogue.dart';
+import 'package:core/catalogue/strict_json.dart';
 
 import 'catalogue_shared.dart';
 
@@ -57,14 +59,8 @@ GenerationResult generateLookup({
   required String arbText,
 }) {
   final findings = <String>[];
-  final Object? assetDecoded = _decodeOrReport(assetPath, assetText, findings);
-  if (assetDecoded is! Map<String, dynamic> ||
-      assetDecoded['entries'] is! List) {
-    if (findings.isEmpty) {
-      findings.add(
-        '$assetPath:1: expected a top-level object with an "entries" array',
-      );
-    }
+  final catalogue = _parseAsset(assetText, findings);
+  if (catalogue == null) {
     return GenerationResult(findings: findings, output: null);
   }
   final Object? arbDecoded = _decodeOrReport(arbPath, arbText, findings);
@@ -95,24 +91,9 @@ GenerationResult generateLookup({
     '    Map.unmodifiable(<String, String Function(AppStrings strings)>{',
   ];
 
-  final seenIds = <String>{};
   final keyOwner = <String, String>{};
-  for (final raw in assetDecoded['entries'] as List) {
-    if (raw is! Map<String, dynamic>) {
-      findings.add('$assetPath:1: an entry is not a JSON object');
-      continue;
-    }
-    final id = raw['id'];
-    if (id is! String || id.isEmpty) {
-      findings.add('$assetPath:1: an entry carries no readable id');
-      continue;
-    }
-    if (!seenIds.add(id)) {
-      findings.add(
-        '$assetPath:${_entryLine(assetText, id)}: duplicate entry id "$id"',
-      );
-      continue;
-    }
+  for (final entry in catalogue.entries) {
+    final id = entry.id;
     final key = deriveCatalogueKey(id);
     final owner = keyOwner[key];
     if (owner != null) {
@@ -124,10 +105,21 @@ GenerationResult generateLookup({
       continue;
     }
     keyOwner[key] = id;
-    if (!arbDecoded.containsKey(key)) {
+    final value = arbDecoded[key];
+    if (value is! String || value.trim().isEmpty) {
       findings.add(
-        '$assetPath:${_entryLine(assetText, id)}: derived ARB key "$key" '
-        'for entry "$id" is missing from $arbPath (AD-16)',
+        '$arbPath:${_arbKeyLine(arbText, key)}: derived ARB key "$key" '
+        'for entry "$id" must hold a non-blank string value (AD-16)',
+      );
+      continue;
+    }
+    final metadata = arbDecoded['@$key'];
+    if (metadata is! Map<String, dynamic> ||
+        metadata['description'] is! String ||
+        (metadata['description'] as String).trim().isEmpty) {
+      findings.add(
+        '$arbPath:${_arbKeyLine(arbText, '@$key')}: derived ARB key "$key" '
+        'needs a non-blank "@$key.description" (AD-16)',
       );
       continue;
     }
@@ -159,9 +151,29 @@ GenerationResult generateLookup({
 
 Object? _decodeOrReport(String file, String source, List<String> findings) {
   try {
-    return jsonDecode(source) as Object;
-  } catch (error) {
-    findings.add('$file:1: not valid JSON ($error)');
+    return strictJsonDecode(source);
+  } on StrictJsonFormatException catch (error) {
+    findings.add(
+      '$file:${lineForFormatException(source, error)}: ${error.message}',
+    );
+    return null;
+  }
+}
+
+Catalogue? _parseAsset(String source, List<String> findings) {
+  try {
+    return parseCatalogue(source, nameOf: (_) => '');
+  } on StrictJsonFormatException catch (error) {
+    findings.add(
+      '$assetPath:${lineForFormatException(source, error)}: '
+      '${error.message}',
+    );
+    return null;
+  } on FormatException catch (error) {
+    findings.add(
+      '$assetPath:${lineForEntryError(source, error.message)}: '
+      '${error.message}',
+    );
     return null;
   }
 }

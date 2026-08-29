@@ -19,6 +19,8 @@ import 'dart:convert';
 
 import 'package:core/pool/pool_fact.dart';
 
+import 'strict_json.dart';
+
 /// The three cadences a shipped entry recurs on (FR-31, A12): daily
 /// anchors and upkeep, weekly zone routines, monthly/seasonal depth work.
 enum Cadence {
@@ -104,12 +106,7 @@ Catalogue parseCatalogue(
   String json, {
   required String Function(String id) nameOf,
 }) {
-  final Object decoded;
-  try {
-    decoded = jsonDecode(json);
-  } on FormatException {
-    throw const FormatException('catalogue asset is not valid JSON');
-  }
+  final decoded = strictJsonDecode(json);
   if (decoded is! Map<String, dynamic>) {
     throw const FormatException(
       'catalogue asset top level is not a JSON object',

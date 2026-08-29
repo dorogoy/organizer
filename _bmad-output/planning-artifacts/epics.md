@@ -632,7 +632,7 @@ So that a fresh install in airplane mode, with no key and no model, already has 
 
 **Given** the user
 **When** any surface in the app is reached
-**Then** no screen enumerates individual catalogue entries — curation is at cluster level only, and its surfaces arrive in Epic 5 (FR-31)
+**Then** no screen enumerates individual catalogue entries — curation is at cluster level only (`anclas`, `sostén`, `z1`–`z5`, `fondo`), and its surfaces arrive in Epic 5; A12's `plantas` and `coche` annotations are not curation groups (FR-31)
 
 ### Story 1.6: The 1-3-5 weave and the Focus Chunk slot
 

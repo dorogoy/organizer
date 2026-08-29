@@ -104,6 +104,14 @@ void main() {
     },
   );
 
+  testWidgets('the registered Flutter bundle resolves all 85 named entries', (
+    tester,
+  ) async {
+    final catalogue = await loadEvergreenCatalogue(AppStringsEs());
+    expect(catalogue.entries, hasLength(85));
+    expect(catalogue.entries.every((entry) => entry.name.isNotEmpty), isTrue);
+  });
+
   test('the shipped catalogue holds A12 cadence and zone counts', () async {
     final catalogue = await loadEvergreenCatalogue(
       AppStringsEs(),

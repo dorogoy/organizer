@@ -1,113 +1,103 @@
 // ignore_for_file: avoid_print
 //
-// The catalogue id-continuity check (AD-23): catalogue ids are permanent
-// once shipped, because `card_dealt` rows reference them — an id that
-// disappears, or silently changes size, breaks every derived read model on
-// an upgraded phone (the rotation, the coverage floor, FR-5's counter).
-//
-// `tool/catalogue_baseline.json` is the checked-in id→size snapshot of the
-// shipped set. The check fails naming the id on any disappearance or size
-// change; additions pass. The baseline is updated only in a commit
-// deliberately evolving the catalogue — never to smuggle a removal or a
-// re-size past this check (that is a human act, AD-23 renegotiation).
-//
-// The asset side is parsed by the core parser (the same delegation the
-// floor check uses), so the check and the runtime loader cannot disagree
-// about what a valid entry is; the baseline keeps a tolerant minimal
-// reader, plus a domain check on every size token so a typo like "huge"
-// fails here instead of passing vacuously.
-//
-// Output contract (Story 1.1 AC 2): one `file:line: message` line per
-// finding, exit 1 when any finding exists, exit 2 when an input file is
-// missing. Registered under `make check` (NFR20); `runCheck` takes both
-// paths so the fixture self-test can drive it directly.
+// The catalogue continuity check freezes every shipped id's complete
+// immutable tuple. Additions are legal; changing or removing a shipped value
+// is an explicit catalogue evolution, never a silent baseline rewrite.
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/catalogue/strict_json.dart';
 
 import 'catalogue_shared.dart';
 import 'check_core_purity.dart';
+import 'gen_catalogue_lookup.dart' show arbPath, deriveCatalogueKey;
 
 const String baselinePath = 'tool/catalogue_baseline.json';
 const String assetPath = 'assets/evergreen/catalogue.json';
 
 const Set<String> _sizeTokens = {'instant', 'maintenance', 'focus'};
+const Set<String> _cadenceTokens = {'daily', 'weekly', 'seasonal'};
+const Set<String> _zoneTokens = {'z1', 'z2', 'z3', 'z4', 'z5'};
+const Set<String> _tupleFields = {'size', 'cadence', 'zone', 'name'};
+
+typedef _Tuple = ({String size, String cadence, String? zone, String name});
 
 int _lineForId(String text, String id) {
   final probe = text.indexOf('"$id"');
   return probe == -1 ? 1 : lineOf(text, probe);
 }
 
-/// Diffs the id→size snapshot in [baselineSource] against the asset in
-/// [assetSource]. Pure: tests feed fixture contents directly. Findings
-/// point at the baseline file — the file a deliberate evolution edits.
+/// Diffs the baseline tuples against the asset. [assetNames] is optional to
+/// retain the two-path fixture API; production supplies the ARB-resolved
+/// values and consequently also verifies Spanish name continuity.
 List<Finding> diffBaseline({
   required String baselineFile,
   required String baselineSource,
   required String assetFile,
   required String assetSource,
+  Map<String, String>? assetNames,
 }) {
   final findings = <Finding>[];
-  final Map<String, String>? assetSizes = _assetIdSizes(
-    assetFile,
-    assetSource,
-    findings,
-  );
-  if (assetSizes == null) {
+  final asset = _assetTuples(assetFile, assetSource, assetNames, findings);
+  if (asset == null) {
     return findings;
   }
-  final Object? baselineDecoded = _decodeOrReport(
-    baselineFile,
-    baselineSource,
-    findings,
-  );
-  if (baselineDecoded is! Map<String, dynamic>) {
-    if (baselineDecoded != null) {
-      findings.add(
-        Finding(
-          baselineFile,
-          1,
-          'baseline top level is not a JSON object of id → size',
-        ),
-      );
-    }
+  final baseline = _baselineTuples(baselineFile, baselineSource, findings);
+  if (baseline == null) {
     return findings;
   }
 
-  final ids = baselineDecoded.keys.toList()..sort();
-  for (final id in ids) {
-    final baselineSize = baselineDecoded[id];
-    if (baselineSize is! String || !_sizeTokens.contains(baselineSize)) {
-      findings.add(
-        Finding(
-          baselineFile,
-          _lineForId(baselineSource, id),
-          'entry "$id": baseline size ${jsonEncode(baselineSize)} is not '
-          'one of instant, maintenance, focus',
-        ),
-      );
-      continue;
-    }
-    if (!assetSizes.containsKey(id)) {
+  for (final id in baseline.keys.toList()..sort()) {
+    final before = baseline[id]!;
+    final after = asset[id];
+    if (after == null) {
       findings.add(
         Finding(
           baselineFile,
           _lineForId(baselineSource, id),
           'entry "$id" disappeared from the asset — catalogue ids are '
-          'permanent once shipped; update the baseline only in a commit '
-          'deliberately evolving the catalogue (AD-23)',
+          'permanent once shipped; record an approved catalogue evolution',
         ),
       );
-    } else if (assetSizes[id] != baselineSize) {
-      findings.add(
-        Finding(
-          baselineFile,
-          _lineForId(baselineSource, id),
-          'entry "$id" changed size: baseline "$baselineSize" ≠ asset '
-          '"${assetSizes[id]}" — re-sizing a shipped entry breaks '
-          '`card_dealt` continuity (AD-23)',
-        ),
+      continue;
+    }
+    _compareField(
+      findings,
+      baselineFile,
+      baselineSource,
+      id,
+      'size',
+      before.size,
+      after.size,
+    );
+    _compareField(
+      findings,
+      baselineFile,
+      baselineSource,
+      id,
+      'cadence',
+      before.cadence,
+      after.cadence,
+    );
+    _compareField(
+      findings,
+      baselineFile,
+      baselineSource,
+      id,
+      'zone',
+      before.zone,
+      after.zone,
+    );
+    if (assetNames != null) {
+      _compareField(
+        findings,
+        baselineFile,
+        baselineSource,
+        id,
+        'Spanish name',
+        before.name,
+        after.name,
       );
     }
   }
@@ -115,42 +105,218 @@ List<Finding> diffBaseline({
   return findings;
 }
 
-Object? _decodeOrReport(String file, String source, List<Finding> findings) {
-  try {
-    return jsonDecode(source) as Object;
-  } catch (error) {
-    findings.add(Finding(file, 1, 'not valid JSON ($error)'));
-    return null;
+void _compareField(
+  List<Finding> findings,
+  String file,
+  String source,
+  String id,
+  String field,
+  Object? before,
+  Object? after,
+) {
+  if (before == after) {
+    return;
   }
+  findings.add(
+    Finding(
+      file,
+      _lineForId(source, id),
+      'entry "$id" changed $field: baseline ${jsonEncode(before)} != asset '
+      '${jsonEncode(after)} — record an approved catalogue evolution',
+    ),
+  );
 }
 
-/// Parses the asset with the core parser and returns id → size name, or
-/// null when the asset does not parse (a finding is added; disappearances
-/// measured against an unparseable asset would be noise).
-Map<String, String>? _assetIdSizes(
-  String assetFile,
-  String assetSource,
+Map<String, _Tuple>? _baselineTuples(
+  String file,
+  String source,
+  List<Finding> findings,
+) {
+  final decoded = _decode(file, source, findings);
+  if (decoded is! Map<String, dynamic>) {
+    if (decoded != null) {
+      findings.add(
+        Finding(
+          file,
+          1,
+          'baseline top level is not a JSON object of id → tuple',
+        ),
+      );
+    }
+    return null;
+  }
+  final tuples = <String, _Tuple>{};
+  for (final id in decoded.keys.toList()..sort()) {
+    final raw = decoded[id];
+    if (raw is! Map<String, dynamic> ||
+        raw.keys.toSet().difference(_tupleFields).isNotEmpty ||
+        raw.keys.length != _tupleFields.length) {
+      findings.add(
+        Finding(
+          file,
+          _lineForId(source, id),
+          'entry "$id": baseline must carry exactly size, cadence, zone and name',
+        ),
+      );
+      continue;
+    }
+    final size = raw['size'];
+    final cadence = raw['cadence'];
+    final zone = raw['zone'];
+    final name = raw['name'];
+    if (size is! String ||
+        !_sizeTokens.contains(size) ||
+        cadence is! String ||
+        !_cadenceTokens.contains(cadence) ||
+        (zone != null && (zone is! String || !_zoneTokens.contains(zone))) ||
+        name is! String ||
+        name.trim().isEmpty) {
+      findings.add(
+        Finding(
+          file,
+          _lineForId(source, id),
+          'entry "$id": baseline tuple has an invalid size, cadence, zone, or Spanish name',
+        ),
+      );
+      continue;
+    }
+    if ((cadence == 'weekly') != (zone != null)) {
+      findings.add(
+        Finding(
+          file,
+          _lineForId(source, id),
+          'entry "$id": baseline weekly-zone coupling is invalid',
+        ),
+      );
+      continue;
+    }
+    tuples[id] = (
+      size: size,
+      cadence: cadence,
+      zone: zone as String?,
+      name: name,
+    );
+  }
+  return findings.isEmpty ? tuples : null;
+}
+
+Map<String, _Tuple>? _assetTuples(
+  String file,
+  String source,
+  Map<String, String>? names,
   List<Finding> findings,
 ) {
   try {
-    final catalogue = parseCatalogue(assetSource, nameOf: (_) => '');
-    return {for (final entry in catalogue.entries) entry.id: entry.size.name};
+    final catalogue = parseCatalogue(source, nameOf: (id) => names?[id] ?? '');
+    return {
+      for (final entry in catalogue.entries)
+        entry.id: (
+          size: entry.size.name,
+          cadence: entry.cadence.name,
+          zone: entry.zone?.name,
+          name: entry.name,
+        ),
+    };
+  } on StrictJsonFormatException catch (error) {
+    findings.add(
+      Finding(file, lineForFormatException(source, error), error.message),
+    );
+    return null;
   } on FormatException catch (error) {
     findings.add(
-      Finding(
-        assetFile,
-        lineForEntryError(assetSource, error.message),
-        error.message,
-      ),
+      Finding(file, lineForEntryError(source, error.message), error.message),
     );
     return null;
   }
 }
 
-/// Runs the check against the explicit [baseline] and [asset] paths,
-/// printing one `file:line: message` line per finding. Returns the process
-/// exit code: 0 clean, 1 findings, 2 an input file missing.
-Future<int> runCheck(String baseline, String asset) async {
+Object? _decode(String file, String source, List<Finding> findings) {
+  try {
+    return strictJsonDecode(source);
+  } on StrictJsonFormatException catch (error) {
+    findings.add(
+      Finding(file, lineForFormatException(source, error), error.message),
+    );
+    return null;
+  }
+}
+
+Map<String, String>? _readAssetNames({
+  required File asset,
+  required File arb,
+  required List<Finding> findings,
+}) {
+  if (!arb.existsSync()) {
+    findings.add(
+      Finding(
+        arb.path,
+        1,
+        'production ARB is unavailable; Spanish name continuity cannot be verified',
+      ),
+    );
+    return null;
+  }
+  final String source;
+  try {
+    source = arb.readAsStringSync();
+  } on FileSystemException catch (error) {
+    findings.add(
+      Finding(
+        arb.path,
+        1,
+        'production ARB is unreadable; Spanish name continuity cannot be verified ($error)',
+      ),
+    );
+    return null;
+  }
+  final decoded = _decode(arb.path, source, findings);
+  if (decoded is! Map<String, dynamic>) {
+    if (decoded != null) {
+      findings.add(Finding(arb.path, 1, 'ARB top level is not a JSON object'));
+    }
+    return null;
+  }
+  final names = <String, String>{};
+  final entries = _assetTuples(
+    asset.path,
+    asset.readAsStringSync(),
+    null,
+    findings,
+  );
+  if (entries == null) {
+    return null;
+  }
+  for (final id in entries.keys) {
+    final key = deriveCatalogueKey(id);
+    final name = decoded[key];
+    if (name is! String || name.trim().isEmpty) {
+      findings.add(
+        Finding(
+          arb.path,
+          _lineForId(source, key),
+          'derived ARB key "$key" must hold a non-blank string value',
+        ),
+      );
+      continue;
+    }
+    names[id] = name;
+  }
+  return findings.isEmpty ? names : null;
+}
+
+bool _sameFile(File left, File right) =>
+    left.resolveSymbolicLinksSync() == right.resolveSymbolicLinksSync();
+
+File _productionArbFor(File asset) =>
+    File('${asset.parent.parent.parent.path}/$arbPath');
+
+/// Runs the check against explicit baseline and asset paths. The production
+/// pair also loads the canonical ARB to freeze the resolved Spanish names.
+Future<int> runCheck(
+  String baseline,
+  String asset, {
+  String? productionArbPath,
+}) async {
   final baselineFile = File(baseline);
   final assetFile = File(asset);
   if (!baselineFile.existsSync()) {
@@ -161,19 +327,34 @@ Future<int> runCheck(String baseline, String asset) async {
     stderr.writeln('catalogue asset not found at $asset');
     return 2;
   }
-  final findings = diffBaseline(
-    baselineFile: baseline,
-    baselineSource: baselineFile.readAsStringSync(),
-    assetFile: asset,
-    assetSource: assetFile.readAsStringSync(),
-  );
+  final bootstrapFindings = <Finding>[];
+  final isProduction =
+      productionArbPath != null ||
+      (_sameFile(baselineFile, File(baselinePath)) &&
+          _sameFile(assetFile, File(assetPath)));
+  final names = isProduction
+      ? _readAssetNames(
+          asset: assetFile,
+          arb: File(productionArbPath ?? _productionArbFor(assetFile).path),
+          findings: bootstrapFindings,
+        )
+      : null;
+  final findings = [
+    ...bootstrapFindings,
+    ...diffBaseline(
+      baselineFile: baseline,
+      baselineSource: baselineFile.readAsStringSync(),
+      assetFile: asset,
+      assetSource: assetFile.readAsStringSync(),
+      assetNames: names,
+    ),
+  ];
   for (final finding in findings) {
     print(finding);
   }
   if (findings.isNotEmpty) {
     print(
-      'catalogue id diff check FAILED: ${findings.length} finding(s) — '
-      'ids are permanent once shipped (AD-23)',
+      'catalogue id diff check FAILED: ${findings.length} finding(s) — ids and shipped tuples are immutable',
     );
     return 1;
   }

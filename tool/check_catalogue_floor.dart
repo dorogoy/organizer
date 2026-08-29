@@ -21,7 +21,9 @@
 import 'dart:io';
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/catalogue/strict_json.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:yaml/yaml.dart';
 
 import 'catalogue_shared.dart';
 import 'check_core_purity.dart';
@@ -32,63 +34,72 @@ const String pubspecPath = 'pubspec.yaml';
 /// FR-31's coverage floor: distinct 10–15 min non-daily entries.
 const int focusFloor = 28;
 
-/// One `flutter.assets` item registering the catalogue: a list item under
-/// the `assets:` key of the `flutter:` block. `[ \t]` only, so neither the
-/// item nor its comment can match across a newline.
-final RegExp _registeredAssetItem = RegExp(
-  r'^[ \t]+-[ \t]+assets/evergreen(/catalogue\.json)?/?[ \t]*(#.*)?$',
-);
-
-final RegExp _topLevelKey = RegExp(r'^[A-Za-z_][\w-]*:');
-final RegExp _flutterKey = RegExp(r'^flutter:');
-final RegExp _assetsKey = RegExp(r'^([ \t]+)assets:');
-
 /// The registration state of the catalogue asset in a pubspec: whether a
-/// `flutter.assets` item carries it, and the 1-based line of the
-/// `flutter:` key for findings. Scoped to the `flutter:` block — an
-/// identically shaped item under any other section cannot satisfy the
-/// registration.
-({bool registered, int flutterLine}) registrationState(String pubspec) {
-  final lines = pubspec.split('\n');
-  var flutterIndex = -1;
-  for (var i = 0; i < lines.length; i++) {
-    if (_flutterKey.hasMatch(lines[i])) {
-      flutterIndex = i;
-      break;
+/// `flutter.assets` item carries it, and a source line and diagnostic for a
+/// malformed declaration. YAML parsing prevents lookalikes in another block
+/// and nested mappings from passing as Flutter asset registrations.
+({bool registered, int line, String? problem}) registrationState(
+  String pubspec,
+) {
+  final YamlNode root;
+  try {
+    root = loadYamlNode(pubspec);
+  } on YamlException catch (error) {
+    return (
+      registered: false,
+      line: (error.span?.start.line ?? 0) + 1,
+      problem: 'invalid pubspec YAML: ${error.message}',
+    );
+  }
+  if (root is! YamlMap) {
+    return (
+      registered: false,
+      line: 1,
+      problem: 'pubspec top level must be a YAML mapping',
+    );
+  }
+  final flutter = root['flutter'];
+  if (flutter is! YamlMap) {
+    return (
+      registered: false,
+      line: 1,
+      problem: 'missing flutter: YAML mapping',
+    );
+  }
+  final flutterLine = _keyLine(root, 'flutter') ?? 1;
+  final assets = flutter['assets'];
+  if (assets == null) {
+    return (registered: false, line: flutterLine, problem: null);
+  }
+  if (assets is! YamlList) {
+    return (
+      registered: false,
+      line: flutterLine,
+      problem: 'flutter.assets must be a YAML list of asset paths',
+    );
+  }
+  for (final asset in assets.nodes) {
+    if (asset is YamlScalar &&
+        asset.value is String &&
+        (asset.value == 'assets/evergreen/' ||
+            asset.value == 'assets/evergreen/catalogue.json')) {
+      return (registered: true, line: flutterLine, problem: null);
     }
   }
-  if (flutterIndex == -1) {
-    return (registered: false, flutterLine: 1);
-  }
-  var blockEnd = lines.length;
-  for (var i = flutterIndex + 1; i < lines.length; i++) {
-    if (_topLevelKey.hasMatch(lines[i])) {
-      blockEnd = i;
-      break;
+  return (registered: false, line: flutterLine, problem: null);
+}
+
+/// Retrieves the parser's source span for a mapping key. Looking at parsed
+/// nodes avoids matching a quoted scalar or comment that merely says
+/// `flutter:`.
+int? _keyLine(YamlMap map, String key) {
+  for (final entry in map.nodes.entries) {
+    final keyNode = entry.key;
+    if (keyNode is YamlNode && keyNode.value == key) {
+      return keyNode.span.start.line + 1;
     }
   }
-  for (var i = flutterIndex + 1; i < blockEnd; i++) {
-    final assets = _assetsKey.firstMatch(lines[i]);
-    if (assets == null) {
-      continue;
-    }
-    final indent = assets.group(1)!.length;
-    for (var j = i + 1; j < blockEnd; j++) {
-      final line = lines[j];
-      final trimmed = line.trimLeft();
-      if (trimmed.isEmpty || trimmed.startsWith('#')) {
-        continue;
-      }
-      final lineIndent = line.length - trimmed.length;
-      if (lineIndent <= indent) {
-        break;
-      }
-      if (_registeredAssetItem.hasMatch(line)) {
-        return (registered: true, flutterLine: flutterIndex + 1);
-      }
-    }
-  }
-  return (registered: false, flutterLine: flutterIndex + 1);
+  return null;
 }
 
 int _lineForKey(String text, String key) {
@@ -116,9 +127,10 @@ List<Finding> scanCatalogue({
     findings.add(
       Finding(
         pubspecFile,
-        registration.flutterLine,
-        'the catalogue asset is not registered under flutter.assets — add '
-        "'assets/evergreen/' so the bundle ships it (AD-16)",
+        registration.line,
+        registration.problem ??
+            'the catalogue asset is not registered under flutter.assets — add '
+                "'assets/evergreen/' so the bundle ships it (AD-16)",
       ),
     );
   }
@@ -136,6 +148,15 @@ Catalogue? _parseOrReport(
 ) {
   try {
     return parseCatalogue(assetSource, nameOf: (_) => '');
+  } on StrictJsonFormatException catch (error) {
+    findings.add(
+      Finding(
+        assetFile,
+        lineForFormatException(assetSource, error),
+        error.message,
+      ),
+    );
+    return null;
   } on FormatException catch (error) {
     findings.add(
       Finding(

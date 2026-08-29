@@ -39,7 +39,7 @@ format-check: ## Verify formatting without rewriting anything
 analyze: ## Static analysis (flutter analyze; see check for the tool/ checks)
 	. ./tool/env.sh && flutter analyze
 
-check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21), catalogue floor (AD-16), catalogue id diff (AD-23), codegen freshness
+check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21), catalogue floor, continuity, evolution, codegen freshness
 	. ./tool/env.sh && dart run tool/check_core_purity.dart
 	. ./tool/env.sh && dart run tool/check_no_literal_strings.dart
 	. ./tool/env.sh && dart run tool/check_text_scaling.dart
@@ -48,17 +48,19 @@ check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + 
 	. ./tool/env.sh && dart run tool/check_store_seal.dart
 	. ./tool/env.sh && dart run tool/check_catalogue_floor.dart
 	. ./tool/env.sh && dart run tool/check_catalogue_id_diff.dart
+	. ./tool/env.sh && dart run tool/check_catalogue_evolution.dart
 	$(MAKE) --no-print-directory codegen-check
 
-codegen: ## Regenerate every generated file (store schema, catalogue lookup)
+codegen: ## Regenerate every generated file (store schema, localization accessors, catalogue lookup)
 	. ./tool/env.sh && dart run build_runner build --delete-conflicting-outputs
+	. ./tool/env.sh && flutter gen-l10n
 	. ./tool/env.sh && dart run tool/gen_catalogue_lookup.dart
 
-codegen-check: ## Fail when a generated file is stale or untracked (store schema, catalogue lookup; needs make deps once)
+codegen-check: ## Fail when a generated file is stale or untracked (store schema, localization accessors, catalogue lookup; needs make deps once)
 	$(MAKE) --no-print-directory codegen
-	@if git diff --exit-code -- lib/store/substrate.g.dart lib/catalogue/catalogue_names.g.dart; then \
-		if git ls-files --others --exclude-standard -- lib/store/substrate.g.dart lib/catalogue/catalogue_names.g.dart | grep -q .; then \
-			echo "codegen check FAILED: a generated file is untracked — git add lib/store/substrate.g.dart lib/catalogue/catalogue_names.g.dart and commit them with the story" >&2; \
+	@if git diff --exit-code -- lib/store/substrate.g.dart lib/strings/app_strings.dart lib/strings/app_strings_es.dart lib/catalogue/catalogue_names.g.dart; then \
+		if git ls-files --others --exclude-standard -- lib/store/substrate.g.dart lib/strings/app_strings.dart lib/strings/app_strings_es.dart lib/catalogue/catalogue_names.g.dart | grep -q .; then \
+			echo "codegen check FAILED: a generated file is untracked — regenerate and commit the scoped outputs" >&2; \
 			exit 1; \
 		fi; \
 		echo 'codegen check passed'; \

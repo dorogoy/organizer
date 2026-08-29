@@ -32,7 +32,7 @@ context:
 
 **Ask First:** None.
 
-**Never:** No fifth field — cluster tags (`anclas`/`sostén`/`fondo`/`plantas`/`coche`) are A12 authorial groupings, not asset data; clusters derive from (cadence, zone, size). No UI change, no screen enumerating entries; no pool writes or `Origin.shipped` instantiation (1.6's weave); no new core port (`ports_test.dart` pins two files); no edits to `day/`, `energy/`, `pool/`, `log/`, `ports/`; no network API anywhere; no hand-maintained id→key map outside the generated file; never update the baseline to smuggle a removal or re-size.
+**Never:** No fifth field or runtime id-to-cluster projection. The only curation groups derivable from the tuple are `anclas`, `sostén`, `z1`–`z5`, and `fondo`; A12's `plantas` and `coche` annotations remain non-curatable. No UI change, no screen enumerating entries; no pool writes or `Origin.shipped` instantiation (1.6's weave); no new core port (`ports_test.dart` pins two files); no edits to `day/`, `energy/`, `pool/`, `log/`, `ports/`; no network API anywhere; no hand-maintained id→key map outside the generated file; never update the baseline to smuggle a removal or re-size.
 
 ## I/O & Edge-Case Matrix
 
@@ -118,6 +118,7 @@ context:
 
 - **The id scheme is the one permanent choice**: kebab-case slugs read well in future `card_dealt` rows; ARB keys derive at generation time (`regar-una-planta` → `catalogueRegarUnaPlanta`). Once shipped, ids never change (AD-23) — typos are locked, which is the point.
 - **Baseline honesty**: the diff guards accidental drift; a coordinated asset+baseline edit can only be caught in review — AD-23 renegotiation is a human act. Release tags (Epic 9) can later replace the checked-in snapshot as the diff source.
+- **Curation correction**: `plantas` and `coche` are authorial annotations on individual A12 rows, not facts encoded by the four-field tuple. Later curation may expose only `anclas`, `sostén`, `z1`–`z5`, and `fondo` unless a new approved evolution introduces a representable contract.
 - **Lazy by omission**: no `main.dart` wiring — 1.6's weave becomes the loader's first caller. `parseCatalogue` accepting the resolver keeps ARB knowledge shell-side while the entry the core receives already carries its resolved name (AD-16's "alongside the four fields").
 
 ## Verification

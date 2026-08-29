@@ -1,4 +1,5 @@
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/catalogue/strict_json.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:test/test.dart';
 
@@ -15,6 +16,50 @@ const validAsset = '''
 ''';
 
 void main() {
+  group('strict JSON decoder', () {
+    StrictJsonFormatException decodeFailure(String source) {
+      try {
+        strictJsonDecode(source);
+      } on StrictJsonFormatException catch (error) {
+        return error;
+      }
+      throw StateError('expected strict JSON decoding to fail');
+    }
+
+    test('exposes non-null source and offset for nested duplicate members', () {
+      const source = '{"outer": {"name": 1, "name": 2}}';
+      final error = decodeFailure(source);
+      expect(error.source, source);
+      expect(error.offset, source.lastIndexOf('"name"'));
+      expect(error.line, 1);
+      expect(error.message, contains('duplicate JSON member "name"'));
+    });
+
+    test('rejects malformed and unterminated string escapes', () {
+      for (final source in [r'"\x"', r'"\u12G4"', r'"unterminated']) {
+        final error = decodeFailure(source);
+        expect(error.source, source);
+        expect(error.offset, greaterThanOrEqualTo(0));
+        expect(
+          error.message,
+          anyOf(contains('escape'), contains('unterminated')),
+        );
+      }
+    });
+
+    test('rejects invalid numeric forms and trailing source', () {
+      for (final source in ['01', '-', '1.', '1e', '1e+', 'true false']) {
+        final error = decodeFailure(source);
+        expect(error.source, source);
+        expect(error.offset, greaterThanOrEqualTo(0));
+      }
+    });
+
+    test('decodes valid Unicode escapes', () {
+      expect(strictJsonDecode(r'"ma\u00f1ana \uD83C\uDF31"'), 'mañana 🌱');
+    });
+  });
+
   test('a valid asset parses into inert entries in asset order', () {
     final catalogue = parseCatalogue(validAsset, nameOf: (id) => '[$id]');
     expect(catalogue.version, 1);
@@ -166,6 +211,27 @@ void main() {
           (error) => error.message,
           'message',
           allOf(contains('duplicate'), contains('regar-una-planta')),
+        ),
+      ),
+    );
+  });
+
+  test('a duplicate JSON member fails before catalogue validation', () {
+    const asset = '''
+{
+  "version": 1,
+  "entries": [
+    {"id": "regar-una-planta", "id": "otro-id", "size": "instant", "cadence": "daily"}
+  ]
+}
+''';
+    expect(
+      () => parseCatalogue(asset, nameOf: (_) => 'x'),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('duplicate JSON member "id"'), contains('line 4')),
         ),
       ),
     );

@@ -8,10 +8,40 @@ import '../../tool/check_catalogue_id_diff.dart';
 const fixtures = 'test/fixtures/catalogue_id_diff';
 
 void main() {
+  test('the shipped pair is green: baseline tuples match the asset', () async {
+    expect(await runCheck(baselinePath, assetPath), 0);
+  });
+
   test(
-    'the shipped pair is green: baseline ids and sizes match the asset',
+    'equivalent relative and absolute production paths retain name checks',
     () async {
-      expect(await runCheck(baselinePath, assetPath), 0);
+      expect(
+        await runCheck(
+          './tool/catalogue_baseline.json',
+          './assets/evergreen/catalogue.json',
+        ),
+        0,
+      );
+      expect(
+        await runCheck(
+          File(baselinePath).absolute.path,
+          File(assetPath).absolute.path,
+        ),
+        0,
+      );
+    },
+  );
+
+  test(
+    'production name continuity fails explicitly when the ARB is unavailable',
+    () async {
+      final missing = '${Directory.systemTemp.path}/missing_catalogue_arb.json';
+      final result = await runCheck(
+        baselinePath,
+        assetPath,
+        productionArbPath: missing,
+      );
+      expect(result, 1);
     },
   );
 
@@ -46,7 +76,7 @@ void main() {
     expect(findings.single.message, contains('not a JSON object'));
   });
 
-  test('an invalid baseline size token fails naming the id and the token', () {
+  test('an invalid baseline tuple fails naming the id', () {
     final findings = diffBaseline(
       baselineFile: '$fixtures/bad_token_baseline.json',
       baselineSource: File('$fixtures/bad_token_baseline.json')
@@ -56,8 +86,7 @@ void main() {
     );
     expect(findings, hasLength(1));
     expect(findings.single.message, contains('"limpiar-el-horno"'));
-    expect(findings.single.message, contains('"huge"'));
-    expect(findings.single.message, contains('instant, maintenance, focus'));
+    expect(findings.single.message, contains('baseline tuple has an invalid'));
   });
 
   test('a removed id fails naming the id, with file and line', () {
@@ -77,7 +106,7 @@ void main() {
     );
     expect(findings.single.message, contains('"cambiar-las-sabanas"'));
     expect(findings.single.message, contains('disappeared'));
-    expect(findings.single.message, contains('AD-23'));
+    expect(findings.single.message, contains('approved catalogue evolution'));
   });
 
   test('a re-sized id fails naming the id and both sizes', () {
@@ -92,6 +121,67 @@ void main() {
     expect(findings.single.message, contains('"focus"'));
     expect(findings.single.message, contains('"maintenance"'));
     expect(findings.single.message, contains('changed size'));
+  });
+
+  test('a cadence or zone drift fails naming old and new values', () {
+    final asset = File('$fixtures/v0_asset.json')
+        .readAsStringSync()
+        .replaceFirst(
+          '"cadence": "seasonal"',
+          '"cadence": "weekly", "zone": "z1"',
+        );
+    final findings = diffBaseline(
+      baselineFile: '$fixtures/v0_baseline.json',
+      baselineSource: File('$fixtures/v0_baseline.json').readAsStringSync(),
+      assetFile: 'changed_asset.json',
+      assetSource: asset,
+    );
+    expect(findings, hasLength(2));
+    expect(
+      findings.map((finding) => finding.message).join(),
+      allOf(contains('changed cadence'), contains('changed zone')),
+    );
+  });
+
+  test('a Spanish name drift fails naming old and new values', () {
+    final findings = diffBaseline(
+      baselineFile: '$fixtures/v0_baseline.json',
+      baselineSource: File('$fixtures/v0_baseline.json').readAsStringSync(),
+      assetFile: '$fixtures/v0_asset.json',
+      assetSource: File('$fixtures/v0_asset.json').readAsStringSync(),
+      assetNames: const {
+        'regar-una-planta': 'Regar una planta',
+        'cambiar-las-sabanas': 'Cambiar las sábanas',
+        'limpiar-el-horno': 'Horno limpio',
+      },
+    );
+    expect(findings, hasLength(1));
+    expect(
+      findings.single.message,
+      allOf(
+        contains('Spanish name'),
+        contains('Limpiar el horno'),
+        contains('Horno limpio'),
+      ),
+    );
+  });
+
+  test('duplicate baseline members fail at their source line', () {
+    const baseline = '''
+{
+  "regar-una-planta": {"size": "instant", "cadence": "daily", "zone": null, "name": "Regar una planta"},
+  "regar-una-planta": {"size": "instant", "cadence": "daily", "zone": null, "name": "Otra planta"}
+}
+''';
+    final findings = diffBaseline(
+      baselineFile: 'duplicate_baseline.json',
+      baselineSource: baseline,
+      assetFile: '$fixtures/v0_asset.json',
+      assetSource: File('$fixtures/v0_asset.json').readAsStringSync(),
+    );
+    expect(findings, hasLength(1));
+    expect(findings.single.line, 3);
+    expect(findings.single.message, contains('duplicate JSON member'));
   });
 
   test('a malformed asset fails through the core parser, naming the entry', () {
