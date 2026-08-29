@@ -1,9 +1,13 @@
-// The Dispenser surface's contract (Story 1.8): the launch deal renders
+// The Dispenser surface's contract (Stories 1.8–1.9): the launch deal renders
 // with the fake store + the real asset bytes + a fixed clock; the warm
 // close stands when the deal is absent; a failed catalogue read leaves
 // the empty frame with the memo cleared for the next read; 200% font
 // scale grows into the air and scrolls with nothing truncated; and no
-// loader ever precedes the first card — the I/O matrix's rows, pinned.
+// loader ever precedes the first card. Story 1.9's write rows: the tap
+// dispatches the light haptic, appends the answer, commits the next
+// card with the ack above it for its fixed window, absorbs a failed
+// write into the empty frame, and serializes a double tap into exactly
+// one card_done — the I/O matrix's rows, pinned.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -48,6 +52,98 @@ class _RecordingStore implements StorePort {
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
       List.unmodifiable(entries);
+}
+
+/// A store whose first `card_done` append throws — the write-failure
+/// row: the controller rethrows, the screen absorbs it into the empty
+/// frame, and the log stays consistent (nothing landed).
+class _FailFirstDoneStore implements StorePort {
+  _FailFirstDoneStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'card_done') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose log reads fail exactly once, and only once a
+/// `card_done` has landed — the post-write refresh's read fails while
+/// the write itself succeeded (the transient the foreground heal
+/// covers).
+class _FailReadAfterDoneStore implements StorePort {
+  _FailReadAfterDoneStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async =>
+      _inner.appendLogEntry(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async {
+    final hasDone = _inner.entries.any((entry) => entry.kind == 'card_done');
+    if (hasDone && !_thrown) {
+      _thrown = true;
+      throw StateError('read failed');
+    }
+    return _inner.readLogEntries();
+  }
+}
+
+/// A store whose `card_dealt` appends park behind a gate once a
+/// `card_done` has landed — a completion batch held half-written so a
+/// second tap lands while the write is genuinely in flight.
+class _GatedBundledDealStore implements StorePort {
+  _GatedBundledDealStore(this._inner, this._gate);
+
+  final _RecordingStore _inner;
+  final Future<void> _gate;
+  var _seenDone = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (entry.kind == 'card_done') {
+      _seenDone = true;
+    }
+    if (_seenDone && entry.kind == 'card_dealt') {
+      await _gate;
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
 }
 
 /// A fake bundle holding the shipped asset's exact bytes, so the loader
@@ -189,6 +285,34 @@ const _longCard = Card(
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 
+Rect _rect(WidgetTester tester, Finder finder) {
+  final box = tester.renderObject<RenderBox>(finder);
+  return box.localToGlobal(Offset.zero) & box.size;
+}
+
+/// Records platform-channel traffic through a mock handler on
+/// `SystemChannels.platform`, so the light haptic's dispatch is observable
+/// (the story's pin: `HapticFeedback.lightImpact` fires immediately).
+List<MethodCall> _mockPlatformCalls(WidgetTester tester) {
+  final calls = <MethodCall>[];
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.platform,
+    (call) async {
+      calls.add(call);
+      return null;
+    },
+  );
+  return calls;
+}
+
+List<MethodCall> _lightImpacts(List<MethodCall> calls) => calls
+    .where(
+      (call) =>
+          call.method == 'HapticFeedback.vibrate' &&
+          call.arguments == 'HapticFeedbackType.lightImpact',
+    )
+    .toList();
+
 Widget _harness(
   DispenserController controller, {
   Future<void> Function()? sessionSettled,
@@ -202,15 +326,13 @@ Widget _harness(
 void main() {
   final shipped = File(catalogueAssetPath).readAsStringSync();
 
-  DispenserController buildController(
-    _RecordingStore store, {
-    AssetBundle? bundle,
-  }) => DispenserController(
-    store: store,
-    strings: AppStringsEs(),
-    bundle: bundle ?? _FakeBundle({catalogueAssetPath: shipped}),
-    nowOf: _fixedClock,
-  );
+  DispenserController buildController(StorePort store, {AssetBundle? bundle}) =>
+      DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle ?? _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
 
   /// The session's dealt row, found by kind — never by append position:
   /// a new fact landing between the open and the deal must not move the
@@ -632,5 +754,371 @@ void main() {
           'the clock is read before the first await, so no store or '
           'asset latency can shift the minted instant',
     );
+  });
+
+  /// The shared Story 1.9 harness: a launched session over the shipped
+  /// catalogue, the screen committed on the launch deal, ready to tap.
+  Future<void> launchAndCommit(WidgetTester tester, StorePort store) async {
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    await tester.pumpWidget(_harness(buildController(store)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+  }
+
+  testWidgets('tapping Hecho dispatches the light haptic, records the '
+      'answer, and commits the next card with the ack above it (FR-2, '
+      'NFR5/6, UX-DR38/39/51)', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final firstDealtId = dealtEntryOf(store)!.itemId!;
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    // Exactly one card_done, with the bundled next deal beside it.
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    final nextDealt = latestDealtEntryOf(store)!;
+    expect(nextDealt.itemId, isNot(firstDealtId));
+
+    // The light haptic dispatched — and never alone: the visible ack
+    // below is the completion signal's other half.
+    expect(_lightImpacts(calls), hasLength(1));
+
+    // The next card is already there; the completed card exited the
+    // tree entirely — toward no counter, pile or badge.
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final first = catalogue.entries.firstWhere(
+      (entry) => entry.id == firstDealtId,
+    );
+    final next = catalogue.entries.firstWhere(
+      (entry) => entry.id == nextDealt.itemId,
+    );
+    expect(find.text(first.name), findsNothing);
+    expect(find.text(next.name), findsOneWidget);
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // The ack: the shipped string, the quiet support register, centered,
+    // above the committed view — never modal, never a glyph.
+    final ack = find.text('¡Buen trabajo!');
+    expect(ack, findsOneWidget);
+    final ackStyle = tester.widget<Text>(ack).style!;
+    expect(ackStyle.fontSize, 13);
+    expect(ackStyle.color, FieldPalette.inkSecondary);
+    expect(ackStyle.fontFamily, FontFamilies.lexend);
+    expect(
+      _rect(tester, ack).bottom,
+      lessThan(_rect(tester, find.byType(TaskCard)).top),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the ack closes after its fixed 2000 ms window — plain '
+      'removal, nothing else on the surface changes', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.byType(ErrorWidget), findsNothing);
+  });
+
+  testWidgets('the ack window\'s timer is cancelled on dispose', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // Disposing mid-window cancels the timer — the test then ends with
+    // no pending timer and no setState on the disposed state.
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a failed write leaves the empty frame standing with no ack '
+      '— quiet, deliberate, no crash surfaced', (tester) async {
+    final inner = _RecordingStore();
+    final store = _FailFirstDoneStore(inner);
+    await launchAndCommit(tester, store);
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      isEmpty,
+      reason: 'the log stayed consistent: nothing landed on the failed write',
+    );
+  });
+
+  testWidgets('a rapid double tap appends exactly one card_done — the '
+      'in-flight guard returns early and the serialization guard reads the '
+      'answered log', (tester) async {
+    final inner = _RecordingStore();
+    final gate = Completer<void>();
+    final store = _GatedBundledDealStore(inner, gate.future);
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    await tester.pumpWidget(_harness(buildController(store)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    final calls = _mockPlatformCalls(tester);
+
+    // The first tap's write parks behind the gate — the batch is
+    // half-written, the completion genuinely in flight when the second
+    // tap lands.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+
+    // The in-flight guard returned the second tap early: one haptic for
+    // one recorded completion, not one per tap.
+    expect(_lightImpacts(calls), hasLength(1));
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_dealt'),
+      hasLength(2),
+      reason: 'the launch deal plus the one bundled next deal',
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+  });
+
+  testWidgets('a Hecho on the Focus Chunk closes the day\'s slot: the '
+      'next view commits non-chunk, never a second 15-minute card '
+      '(AD-19, AD-20)', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final firstDealtId = dealtEntryOf(store)!.itemId!;
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final first = catalogue.entries.firstWhere(
+      (entry) => entry.id == firstDealtId,
+    );
+    final next = catalogue.entries.firstWhere(
+      (entry) => entry.id == latestDealtEntryOf(store)!.itemId,
+    );
+    // The launch deal is the chunk; its answer closed the slot before
+    // the bundled deal resolved.
+    expect(first.size, Size.focus);
+    expect(next.size, isNot(Size.focus));
+    expect(find.text('15\u00A0min'), findsNothing);
+    expect(find.byType(DurationChip), findsOneWidget);
+  });
+
+  testWidgets('the day\'s last completion commits the warm close with the '
+      'ack above it', (tester) async {
+    final store = _RecordingStore();
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    final controller = buildController(store);
+    // Answer every card but the day's last through the controller's own
+    // write path; the screen renders the ninth, and its Hecho closes.
+    for (var i = 0; i < 8; i++) {
+      final view = await controller.read();
+      await controller.complete(view as DispenserDealt);
+    }
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    final close = find.text(AppStringsEs().poolExhaustedClose);
+    expect(close, findsOneWidget);
+    final ack = find.text('¡Buen trabajo!');
+    expect(ack, findsOneWidget);
+    expect(_rect(tester, ack).bottom, lessThan(_rect(tester, close).top));
+    // The day's last answer bundled no next deal.
+    expect(store.entries.last.kind, 'card_done');
+  });
+
+  testWidgets('200% font scale: the ack wraps inside the scroll column '
+      'above the grown card — nothing truncated, the screen scrolls, the '
+      'window still closes (UX-DR14, NFR6)', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    _mockPlatformCalls(tester);
+
+    // The grown card pushes the button below the fold — the screen
+    // scrolls to it, which is itself the 200% floor's mechanism.
+    await tester.scrollUntilVisible(
+      find.byType(HechoButton),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    // Growing and scrolling, never truncating: no layout exception, the
+    // ack and the next card both whole inside the scroll column.
+    expect(tester.takeException(), isNull);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(
+      scrollable.position.maxScrollExtent,
+      greaterThan(0),
+      reason: 'the ack plus the grown card must outgrow the viewport',
+    );
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(scrollable.position.pixels, greaterThan(0));
+
+    // The fixed window closes at scale too.
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pumpAndSettle();
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+  });
+
+  testWidgets('a completion whose post-write read fails shows no ack — and '
+      'a later foreground-healed commit carries no stale ack', (tester) async {
+    final inner = _RecordingStore();
+    final store = _FailReadAfterDoneStore(inner);
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    final controller = buildController(store);
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    // The write itself landed whole — both rows — but its refresh's read
+    // failed: the empty frame stands and no ack renders for it.
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_dealt'),
+      hasLength(2),
+    );
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+
+    // The foreground-healed commit is not the post-completion view: the
+    // card returns with nothing waiting above it.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+  });
+
+  testWidgets('a later completion restarts the ack window — the first '
+      'window\'s elapse never cuts the second one short', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    _mockPlatformCalls(tester);
+
+    // Commit 1: the window opens. Zero-duration pumps commit the read
+    // without advancing the clock, so the window arithmetic below is
+    // exact rather than racing pumpAndSettle's per-pump 100 ms.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // Partway into the first window (1200 ms of its 2000), the next
+    // card is answered: commit 2 cancels the first timer and restarts
+    // the window from itself.
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // 1500 ms into the second window: past the first window's original
+    // end (1200 + 1500 > 2000), short of the second's (1500 < 2000) —
+    // the ack stands. Deleting the restart's timer cancellation in
+    // _commitView fails exactly here: the first window's elapse would
+    // have removed it 700 ms ago.
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // Past the second window's end (1500 + 700 ≥ 2000): plain removal,
+    // nothing else on the surface moves.
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
+    // Let the taps' ink ripples settle before the binding's teardown
+    // invariants — they advance the clock no further than assertions
+    // care about.
+    await tester.pumpAndSettle();
   });
 }
