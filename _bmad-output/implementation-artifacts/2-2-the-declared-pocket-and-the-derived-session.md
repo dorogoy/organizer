@@ -98,6 +98,14 @@ context: ['FR-8', 'FR-3', 'FR-9', 'FR-12', 'AD-1', 'AD-6', 'AD-15', 'AD-19', 'AD
 - Given a pocket fully elapsed while the app was not foregrounded, when the app is next foregrounded, then the session closes at that instant — the elapse is revealed, not awaited — and nothing held session state in memory as the source of truth (AD-19)
 - Given the completion gate, then `make check` and `make gate` are green, core suites via `make test-core`
 
+### Review Findings
+
+- [x] [Review][Patch] Serialize lifecycle and declaration writes through one shared queue [`lib/dispenser/dispenser_controller.dart:220`, `lib/session/session_controller.dart:102`]
+- [x] [Review][Patch] Derive the displayed pocket and card from one post-write log snapshot at a post-wait instant [`lib/dispenser/dispenser_controller.dart:98`]
+- [x] [Review][Patch] Invalidate an older read before committing a declared pocket view [`lib/ui/dispenser/dispenser_screen.dart:437`]
+- [x] [Review][Patch] Prove the 200% pocket ladder can scroll to every option [`test/ui/dispenser/dispenser_screen_test.dart:2474`]
+- [x] [Review][Defer] Make multi-row log bundles transactional [`lib/dispenser/dispenser_controller.dart:233`] — deferred, pre-existing
+
 ## Spec Change Log
 
 ## Design Notes

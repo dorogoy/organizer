@@ -2518,6 +2518,35 @@ void main() {
       expect(find.byType(ErrorWidget), findsNothing);
     });
 
+    testWidgets('the 200% ladder scrolls its lower pills into view on a '
+        'short handset', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(BottomSheet);
+      final scrollView = find.descendant(
+        of: sheet,
+        matching: find.byType(SingleChildScrollView),
+      );
+      final lastPill = find.descendant(
+        of: sheet,
+        matching: find.text('60\u00A0min'),
+      );
+      expect(tester.getRect(lastPill).bottom, greaterThan(220));
+
+      await tester.drag(scrollView, const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(lastPill).bottom, lessThanOrEqualTo(220));
+    });
+
     testWidgets('the reveal flow: an elapsed pocket left open by process '
         'death closes at the next open, before any new session_started — '
         'and the carried card renders answerable through it (AD-19)', (

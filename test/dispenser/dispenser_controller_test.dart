@@ -23,6 +23,7 @@ import 'package:organizer/catalogue/catalogue_names.g.dart';
 import 'package:organizer/catalogue/loader.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/session/session_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 
 /// The recording store (the session suite's own contract): appends land
@@ -971,11 +972,16 @@ void main() {
   });
 
   group('the pocket declaration (Story 2.2, FR-8, AD-19)', () {
-    DispenserController buildFor(StorePort store) => DispenserController(
+    DispenserController buildFor(
+      StorePort store, {
+      LogWriteQueue? writeQueue,
+      DateTime Function() nowOf = _fixedClock,
+    }) => DispenserController(
       store: store,
       strings: AppStringsEs(),
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
-      nowOf: _fixedClock,
+      nowOf: nowOf,
+      writeQueue: writeQueue,
     );
 
     test('declaring from idle appends [session_started{p}, card_dealt?] '
@@ -1014,6 +1020,65 @@ void main() {
           .size;
       expect(narrowSize, isNot(Size.focus));
       expect((narrowView as DispenserDealt).pocketMinutes, 4);
+    });
+
+    test('a declaration queued behind app open reads its persisted session '
+        'and supersedes it, never racing a second session_started', () async {
+      final store = _RecordingStore();
+      final writes = LogWriteQueue();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+        writeQueue: writes,
+      );
+      final dispenser = buildFor(store, writeQueue: writes);
+
+      final opening = session.handleAppOpen();
+      final declaration = dispenser.declarePocket(15);
+      await Future.wait([opening, declaration]);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'session_started',
+      ]);
+      expect(store.entries.last.pocketMinutes, 15);
+    });
+
+    test('a delayed read derives pocket dealability at its post-queue '
+        'instant, not before a pending write', () async {
+      final store = _RecordingStore()
+        ..entries.add((
+          id: 'pocket-start',
+          kind: 'session_started',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            12,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 1,
+        ));
+      final writes = LogWriteQueue();
+      final release = Completer<void>();
+      unawaited(writes.enqueue(() => release.future));
+      var now = DateTime.utc(2026, 8, 29, 12, 0, 30);
+      final read = buildFor(store, writeQueue: writes, nowOf: () => now).read();
+
+      now = DateTime.utc(2026, 8, 29, 12, 2);
+      release.complete();
+
+      expect(await read, isA<DispenserClosed>());
     });
 
     test(

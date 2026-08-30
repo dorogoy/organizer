@@ -1,6 +1,6 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
-import 'package:core/facade/read_facade.dart';
+import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
 import '../catalogue/loader.dart';
+import '../session/log_write_queue.dart';
 import '../strings/app_strings.dart';
 
 /// The Dispenser's whole read surface (FR-1, AD-6): what the screen
@@ -46,11 +47,11 @@ final class DispenserClosed extends DispenserView {
 }
 
 /// The Dispenser's read and write surface (Stories 1.8–1.10): the app's
-/// home surface computes its card through `nextCard` — the read facade's
-/// one function — and answers it through the two core answer commands,
-/// each appending its answer and the bundled next deal itself (AD-3):
-/// `cardDone` (Story 1.9) and `cardSkipped` (Story 1.10, FR-3), each with
-/// the Time Bag derived once per operation and threaded in (2.1).
+/// home surface derives its card and standing pocket from one log snapshot,
+/// and answers it through the two core answer commands, each appending its
+/// answer and the bundled next deal itself (AD-3): `cardDone` (Story 1.9)
+/// and `cardSkipped` (Story 1.10, FR-3), each with the Time Bag derived once
+/// per operation and threaded in (2.1).
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -68,56 +69,53 @@ class DispenserController {
     this.bundle,
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
-  });
+    LogWriteQueue? writeQueue,
+  }) : writeQueue = writeQueue ?? LogWriteQueue();
 
   final StorePort store;
   final AppStrings strings;
   final AssetBundle? bundle;
   final Uuid idMinter;
   final DateTime Function() nowOf;
+  final LogWriteQueue writeQueue;
   Future<Catalogue>? _catalogue;
 
-  /// The serialized write path (Stories 1.9–1.10): one answer's
-  /// read→compute→append — a completion or a skip — runs to completion
-  /// before the next begins — `SessionController`'s `_lifecycle`
-  /// contract — so a rapid second tap reads the post-answer log and the
-  /// core guard appends nothing.
-  /// Failures clear from the chain itself so one throwing answer
-  /// never wedges the next.
-  Future<void> _writes = Future<void>.value();
-
   /// Reads the card to display (AD-3: a pure computation, never a write).
-  /// The instant is minted at entry, before any await, so the derivation
-  /// resolves against the moment the user is looking at the screen. The
-  /// settled write chain drains before the store is read: a lifecycle
-  /// refresh landing mid-answer-batch — the `card_done`/`card_skipped`
-  /// appended, the bundled `card_dealt` not yet — must never derive from
-  /// that half-written log (a resolver fall-through card the store never
-  /// recorded). The chain future never fails; failures clear into it as
-  /// they rethrow to their callers, so this await needs no guard.
-  Future<DispenserView> read() async {
+  /// It runs in the shared log queue, so the pocket and card come from one
+  /// post-write snapshot and the clock is read only when that snapshot is
+  /// safe to derive.
+  Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
-    await _writes;
     final catalogue = await _loadCatalogue();
     // The standing declared pocket (Story 2.2) derives from the log the
     // same read resolves against — log-derived, never held in memory as
     // truth (AD-19). An out-of-range pocket row derives as absent here,
     // exactly as in the walk.
-    final facts = walkLog(
-      logEntriesOf(await store.readLogEntries()),
-      catalogue: catalogue,
-    );
+    final log = logEntriesOf(await store.readLogEntries());
+    final facts = walkLog(log, catalogue: catalogue);
     final pocket = facts.openSessionPocketMinutes;
-    final card = await nextCard(
-      store,
-      catalogue: catalogue,
-      instantUtcMicros: now.microsecondsSinceEpoch,
-      offsetSeconds: now.timeZoneOffset.inSeconds,
-    );
+    final unanswered = facts.dealtUnanswered;
+    final card = unanswered == null
+        ? nextDeal(
+            catalogue: catalogue,
+            log: log,
+            instantUtcMicros: now.microsecondsSinceEpoch,
+            offsetSeconds: now.timeZoneOffset.inSeconds,
+            bagMinutes: deriveTimeBagMinutes(log),
+            energy: deriveLivePoolEnergy(
+              now.microsecondsSinceEpoch,
+              now.timeZoneOffset.inSeconds,
+            ),
+          )
+        : cardForItem(
+            catalogue: catalogue,
+            itemId: unanswered.itemId,
+            origin: unanswered.itemOrigin,
+          );
     return card == null
         ? DispenserClosed(pocketMinutes: pocket)
         : DispenserDealt(card, pocketMinutes: pocket);
-  }
+  });
 
   /// Answers the dealt card (Story 1.9's one write path, FR-2): runs the
   /// core `cardDone` command — the `card_done` row plus the bundled next
@@ -249,11 +247,7 @@ class DispenserController {
   }
 
   Future<void> _enqueueWrite(Future<void> Function() step) {
-    final chained = _writes.then((_) => step());
-    // The caller observes the attempt's failure, while the chain itself
-    // recovers so a later answer — a completion or a skip — can retry.
-    _writes = chained.catchError((Object error) {});
-    return chained;
+    return writeQueue.enqueue(step);
   }
 
   /// The catalogue loads once per controller lifetime. A failed load is

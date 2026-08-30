@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../catalogue/loader.dart';
 import '../strings/app_strings.dart';
+import 'log_write_queue.dart';
 
 /// Installs the session lifecycle wiring (AD-19) beside the crash guard:
 /// the controller is registered as a binding observer and the launch
@@ -22,6 +23,7 @@ SessionController installSessionController({
   AssetBundle? bundle,
   Uuid idMinter = const Uuid(),
   DateTime Function() nowOf = DateTime.now,
+  LogWriteQueue? writeQueue,
   void Function(WidgetsBindingObserver observer)? addObserver,
 }) {
   final controller = SessionController(
@@ -30,6 +32,7 @@ SessionController installSessionController({
     bundle: bundle,
     idMinter: idMinter,
     nowOf: nowOf,
+    writeQueue: writeQueue,
   );
   (addObserver ?? WidgetsBinding.instance.addObserver)(controller);
   unawaited(controller.handleAppOpen());
@@ -57,19 +60,20 @@ class SessionController with WidgetsBindingObserver {
     this.bundle,
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
-  });
+    LogWriteQueue? writeQueue,
+  }) : writeQueue = writeQueue ?? LogWriteQueue();
 
   final StorePort store;
   final AppStrings strings;
   final AssetBundle? bundle;
   final Uuid idMinter;
   final DateTime Function() nowOf;
+  final LogWriteQueue writeQueue;
   Future<Catalogue>? _catalogue;
 
   /// The serialized lifecycle: each queued step completes before the
   /// next starts. Failures clear from the chain itself so one throwing
   /// step never wedges the queue.
-  Future<void> _lifecycle = Future<void>.value();
   Future<void> _settled = Future<void>.value();
 
   /// Completes after lifecycle work queued so far. Shell readers use this
@@ -82,11 +86,10 @@ class SessionController with WidgetsBindingObserver {
   bool _leftForegroundSinceOpen = false;
 
   Future<void> _enqueue(Future<void> Function() step) {
-    final chained = _lifecycle.then((_) => step());
-    // Readers must observe the current attempt's failure, while the queue
-    // itself recovers so a later lifecycle event can retry.
+    final chained = writeQueue.enqueue(step);
+    // Readers must observe the current attempt's failure. The shared queue
+    // recovers internally so the next lifecycle or Dispenser write can run.
     _settled = chained;
-    _lifecycle = chained.catchError((Object error) {});
     return chained;
   }
 

@@ -396,6 +396,7 @@ class _DispenserScreenState extends State<DispenserScreen>
   Future<void> _openPocketLadder() {
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       // The sheet's own scroll view keeps the pills whole at 200% — the
       // wrap reflows and the sheet scrolls, nothing truncates.
       builder: (sheetContext) => SafeArea(
@@ -439,8 +440,12 @@ class _DispenserScreenState extends State<DispenserScreen>
       return;
     }
     _writeInFlight = true;
+    // A launch or foreground refresh may still be reading the old log. Its
+    // result must not overwrite this declaration after it lands.
+    _readGeneration++;
     var releaseAfterRefresh = false;
     try {
+      await widget.sessionSettled?.call();
       final view = await widget.controller.declarePocket(minutes);
       if (!mounted) {
         return;

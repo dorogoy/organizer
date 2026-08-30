@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
 import 'session/session_controller.dart';
+import 'session/log_write_queue.dart';
 import 'settings/settings_controller.dart';
 import 'store/bootstrap.dart';
 import 'strings/app_strings.dart';
@@ -18,6 +19,7 @@ void main() {
   // destination — is installed before runApp so nothing can escape it.
   final store = openStore();
   installCrashGuard(store);
+  final logWrites = LogWriteQueue();
   // The session lifecycle wiring (AD-19) sits beside the crash guard:
   // app opens and backgroundings become log facts — `app_opened`, the
   // session's first `card_dealt`, `session_ended`. The launch open runs
@@ -26,6 +28,7 @@ void main() {
   final session = installSessionController(
     store: store,
     strings: AppStringsEs(),
+    writeQueue: logWrites,
   );
   // The Dispenser (Story 1.8) is the home: it reads the launch deal
   // through the same store, and the double asset read behind the shared
@@ -35,7 +38,11 @@ void main() {
   runApp(
     ProviderScope(
       child: OrganizerApp(
-        dispenser: DispenserController(store: store, strings: AppStringsEs()),
+        dispenser: DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          writeQueue: logWrites,
+        ),
         sessionSettled: () => session.settled,
         settings: SettingsController(store: store),
       ),
