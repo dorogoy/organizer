@@ -1,4 +1,4 @@
-// The Dispenser surface's contract (Stories 1.8–1.9): the launch deal renders
+// The Dispenser surface's contract (Stories 1.8–1.10): the launch deal renders
 // with the fake store + the real asset bytes + a fixed clock; the warm
 // close stands when the deal is absent; a failed catalogue read leaves
 // the empty frame with the memo cleared for the next read; 200% font
@@ -7,7 +7,12 @@
 // dispatches the light haptic, appends the answer, commits the next
 // card with the ack above it for its fixed window, absorbs a failed
 // write into the empty frame, and serializes a double tap into exactly
-// one card_done — the I/O matrix's rows, pinned.
+// one card_done. Story 1.10's skip rows: the secondary tap appends the
+// answer and commits the next candidate with no haptic and no ack, the
+// exhausted day lands on the warm close, the chunk slot stays open, a
+// double skip — and a skip racing Hecho — lands exactly one row, a
+// failed skip heals through the empty frame, and the 200% fold still
+// carries the tap — the I/O matrix's rows, pinned.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -83,6 +88,35 @@ class _FailFirstDoneStore implements StorePort {
       _inner.readLogEntries();
 }
 
+/// A store whose first `card_skipped` append throws — the skip's
+/// write-failure row: the controller rethrows, the screen absorbs it
+/// into the empty frame, and the log stays consistent (nothing landed).
+class _FailFirstSkippedStore implements StorePort {
+  _FailFirstSkippedStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'card_skipped') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
 /// A store whose log reads fail exactly once, and only once a
 /// `card_done` has landed — the post-write refresh's read fails while
 /// the write itself succeeded (the transient the foreground heal
@@ -114,25 +148,34 @@ class _FailReadAfterDoneStore implements StorePort {
   }
 }
 
-/// A store whose `card_dealt` appends park behind a gate once a
-/// `card_done` has landed — a completion batch held half-written so a
-/// second tap lands while the write is genuinely in flight.
+/// A store whose bundled `card_dealt` appends park behind a gate once a
+/// given answer kind has landed — an answer batch (a completion by
+/// default, a skip via [answerKind]) held half-written so a second tap
+/// lands while the write is genuinely in flight.
 class _GatedBundledDealStore implements StorePort {
-  _GatedBundledDealStore(this._inner, this._gate);
+  _GatedBundledDealStore(
+    this._inner,
+    this._gate, {
+    this.answerKind = 'card_done',
+  });
 
   final _RecordingStore _inner;
   final Future<void> _gate;
-  var _seenDone = false;
+
+  /// The answer kind that arms the gate: a completion by default, a
+  /// skip for Story 1.10's in-flight rows.
+  final String answerKind;
+  var _seenAnswer = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async {
-    if (entry.kind == 'card_done') {
-      _seenDone = true;
+    if (entry.kind == answerKind) {
+      _seenAnswer = true;
     }
-    if (_seenDone && entry.kind == 'card_dealt') {
+    if (_seenAnswer && entry.kind == 'card_dealt') {
       await _gate;
     }
     await _inner.appendLogEntry(entry);
@@ -346,6 +389,12 @@ List<MethodCall> _lightImpacts(List<MethodCall> calls) => calls
           call.arguments == 'HapticFeedbackType.lightImpact',
     )
     .toList();
+
+/// Every haptic dispatch of any type — the skip's no-feedback pin is
+/// type-agnostic: a medium, heavy or selection haptic regression must
+/// fail it just as the light one would.
+List<MethodCall> _hapticImpacts(List<MethodCall> calls) =>
+    calls.where((call) => call.method == 'HapticFeedback.vibrate').toList();
 
 Widget _harness(
   DispenserController controller, {
@@ -1288,6 +1337,442 @@ void main() {
     // Let the taps' ink ripples settle before the binding's teardown
     // invariants — they advance the clock no further than assertions
     // care about.
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('tapping the secondary skips with no haptic and no ack — '
+      'the answer records once and the next candidate commits (FR-3, '
+      'Story 1.10)', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final firstDealtId = dealtEntryOf(store)!.itemId!;
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    // Exactly one card_skipped, naming the dealt card, with the bundled
+    // next deal beside it.
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    final skipped = store.entries.lastWhere(
+      (entry) => entry.kind == 'card_skipped',
+    );
+    expect(skipped.itemId, firstDealtId);
+    final nextDealt = latestDealtEntryOf(store)!;
+    expect(nextDealt.itemId, isNot(firstDealtId));
+
+    // The different card *is* the answer: it is on screen already, and
+    // no feedback of any kind preceded it — no haptic, no ack.
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final next = catalogue.entries.firstWhere(
+      (entry) => entry.id == nextDealt.itemId,
+    );
+    expect(find.text(next.name), findsOneWidget);
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(_hapticImpacts(calls), isEmpty);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('skipping the Focus Chunk leaves the day\'s slot open: a '
+      'different candidate commits and the day\'s chunk remains available '
+      '(AD-20)', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final firstDealtId = dealtEntryOf(store)!.itemId!;
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final first = catalogue.entries.firstWhere(
+      (entry) => entry.id == firstDealtId,
+    );
+    final next = catalogue.entries.firstWhere(
+      (entry) => entry.id == latestDealtEntryOf(store)!.itemId,
+    );
+    // The launch deal is the chunk; the skip consumed nothing — no
+    // completion happened, so the slot no card_done closed stays open.
+    expect(first.size, Size.focus);
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_done'),
+      isEmpty,
+      reason: 'a skip consumes nothing: only a card_done closes the slot',
+    );
+    // Identity re-resolves on the deal (AD-20): re-ranked, never
+    // excluded — with another zone candidate the deal differs, and
+    // because the slot stays open the re-dealt candidate is chunk-classed
+    // again (the core's own pin: a skipped chunk re-resolves identity and
+    // leaves the slot open — the day's chunk remains available, never
+    // silently lost to a skip).
+    expect(next.id, isNot(first.id));
+    expect(next.size, Size.focus);
+    expect(find.text('15\u00A0min'), findsOneWidget);
+    expect(find.byType(DurationChip), findsOneWidget);
+    expect(find.text(first.name), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+  });
+
+  testWidgets('skipping the day\'s last candidate lands on the warm close '
+      '— only the answer row appended, never an error, never an ack', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    final controller = buildController(store);
+    // The screen renders the ninth card; its secondary closes the day.
+    for (var i = 0; i < 8; i++) {
+      final view = await controller.read();
+      await controller.complete(view as DispenserDealt);
+    }
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    // The already-shipped warm close: no new close path, no error.
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(store.entries.last.kind, 'card_skipped');
+    expect(_hapticImpacts(calls), isEmpty);
+  });
+
+  testWidgets('a rapid double skip appends exactly one card_skipped — the '
+      'in-flight guard returns early and the serialization guard reads the '
+      'answered log', (tester) async {
+    final inner = _RecordingStore();
+    final gate = Completer<void>();
+    final store = _GatedBundledDealStore(
+      inner,
+      gate.future,
+      answerKind: 'card_skipped',
+    );
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    await tester.pumpWidget(_harness(buildController(store)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    final calls = _mockPlatformCalls(tester);
+
+    // The first skip's write parks behind the gate — the batch is
+    // half-written, the skip genuinely in flight when the second tap
+    // lands.
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_dealt'),
+      hasLength(2),
+      reason: 'the launch deal plus the one bundled next deal',
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+  });
+
+  testWidgets('a skip racing a Hecho appends exactly one answer row — the '
+      'shared in-flight guard serializes the surface in either order', (
+    tester,
+  ) async {
+    // Skip first, Hecho second: the skip lands, the Hecho appends
+    // nothing and fired no haptic (the guard returns before one would).
+    final skipFirst = _RecordingStore();
+    final skipGate = Completer<void>();
+    final skipStore = _GatedBundledDealStore(
+      skipFirst,
+      skipGate.future,
+      answerKind: 'card_skipped',
+    );
+    await SessionController(
+      store: skipStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    await tester.pumpWidget(_harness(buildController(skipStore)));
+    await tester.pumpAndSettle();
+    var calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+
+    skipGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      skipFirst.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(
+      skipFirst.entries.where((entry) => entry.kind == 'card_done'),
+      isEmpty,
+    );
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+
+    // Hecho first, skip second: the completion lands and its ack rides
+    // the next card; the skip appends nothing.
+    await tester.pumpWidget(const SizedBox.shrink());
+    final doneFirst = _RecordingStore();
+    final doneGate = Completer<void>();
+    final doneStore = _GatedBundledDealStore(doneFirst, doneGate.future);
+    await SessionController(
+      store: doneStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    await tester.pumpWidget(_harness(buildController(doneStore)));
+    await tester.pumpAndSettle();
+    calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+
+    doneGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+    );
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+    expect(find.byType(TaskCard), findsOneWidget);
+    // Exactly one haptic of any type — the Hecho's light impact; the
+    // early-returned skip contributed none.
+    expect(_hapticImpacts(calls), hasLength(1));
+  });
+
+  testWidgets('a failed skip leaves the empty frame standing — quiet, no '
+      'haptic, no ack, nothing surfaced — and the healed retry skips', (
+    tester,
+  ) async {
+    final inner = _RecordingStore();
+    final store = _FailFirstSkippedStore(inner);
+    await launchAndCommit(tester, store);
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+      reason: 'the log stayed consistent: nothing landed on the failed write',
+    );
+
+    // The foreground heal re-reads: the launch deal is still unanswered
+    // (nothing landed), so the same card returns.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // The guard's finally released the write: the secondary is not
+    // bricked. The retried skip lands — the store already spent its one
+    // failure — and the different card commits, still feedback-free.
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+      reason:
+          'the healed tap skipped — a stuck in-flight guard would '
+          'have bricked the secondary with the suite green',
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+  });
+
+  testWidgets('200% font scale: the skip still reaches its tap — the '
+      'string whole or folded, never truncated — and the alternative '
+      'commits (UX-DR14, NFR6)', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final calls = _mockPlatformCalls(tester);
+
+    // The grown card pushes the control below the fold — the screen
+    // scrolls to it, which is itself the 200% floor's mechanism.
+    await tester.scrollUntilVisible(
+      find.byType(SecondaryTextAction),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    // The next candidate is on screen, and its control is still the
+    // one-piece string — whole or folded, never split into pieces.
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    final next = catalogue.entries.firstWhere(
+      (entry) => entry.id == latestDealtEntryOf(store)!.itemId,
+    );
+    expect(find.text(next.name), findsOneWidget);
+    expect(find.text('Otra más fácil / Ahora no'), findsOneWidget);
+    expect(_hapticImpacts(calls), isEmpty);
+  });
+
+  testWidgets('a skip under a visible completion ack commits the '
+      'alternative with the ack still standing above it — the original '
+      'window, never a restarted one, clears it', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store);
+    final calls = _mockPlatformCalls(tester);
+
+    // The completion lands: zero-duration pumps commit its read without
+    // advancing the clock, so the ack is mid-window and visible above
+    // the committed card.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // Partway into the window (1200 ms of its 2000), the next card is
+    // skipped: the skip's refresh must not touch the completion's ack —
+    // it commits the alternative with the ack still above it.
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    final ack = find.text('¡Buen trabajo!');
+    expect(ack, findsOneWidget);
+    expect(
+      _rect(tester, ack).bottom,
+      lessThan(_rect(tester, find.byType(TaskCard)).top),
+    );
+
+    // Still inside the original window (1900 < 2000): the ack stands.
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(ack, findsOneWidget);
+
+    // Past the original deadline (1900 + 110 > 2000): plain removal by
+    // the completion's own timer. A skip that restarted the window
+    // (deadline 1200 + 2000) would leave the ack standing exactly here.
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
+    // The skip stayed feedback-free under the ack: no haptic of any
+    // type fired across both taps but the Hecho's.
+    expect(_hapticImpacts(calls), hasLength(1));
+  });
+
+  testWidgets('a failed skip under a visible completion ack leaves the ack '
+      'standing — the healed commit carries it, the original window clears '
+      'it', (tester) async {
+    final inner = _RecordingStore();
+    final store = _FailFirstSkippedStore(inner);
+    await launchAndCommit(tester, store);
+    final calls = _mockPlatformCalls(tester);
+
+    // The completion lands: the ack is mid-window and visible above the
+    // committed card.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // The skip's write fails under that visible ack: the empty frame
+    // stands, nothing landed — and a skip touches no completion state,
+    // so the ack-flag class is not this write's to clear.
+    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsNothing);
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+    );
+    expect(_hapticImpacts(calls), hasLength(1));
+
+    // Still inside the window, the foreground heal commits the
+    // still-unanswered card — and the ack rides it. A catch that copied
+    // the completion's flag clears would render nothing above it.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // The original window still owns the removal.
+    await tester.pump(const Duration(milliseconds: 2000));
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
     await tester.pumpAndSettle();
   });
 }

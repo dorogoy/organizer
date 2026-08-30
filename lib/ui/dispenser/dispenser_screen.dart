@@ -1,4 +1,4 @@
-// The Dispenser surface (Stories 1.8–1.9, UX-DR14/UX-DR41): the app's
+// The Dispenser surface (Stories 1.8–1.10, UX-DR14/UX-DR41): the app's
 // home. Exactly one Micro-task on screen (FR-1), no list, calendar,
 // counter, streak, badge or overdue indicator anywhere reachable
 // (UX-DR44). The air around the card is a minimum 48dp plus flex — never
@@ -12,7 +12,7 @@
 // memo cleared, so the next read retries. No error string, no crash
 // surfaced. The retry's trigger is the same one
 // `SessionController` uses: a real return to the foreground re-reads,
-// and a Hecho answer refreshes the surface between foregrounds.
+// and a Hecho or skip answer refreshes the surface between foregrounds.
 //
 // The Hecho tap (Story 1.9): the light haptic acknowledges the act
 // immediately — never awaited, never the sole signal — then the write is
@@ -22,6 +22,17 @@
 // completed card exits the tree entirely via the refresh clear — removal,
 // deliberately no motion — and a failed write is absorbed by the empty
 // frame, quietly.
+//
+// The secondary tap (Story 1.10, FR-3): the skip is `_onDone`'s
+// mechanics minus all feedback — no haptic, no acknowledgement, nothing
+// celebration-shaped; the different card *is* the answer. The same
+// in-flight guard serializes it against a Hecho, the write is awaited
+// (`card_skipped` + the bundled next `card_dealt`), and the surface
+// refreshes from the answered log; a failed write leaves the quiet
+// empty frame standing, and when the skipped card was the day's last
+// candidate the refresh lands on the already-shipped warm close.
+// Completion state — the ack flags and their window — stays
+// completion-only: a skip touches none of it.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -112,10 +123,13 @@ class _DispenserScreenState extends State<DispenserScreen>
     _readAfterSessionSettles(generation);
   }
 
-  /// Whether a completion's write is between its tap and its settle —
-  /// the synchronous in-flight guard. A completion already in flight
-  /// owns the surface: a rapid second tap would only fire a second
-  /// haptic and a second refresh for a write the core guard no-ops.
+  /// Whether an answer's write — a completion's or a skip's — is between
+  /// its tap and its settle: the synchronous in-flight guard both
+  /// answers share, so a skip and a `Hecho` can never interleave at the
+  /// surface. An answer already in flight owns the surface: a rapid
+  /// second tap on either control returns early — it would only fire a
+  /// second haptic on the `Hecho` side (a skip fires none) and a second
+  /// refresh for a write the core guard no-ops.
   bool _writeInFlight = false;
 
   /// One tap, no confirmation, no undo (UX-DR43): the light haptic
@@ -154,6 +168,43 @@ class _DispenserScreenState extends State<DispenserScreen>
           _view = null;
           _completionAckVisible = false;
         });
+      }
+    } finally {
+      _writeInFlight = false;
+    }
+  }
+
+  /// One tap, no confirmation, and deliberately no feedback of any kind
+  /// (FR-3, Story 1.10): the skip is `_onDone`'s mechanics minus the
+  /// haptic and the whole ack-flag class — the different card *is* the
+  /// answer, so nothing celebration-shaped may precede it. The same
+  /// in-flight guard as a completion keeps a rapid second skip — or a
+  /// skip racing a Hecho, either order — from interleaving at the
+  /// surface: the early return fires before anything observable, and
+  /// the core's guard would append nothing anyway. The write is
+  /// awaited, then the surface refreshes from the answered log; on
+  /// exhaustion the read resolves to the warm close. A failed write is
+  /// absorbed by the empty frame, quietly — and because a skip touches
+  /// no completion state, no ack flag exists here to clear.
+  Future<void> _onSkip(DispenserDealt dealt) async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    try {
+      await widget.controller.skip(dealt);
+      if (!mounted) {
+        return;
+      }
+      _refresh();
+    } catch (_) {
+      // The write failed: quiet and deliberate — the empty frame stands,
+      // nothing surfaced, and a real return to the foreground re-reads.
+      // The completion ack's flags and window are not this write's to
+      // touch: they belong to a completion, and stay whatever a
+      // completion left them.
+      if (mounted) {
+        setState(() => _view = null);
       }
     } finally {
       _writeInFlight = false;
@@ -220,7 +271,11 @@ class _DispenserScreenState extends State<DispenserScreen>
         DispenserDealt dealt => _frame(
           _withCompletionAck(
             context,
-            TaskCard(card: dealt.card, onDone: () => _onDone(dealt)),
+            TaskCard(
+              card: dealt.card,
+              onDone: () => _onDone(dealt),
+              onSkip: () => _onSkip(dealt),
+            ),
           ),
         ),
         DispenserClosed() => _frame(

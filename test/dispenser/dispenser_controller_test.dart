@@ -1,11 +1,14 @@
-// The Dispenser write path's contract (Story 1.9): `complete(dealt)`
+// The Dispenser write path's contract (Stories 1.9–1.10): `complete(dealt)`
 // appends the `card_done` row and the bundled next `card_dealt` — one
 // minted instant for the batch, a v7 id per row, the command's
 // `bagMinutes`/energy defaults; the day's last completion appends the
 // answer row alone; a rapid second `complete` reads the post-answer log
 // and the core guard appends nothing; a failing append rethrows while
 // the serialization chain recovers — the I/O matrix's write rows,
-// pinned against the shipped catalogue bytes.
+// pinned against the shipped catalogue bytes. Story 1.10 pins the same
+// contract for `skip(dealt)`: `card_skipped` + the bundled deal, the
+// exhausted-day single row, the double-tap and skip-racing-`Hecho`
+// guards, failure propagation and the mint-at-entry stamp.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -70,26 +73,65 @@ class _FailFirstDoneStore implements StorePort {
       _inner.readLogEntries();
 }
 
-/// A store whose log reads fail exactly once, and only once a
-/// `card_done` has landed — the post-write refresh's read fails while
-/// the write itself succeeded (the transient the foreground heal
-/// covers). Reads delegate to the inner recording store otherwise.
-class _GatedBundledDealStore implements StorePort {
-  _GatedBundledDealStore(this._inner, this._gate);
+/// A store whose first `card_skipped` append throws — the skip's
+/// write-failure row: the controller rethrows to the caller, the chain
+/// recovers for the next answer, and the log stays consistent (nothing
+/// landed).
+class _FailFirstSkippedStore implements StorePort {
+  _FailFirstSkippedStore(this._inner);
 
   final _RecordingStore _inner;
-  final Future<void> _gate;
-  var _seenDone = false;
+  var _thrown = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async {
-    if (entry.kind == 'card_done') {
-      _seenDone = true;
+    if (!_thrown && entry.kind == 'card_skipped') {
+      _thrown = true;
+      throw StateError('append failed');
     }
-    if (_seenDone && entry.kind == 'card_dealt') {
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose bundled `card_dealt` appends park behind a gate once a
+/// given answer kind has landed — an answer batch (a completion by
+/// default, a skip via [answerKind]) held half-written — answer row
+/// landed, deal row not — so the settled-chain await is observable.
+/// Reads delegate to the inner recording store.
+class _GatedBundledDealStore implements StorePort {
+  _GatedBundledDealStore(
+    this._inner,
+    this._gate, {
+    this.answerKind = 'card_done',
+  });
+
+  final _RecordingStore _inner;
+  final Future<void> _gate;
+
+  /// The answer kind that arms the gate: a completion by default, a
+  /// skip for Story 1.10's in-flight rows.
+  final String answerKind;
+  var _seenAnswer = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (entry.kind == answerKind) {
+      _seenAnswer = true;
+    }
+    if (_seenAnswer && entry.kind == 'card_dealt') {
       // The bundled next deal parks behind the gate: the batch is
       // half-written — answer row landed, deal row not — until it fires.
       await _gate;
@@ -505,5 +547,345 @@ void main() {
     expect(nextDeal.instantUtcMicros, entryMint);
     expect(answer.offsetSeconds, 0);
     expect(nextDeal.offsetSeconds, 0);
+  });
+
+  test('skip appends card_skipped and the bundled next card_dealt — one '
+      'minted instant, a v7 id per row, the dealt item passed', () async {
+    final store = _RecordingStore();
+    final dealt = await openSessionAndReadFirstDeal(store);
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    await controller.skip(dealt);
+
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'card_skipped',
+      'card_dealt',
+    ]);
+    final answer = store.entries[3];
+    final nextDeal = store.entries[4];
+    expect(answer.itemId, dealt.card.id);
+    expect(answer.itemOrigin, dealt.card.origin);
+    // Identity re-resolves on the skip (AD-20): re-ranked, never
+    // excluded — with a second candidate the deal differs.
+    expect(nextDeal.itemId, isNot(dealt.card.id));
+    // One minted instant (and offset) serves the whole skip batch.
+    expect(answer.instantUtcMicros, nextDeal.instantUtcMicros);
+    expect(answer.offsetSeconds, nextDeal.offsetSeconds);
+    // A distinct v7 id per row.
+    expect(answer.id, matches(v7));
+    expect(nextDeal.id, matches(v7));
+    expect(answer.id, isNot(nextDeal.id));
+  });
+
+  test('skipping the day\'s last candidate appends the answer row alone — '
+      'the next read lands on the warm close', () async {
+    final store = _RecordingStore();
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    // Answer eight of the canonical day's nine cards; the ninth is the
+    // day's last candidate, and it is skipped, not completed.
+    var view = await controller.read();
+    for (var i = 0; i < 8; i++) {
+      await controller.complete(view as DispenserDealt);
+      view = await controller.read();
+    }
+    await controller.skip(view as DispenserDealt);
+
+    expect(await controller.read(), isA<DispenserClosed>());
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    // The exhausted day bundled no next deal: the answer row stands alone.
+    expect(store.entries.last.kind, 'card_skipped');
+    expect(store.entries.last.itemId, isNotNull);
+  });
+
+  test('a rapid second skip serializes: it reads the post-answer log and '
+      'the core guard appends nothing — exactly one card_skipped', () async {
+    final store = _RecordingStore();
+    final dealt = await openSessionAndReadFirstDeal(store);
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+
+    final first = controller.skip(dealt);
+    final second = controller.skip(dealt);
+    await first;
+    await second;
+
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'card_skipped',
+      'card_dealt',
+    ]);
+  });
+
+  test('a skip racing a Hecho serializes through the shared chain — '
+      'whichever act is enqueued second reads the answered log and the '
+      'guard appends nothing, in either order', () async {
+    // Skip first, Hecho second: exactly one card_skipped, no card_done.
+    final skipFirst = _RecordingStore();
+    final dealtSkipFirst = await openSessionAndReadFirstDeal(skipFirst);
+    final firstController = DispenserController(
+      store: skipFirst,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    final skipping = firstController.skip(dealtSkipFirst);
+    final completing = firstController.complete(dealtSkipFirst);
+    await skipping;
+    await completing;
+    expect(
+      skipFirst.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(
+      skipFirst.entries.where((entry) => entry.kind == 'card_done'),
+      isEmpty,
+    );
+
+    // Hecho first, skip second: exactly one card_done, no card_skipped.
+    final doneFirst = _RecordingStore();
+    final dealtDoneFirst = await openSessionAndReadFirstDeal(doneFirst);
+    final secondController = DispenserController(
+      store: doneFirst,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    final completing2 = secondController.complete(dealtDoneFirst);
+    final skipping2 = secondController.skip(dealtDoneFirst);
+    await completing2;
+    await skipping2;
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+    );
+  });
+
+  test('a failing skip append rethrows to the caller and appends nothing; '
+      'the chain recovers so the next answer records', () async {
+    final inner = _RecordingStore();
+    final store = _FailFirstSkippedStore(inner);
+    final dealt = await openSessionAndReadFirstDeal(store);
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+
+    await expectLater(controller.skip(dealt), throwsA(isA<StateError>()));
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+      reason: 'the log stayed consistent: nothing landed on the failed write',
+    );
+
+    // The chain cleared the failure: the retry (the card is still the
+    // open session's dealt-but-unanswered one) now records both rows.
+    await controller.skip(dealt);
+    expect(inner.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'card_skipped',
+      'card_dealt',
+    ]);
+  });
+
+  test('skip stamps the whole batch with the instant minted at entry — '
+      'the clock\'s later ticks never reach the rows', () async {
+    var minute = 0;
+    final mints = <int>[];
+    DateTime advancingClock() {
+      final now = DateTime.utc(2026, 8, 29, 12, minute++);
+      mints.add(now.microsecondsSinceEpoch);
+      return now;
+    }
+
+    final inner = _RecordingStore()
+      ..entries.addAll([
+        _moment('session_started', DateTime.utc(2026, 8, 29, 11), 'seed-1'),
+        _act(
+          'card_dealt',
+          DateTime.utc(2026, 8, 29, 11, 1),
+          'seed-2',
+          chunkSeedId,
+        ),
+      ]);
+    final store = _TickingReadStore(inner, () => minute++);
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: advancingClock,
+    );
+
+    final dealt = (await controller.read()) as DispenserDealt;
+    // The minute skip() must mint, captured immediately before the call:
+    // a mint moved after the store reads (each of which ticks the clock
+    // once more) would stamp a later, observably different minute.
+    final skipMinute = minute;
+    await controller.skip(dealt);
+
+    // Exactly two mints — read()'s and skip()'s entry mint.
+    expect(mints, hasLength(2));
+    final entryMint = DateTime.utc(
+      2026,
+      8,
+      29,
+      12,
+      skipMinute,
+    ).microsecondsSinceEpoch;
+    final answer = inner.entries[2];
+    final nextDeal = inner.entries[3];
+    expect(answer.kind, 'card_skipped');
+    expect(nextDeal.kind, 'card_dealt');
+    expect(answer.instantUtcMicros, entryMint);
+    expect(nextDeal.instantUtcMicros, entryMint);
+    expect(answer.offsetSeconds, 0);
+    expect(nextDeal.offsetSeconds, 0);
+  });
+
+  test(
+    'a read landing mid-skip-batch never derives from the half-written '
+    'log — it waits for the settled chain and returns the bundled card',
+    () async {
+      final inner = _RecordingStore();
+      final gate = Completer<void>();
+      final store = _GatedBundledDealStore(
+        inner,
+        gate.future,
+        answerKind: 'card_skipped',
+      );
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final dealt = (await controller.read()) as DispenserDealt;
+
+      // The skip starts: its answer row lands, its bundled next deal parks
+      // behind the gate — the log is half-written.
+      final skipping = controller.skip(dealt);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_skipped'),
+        hasLength(1),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(1),
+        reason: 'the bundled deal is parked behind the gate, not yet landed',
+      );
+
+      // The read while the batch is parked must not resolve: without the
+      // settled-chain await it would derive the resolver's fall-through
+      // card from the half-written log.
+      DispenserView? readResult;
+      final reading = controller.read().then((value) => readResult = value);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        readResult,
+        isNull,
+        reason: 'the read parks behind the in-flight skip batch',
+      );
+
+      gate.complete();
+      await skipping;
+      await reading;
+
+      // Once the batch settles, the read returns the bundled card — the
+      // store's own recorded deal, never a resolver fall-through.
+      expect(readResult, isA<DispenserDealt>());
+      final bundled = (readResult as DispenserDealt).card;
+      final landedDeal = inner.entries.lastWhere(
+        (entry) => entry.kind == 'card_dealt',
+      );
+      expect(bundled.id, landedDeal.itemId);
+    },
+  );
+
+  test('a lone candidate re-deals: the skip re-ranks, never excludes — '
+      'repetition accepted, never an empty day mid-budget (AD-20)', () async {
+    // A single-entry catalogue (a real shipped id, so the generated name
+    // lookup resolves): exactly one eligible candidate exists, and the
+    // day's budget is nowhere near spent.
+    final lone =
+        '{"version":1,"entries":['
+        '{"id":"pasar-la-aspiradora-a-la-cocina","size":"focus",'
+        '"cadence":"weekly","zone":"z1"}]}';
+    final bundle = _FakeBundle({catalogueAssetPath: lone});
+    final store = _RecordingStore();
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: bundle,
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: bundle,
+      nowOf: _fixedClock,
+    );
+    final dealt = (await controller.read()) as DispenserDealt;
+
+    await controller.skip(dealt);
+
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'card_skipped',
+      'card_dealt',
+    ]);
+    final answer = store.entries[3];
+    final nextDeal = store.entries[4];
+    expect(answer.itemId, dealt.card.id);
+    // The bundled deal names the skipped card itself: the lone candidate
+    // re-deals (re-ranked, not excluded) rather than leaving an empty
+    // day while budget remains.
+    expect(nextDeal.itemId, dealt.card.id);
+    final view = await controller.read();
+    expect(view, isA<DispenserDealt>());
+    expect((view as DispenserDealt).card.id, dealt.card.id);
   });
 }

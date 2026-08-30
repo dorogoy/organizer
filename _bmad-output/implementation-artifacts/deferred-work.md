@@ -81,3 +81,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-9-hecho.md`
   summary: Give `DispenserController.complete` and `SessionController`'s lifecycle writes one shared serialization (or pin the display invariant "only dealt cards are shown") — a backgrounding inside the ms-wide completion window can interleave `session_ended` between the answer and its bundled deal, stranding an orphan deal row beside a closed session.
   evidence: 1-9 review (Edge-Case Hunter): the two controllers hold separate `_lifecycle`/`_writes` chains over one store with no coordinator; the insert-only substrate tolerates the orphan rows but no test pins the display invariant the ack's truthfulness rests on; 1-9's read-gating on `_writes` narrows the window without closing it.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-10-the-unsplit-secondary-control-the-skip-half.md`
+  summary: The two-row skip batch (`card_skipped` + bundled `card_dealt`) has no store atomicity — a mid-batch append failure orphans the answer row.
+  evidence: Edge-case review of 1-10 (the skip append loop in lib/dispenser/dispenser_controller.dart): a failure on the second iteration leaves the skip recorded without its bundled deal, diverging day-budget and least-recently-dealt accounting; 1.9 deferred the identical card_done variant — needs a batch port or core command variant, outside 1.10's no-core-change boundary.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-10-the-unsplit-secondary-control-the-skip-half.md`
+  summary: 1.9's `complete` ticking-clock test derives its mint expectation from the mint itself (rows == mints[1]), so a late mint in `complete` passes green.
+  evidence: Verification-gap review of 1-10 fixed the identical self-referential flaw in skip's test (now captures the pre-skip minute); the pre-existing complete twin ("complete stamps the whole batch with the instant minted at entry") retains it — a mint moved after the store reads stamps a later tick unobserved.
