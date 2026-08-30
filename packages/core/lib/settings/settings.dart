@@ -40,6 +40,24 @@ const String timeBagSettingKey = 'time_bag';
 /// range, not the granularity): six quiet pills, tappable at 200%.
 const List<int> timeBagOptions = [5, 10, 15, 20, 25, 30];
 
+/// The declared pocket's range floor (FR-8, Story 2.2): one minute —
+/// sub-five pockets are command-legal, never surfaced by the ladder.
+const int pocketLeastMinutes = 1;
+
+/// The declared pocket's range ceiling (FR-8, Story 2.2): sixty
+/// minutes.
+const int pocketMostMinutes = 60;
+
+/// The pocket the trigger chip carries when no pocketed session stands
+/// (FR-8, Story 2.2) — read by the chip beside the bag's own default,
+/// never a second copy of either number.
+const int defaultPocketMinutes = 15;
+
+/// One minute, in microseconds — the pocket's wall-clock arithmetic
+/// (span deadlines, elapsed checks) reads this one named constant
+/// wherever it computes, never a hand-copied literal (Story 2.2).
+const int microsPerMinute = 60 * 1000 * 1000;
+
 /// Whether [minutes] is a value the Time Bag may hold.
 bool _isValidTimeBagMinutes(int minutes) =>
     minutes >= timeBagLeastMinutes && minutes <= timeBagMostMinutes;

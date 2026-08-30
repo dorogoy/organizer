@@ -282,11 +282,12 @@ void main() {
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
-    // implementation) are the two Code-Map append sites over core
-    // LogEntryContent — the only path that can mint user-act kinds —
-    // plus AD-12's crash channel, which constructs its
-    // `crash_recorded` row directly and can mint nothing else. The
-    // exact counts pin a fourth call site even inside a sanctioned
+    // implementation) are the three Code-Map append sites over core
+    // LogEntryContent — the Dispenser's two answers plus its pocket
+    // declaration (Story 2.2), the only paths that can mint user-act
+    // and session kinds — plus AD-12's crash channel, which constructs
+    // its `crash_recorded` row directly and can mint nothing else. The
+    // exact counts pin a fifth call site even inside a sanctioned
     // file; tear-offs (`.appendLogEntry` without a call) are zero.
     final callCounts = <String, int>{};
     final contentCounts = <String, int>{};
@@ -308,19 +309,19 @@ void main() {
       callCounts,
       {
         'lib/crash.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 2,
+        'lib/dispenser/dispenser_controller.dart': 3,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },
       reason:
-          'the exact census of append sites changed — a third '
+          'the exact census of append sites changed — a fourth '
           'construction site is a candidate silent minter; freeze it or '
           'renegotiate the census',
     );
     expect(
       contentCounts,
       {
-        'lib/dispenser/dispenser_controller.dart': 2,
+        'lib/dispenser/dispenser_controller.dart': 3,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },

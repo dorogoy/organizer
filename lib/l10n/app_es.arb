@@ -16,9 +16,14 @@
     "description": "{components.action-secondary} — one control carrying two features: Otra más fácil is Rescue Mode (FR-5), Ahora no the guilt-free skip (FR-3). Never split, never shortened, never ellipsized; the 200% fold is accepted and verified on a real device."
   },
 
-  "pocketTrigger": "Tengo 15 minutos ahora",
+  "pocketTrigger": "{minutes, plural, =1 {Tengo un minuto ahora} other {Tengo {minutes} minutos ahora}}",
   "@pocketTrigger": {
-    "description": "{components.duration-chip} / pocket trigger — declares a session pocket and re-filters the pool."
+    "description": "{components.duration-chip} / pocket trigger — carries the standing declared pocket while a pocketed session is open, else the 15 default; tapping declares a session pocket and re-filters the pool. Never a countdown, never remaining minutes; the singular is the ICU plural form, one atomic numeral substituted into an otherwise fixed sentence.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
 
   "sampleTask": "Despeja la mesa del salón",

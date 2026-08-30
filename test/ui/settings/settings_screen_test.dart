@@ -363,6 +363,7 @@ void main() {
         stack: null,
         settingKey: 'time_bag',
         settingValue: 25,
+        pocketMinutes: null,
       ));
     await launch(tester, store);
 
@@ -393,6 +394,7 @@ void main() {
           stack: null,
           settingKey: 'time_bag',
           settingValue: 10,
+          pocketMinutes: null,
         ),
         (
           id: 'seed-invalid',
@@ -409,6 +411,7 @@ void main() {
           stack: null,
           settingKey: 'time_bag',
           settingValue: 45,
+          pocketMinutes: null,
         ),
       ]);
     await launch(tester, store);
@@ -518,6 +521,7 @@ void main() {
           stack: null,
           settingKey: 'time_bag',
           settingValue: 17,
+          pocketMinutes: null,
         ));
       await launch(tester, store);
       await openSettings(tester);

@@ -4,6 +4,7 @@ import 'package:core/facade/read_facade.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
+import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -23,16 +24,25 @@ sealed class DispenserView {
 /// The dealt-unanswered card of the open session — the launch deal on a
 /// cold start, since `SessionController.handleAppOpen` appends the
 /// session's first `card_dealt` before the first frame needs it.
+/// Carries the standing declared pocket (Story 2.2): the open session's
+/// own pocket fact, absent when the sitting is unbounded — the trigger
+/// chip's data, never session state held as truth (AD-19).
 final class DispenserDealt extends DispenserView {
-  const DispenserDealt(this.card);
+  const DispenserDealt(this.card, {this.pocketMinutes});
 
   final Card card;
+
+  final int? pocketMinutes;
 }
 
 /// `nextCard` returned nothing: the warm close surface, quiet, never an
-/// error (FR-3).
+/// error (FR-3) — the same close for a spent or elapsed pocket as for
+/// pool exhaustion. Carries the standing declared pocket exactly as the
+/// dealt variant does: the chip stands on the closed surface too.
 final class DispenserClosed extends DispenserView {
-  const DispenserClosed();
+  const DispenserClosed({this.pocketMinutes});
+
+  final int? pocketMinutes;
 }
 
 /// The Dispenser's read and write surface (Stories 1.8–1.10): the app's
@@ -89,13 +99,24 @@ class DispenserController {
     final now = nowOf();
     await _writes;
     final catalogue = await _loadCatalogue();
+    // The standing declared pocket (Story 2.2) derives from the log the
+    // same read resolves against — log-derived, never held in memory as
+    // truth (AD-19). An out-of-range pocket row derives as absent here,
+    // exactly as in the walk.
+    final facts = walkLog(
+      logEntriesOf(await store.readLogEntries()),
+      catalogue: catalogue,
+    );
+    final pocket = facts.openSessionPocketMinutes;
     final card = await nextCard(
       store,
       catalogue: catalogue,
       instantUtcMicros: now.microsecondsSinceEpoch,
       offsetSeconds: now.timeZoneOffset.inSeconds,
     );
-    return card == null ? const DispenserClosed() : DispenserDealt(card);
+    return card == null
+        ? DispenserClosed(pocketMinutes: pocket)
+        : DispenserDealt(card, pocketMinutes: pocket);
   }
 
   /// Answers the dealt card (Story 1.9's one write path, FR-2): runs the
@@ -134,6 +155,7 @@ class DispenserController {
           stack: content.stack,
           settingKey: content.settingKey,
           settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
         ));
       }
     });
@@ -178,9 +200,52 @@ class DispenserController {
           stack: content.stack,
           settingKey: content.settingKey,
           settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
         ));
       }
     });
+  }
+
+  /// Declares a pocket (Story 2.2, FR-8): runs the core `sessionDeclare`
+  /// command — the supersede pair `[session_ended?, session_started{p}]`
+  /// plus a first `card_dealt` only when nothing is carried — with the
+  /// derived bag, minting one instant for the whole batch and a v7 id per
+  /// row, exactly as `complete` and `skip` do. The instant is minted at
+  /// entry, before any await, so the recorded pair describes the tap. A
+  /// value the command refuses appends nothing and no error state exists
+  /// to reach (the ladder offers only in-range options); a failing
+  /// append rethrows to the caller while the chain recovers. The fresh
+  /// view — the carried card, the pocket-bounded deal, or the warm close
+  /// — is read back from the log the declaration made true.
+  Future<DispenserView> declarePocket(int minutes) {
+    final now = nowOf();
+    final write = _enqueueWrite(() async {
+      final catalogue = await _loadCatalogue();
+      final log = logEntriesOf(await store.readLogEntries());
+      final contents = sessionDeclare(
+        catalogue: catalogue,
+        log: log,
+        pocketMinutes: minutes,
+        instantUtcMicros: now.microsecondsSinceEpoch,
+        offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
+      );
+      for (final content in contents) {
+        await store.appendLogEntry((
+          id: idMinter.v7(),
+          kind: content.kind.name,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          itemId: content.itemId,
+          itemOrigin: content.itemOrigin,
+          stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
+        ));
+      }
+    });
+    return write.then((_) => read());
   }
 
   Future<void> _enqueueWrite(Future<void> Function() step) {

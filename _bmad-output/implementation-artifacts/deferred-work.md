@@ -103,3 +103,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-11-proof-that-lateness-cannot-be-expressed.md`
   summary: Deferral-specific 04:00 domestic-boundary variant unpinned — a chunk deferred before vs after 04:00, and a session spanning 04:00 holding a deferred chunk.
   evidence: Story 1.11's deferred-chunk test crosses civil midnight only; the 04:00 slot/charging semantics are pinned in session_test and weave_test but not for the deferral scenario itself (review r2, blind-hunter).
+- source_spec: `_bmad-output/implementation-artifacts/2-2-the-declared-pocket-and-the-derived-session.md`
+  summary: Multi-row log bundles append row-by-row with no transactional batch, so a crash mid-bundle can tear a pair (e.g. the declare supersede's `session_ended` without its `session_started`)
+  evidence: StorePort exposes only single-row appendLogEntry; every bundle since 1.6 (app open, answer+deal, declare pair) shares the exposure; review of 2.2 flagged the torn supersede pair as the sharpest instance — a batch/transactional append needs a deliberate port + substrate change, not an in-story patch

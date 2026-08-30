@@ -17,6 +17,24 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
+
+/// The per-size duration estimates (FR-27), in seconds: the canonical
+/// day sums to roughly 26 min (≈15 + 9 + 2.5), and the chunk's estimate
+/// fits the default bag exactly — 15 against 15 exceeds nothing. The
+/// walk charges these to a declared pocket on every answered card
+/// (Story 2.2); the weave re-exports them so its callers keep one
+/// import.
+const int focusEstimateSeconds = 15 * 60;
+const int maintenanceEstimateSeconds = 3 * 60;
+const int instantEstimateSeconds = 30;
+
+/// The duration estimate of one taxonomy size, in seconds.
+int estimateSecondsOf(Size size) => switch (size) {
+  Size.focus => focusEstimateSeconds,
+  Size.maintenance => maintenanceEstimateSeconds,
+  Size.instant => instantEstimateSeconds,
+};
 
 /// The facts one ordered walk of the log yields. Field names are facts,
 /// never verbs (AD-6): each states something the log makes true.
@@ -28,6 +46,8 @@ final class LogFacts {
     required this.answeredItemIds,
     required this.openSessionStart,
     required this.dealtUnanswered,
+    required this.openSessionPocketMinutes,
+    required this.openSessionAnsweredSeconds,
   });
 
   /// Per item id, the instant of its latest recorded `card_dealt` —
@@ -59,6 +79,20 @@ final class LogFacts {
   /// `card_skipped` on the same (itemId, itemOrigin) since. An
   /// unanswered card never produces a second deal (AD-3).
   final ({String itemId, Origin itemOrigin})? dealtUnanswered;
+
+  /// The open session's declared pocket in minutes — the start row's
+  /// own payload, in the minted range; absent when the session is
+  /// unbounded, none is open, or the row's value derives as absent
+  /// (an imported out-of-range pocket reads as no pocket at all,
+  /// never a repair write — AD-23).
+  final int? openSessionPocketMinutes;
+
+  /// The open session's answered estimate, in seconds: the per-size
+  /// estimate of every `card_done` charged to it — upkeep included,
+  /// a dealt-unanswered card consumes nothing, and a skip releases
+  /// its estimate (Story 2.2, FR-8, FR-12). Session-scoped, never
+  /// day-scoped: a superseding declaration restarts it at zero.
+  final int openSessionAnsweredSeconds;
 }
 
 /// The domestic day an act at [instantUtcMicros] / [offsetSeconds] is
@@ -94,6 +128,14 @@ Day _chargedDayOf(
 /// unique ([parseCatalogue] enforces this on the asset path); a
 /// hand-built duplicate fails the walk fast rather than reading a
 /// last-wins size (AD-23).
+///
+/// The supersede pair (Story 2.2, AD-19): a `session_started` that
+/// directly follows a same-instant `session_ended` in store read order
+/// preserves the dealt-but-unanswered card — the declare tap's
+/// `[session_ended, session_started{pocket}]` carries in-progress work
+/// across the boundary, and its later `card_done` charges the new
+/// session. Any other `session_started` clears the standing card, as
+/// ever.
 LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
   const calendar = Calendar();
   final sizeByItemId = <String, Size>{};
@@ -116,6 +158,8 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
   final answeredItemIds = <String>{};
   ({int instantUtcMicros, int offsetSeconds})? openSessionStart;
   ({String itemId, Origin itemOrigin})? dealtUnanswered;
+  int? openSessionPocketMinutes;
+  var openSessionAnsweredSeconds = 0;
 
   void chargeDealToDay(Day day, Size? size) {
     if (size == null) {
@@ -132,18 +176,50 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
     act.offsetSeconds,
   );
 
-  for (final entry in entries) {
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
     switch (entry) {
+      case SessionStartEntry():
+        // The supersede pair's second half: the started row directly
+        // follows a same-instant session_ended (whose own half, below,
+        // declined to clear), so the in-progress card carries over —
+        // only a start with no such predecessor clears the standing
+        // deal.
+        final previous = i > 0 ? entries[i - 1] : null;
+        final followsSameInstantEnd =
+            previous is MomentEntry &&
+            previous.kind == LogKind.sessionEnded &&
+            previous.instantUtcMicros == entry.instantUtcMicros;
+        if (!followsSameInstantEnd) {
+          dealtUnanswered = null;
+        }
+        openSessionStart = (
+          instantUtcMicros: entry.instantUtcMicros,
+          offsetSeconds: entry.offsetSeconds,
+        );
+        final declared = entry.pocketMinutes;
+        openSessionPocketMinutes =
+            (declared != null &&
+                declared >= pocketLeastMinutes &&
+                declared <= pocketMostMinutes)
+            ? declared
+            : null;
+        openSessionAnsweredSeconds = 0;
       case MomentEntry(:final kind):
-        if (kind == LogKind.sessionStarted) {
-          openSessionStart = (
-            instantUtcMicros: entry.instantUtcMicros,
-            offsetSeconds: entry.offsetSeconds,
-          );
-          dealtUnanswered = null;
-        } else if (kind == LogKind.sessionEnded) {
+        if (kind == LogKind.sessionEnded) {
+          // The pair's first half: an ended directly followed by a
+          // same-instant started holds the standing card for its
+          // successor to carry — every other ended clears it, as ever.
+          final next = i + 1 < entries.length ? entries[i + 1] : null;
+          final pairStartsNext =
+              next is SessionStartEntry &&
+              next.instantUtcMicros == entry.instantUtcMicros;
+          if (!pairStartsNext) {
+            dealtUnanswered = null;
+          }
           openSessionStart = null;
-          dealtUnanswered = null;
+          openSessionPocketMinutes = null;
+          openSessionAnsweredSeconds = 0;
         }
       case ItemActEntry(:final kind, :final itemId, :final itemOrigin):
         if (kind == LogKind.cardDealt) {
@@ -157,6 +233,12 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
             answeredItemIds.add(itemId);
             if (sizeByItemId[itemId] == Size.focus) {
               focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
+            }
+            if (openSessionStart != null) {
+              final size = sizeByItemId[itemId];
+              if (size != null) {
+                openSessionAnsweredSeconds += estimateSecondsOf(size);
+              }
             }
           }
           final unanswered = dealtUnanswered;
@@ -180,6 +262,8 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
     answeredItemIds: answeredItemIds,
     openSessionStart: openSessionStart,
     dealtUnanswered: dealtUnanswered,
+    openSessionPocketMinutes: openSessionPocketMinutes,
+    openSessionAnsweredSeconds: openSessionAnsweredSeconds,
   );
 }
 

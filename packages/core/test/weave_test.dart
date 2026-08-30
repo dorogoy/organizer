@@ -78,12 +78,14 @@ Set<CurationCluster> _clustersWithout(List<CurationCluster> removed) => {
     if (!removed.contains(cluster)) cluster,
 };
 
-MomentEntry _sessionStarted(int micros) => MomentEntry(
-  id: 'started-$micros',
-  instantUtcMicros: micros,
-  offsetSeconds: 0,
-  kind: LogKind.sessionStarted,
-);
+SessionStartEntry _sessionStarted(int micros, {int? pocketMinutes}) =>
+    SessionStartEntry(
+      id: 'started-$micros',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.sessionStarted,
+      pocketMinutes: pocketMinutes,
+    );
 
 MomentEntry _sessionEnded(int micros) => MomentEntry(
   id: 'ended-$micros',
@@ -570,6 +572,262 @@ void main() {
       bagMinutes: focusChunkLeastBagMinutes,
     );
     expect(atFloor.focus, isNotNull);
+  });
+
+  group('the declared pocket bounds the sitting\'s deals (Story 2.2, '
+      'FR-8, FR-12)', () {
+    test('upkeep is charged to a declared pocket like everything else '
+        'dealt in the sitting — and still never to the bag', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      // A pocket of 5 holds exactly one maintenance draw (3 min) and
+      // nothing more: the chunk (15) exceeds it, a second upkeep (3+3)
+      // exceeds it, and one instant (30 s) fits after the upkeep.
+      final log = [
+        _sessionStarted(start, pocketMinutes: 5),
+        _dealt(start + 1000, 'man-a'),
+        _done(start + 2000, 'man-a'),
+      ];
+      final next = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+      );
+      expect(next, isNotNull);
+      expect(next!.size, Size.instant);
+
+      // The bag is untouched by the pocket's arithmetic: the same log
+      // composes against a healthy bag with the chunk resolved —
+      // the pocket filtered the deal, never the composition.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+      );
+      expect(composition.focus, isNotNull);
+    });
+
+    test('a pocket that cannot hold any tier resolves no deal — the warm '
+        'close, with no eager session_ended anywhere', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      // Pocket 1 holds exactly two instants (30 s + 30 s = its whole
+      // minute); with both answered, no tier's estimate fits the
+      // remainder of zero — not the chunk (15 min), not an upkeep
+      // (3 min), not even one more instant (30 s).
+      final log = [
+        _sessionStarted(start, pocketMinutes: 1),
+        _dealt(start + 1000, 'hab-a'),
+        _done(start + 2000, 'hab-a'),
+        _dealt(start + 3000, 'hab-b'),
+        _done(start + 4000, 'hab-b'),
+      ];
+      final next = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 5000,
+        offsetSeconds: 0,
+      );
+      expect(next, isNull);
+      // Linger, not eagerly close: the session fact still reads open
+      // with its pocket — the row lands at backgrounding, reveal or
+      // supersede, never here.
+      final facts = walkLog(log, catalogue: _catalogue);
+      expect(facts.openSessionStart, isNotNull);
+      expect(facts.openSessionPocketMinutes, 1);
+    });
+
+    test('the chunk falls through to a smaller tier when the pocket '
+        'cannot hold it (FR-8, FR-12)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [_sessionStarted(start, pocketMinutes: 4)];
+      final next = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+      );
+      expect(next, isNotNull);
+      expect(next!.size, Size.maintenance);
+
+      // A pocket of 3 holds the upkeep exactly — 180 ≤ 180 — then
+      // offers instants.
+      final afterUpkeep = [
+        ...log,
+        _dealt(start + 2000, 'man-a'),
+        _done(start + 3000, 'man-a'),
+      ];
+      final then = nextDeal(
+        catalogue: _catalogue,
+        log: afterUpkeep,
+        instantUtcMicros: start + 4000,
+        offsetSeconds: 0,
+      );
+      expect(then, isNotNull);
+      expect(then!.size, Size.instant);
+    });
+
+    test('a dealt-unanswered card still yields no second deal inside a '
+        'pocketed session (AD-3)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _sessionStarted(start, pocketMinutes: 15),
+        _dealt(start + 1000, 'zona-z1-a'),
+      ];
+      expect(
+        nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: start + 2000,
+          offsetSeconds: 0,
+        ),
+        isNull,
+      );
+    });
+
+    test('a skip releases its estimate: the alternative deal still '
+        'bounded by the pocket (FR-3, FR-8)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      // Pocket 6, a focus candidate skipped: nothing consumed, so the
+      // upkeep tier (3) still deals — and after answering it, one more
+      // upkeep fits (3+3 = 6), while the chunk never does.
+      final log = [
+        _sessionStarted(start, pocketMinutes: 6),
+        _dealt(start + 1000, 'zona-z1-a'),
+        _skipped(start + 2000, 'zona-z1-a'),
+      ];
+      final first = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+      );
+      expect(first, isNotNull);
+      expect(first!.size, Size.maintenance);
+
+      final answered = [
+        ...log,
+        _dealt(start + 4000, first.id),
+        _done(start + 5000, first.id),
+      ];
+      final second = nextDeal(
+        catalogue: _catalogue,
+        log: answered,
+        instantUtcMicros: start + 6000,
+        offsetSeconds: 0,
+      );
+      expect(second, isNotNull);
+      expect(second!.size, Size.maintenance);
+
+      final answeredTwice = [
+        ...answered,
+        _dealt(start + 7000, second.id),
+        _done(start + 8000, second.id),
+      ];
+      // The pocket is exactly spent — 3 + 3 against 6 — so nothing
+      // more fits, not even a 30-second instant.
+      final third = nextDeal(
+        catalogue: _catalogue,
+        log: answeredTwice,
+        instantUtcMicros: start + 9000,
+        offsetSeconds: 0,
+      );
+      expect(third, isNull);
+    });
+
+    test('the wall-clock span ends dealability: a pocket elapsed at the '
+        'deal instant resolves nothing (AD-19 — derived, never '
+        'scheduled)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      const microsPerMinute = 60 * 1000 * 1000;
+      // Pocket 4 with one upkeep answered (3 of 4 minutes): the
+      // remaining 60 s hold an instant, and only until the span closes.
+      final log = [
+        _sessionStarted(start, pocketMinutes: 4),
+        _dealt(start + 1000, 'man-a'),
+        _done(start + 2000, 'man-a'),
+      ];
+      final beforeClose = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 4 * microsPerMinute - 1,
+        offsetSeconds: 0,
+      );
+      expect(beforeClose, isNotNull);
+      expect(beforeClose!.size, Size.instant);
+
+      // At the boundary exactly — and past it — nothing deals.
+      for (final at in [
+        start + 4 * microsPerMinute,
+        start + 30 * 60 * 1000 * 1000,
+      ]) {
+        expect(
+          nextDeal(
+            catalogue: _catalogue,
+            log: log,
+            instantUtcMicros: at,
+            offsetSeconds: 0,
+          ),
+          isNull,
+          reason:
+              'the pocket elapsed at $at — the read presents the '
+              'warm close, and no session_ended was appended',
+        );
+      }
+      // The session still lingers derived-open.
+      expect(walkLog(log, catalogue: _catalogue).openSessionStart, isNotNull);
+    });
+
+    test('an out-of-range pocket derives as absent: the sitting is '
+        'unbounded and the deals stand (AD-23)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _sessionStarted(start, pocketMinutes: 90),
+        _dealt(start + 1000, 'man-a'),
+        _done(start + 2000, 'man-a'),
+        _dealt(start + 3000, 'man-b'),
+        _done(start + 4000, 'man-b'),
+      ];
+      final facts = walkLog(log, catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, isNull);
+      expect(
+        nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: start + 100 * 60 * 1000 * 1000,
+          offsetSeconds: 0,
+        ),
+        isNotNull,
+        reason:
+            'no pocket, no span: the sitting deals as ever at any '
+            'later instant',
+      );
+    });
+
+    test('unbounded sessions deal exactly as shipped: no pocket filter, '
+        'no span, ever (Story 2.2 — the auto-open unchanged)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _sessionStarted(start),
+        _dealt(start + 1000, 'zona-z1-a'),
+        _done(start + 2000, 'zona-z1-a'),
+        _dealt(start + 3000, 'man-a'),
+        _done(start + 4000, 'man-a'),
+      ];
+      // Far past any pocket-sized span, the deals continue.
+      final next = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 8 * 60 * 60 * 1000 * 1000,
+        offsetSeconds: 0,
+      );
+      expect(next, isNotNull);
+      expect(next!.size, Size.maintenance);
+      expect(
+        walkLog(log, catalogue: _catalogue).openSessionPocketMinutes,
+        isNull,
+      );
+    });
   });
 
   test('low energy composes no chunk; medium changes nothing (FR-4)', () {

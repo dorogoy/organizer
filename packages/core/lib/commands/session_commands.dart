@@ -15,6 +15,19 @@
 /// — the shell's threading — and a caller that passes none gets the
 /// derivation over the very log it hands in, so no composition path can
 /// rely on the default once a setting exists.
+///
+/// Story 2.2 adds the declared pocket (FR-8, AD-19): `sessionStart`
+/// mints the pocketed row — still the single `session_started` minter —
+/// resolving its first deal over the log as it will be once the start
+/// row lands, so the pocket bounds the sitting's very first card.
+/// `sessionDeclare` is the tap's command: a range guard, then the
+/// supersede pair `[session_ended, session_started{pocket}]` at one
+/// instant — the user-stop vocabulary and the new declaration — with
+/// the in-progress card carried across (the walk's pair rule) and the
+/// bundled deal suppressed while one is carried. `appOpen` absorbs the
+/// reveal composition: a pocket that elapsed while the app was not
+/// foregrounded closes at the open's own instant, before the fresh
+/// `session_started` — two derived-open sessions never coexist.
 
 library;
 
@@ -36,6 +49,7 @@ typedef LogEntryContent = ({
   String? stack,
   String? settingKey,
   int? settingValue,
+  int? pocketMinutes,
 });
 
 LogEntryContent _moment(LogKind kind) => (
@@ -45,6 +59,17 @@ LogEntryContent _moment(LogKind kind) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
+);
+
+LogEntryContent _start({int? pocketMinutes}) => (
+  kind: LogKind.sessionStarted,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  pocketMinutes: pocketMinutes,
 );
 
 LogEntryContent _deal(Card card) => (
@@ -54,6 +79,7 @@ LogEntryContent _deal(Card card) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -62,27 +88,47 @@ List<LogEntryContent> appOpened() => [_moment(LogKind.appOpened)];
 
 /// `session_started`, appending the session's first `card_dealt` — and
 /// only when no session is open (AD-3, AD-19). The first deal needs the
-/// weave; a day with nothing to deal opens the session bare.
+/// weave; a day with nothing to deal opens the session bare. A
+/// [pocketMinutes] value mints the declared pocket on the row (the
+/// command boundary's own guard is `sessionDeclare`'s — the shell's
+/// auto-open passes none). The deal resolves over the log as it will
+/// be once the start row is appended — `_answered`'s synthesis
+/// pattern — so a pocketed start bounds its own first card, and a
+/// start directly following a same-instant `session_ended` (the
+/// supersede pair's second half, already in the handed-in log) carries
+/// the in-progress card and suppresses the deal through the walk's
+/// pair rule.
 List<LogEntryContent> sessionStart({
   required Catalogue catalogue,
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  int? pocketMinutes,
 }) {
   final facts = walkLog(log, catalogue: catalogue);
   if (facts.openSessionStart != null) {
     return const [];
   }
+  final startLog = [
+    ...log,
+    SessionStartEntry(
+      id: '',
+      kind: LogKind.sessionStarted,
+      pocketMinutes: pocketMinutes,
+      instantUtcMicros: instantUtcMicros,
+      offsetSeconds: offsetSeconds,
+    ),
+  ];
   final deal = nextDeal(
     catalogue: catalogue,
-    log: log,
+    log: startLog,
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
-    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(log),
+    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(startLog),
     energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
   );
-  return [_moment(LogKind.sessionStarted), if (deal != null) _deal(deal)];
+  return [_start(pocketMinutes: pocketMinutes), if (deal != null) _deal(deal)];
 }
 
 /// `card_done` for the answered item, appending the next `card_dealt`
@@ -138,14 +184,113 @@ List<LogEntryContent> cardSkipped({
   );
 }
 
-/// `session_ended` — only when a session is open. Backgrounding is one
-/// of AD-19's three closing causes and 1.6's only one.
+/// `session_ended` — only when a session is open. Backgrounding, the
+/// declare tap's supersede, and the elapsed-pocket reveal at `app_opened`
+/// are AD-19's three closing causes; no fourth emission site exists, and
+/// no close cause rides the row.
 List<LogEntryContent> sessionEnd({required List<LogEntry> log}) {
   final facts = walkLog(log);
   if (facts.openSessionStart == null) {
     return const [];
   }
   return [_moment(LogKind.sessionEnded)];
+}
+
+/// The declare tap (Story 2.2, FR-8, AD-19): declares a pocket, ending
+/// whatever session is open and starting a pocketed one at the same
+/// instant — the supersede pair, adjacent in store read order, so the
+/// walk's rule carries the in-progress card across and its later
+/// `card_done` charges the new sitting. Consumption restarts at zero
+/// (the walk's answered seconds are session-scoped), and the bundled
+/// first deal resolves over the pair — bounded by the new pocket,
+/// suppressed while a card is carried. A value outside
+/// `pocketLeastMinutes`–`pocketMostMinutes` returns no content: the
+/// surface offers only in-range options, so the refusal is the command
+/// boundary's own guard and nothing else.
+List<LogEntryContent> sessionDeclare({
+  required Catalogue catalogue,
+  required List<LogEntry> log,
+  required int pocketMinutes,
+  required int instantUtcMicros,
+  required int offsetSeconds,
+  int? bagMinutes,
+}) {
+  if (pocketMinutes < pocketLeastMinutes || pocketMinutes > pocketMostMinutes) {
+    return const [];
+  }
+  final end = sessionEnd(log: log);
+  final startLog = end.isEmpty
+      ? log
+      : [
+          ...log,
+          MomentEntry(
+            id: '',
+            kind: LogKind.sessionEnded,
+            instantUtcMicros: instantUtcMicros,
+            offsetSeconds: offsetSeconds,
+          ),
+        ];
+  return [
+    ...end,
+    ...sessionStart(
+      catalogue: catalogue,
+      log: startLog,
+      instantUtcMicros: instantUtcMicros,
+      offsetSeconds: offsetSeconds,
+      bagMinutes: bagMinutes,
+      pocketMinutes: pocketMinutes,
+    ),
+  ];
+}
+
+/// The open's own composition (Story 2.2, AD-19): `app_opened`, then —
+/// only when the derived-open session's declared pocket elapsed at this
+/// instant (the reveal, never a scheduled close) — its `session_ended`,
+/// then the fresh `session_started` with its first deal. The deal and
+/// the start resolve over the synthesized post-`session_ended` log
+/// exactly as `_answered` resolves over its synthesized answer, so the
+/// reveal pair carries an in-progress card (the walk's same-instant
+/// rule suppresses the bundled deal) and the normal case — no session
+/// open, or one whose pocket has not elapsed — appends exactly the rows
+/// `appOpened` + `sessionStart` always did.
+List<LogEntryContent> appOpen({
+  required Catalogue catalogue,
+  required List<LogEntry> log,
+  required int instantUtcMicros,
+  required int offsetSeconds,
+  int? bagMinutes,
+}) {
+  final facts = walkLog(log, catalogue: catalogue);
+  final open = facts.openSessionStart;
+  final pocket = facts.openSessionPocketMinutes;
+  final pocketElapsed =
+      open != null &&
+      pocket != null &&
+      instantUtcMicros >= open.instantUtcMicros + pocket * microsPerMinute;
+  var startLog = log;
+  final end = pocketElapsed ? sessionEnd(log: log) : const <LogEntryContent>[];
+  if (end.isNotEmpty) {
+    startLog = [
+      ...log,
+      MomentEntry(
+        id: '',
+        kind: LogKind.sessionEnded,
+        instantUtcMicros: instantUtcMicros,
+        offsetSeconds: offsetSeconds,
+      ),
+    ];
+  }
+  return [
+    ...appOpened(),
+    ...end,
+    ...sessionStart(
+      catalogue: catalogue,
+      log: startLog,
+      instantUtcMicros: instantUtcMicros,
+      offsetSeconds: offsetSeconds,
+      bagMinutes: bagMinutes,
+    ),
+  ];
 }
 
 List<LogEntryContent> _answered({
@@ -204,6 +349,7 @@ List<LogEntryContent> _answered({
       stack: null,
       settingKey: null,
       settingValue: null,
+      pocketMinutes: null,
     ),
     if (deal != null) _deal(deal),
   ];

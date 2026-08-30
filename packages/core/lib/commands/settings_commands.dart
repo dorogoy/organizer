@@ -43,6 +43,7 @@ List<LogEntryContent> settingChanged({
       stack: null,
       settingKey: key,
       settingValue: value,
+      pocketMinutes: null,
     ),
   ];
 }

@@ -39,8 +39,20 @@
 // opaque target, no glyph, no pastel mass, nothing animated — pinned
 // as chrome below the scroll region. It opens the intermediate surface
 // that carries the `Ajustes` way-out alone (NFR3, AD-26).
+//
+// The pocket trigger (Story 2.2, FR-8, UX-DR18): a `duration-chip` pill
+// pinned top-centred as chrome above the scroll region — above the card
+// on the dealt surface, standing alone on the warm close — carrying
+// `Tengo {minutes} minutos ahora`, the standing declared pocket while a
+// pocketed session is open, else 15. One tap opens a quiet, titleless
+// ladder sheet of stepped duration pills; choosing one declares the
+// pocket and the surface commits whatever the log now makes true — the
+// carried card, a pocket-bounded deal, or the same warm close as pool
+// exhaustion. No countdown, no remaining minutes, no new session state,
+// and no error surface anywhere on this path.
 import 'dart:async';
 
+import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -49,12 +61,19 @@ import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
+import 'duration_chip.dart';
 import 'task_card.dart';
 
 /// The card's width bound on wide grounds. A layout bound, not a gap: no
 /// DESIGN token exists for it, and the tokenized side rule
 /// (`Spacing.screenMargin`) stays in force below it.
 const double _cardMaxWidth = 480;
+
+/// The ladder's stepped options (Story 2.2): every offered value is
+/// inside the pocket's command range, so out-of-range is unreachable
+/// from the surface. Swapping the list changes nothing else — the log
+/// payload and the command contract are unaffected.
+const List<int> pocketLadderOptions = [5, 10, 15, 20, 25, 30, 45, 60];
 
 /// The completion acknowledgement's fixed window (UX-DR39): 2000 ms,
 /// calm and far from the 500 ms budget it must never gate — the next
@@ -301,12 +320,13 @@ class _DispenserScreenState extends State<DispenserScreen>
     final view = _view;
     return Scaffold(
       // The scaffold background is the theme's surfaceBase tone in both
-      // modes — the empty frame is already the whole surface. The footer
-      // sits below the scroll region as Dispenser chrome (AD-26: the one
-      // quiet affordance lives in the chrome), so it never scrolls away
-      // and the card above it grows and scrolls on its own (UX-DR45).
+      // modes — the empty frame is already the whole surface. The pocket
+      // trigger sits above the scroll region and the footer below it as
+      // Dispenser chrome, so neither scrolls away and the card between
+      // them grows and scrolls on its own (UX-DR45).
       body: Column(
         children: [
+          _pocketTrigger(context),
           Expanded(
             child: switch (view) {
               null => const SizedBox.shrink(),
@@ -329,6 +349,118 @@ class _DispenserScreenState extends State<DispenserScreen>
         ],
       ),
     );
+  }
+
+  /// The standing declared pocket the trigger chip carries: the
+  /// committed view's own fact — the open session's pocket, absent when
+  /// the sitting is unbounded — defaulted to 15 (FR-8, Story 2.2). A
+  /// spent or elapsed pocket keeps reading as declared: the chip states
+  /// the declaration, never a remainder.
+  int get _standingPocketMinutes =>
+      switch (_view) {
+        DispenserDealt(:final pocketMinutes) => pocketMinutes,
+        DispenserClosed(:final pocketMinutes) => pocketMinutes,
+        null => null,
+      } ??
+      defaultPocketMinutes;
+
+  /// The pocket trigger (Story 2.2, FR-8, UX-DR18): the duration-chip
+  /// pill top-centred above the card — and standing on the warm close
+  /// too, because a spent pocket is declared until superseded. The
+  /// carried minutes are log-derived data, never session state held in
+  /// memory as truth.
+  Widget _pocketTrigger(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.screenMargin,
+          vertical: Spacing.spacingBase,
+        ),
+        child: Center(
+          child: PocketTriggerChip(
+            minutes: _standingPocketMinutes,
+            onTap: _openPocketLadder,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The quiet stepped ladder (Story 2.2): a titleless modal bottom
+  /// sheet of duration pills — the `size-option` idiom — every option
+  /// in the command's range, selected marking the standing pocket. The
+  /// sheet wraps and scrolls at 200%; a tap pops the sheet and declares.
+  /// Nothing here shows a remainder, nothing counts down, and no error
+  /// state exists for a refused value to reach.
+  Future<void> _openPocketLadder() {
+    return showModalBottomSheet<void>(
+      context: context,
+      // The sheet's own scroll view keeps the pills whole at 200% — the
+      // wrap reflows and the sheet scrolls, nothing truncates.
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(Spacing.cardPadding),
+          child: Wrap(
+            spacing: Spacing.actionGap,
+            runSpacing: Spacing.actionGap,
+            children: [
+              for (final minutes in pocketLadderOptions)
+                _PocketLadderOption(
+                  minutes: minutes,
+                  selected: _standingPocketMinutes == minutes,
+                  onTap: () => _onLadderTap(minutes),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A ladder pill's tap: the sheet pops first, then the declaration
+  /// runs — the pop is immediate, the write is awaited inside
+  /// [_onDeclarePocket], and the surface commits what returns.
+  void _onLadderTap(int minutes) {
+    Navigator.of(context).pop();
+    unawaited(_onDeclarePocket(minutes));
+  }
+
+  /// One tap, no confirmation, and deliberately no feedback of any kind
+  /// (Story 2.2): the declare is `_onSkip`'s mechanics over the
+  /// controller's declare path — the supersede pair plus whatever deal
+  /// fits, or the carried card unchanged — and the committed view *is*
+  /// the answer. The same in-flight guard as an answer keeps a
+  /// declaration from interleaving with a `Hecho` or a skip at the
+  /// surface; a failed write is absorbed by the empty frame, quietly,
+  /// and no completion-ack state is this write's to touch.
+  Future<void> _onDeclarePocket(int minutes) async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    var releaseAfterRefresh = false;
+    try {
+      final view = await widget.controller.declarePocket(minutes);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _view = view);
+      // The old card remains in the render tree until this refresh's frame.
+      // Keep the shared guard through it so its stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed: quiet and deliberate — the empty frame stands,
+      // nothing surfaced, and a real return to the foreground re-reads.
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
   }
 
   /// The one quiet departure (UX-DR25, Story 2.1): `Nuevo proyecto`
@@ -422,6 +554,75 @@ class _DispenserScreenState extends State<DispenserScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
                   child: child,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One stepped ladder pill (Story 2.2, the `size-option` idiom): a
+/// duration pill — selected fills `colorScheme.primary` (the theme's
+/// accent-soft mapping, the same pastel `DurationChip` fills), unselected
+/// sits raised with a 1px hairline edge — ink-primary in the duration
+/// role on both, `rounded.full`, 48dp minimum, never a glyph. The label
+/// is the minutes themselves through the duration format; context is the
+/// chip just tapped, so the sheet carries no title and no internal name
+/// renders.
+class _PocketLadderOption extends StatelessWidget {
+  const _PocketLadderOption({
+    required this.minutes,
+    required this.selected,
+    this.onTap,
+  });
+
+  final int minutes;
+
+  final bool selected;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected
+          ? theme.colorScheme.primary
+          : theme.colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.radiusFull),
+        side: selected
+            ? BorderSide.none
+            : BorderSide(color: theme.colorScheme.outline, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // Absent, the tap stays an accepted no-op — a null onTap would
+        // render a disabled control instead.
+        onTap: onTap ?? () {},
+        child: Semantics(
+          // The affordance reaches screen readers as a button carrying
+          // selection state, never as a different visual grammar: the
+          // spoken label is the minutes value the pill's own text
+          // already carries.
+          button: true,
+          selected: selected,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: Spacing.touchTargetMin,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.chipPaddingHorizontal,
+              ),
+              child: Center(
+                child: Text(
+                  durationLabel(minutes * 60, AppStrings.of(context)),
+                  // titleSmall is the wired duration role (theme.dart).
+                  style: theme.textTheme.titleSmall,
                 ),
               ),
             ),

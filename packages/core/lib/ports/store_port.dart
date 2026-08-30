@@ -34,7 +34,8 @@ typedef PoolFactRecord = ({
 /// `crash_recorded`, which carries stack + timestamp and nothing else
 /// (AD-12). [settingKey]/[settingValue] are the settings payload and are
 /// set only on `setting_changed`, additively since schema v2 (AD-1,
-/// AD-23).
+/// AD-23). [pocketMinutes] is the declared pocket and is set only on
+/// `session_started`, additively since schema v3 (Story 2.2, AD-19).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -45,6 +46,7 @@ typedef LogEntryRecord = ({
   String? stack,
   String? settingKey,
   int? settingValue,
+  int? pocketMinutes,
 });
 
 abstract interface class StorePort {

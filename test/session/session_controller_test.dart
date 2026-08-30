@@ -142,6 +142,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -154,6 +155,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -271,7 +273,15 @@ void main() {
     'session, resuming opens a new one, a transient occlusion does nothing',
     () async {
       final store = _RecordingStore();
-      final controller = buildController(store);
+      // A ticking clock: backgrounding and resuming mint distinct
+      // instants, as production always does — under a frozen clock the
+      // two would collapse onto one instant and read as a supersede
+      // pair, which no real background→resume can produce.
+      var minute = 0;
+      final controller = buildController(
+        store,
+        nowOf: () => DateTime.utc(2026, 8, 29, 12, minute++),
+      );
       await controller.handleAppOpen();
 
       controller.didChangeAppLifecycleState(AppLifecycleState.inactive);
@@ -373,7 +383,13 @@ void main() {
   test('a spurious launch-time resumed appends nothing — the launch open is '
       'the explicit call\'s alone', () async {
     final store = _RecordingStore();
-    final controller = buildController(store);
+    // Ticking clock, as above: distinct lifecycle events mint distinct
+    // instants.
+    var minute = 0;
+    final controller = buildController(
+      store,
+      nowOf: () => DateTime.utc(2026, 8, 29, 12, minute++),
+    );
     await controller.handleAppOpen();
 
     controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
@@ -492,4 +508,102 @@ void main() {
       );
     },
   );
+
+  test('an elapsed pocket left open by process death reveals closed at '
+      'the next open — [app_opened, session_ended, session_started, '
+      'card_dealt?], close first (Story 2.2, AD-19)', () async {
+    // A pocketed session started at 11:00 with a 15-minute pocket and a
+    // dealt card, left derived-open by a hard death: at the fixed
+    // 12:00 clock the pocket is long past.
+    final start = DateTime.utc(2026, 8, 29, 11);
+    final store = _RecordingStore()
+      ..entries.addAll([
+        (
+          id: 'seed-open',
+          kind: 'session_started',
+          instantUtcMicros: start.microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 15,
+        ),
+        _act(
+          'card_dealt',
+          DateTime.utc(2026, 8, 29, 11, 0, 1),
+          'seed-deal',
+          chunkSeedId,
+        ),
+      ]);
+    await buildController(store).handleAppOpen();
+
+    expect(store.entries.skip(2).map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_ended',
+      'session_started',
+    ], reason: 'the carried card suppresses the bundled deal');
+    // The reveal rows share one minted instant, and the fresh session
+    // is unbounded.
+    final ended = store.entries[3];
+    final started = store.entries[4];
+    expect(ended.kind, 'session_ended');
+    expect(started.kind, 'session_started');
+    expect(started.pocketMinutes, isNull);
+    expect(
+      ended.instantUtcMicros == started.instantUtcMicros,
+      isTrue,
+      reason:
+          'the reveal pair lands at one instant — the walk\'s '
+          'carried-card rule reads exactly that adjacency',
+    );
+  });
+
+  test('a pocket still within its span, and an unbounded session, open '
+      'with app_opened alone — the reveal fires on elapse only (Story '
+      '2.2)', () async {
+    // A genuine in-range pocket, still inside its wall-clock span at
+    // the fixed 12:00 clock: opened 11:30 with 45 minutes, the span
+    // closes at 12:15, so thirty of its minutes have passed and the
+    // reveal provably does not fire early.
+    final within = _RecordingStore()
+      ..entries.addAll([
+        (
+          id: 'seed-open',
+          kind: 'session_started',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            11,
+            30,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 45,
+        ),
+      ]);
+    await buildController(within).handleAppOpen();
+    // The pocket is real and in range; the open still appends only its
+    // own fact — the reveal fires on elapse, never on presence.
+    final seededPocket = within.entries.first;
+    expect(seededPocket.pocketMinutes, 45);
+    expect(within.entries.skip(1).map((entry) => entry.kind).toList(), [
+      'app_opened',
+    ]);
+
+    final unbounded = _RecordingStore()
+      ..entries.addAll([
+        _moment('session_started', DateTime.utc(2026, 8, 28, 9), 'seed-old'),
+      ]);
+    await buildController(unbounded).handleAppOpen();
+    expect(unbounded.entries.skip(1).map((entry) => entry.kind).toList(), [
+      'app_opened',
+    ], reason: 'a day-old unbounded session stays open — no span exists');
+  });
 }

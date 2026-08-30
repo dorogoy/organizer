@@ -90,12 +90,15 @@ class SessionController with WidgetsBindingObserver {
     return chained;
   }
 
-  /// The app came to the foreground (or launched): appends `app_opened`,
+  /// The app came to the foreground (or launched): appends `app_opened`
   /// and — only when no session is open — `session_started` with the
-  /// session's first `card_dealt` (AD-3). The event's instant is minted
-  /// at entry, before any await, so the recorded rows — and near 04:00
-  /// the charged domestic day — describe the event, not the reads that
-  /// followed it.
+  /// session's first `card_dealt` (AD-3). A pocketed session left open
+  /// by process death and fully elapsed closes here first, at this
+  /// open's own instant, before any new `session_started` — the reveal,
+  /// derived from the log, never scheduled (Story 2.2, AD-19). The
+  /// event's instant is minted at entry, before any await, so the
+  /// recorded rows — and near 04:00 the charged domestic day — describe
+  /// the event, not the reads that followed it.
   Future<void> handleAppOpen() {
     final now = nowOf();
     _leftForegroundSinceOpen = false;
@@ -105,16 +108,13 @@ class SessionController with WidgetsBindingObserver {
       // The bag derives once for the whole operation (2.1) and threads
       // into the command, so the launch deal composes against the Time
       // Bag the log holds — never a default the user never chose.
-      final contents = [
-        ...appOpened(),
-        ...sessionStart(
-          catalogue: catalogue,
-          log: log,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          bagMinutes: deriveTimeBagMinutes(log),
-        ),
-      ];
+      final contents = appOpen(
+        catalogue: catalogue,
+        log: log,
+        instantUtcMicros: now.microsecondsSinceEpoch,
+        offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
+      );
       await _appendAll(contents, now);
     });
   }
@@ -175,7 +175,10 @@ class SessionController with WidgetsBindingObserver {
 
   /// Completes the contents into records and appends them in order. One
   /// minted instant serves the whole batch — the commands resolved the
-  /// day against it, and the records must land on that same day.
+  /// day against it, and the records must land on that same day. The
+  /// supersede and reveal pairs stay adjacent at that one instant in
+  /// store read order, which is what the walk's carried-card rule reads
+  /// (Story 2.2).
   Future<void> _appendAll(List<LogEntryContent> contents, DateTime now) async {
     for (final content in contents) {
       await store.appendLogEntry((
@@ -188,6 +191,7 @@ class SessionController with WidgetsBindingObserver {
         stack: content.stack,
         settingKey: content.settingKey,
         settingValue: content.settingValue,
+        pocketMinutes: content.pocketMinutes,
       ));
     }
   }

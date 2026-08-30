@@ -21,7 +21,15 @@ class AppStringsEs extends AppStrings {
   String get actionRescueOrSkip => 'Otra más fácil / Ahora no';
 
   @override
-  String get pocketTrigger => 'Tengo 15 minutos ahora';
+  String pocketTrigger(int minutes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: 'Tengo $minutes minutos ahora',
+      one: 'Tengo un minuto ahora',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get sampleTask => 'Despeja la mesa del salón';

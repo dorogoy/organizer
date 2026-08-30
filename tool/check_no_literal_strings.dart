@@ -37,10 +37,10 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// infrastructure identifiers (never widget copy): the design tokens file,
 /// the store module's file references and SQL identifiers (schema include,
 /// pragma, the reads' append-sequence column, schema v2's ALTER-only
-/// upgrade statements — Story 2.1's additive columns), and the catalogue
-/// loader's two diagnostics templates (crash-path context naming the asset
-/// path and the stale-codegen remedy — a named decision on the store
-/// module's terms).
+/// upgrade statements — Story 2.1's additive columns — and schema v3's
+/// pocket column, Story 2.2), and the catalogue loader's two diagnostics
+/// templates (crash-path context naming the asset path and the
+/// stale-codegen remedy — a named decision on the store module's terms).
 const Map<String, Set<String>> namedConstantAllowance = {
   'lib/ui/tokens.dart': {'lora', 'lexend', 'shortDateFormat', 'durationFormat'},
   'lib/store/substrate.dart': {
@@ -48,6 +48,7 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'recursiveTriggersPragma',
     'logEntriesSettingKeyUpgrade',
     'logEntriesSettingValueUpgrade',
+    'logEntriesPocketMinutesUpgrade',
   },
   'lib/store/connection.dart': {'substrateFileName'},
   'lib/store/drift_store.dart': {'rowIdColumnName'},

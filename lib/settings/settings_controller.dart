@@ -69,6 +69,7 @@ class SettingsController {
           stack: content.stack,
           settingKey: content.settingKey,
           settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
         ));
       }
     });

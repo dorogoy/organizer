@@ -3,6 +3,13 @@
 // only pastel in the system that carries text, and no glyph may ever sit
 // inside it. It sits ABOVE the task as an eyebrow because reading order is
 // the mechanism: cost before ask (FR-1 — the estimate is always visible).
+//
+// Story 2.2 adds the pocket trigger: the same pill idiom carrying
+// `Tengo {minutes} minutos ahora` — the standing declared pocket while a
+// pocketed session is open, else the 15 default (UX-DR18's second life
+// for the chip). Never a countdown, never remaining minutes: the chip
+// states what the user declared, nothing more.
+import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 
 import '../../strings/app_strings.dart';
@@ -45,6 +52,64 @@ class DurationChip extends StatelessWidget {
         durationLabel(seconds, AppStrings.of(context)),
         // titleSmall is the wired duration role (theme.dart).
         style: theme.textTheme.titleSmall,
+      ),
+    );
+  }
+}
+
+/// The pocket trigger (Story 2.2, FR-8, UX-DR18): the duration-chip pill
+/// as a control, top-centred above the card. Carries
+/// `Tengo {minutes} minutos ahora` — [minutes] is the standing declared
+/// pocket, already defaulted by the surface (the open session's own
+/// pocket fact, else [defaultPocketMinutes]). One tap opens the ladder
+/// sheet; nothing here counts down, nothing shows a remainder, and no
+/// error state exists for a refusal to reach.
+class PocketTriggerChip extends StatelessWidget {
+  const PocketTriggerChip({super.key, required this.minutes, this.onTap});
+
+  /// The standing declared pocket in minutes — the surface's defaulted
+  /// value, from the read view's own fact.
+  final int minutes;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      // The interim convention holds (no custom semantics beyond the
+      // platform's own traversal): the affordance is declared as a
+      // button so a reader hears a control, not a bare sentence —
+      // the label is the sentence the chip's own text already carries.
+      button: true,
+      child: Material(
+        color: theme.colorScheme.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.radiusFull),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          // Absent, the tap stays an accepted no-op — a null onTap would
+          // render a disabled control instead.
+          onTap: onTap ?? () {},
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: Spacing.touchTargetMin,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.chipPaddingHorizontal,
+              ),
+              child: Center(
+                child: Text(
+                  AppStrings.of(context).pocketTrigger(minutes),
+                  // titleSmall is the wired duration role (theme.dart).
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
