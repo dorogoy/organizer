@@ -40,6 +40,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// mark appears when the derivation lands.
   int? _bagMinutes;
 
+  // Only the newest read may update the selection: an initial slow read can
+  // otherwise complete after the post-write refresh and restore old state.
+  var _readGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -51,9 +55,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (controller == null) {
       return;
     }
+    final generation = ++_readGeneration;
     try {
       final bag = await controller.readTimeBag();
-      if (mounted) {
+      if (mounted && generation == _readGeneration) {
         setState(() => _bagMinutes = bag);
       }
     } catch (_) {

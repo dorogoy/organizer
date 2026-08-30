@@ -102,6 +102,8 @@ context: ['FR-7', 'FR-12', 'NFR3', 'AD-1', 'AD-2', 'AD-15', 'AD-20', 'AD-21', 'A
 - [x] [Review][Patch] `_answered` derives the bag over `answeredLog` (the log `nextDeal` resolves on) — future source divergence cannot hide [packages/core/lib/commands/session_commands.dart]
 - [x] [Review][Patch] Redundant nested `SafeArea` removed from the carrier screen; `complete()` doc updated; `selectedMinutes` helper reads `timeBagOptions` from core [lib/ui/settings/nuevo_proyecto_screen.dart, lib/dispenser/dispenser_controller.dart, test/ui/settings/settings_screen_test.dart]
 - [x] [Review][Reject] Frozen I/O matrix row lists "option 10/15/20/25/30 tapped" without 5 — erratum only: the frozen Approach itself says "stepped options (5–30, step 5)" and the built ladder is 5/10/15/20/25/30; reading is unique, no code action (human may renegotiate the frozen text if desired)
+- [x] [Review][Patch] Discard stale Time Bag reads so an earlier initial load cannot overwrite the post-write selection [lib/ui/settings/settings_screen.dart:49]
+- [x] [Review][Patch] Update the `Nuevo proyecto` localization description to name the intermediate carrier rather than typed genesis [lib/l10n/app_es.arb:217]
 
 **Acceptance Criteria:**
 - Given the Dispenser, when it renders, then `Nuevo proyecto` sits bottom-centred as quiet ink-secondary text — never animated, emphasised, badged, nor carrying pastel mass (UX-DR25)

@@ -47,6 +47,24 @@ class _RecordingStore implements StorePort {
       List.unmodifiable(entries);
 }
 
+/// Holds its first read after taking a snapshot, so a later refresh can
+/// complete first and prove that an old response cannot restore old state.
+class _StaleFirstReadStore extends _RecordingStore {
+  final firstReadGate = Completer<void>();
+  var _isFirstRead = true;
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async {
+    if (_isFirstRead) {
+      _isFirstRead = false;
+      final snapshot = List<LogEntryRecord>.unmodifiable(entries);
+      await firstReadGate.future;
+      return snapshot;
+    }
+    return super.readLogEntries();
+  }
+}
+
 /// A bundle over the shipped asset's exact bytes (the dispenser suite's
 /// pattern), so the loader runs fully offline.
 class _ShippedBundle implements AssetBundle {
@@ -457,6 +475,31 @@ void main() {
   });
 
   group('the review patches (2.1 review pass)', () {
+    testWidgets('a late initial read cannot restore the pre-write selection', (
+      tester,
+    ) async {
+      final store = _StaleFirstReadStore();
+      final settings = SettingsController(store: store, nowOf: _fixedClock);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: SettingsScreen(controller: settings),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('10\u00A0min'));
+      await tester.pumpAndSettle();
+      expect(selectedMinutes(tester), 10);
+
+      store.firstReadGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(selectedMinutes(tester), 10);
+    });
+
     testWidgets('an off-ladder derived value renders as its own selected '
         'chip, and a normal tap still writes (imported 17)', (tester) async {
       final store = _RecordingStore()

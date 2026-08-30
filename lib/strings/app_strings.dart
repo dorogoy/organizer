@@ -323,7 +323,7 @@ abstract class AppStrings {
   /// **'Anotarlo'**
   String get noSlicerExit;
 
-  /// Dispenser — the quiet text departure, opening typed project genesis. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving.
+  /// Dispenser — the quiet text departure, opening the empty intermediate carrier whose only content is the Ajustes way-out. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving.
   ///
   /// In es, this message translates to:
   /// **'Nuevo proyecto'**
