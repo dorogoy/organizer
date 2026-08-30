@@ -27,6 +27,8 @@ LogEntryRecord _entry({String? id, String kind = 'card_done'}) => (
   itemId: '0192cccc-0000-7000-8000-000000000001',
   itemOrigin: Origin.shipped,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -296,6 +298,8 @@ void main() {
         itemId: null,
         itemOrigin: null,
         stack: stack,
+        settingKey: null,
+        settingValue: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -316,6 +320,8 @@ void main() {
       itemId: null,
       itemOrigin: null,
       stack: null,
+      settingKey: null,
+      settingValue: null,
     );
 
     test(
@@ -381,6 +387,8 @@ void main() {
         itemId: 'man-a',
         itemOrigin: null,
         stack: null,
+        settingKey: null,
+        settingValue: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -391,6 +399,8 @@ void main() {
         itemId: null,
         itemOrigin: null,
         stack: '#0      build',
+        settingKey: null,
+        settingValue: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -401,6 +411,8 @@ void main() {
         itemId: null,
         itemOrigin: null,
         stack: null,
+        settingKey: null,
+        settingValue: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -493,7 +505,9 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its seven declared columns', () async {
+    test('log_entries holds exactly its nine declared columns — the two '
+        'nullable setting columns are schema v2\'s additive pair (Story '
+        '2.1, AD-23)', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
         'id',
@@ -502,8 +516,176 @@ void main() {
         'item_origin',
         'kind',
         'offset_seconds',
+        'setting_key',
+        'setting_value',
         'stack',
       ]);
     });
+
+    test('a setting-shaped log entry round-trips through the adapter '
+        '(Story 2.1)', () async {
+      final id = const Uuid().v7();
+      await store.appendLogEntry((
+        id: id,
+        kind: LogKind.settingChanged.name,
+        instantUtcMicros: 1758900000111222,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: 'time_bag',
+        settingValue: 25,
+      ));
+      final row = await (db.select(
+        db.logEntries,
+      )..where((row) => row.id.equals(id))).getSingle();
+      expect(row.kind, 'setting_changed');
+      expect(row.settingKey, 'time_bag');
+      expect(row.settingValue, 25);
+      expect(row.itemId, isNull);
+
+      final snapshot = await store.readLogEntries();
+      expect(snapshot.single.settingKey, 'time_bag');
+      expect(snapshot.single.settingValue, 25);
+    });
+  });
+
+  group('the v1→v2 upgrade (Story 2.1, AD-23 — additive, ALTER-only)', () {
+    /// Takes over the group's database slot with one opened over a memory
+    /// executor pre-seeded with the exact v1 schema (two tables, four
+    /// triggers, `user_version` 1) — the state a v1 install presents. The
+    /// setup callback runs on the raw database before drift initializes,
+    /// so drift's migration runner then sees version 1 and upgrades; the
+    /// group's tearDown closes the takeover instance like any other.
+    Future<void> takeOverWithV1(void Function(dynamic db) seed) async {
+      await db.close();
+      db = SubstrateDatabase(NativeDatabase.memory(setup: seed));
+      store = DriftStore(db);
+    }
+
+    void seedV1(dynamic db) {
+      for (final statement in [
+        'CREATE TABLE pool_facts ('
+            'id TEXT NOT NULL PRIMARY KEY, '
+            'origin TEXT NOT NULL, '
+            'size TEXT NOT NULL, '
+            'instant_utc_micros INTEGER NOT NULL, '
+            'offset_seconds INTEGER NOT NULL)',
+        'CREATE TABLE log_entries ('
+            'id TEXT NOT NULL PRIMARY KEY, '
+            'kind TEXT NOT NULL, '
+            'instant_utc_micros INTEGER NOT NULL, '
+            'offset_seconds INTEGER NOT NULL, '
+            'item_id TEXT NULL, '
+            'item_origin TEXT NULL, '
+            'stack TEXT NULL)',
+        'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+            "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+            "insert-only (AD-2)'); END",
+        'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+            "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+            "insert-only (AD-2)'); END",
+        'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+            "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+            "insert-only (AD-2)'); END",
+        'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+            "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+            "insert-only (AD-2)'); END",
+        "INSERT INTO pool_facts VALUES ('old-fact', 'manual', "
+            "'maintenance', 100, 3600)",
+        "INSERT INTO log_entries VALUES ('old-entry', 'card_done', 200, "
+            "3600, 'man-a', 'shipped', NULL)",
+        'PRAGMA user_version = 1',
+      ]) {
+        db.execute(statement);
+      }
+    }
+
+    test('a seeded v1 database upgrades in place: two ALTERs add the '
+        'setting columns, the old rows read unchanged with null setting '
+        'fields, and the refusal triggers survive the migration', () async {
+      await takeOverWithV1(seedV1);
+
+      expect(db.schemaVersion, 2);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'setting_key',
+          'setting_value',
+          'stack',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // Old rows read unchanged: the v1 log row derives as its own kind
+      // with null setting fields, never coerced.
+      final snapshot = await store.readLogEntries();
+      expect(snapshot, hasLength(1));
+      expect(snapshot.single.id, 'old-entry');
+      expect(snapshot.single.kind, 'card_done');
+      expect(snapshot.single.settingKey, isNull);
+      expect(snapshot.single.settingValue, isNull);
+      expect(await store.readPoolFacts(), hasLength(1));
+
+      // Insert-only survives the migration on both tables.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET kind = 'card_skipped' WHERE id = 'old-entry'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts new setting rows beside the old.
+      await store.appendLogEntry((
+        id: 'new-setting',
+        kind: LogKind.settingChanged.name,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: 'time_bag',
+        settingValue: 10,
+      ));
+      final after = await store.readLogEntries();
+      expect(after, hasLength(2));
+      expect(after.last.kind, 'setting_changed');
+      expect(after.last.settingValue, 10);
+    });
+
+    test(
+      'a fresh v2 create carries the setting columns from the start',
+      () async {
+        expect(db.schemaVersion, 2);
+        final columns =
+            (await db.customSelect('PRAGMA table_info(log_entries)').get())
+                .map((row) => row.read<String>('name'))
+                .toList()
+              ..sort();
+        expect(columns, contains('setting_key'));
+        expect(columns, contains('setting_value'));
+      },
+    );
   });
 }

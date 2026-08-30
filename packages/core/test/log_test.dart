@@ -8,6 +8,8 @@ LogEntryRecord _record(
   String? itemId,
   Origin? itemOrigin,
   String? stack,
+  String? settingKey,
+  int? settingValue,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -16,11 +18,13 @@ LogEntryRecord _record(
   itemId: itemId,
   itemOrigin: itemOrigin,
   stack: stack,
+  settingKey: settingKey,
+  settingValue: settingValue,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly this epic\'s seven kinds', () {
+    test('holds exactly the build\'s eight kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -29,6 +33,7 @@ void main() {
         LogKind.sessionEnded,
         LogKind.appOpened,
         LogKind.crashRecorded,
+        LogKind.settingChanged,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -38,8 +43,9 @@ void main() {
         'crash_recorded',
         'session_ended',
         'session_started',
+        'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(7));
+      expect(LogKind.knownByName, hasLength(8));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -130,6 +136,22 @@ void main() {
       expect(entry.kind, LogKind.crashRecorded);
       expect(entry.stack, '#0      main (package:organizer/main.dart:8)');
       expect(entry.instantUtcMicros, 6000);
+      expect(entry.offsetSeconds, 3600);
+    });
+
+    test('a setting entry carries its key and value and nothing else '
+        '(Story 2.1, AD-1)', () {
+      final entry = SettingEntry(
+        id: '0190aaaa-0000-7000-8000-000000000009',
+        instantUtcMicros: 7000,
+        offsetSeconds: 3600,
+        key: 'time_bag',
+        value: 20,
+      );
+      expect(entry.kind, LogKind.settingChanged);
+      expect(entry.key, 'time_bag');
+      expect(entry.value, 20);
+      expect(entry.instantUtcMicros, 7000);
       expect(entry.offsetSeconds, 3600);
     });
   });
@@ -251,6 +273,156 @@ void main() {
       );
       expect(conversion.entry, isNull);
       expect(conversion.flaw, LogRecordFlaw.stackAbsent);
+    });
+
+    group('the setting payload path (Story 2.1, AD-1, AD-23)', () {
+      test('a well-shaped setting entry converts with its pair intact', () {
+        final conversion = convertLogEntryRecord(
+          _record('setting_changed', settingKey: 'time_bag', settingValue: 25),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<SettingEntry>());
+        expect(entry!.kind, LogKind.settingChanged);
+        expect((entry as SettingEntry).key, 'time_bag');
+        expect(entry.value, 25);
+      });
+
+      test('a value outside the confirmed range still converts — it stays '
+          'in the log and the derivation treats it as absent, never a '
+          'repair write (AD-23)', () {
+        final tooSmall = convertLogEntryRecord(
+          _record('setting_changed', settingKey: 'time_bag', settingValue: 4),
+        );
+        expect(tooSmall.flaw, isNull);
+        expect((tooSmall.entry as SettingEntry).value, 4);
+
+        final tooLarge = convertLogEntryRecord(
+          _record('setting_changed', settingKey: 'time_bag', settingValue: 31),
+        );
+        expect(tooLarge.flaw, isNull);
+        expect((tooLarge.entry as SettingEntry).value, 31);
+      });
+
+      test('an unknown setting key converts and derives nothing — carried, '
+          'never coerced (AD-23)', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'future_setting',
+            settingValue: 2,
+          ),
+        );
+        expect(conversion.flaw, isNull);
+        expect((conversion.entry as SettingEntry).key, 'future_setting');
+      });
+
+      test('setting_changed without its key is excluded', () {
+        final noKey = convertLogEntryRecord(
+          _record('setting_changed', settingValue: 15),
+        );
+        expect(noKey.entry, isNull);
+        expect(noKey.flaw, LogRecordFlaw.settingKeyAbsent);
+
+        final emptyKey = convertLogEntryRecord(
+          _record('setting_changed', settingKey: '', settingValue: 15),
+        );
+        expect(emptyKey.entry, isNull);
+        expect(emptyKey.flaw, LogRecordFlaw.settingKeyAbsent);
+      });
+
+      test('setting_changed without its value is excluded', () {
+        final conversion = convertLogEntryRecord(
+          _record('setting_changed', settingKey: 'time_bag'),
+        );
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.settingValueAbsent);
+      });
+
+      test('an item pair or stack on setting_changed is excluded', () {
+        final withItem = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+        );
+        expect(withItem.entry, isNull);
+        expect(withItem.flaw, LogRecordFlaw.itemOnNonItemKind);
+
+        final withStack = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            stack: '#0      build',
+          ),
+        );
+        expect(withStack.entry, isNull);
+        expect(withStack.flaw, LogRecordFlaw.stackOffCrashKind);
+      });
+      test('setting fields on a non-setting kind are excluded, distinctly', () {
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_done',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            settingKey: 'time_bag',
+            settingValue: 15,
+          ),
+        );
+        expect(onAct.entry, isNull);
+        expect(onAct.flaw, LogRecordFlaw.settingOnNonSettingKind);
+
+        final onMoment = convertLogEntryRecord(
+          _record('session_started', settingValue: 15),
+        );
+        expect(onMoment.entry, isNull);
+        expect(onMoment.flaw, LogRecordFlaw.settingOnNonSettingKind);
+
+        final onCrash = convertLogEntryRecord(
+          _record(
+            'crash_recorded',
+            stack: '#0      build',
+            settingKey: 'time_bag',
+          ),
+        );
+        expect(onCrash.entry, isNull);
+        expect(onCrash.flaw, LogRecordFlaw.settingOnNonSettingKind);
+      });
+
+      test('an empty setting key counts as absent everywhere — an empty '
+          'string is not a value, on non-setting kinds too (the house '
+          'rule, aligned)', () {
+        // An empty key with no value carries nothing: the row converts
+        // as its own kind, never excluded for a setting it does not
+        // hold.
+        final onMoment = convertLogEntryRecord(
+          _record('app_opened', settingKey: ''),
+        );
+        expect(onMoment.flaw, isNull);
+        expect(onMoment.entry, isA<MomentEntry>());
+
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_dealt',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            settingKey: '',
+          ),
+        );
+        expect(onAct.flaw, isNull);
+        expect(onAct.entry, isA<ItemActEntry>());
+
+        // A value beside the empty key still carries — the flaw fires.
+        final carrying = convertLogEntryRecord(
+          _record('session_ended', settingKey: '', settingValue: 15),
+        );
+        expect(carrying.entry, isNull);
+        expect(carrying.flaw, LogRecordFlaw.settingOnNonSettingKind);
+      });
     });
 
     test(

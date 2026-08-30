@@ -189,7 +189,7 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, six wire names wide: every user-act and
+    // The absolute ban, seven wire names wide: every user-act and
     // moment kind exists in the shell only inside the core's own
     // constants — a quoted wire name in lib/ is a minter that
     // bypasses the vocabulary. (crash_recorded is not banned here:
@@ -201,6 +201,7 @@ void main() {
       'session_started',
       'session_ended',
       'app_opened',
+      'setting_changed',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -309,6 +310,7 @@ void main() {
         'lib/crash.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 2,
         'lib/session/session_controller.dart': 1,
+        'lib/settings/settings_controller.dart': 1,
       },
       reason:
           'the exact census of append sites changed — a third '
@@ -320,10 +322,11 @@ void main() {
       {
         'lib/dispenser/dispenser_controller.dart': 2,
         'lib/session/session_controller.dart': 1,
+        'lib/settings/settings_controller.dart': 1,
       },
       reason:
           'records constructed over core LogEntryContent exist '
-          'only in the two sanctioned append sites',
+          'only in the three sanctioned append sites',
     );
     final tearOffs = <String>[];
     for (final entry in sources.entries) {

@@ -84,8 +84,10 @@ Day _chargedDayOf(
 /// to that session's own start day — a session crossing 04:00 charges
 /// every card act to its start day, never the crossed-into day. A card
 /// act outside any session (no command writes one) falls back to its own
-/// instant's day, so the walk stays total. Unknown kinds and crash
-/// entries pass through untouched. The [catalogue] resolves a referenced
+/// instant's day, so the walk stays total. Unknown kinds, crash entries
+/// and `setting_changed` rows pass through untouched — settings are read
+/// by the shell's own derivation (2.1), never by the weave's internal
+/// policy. The [catalogue] resolves a referenced
 /// item's taxonomy size — the shipped catalogue is 1.6's only item
 /// source; an id it does not know carries no size yet and closes
 /// nothing, and later sources extend exactly here. Its ids must be
@@ -165,6 +167,7 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
           }
         }
       case CrashEntry():
+      case SettingEntry():
       case UnknownEntry():
         break;
     }

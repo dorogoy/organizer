@@ -4,6 +4,8 @@ import 'package:core/day/calendar.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
+import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 import 'package:test/test.dart';
 
@@ -1457,6 +1459,71 @@ void main() {
         'fondo-j',
         'fondo-k',
       ]);
+    });
+  });
+
+  group('setting_changed rows and the weave (Story 2.1)', () {
+    SettingEntry setting(int micros, String key, int value) => SettingEntry(
+      id: 'setting-$micros-$key-$value',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      key: key,
+      value: value,
+    );
+
+    test('the walk is inert to setting rows — settings are the shell\'s '
+        'derivation, never the weave\'s internal policy', () {
+      final withSettings = walkLog([
+        setting(_day(0, 8), 'time_bag', 5),
+        _sessionStarted(_day(0, 9)),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+        setting(_day(0, 10), 'time_bag', 30),
+      ], catalogue: _catalogue);
+      final without = walkLog([
+        _sessionStarted(_day(0, 9)),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+      ], catalogue: _catalogue);
+      expect(
+        withSettings.lastDealtInstantByItemId,
+        without.lastDealtInstantByItemId,
+      );
+      expect(withSettings.focusSlotClosedDays, without.focusSlotClosedDays);
+      expect(withSettings.dealtCountsByDay, without.dealtCountsByDay);
+      expect(withSettings.answeredItemIds, without.answeredItemIds);
+      expect(withSettings.openSessionStart, without.openSessionStart);
+      expect(withSettings.dealtUnanswered, without.dealtUnanswered);
+    });
+
+    test('the below-10 gate reads the threaded bag; the default is the '
+        'setting\'s own constant — one source of truth for 15', () {
+      expect(
+        composeDay(
+          catalogue: _catalogue,
+          log: const [],
+          instantUtcMicros: now,
+          offsetSeconds: 0,
+        ).focus,
+        isNotNull,
+      );
+      expect(
+        defaultTimeBagMinutes,
+        15,
+        reason:
+            'the weave\'s composition default is core/settings\' '
+            'constant (FR-7, §10.1)',
+      );
+      // A bag derived by the shell and threaded in composes identically
+      // to a literal parameter — the derivation adds no gate of its own.
+      final threaded = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: deriveTimeBagMinutes([setting(_day(0, 8), 'time_bag', 9)]),
+      );
+      expect(threaded.focus, isNull);
+      expect(threaded.maintenance, hasLength(3));
+      expect(threaded.instantHabits, hasLength(5));
     });
   });
 }

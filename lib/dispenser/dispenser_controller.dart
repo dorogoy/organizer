@@ -3,6 +3,7 @@ import 'package:core/commands/session_commands.dart';
 import 'package:core/facade/read_facade.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/weave.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -38,7 +39,8 @@ final class DispenserClosed extends DispenserView {
 /// home surface computes its card through `nextCard` — the read facade's
 /// one function — and answers it through the two core answer commands,
 /// each appending its answer and the bundled next deal itself (AD-3):
-/// `cardDone` (Story 1.9) and `cardSkipped` (Story 1.10, FR-3).
+/// `cardDone` (Story 1.9) and `cardSkipped` (Story 1.10, FR-3), each with
+/// the Time Bag derived once per operation and threaded in (2.1).
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -98,8 +100,8 @@ class DispenserController {
 
   /// Answers the dealt card (Story 1.9's one write path, FR-2): runs the
   /// core `cardDone` command — the `card_done` row plus the bundled next
-  /// `card_dealt` — with its `bagMinutes`/energy defaults, minting one
-  /// instant for the whole batch and a v7 id per row, exactly as
+  /// `card_dealt` — with the derived bag and the energy default, minting
+  /// one instant for the whole batch and a v7 id per row, exactly as
   /// `SessionController._appendAll` does. The instant is minted at entry,
   /// before any await, so the recorded rows describe the tap, not the
   /// reads that follow. A duplicate or never-dealt answer appends
@@ -110,6 +112,8 @@ class DispenserController {
     return _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
+      // The bag derives once per operation (2.1) and threads into the
+      // command — no shell-reachable path relies on the default.
       final contents = cardDone(
         itemId: dealt.card.id,
         origin: dealt.card.origin,
@@ -117,6 +121,7 @@ class DispenserController {
         log: log,
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
       );
       for (final content in contents) {
         await store.appendLogEntry((
@@ -127,6 +132,8 @@ class DispenserController {
           itemId: content.itemId,
           itemOrigin: content.itemOrigin,
           stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
         ));
       }
     });
@@ -135,8 +142,8 @@ class DispenserController {
   /// Passes the dealt card (Story 1.10's one write path, FR-3): runs the
   /// core `cardSkipped` command — the `card_skipped` row plus the bundled
   /// next `card_dealt`, the resolver's choice afresh (AD-20: identity
-  /// re-resolves and a skip consumes no rotation) — with its
-  /// `bagMinutes`/energy defaults, minting one instant for the whole
+  /// re-resolves and a skip consumes no rotation) — with the derived bag
+  /// and the energy default, minting one instant for the whole
   /// batch and a v7 id per row, exactly as `complete` does. The instant
   /// is minted at entry, before any await, so the recorded rows describe
   /// the tap, not the reads that follow. A duplicate or never-dealt skip
@@ -158,6 +165,7 @@ class DispenserController {
         log: log,
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
       );
       for (final content in contents) {
         await store.appendLogEntry((
@@ -168,6 +176,8 @@ class DispenserController {
           itemId: content.itemId,
           itemOrigin: content.itemOrigin,
           stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
         ));
       }
     });

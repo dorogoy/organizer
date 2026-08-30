@@ -10,6 +10,7 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 
@@ -18,13 +19,17 @@ import 'package:core/weave/weave.dart';
 /// produces a second deal — else the resolver's next choice, computed
 /// purely and appended by no one here. Energy arrives through
 /// [deriveLivePoolEnergy]: no observations exist in 1.6, so the day
-/// defaults to 🟢 until 2.5 maps them at that one seam.
+/// defaults to 🟢 until 2.5 maps them at that one seam. The Time Bag
+/// derives from this read's own log (2.1, AD-1): an explicit
+/// [bagMinutes] overrides it for a caller that derived once for a whole
+/// operation, and no shell-reachable path relies on the default once a
+/// setting exists.
 Future<Card?> nextCard(
   StorePort store, {
   required Catalogue catalogue,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int? bagMinutes,
 }) async {
   final entries = logEntriesOf(await store.readLogEntries());
   final facts = walkLog(entries, catalogue: catalogue);
@@ -41,7 +46,7 @@ Future<Card?> nextCard(
     log: entries,
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
-    bagMinutes: bagMinutes,
+    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(entries),
     energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
   );
 }

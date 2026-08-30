@@ -147,6 +147,15 @@ class AppStringsEs extends AppStrings {
   String get newProjectLink => 'Nuevo proyecto';
 
   @override
+  String get settingsWayOut => 'Ajustes';
+
+  @override
+  String get settingsGroupYourDay => 'Tu día';
+
+  @override
+  String get settingsTimeBag => 'Bolsa de tiempo';
+
+  @override
   String get genesisAnalyze => 'Analizar';
 
   @override

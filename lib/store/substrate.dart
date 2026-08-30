@@ -16,24 +16,45 @@ const String substrateSchemaFile = 'substrate.drift';
 /// connection the production host opens, pooled or parallel).
 const String recursiveTriggersPragma = 'PRAGMA recursive_triggers = ON';
 
+/// Schema v2's additive upgrade of `log_entries` (Story 2.1, AD-23): the
+/// two nullable `setting_changed` payload columns, added by ALTER TABLE
+/// only — no table rebuild, no data migration, refusal triggers untouched.
+/// Named infrastructure identifiers on the store module's terms (AD-15's
+/// ban is on literals reaching a widget), one per statement.
+const String logEntriesSettingKeyUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN setting_key TEXT NULL';
+
+const String logEntriesSettingValueUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN setting_value INTEGER NULL';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 1 — every later change is additive-only
-/// (AD-23).
+/// migration (AD-2). schemaVersion 2 (Story 2.1): the only change from 1
+/// is the pair of nullable setting columns above, and every later change
+/// is additive-only (AD-23).
 @DriftDatabase(include: {substrateSchemaFile})
 class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// The initial migration creates everything: both tables and the four
-  /// `.drift`-declared triggers. The mechanism is drift's; the outcome —
-  /// triggers present after first open on a fresh install — is pinned by
-  /// `test/store/substrate_test.dart`.
+  /// `.drift`-declared triggers. The v1→v2 step adds the setting columns
+  /// in place, by ALTER TABLE alone, so a v1 install upgrades without a
+  /// rebuild and its rows read back unchanged — old rows with null setting
+  /// fields. The mechanism is drift's; the outcomes — triggers present
+  /// after first open on a fresh install, old rows intact after upgrade —
+  /// are pinned by `test/store/substrate_test.dart`.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await customStatement(logEntriesSettingKeyUpgrade);
+        await customStatement(logEntriesSettingValueUpgrade);
+      }
+    },
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),
   );
 }

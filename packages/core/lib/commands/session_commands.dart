@@ -10,7 +10,11 @@
 ///
 /// Energy enters through `deriveLivePoolEnergy`: 1.6 has no stored
 /// observations, so the level is the 🟢 default until 2.5 maps them at
-/// that one seam.
+/// that one seam. The Time Bag enters through `deriveTimeBagMinutes`
+/// (2.1): callers may pass a value derived once for the whole operation
+/// — the shell's threading — and a caller that passes none gets the
+/// derivation over the very log it hands in, so no composition path can
+/// rely on the default once a setting exists.
 
 library;
 
@@ -18,6 +22,7 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 
@@ -29,16 +34,26 @@ typedef LogEntryContent = ({
   String? itemId,
   Origin? itemOrigin,
   String? stack,
+  String? settingKey,
+  int? settingValue,
 });
 
-LogEntryContent _moment(LogKind kind) =>
-    (kind: kind, itemId: null, itemOrigin: null, stack: null);
+LogEntryContent _moment(LogKind kind) => (
+  kind: kind,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+);
 
 LogEntryContent _deal(Card card) => (
   kind: LogKind.cardDealt,
   itemId: card.id,
   itemOrigin: card.origin,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -53,7 +68,7 @@ List<LogEntryContent> sessionStart({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int? bagMinutes,
 }) {
   final facts = walkLog(log, catalogue: catalogue);
   if (facts.openSessionStart != null) {
@@ -64,7 +79,7 @@ List<LogEntryContent> sessionStart({
     log: log,
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
-    bagMinutes: bagMinutes,
+    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(log),
     energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
   );
   return [_moment(LogKind.sessionStarted), if (deal != null) _deal(deal)];
@@ -83,7 +98,7 @@ List<LogEntryContent> cardDone({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int? bagMinutes,
 }) {
   return _answered(
     kind: LogKind.cardDone,
@@ -109,7 +124,7 @@ List<LogEntryContent> cardSkipped({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int? bagMinutes,
 }) {
   return _answered(
     kind: LogKind.cardSkipped,
@@ -141,7 +156,7 @@ List<LogEntryContent> _answered({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  required int bagMinutes,
+  required int? bagMinutes,
 }) {
   final facts = walkLog(log, catalogue: catalogue);
   final unanswered = facts.dealtUnanswered;
@@ -159,7 +174,9 @@ List<LogEntryContent> _answered({
   // `Hecho` on the chunk closes the day's slot before the next deal
   // resolves (AD-20 — no second chunk that day). The synthesized answer
   // row carries the command's instant and offset; its id is the shell's
-  // to mint and no derivation reads it.
+  // to mint and no derivation reads it. The bag derives over the very
+  // log the deal resolves on — a mid-day change appends its own row and
+  // re-derives forward only (AD-20), and the two reads cannot diverge.
   final answeredLog = [
     ...log,
     ItemActEntry(
@@ -176,11 +193,18 @@ List<LogEntryContent> _answered({
     log: answeredLog,
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
-    bagMinutes: bagMinutes,
+    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(answeredLog),
     energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
   );
   return [
-    (kind: kind, itemId: itemId, itemOrigin: origin, stack: null),
+    (
+      kind: kind,
+      itemId: itemId,
+      itemOrigin: origin,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+    ),
     if (deal != null) _deal(deal),
   ];
 }

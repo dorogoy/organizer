@@ -33,13 +33,21 @@
 // candidate the refresh lands on the already-shipped warm close.
 // Completion state — the ack flags and their window — stays
 // completion-only: a skip touches none of it.
+//
+// The footer (Story 2.1, UX-DR25): `Nuevo proyecto` sits bottom-centred
+// as the surface's one prose departure — ink-secondary text, 48dp
+// opaque target, no glyph, no pastel mass, nothing animated — pinned
+// as chrome below the scroll region. It opens the intermediate surface
+// that carries the `Ajustes` way-out alone (NFR3, AD-26).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../dispenser/dispenser_controller.dart';
+import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
+import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
 import 'task_card.dart';
 
@@ -59,10 +67,18 @@ class DispenserScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.sessionSettled,
+    this.settings,
   });
 
   final DispenserController controller;
   final Future<void> Function()? sessionSettled;
+
+  /// The Settings seam (Story 2.1): main constructs it over the same
+  /// store and hands it down through the way-out chain — the footer
+  /// here, the `Nuevo proyecto` carrier, the Settings list. Absent (the
+  /// test seam), the footer renders and opens the carrier with no
+  /// controller behind it.
+  final SettingsController? settings;
 
   @override
   State<DispenserScreen> createState() => _DispenserScreenState();
@@ -285,23 +301,65 @@ class _DispenserScreenState extends State<DispenserScreen>
     final view = _view;
     return Scaffold(
       // The scaffold background is the theme's surfaceBase tone in both
-      // modes — the empty frame is already the whole surface.
-      body: switch (view) {
-        null => const SizedBox.shrink(),
-        DispenserDealt dealt => _frame(
-          _withCompletionAck(
-            context,
-            TaskCard(
-              card: dealt.card,
-              onDone: () => _onDone(dealt),
-              onSkip: () => _onSkip(dealt),
-            ),
+      // modes — the empty frame is already the whole surface. The footer
+      // sits below the scroll region as Dispenser chrome (AD-26: the one
+      // quiet affordance lives in the chrome), so it never scrolls away
+      // and the card above it grows and scrolls on its own (UX-DR45).
+      body: Column(
+        children: [
+          Expanded(
+            child: switch (view) {
+              null => const SizedBox.shrink(),
+              DispenserDealt dealt => _frame(
+                _withCompletionAck(
+                  context,
+                  TaskCard(
+                    card: dealt.card,
+                    onDone: () => _onDone(dealt),
+                    onSkip: () => _onSkip(dealt),
+                  ),
+                ),
+              ),
+              DispenserClosed() => _frame(
+                _withCompletionAck(context, _closeText(context)),
+              ),
+            },
           ),
-        ),
-        DispenserClosed() => _frame(
-          _withCompletionAck(context, _closeText(context)),
-        ),
-      },
+          _newProjectFooter(context),
+        ],
+      ),
+    );
+  }
+
+  /// The one quiet departure (UX-DR25, Story 2.1): `Nuevo proyecto`
+  /// bottom-centred as ink-secondary text in the `action-secondary`
+  /// pattern — never animated, never emphasised, never badged, no
+  /// pastel mass, no glyph. Mass means work and prose means leaving;
+  /// this is the surface's only prose control, and it opens the
+  /// intermediate surface that carries the `Ajustes` way-out alone
+  /// (Epic 5's typed genesis is that surface's other half, not this
+  /// story's). The first navigation in the app — no route table
+  /// exists, so the push carries its page inline.
+  Widget _newProjectFooter(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SecondaryTextAction(
+        label: AppStrings.of(context).newProjectLink,
+        onTap: () {
+          // A rapid second tap during the route transition would stack
+          // a second route: while another route is coming in, this one
+          // is not the navigator's current route, and the push is
+          // refused.
+          if (ModalRoute.of(context)?.isCurrent ?? false) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    NuevoProyectoScreen(settings: widget.settings),
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 

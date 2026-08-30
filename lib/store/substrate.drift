@@ -7,6 +7,11 @@
 -- plus the local offset in force (AD-4), stored as epoch microseconds and
 -- offset seconds — no date-only column, no owner column, no third table.
 --
+-- Schema v2 (Story 2.1) adds the two nullable `setting_changed` payload
+-- columns `setting_key`/`setting_value` to log_entries — additive-only,
+-- arrived at through ALTER TABLE in onUpgrade (AD-23), so a v1 install
+-- upgrades in place with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -29,7 +34,9 @@ CREATE TABLE log_entries (
   offset_seconds INTEGER NOT NULL,
   item_id TEXT NULL,
   item_origin TEXT NULL,
-  stack TEXT NULL
+  stack TEXT NULL,
+  setting_key TEXT NULL,
+  setting_value INTEGER NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

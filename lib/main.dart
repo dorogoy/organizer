@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
 import 'session/session_controller.dart';
+import 'settings/settings_controller.dart';
 import 'store/bootstrap.dart';
 import 'strings/app_strings.dart';
 import 'strings/app_strings_es.dart';
@@ -28,12 +29,15 @@ void main() {
   );
   // The Dispenser (Story 1.8) is the home: it reads the launch deal
   // through the same store, and the double asset read behind the shared
-  // catalogue is benign — rootBundle caches bytes.
+  // catalogue is benign — rootBundle caches bytes. The Settings seam
+  // (Story 2.1) holds the same store too: one substrate under the whole
+  // shell, threaded through the way-out chain the footer opens.
   runApp(
     ProviderScope(
       child: OrganizerApp(
         dispenser: DispenserController(store: store, strings: AppStringsEs()),
         sessionSettled: () => session.settled,
+        settings: SettingsController(store: store),
       ),
     ),
   );
@@ -42,14 +46,23 @@ void main() {
 /// The shell root: Riverpod's ProviderScope wraps the whole app (shell-only
 /// state management; the core is a pure function and holds no state).
 ///
-/// The optional controller param is the test seam: main constructs it with
-/// the same store the session wiring holds; a test may construct the shell
-/// without one, and home stays the placeholder in that case.
+/// The optional controller params are the test seam: main constructs them
+/// with the same store the session wiring holds; a test may construct the
+/// shell without them, and home stays the placeholder in that case.
 class OrganizerApp extends StatelessWidget {
-  const OrganizerApp({super.key, this.dispenser, this.sessionSettled});
+  const OrganizerApp({
+    super.key,
+    this.dispenser,
+    this.sessionSettled,
+    this.settings,
+  });
 
   final DispenserController? dispenser;
   final Future<void> Function()? sessionSettled;
+
+  /// The Settings seam (Story 2.1), threaded into the Dispenser's footer
+  /// and down the way-out chain — same store, one substrate.
+  final SettingsController? settings;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +82,7 @@ class OrganizerApp extends StatelessWidget {
           : DispenserScreen(
               controller: dispenser,
               sessionSettled: sessionSettled,
+              settings: settings,
             ),
     );
   }

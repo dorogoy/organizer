@@ -50,6 +50,8 @@ class DriftStore implements StorePort {
             itemId: Value(entry.itemId),
             itemOrigin: Value(entry.itemOrigin?.name),
             stack: Value(entry.stack),
+            settingKey: Value(entry.settingKey),
+            settingValue: Value(entry.settingValue),
           ),
         );
   }
@@ -98,6 +100,8 @@ class DriftStore implements StorePort {
               ? null
               : originsByName[row.itemOrigin],
           stack: row.stack,
+          settingKey: row.settingKey,
+          settingValue: row.settingValue,
         ),
     ];
   }

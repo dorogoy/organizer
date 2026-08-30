@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/main.dart';
+import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
@@ -131,27 +132,64 @@ void main() {
     );
   });
 
-  test('main wires the one store into both the session lifecycle and the '
-      'Dispenser (the one-shell-edit regression pin)', () {
-    final source = File('lib/main.dart').readAsStringSync();
+  testWidgets('the settings seam is exercised: OrganizerApp hands its '
+      'SettingsController down to the Dispenser home (Story 2.1)', (
+    tester,
+  ) async {
+    final settings = SettingsController(store: _EmptyCatalogueStore());
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: _EmptyCatalogueStore(),
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          settings: settings,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Exactly one store is opened: a second construction would fork the
-    // substrate under the shell's own crash guard.
-    expect(
-      source.split('openStore()').length - 1,
-      1,
-      reason: 'openStore() is called exactly once',
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen),
     );
-    // The session wiring and the Dispenser read the same local store —
-    // the launch deal the screen renders is the one the log holds.
-    expect(
-      RegExp(r'installSessionController\(\s*store: store').hasMatch(source),
-      isTrue,
-    );
-    expect(
-      RegExp(r'DispenserController\(\s*store: store').hasMatch(source),
-      isTrue,
-    );
-    expect(source.contains('sessionSettled: () => session.settled'), isTrue);
+    expect(identical(dispenser.settings, settings), isTrue);
+    // The read seam resolves over the empty log: the default bag.
+    expect(await settings.readTimeBag(), 15);
   });
+
+  test(
+    'main wires the one store into the session lifecycle, the '
+    'Dispenser and the Settings seam (the one-shell-edit regression pin)',
+    () {
+      final source = File('lib/main.dart').readAsStringSync();
+
+      // Exactly one store is opened: a second construction would fork the
+      // substrate under the shell's own crash guard.
+      expect(
+        source.split('openStore()').length - 1,
+        1,
+        reason: 'openStore() is called exactly once',
+      );
+      // The session wiring, the Dispenser and the Settings seam read the
+      // same local store — the launch deal the screen renders is the one
+      // the log holds, and the bag the footer chain writes is the bag the
+      // derivation reads.
+      expect(
+        RegExp(r'installSessionController\(\s*store: store').hasMatch(source),
+        isTrue,
+      );
+      expect(
+        RegExp(r'DispenserController\(\s*store: store').hasMatch(source),
+        isTrue,
+      );
+      expect(
+        RegExp(r'SettingsController\(\s*store: store').hasMatch(source),
+        isTrue,
+        reason: 'the settings wiring must hold the same single store',
+      );
+      expect(source.contains('sessionSettled: () => session.settled'), isTrue);
+    },
+  );
 }

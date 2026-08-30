@@ -323,11 +323,29 @@ abstract class AppStrings {
   /// **'Anotarlo'**
   String get noSlicerExit;
 
-  /// Dispenser — the quiet text departure, opening typed project genesis. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving.
+  /// Dispenser — the quiet text departure, opening the empty intermediate carrier whose only content is the Ajustes way-out. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving.
   ///
   /// In es, this message translates to:
   /// **'Nuevo proyecto'**
   String get newProjectLink;
+
+  /// The quiet text way-out inside the Nuevo proyecto surface — the only route into Settings, and with it the validator surface (NFR3, AD-26). Same prose grammar as the Dispenser footer; never a glyph, never emphasised.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustes'**
+  String get settingsWayOut;
+
+  /// Settings — the first group header of the flat platform list (UX-DR33), holding the Time Bag. Quiet support copy, ink-secondary.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu día'**
+  String get settingsGroupYourDay;
+
+  /// Settings, Tu día group — the Time Bag row label: the daily minutes the user commits, a ceiling for advance work only. Below 10 minutes the day composes without a Focus Chunk, silently; nothing anywhere names that absence.
+  ///
+  /// In es, this message translates to:
+  /// **'Bolsa de tiempo'**
+  String get settingsTimeBag;
 
   /// Typed project genesis — the consent action, with no provider name and no separate dialog.
   ///

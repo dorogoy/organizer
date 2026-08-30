@@ -44,6 +44,8 @@ Future<void> appendCrashEntry(
     itemId: null,
     itemOrigin: null,
     stack: resolvedStack,
+    settingKey: null,
+    settingValue: null,
   );
   try {
     await store.appendLogEntry(entry);
