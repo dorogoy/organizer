@@ -145,6 +145,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       return;
     }
     _writeInFlight = true;
+    var releaseAfterRefresh = false;
     HapticFeedback.lightImpact();
     try {
       await widget.controller.complete(dealt);
@@ -153,6 +154,10 @@ class _DispenserScreenState extends State<DispenserScreen>
       }
       _completionAckWaiting = true;
       _refresh();
+      // The old card remains in the render tree until this refresh's frame.
+      // Keep the shared guard through it so its stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
     } catch (_) {
       // The write failed: quiet and deliberate — the empty frame stands,
       // no ack, nothing surfaced. The log stayed consistent either way,
@@ -170,7 +175,9 @@ class _DispenserScreenState extends State<DispenserScreen>
         });
       }
     } finally {
-      _writeInFlight = false;
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
     }
   }
 
@@ -191,12 +198,17 @@ class _DispenserScreenState extends State<DispenserScreen>
       return;
     }
     _writeInFlight = true;
+    var releaseAfterRefresh = false;
     try {
       await widget.controller.skip(dealt);
       if (!mounted) {
         return;
       }
       _refresh();
+      // The old card remains in the render tree until this refresh's frame.
+      // Keep the shared guard through it so its stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
     } catch (_) {
       // The write failed: quiet and deliberate — the empty frame stands,
       // nothing surfaced, and a real return to the foreground re-reads.
@@ -207,8 +219,16 @@ class _DispenserScreenState extends State<DispenserScreen>
         setState(() => _view = null);
       }
     } finally {
-      _writeInFlight = false;
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
     }
+  }
+
+  void _releaseWriteAfterRefreshFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _writeInFlight = false;
+    });
   }
 
   Future<void> _readAfterSessionSettles(int generation) async {

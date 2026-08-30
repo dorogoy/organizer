@@ -89,3 +89,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-10-the-unsplit-secondary-control-the-skip-half.md`
   summary: 1.9's `complete` ticking-clock test derives its mint expectation from the mint itself (rows == mints[1]), so a late mint in `complete` passes green.
   evidence: Verification-gap review of 1-10 fixed the identical self-referential flaw in skip's test (now captures the pre-skip minute); the pre-existing complete twin ("complete stamps the whole batch with the instant minted at entry") retains it — a mint moved after the store reads stamps a later tick unobserved.
+
+## Deferred from: code review of 1-10-the-unsplit-secondary-control-the-skip-half (2026-08-30)
+
+- Lifecycle writes can split a skip batch: `DispenserController` and `SessionController` use independent queues, so `session_ended` can land between `card_skipped` and its bundled `card_dealt`. This extends the deferred 1.9 shared-serialization issue and needs a coordinator or display-invariant decision outside the story boundary.

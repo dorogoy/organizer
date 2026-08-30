@@ -308,6 +308,18 @@ class _QueuedReadController extends DispenserController {
   Future<DispenserView> read() => _reads[_nextRead++].future;
 }
 
+/// A queued reader whose answers succeed immediately: it isolates the
+/// screen's in-flight guard from the controller's persistence mechanics.
+class _QueuedAnswerController extends _QueuedReadController {
+  _QueuedAnswerController(super.reads);
+
+  @override
+  Future<void> complete(DispenserDealt dealt) async {}
+
+  @override
+  Future<void> skip(DispenserDealt dealt) async {}
+}
+
 /// A store whose `card_done` appends fail once, and only once an
 /// earlier one has landed — the second-completion write-failure shape:
 /// a first ack is mid-window and visible when the failed write's catch
@@ -1338,6 +1350,41 @@ void main() {
     // invariants — they advance the clock no further than assertions
     // care about.
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('a stale Hecho callback cannot act while a skip refresh waits '
+      'for its first frame — no haptic, no false ack', (tester) async {
+    final first = Completer<DispenserView>();
+    final second = Completer<DispenserView>();
+    final controller = _QueuedAnswerController([first, second]);
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pump();
+    first.complete(const DispenserDealt(_testCard));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    final calls = _mockPlatformCalls(tester);
+    final oldCard = tester.widget<TaskCard>(find.byType(TaskCard));
+
+    // Invoke both callbacks before the scheduled refresh frame. This is the
+    // old card's real render-tree window: it has been answered by skip but
+    // has not yet been removed from hit testing.
+    oldCard.onSkip!();
+    await Future<void>.value();
+    oldCard.onDone!();
+    await Future<void>.value();
+
+    expect(
+      _hapticImpacts(calls),
+      isEmpty,
+      reason: 'the stale Hecho returns through the shared guard',
+    );
+
+    second.complete(const DispenserDealt(_longCard));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(_longCard.name), findsOneWidget);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
   });
 
   testWidgets('tapping the secondary skips with no haptic and no ack — '
