@@ -3,13 +3,15 @@
 ///
 /// This file holds Story 1.3's slice of the vocabulary: the seven kinds the
 /// epic names, plus the unknown-kind carrier every forward-only reader must
-/// tolerate (AD-23). A new kind is a new kind, never a flag on an old one.
+/// tolerate (AD-23) — and, additively since Story 2.1, the eighth kind
+/// `setting_changed`. A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
 /// store port returns become domain entries only after their shape checks
 /// out — itemId/itemOrigin travel as a pair, `stack` rides only on
-/// `crash_recorded`, and a known kind's payload must match the kind.
+/// `crash_recorded`, `setting_changed` carries its key and value, and a
+/// known kind's payload must match the kind.
 
 library;
 
@@ -36,6 +38,7 @@ final class LogKind {
   static const sessionEnded = LogKind._('session_ended', known: true);
   static const appOpened = LogKind._('app_opened', known: true);
   static const crashRecorded = LogKind._('crash_recorded', known: true);
+  static const settingChanged = LogKind._('setting_changed', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -46,6 +49,7 @@ final class LogKind {
     'session_ended': sessionEnded,
     'app_opened': appOpened,
     'crash_recorded': crashRecorded,
+    'setting_changed': settingChanged,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -145,6 +149,33 @@ final class CrashEntry extends LogEntry {
   final String stack;
 }
 
+/// A `setting_changed` user act (Story 2.1, AD-1): the setting's key and
+/// its new value. The settings record is a derived cache over these
+/// entries — never a source of truth — and the type offers no other
+/// field, so no availability claim or capability grant can ride along
+/// (AD-22's discipline, arrived at ahead of its story). A value outside
+/// the setting's confirmed range stays in the log and derives nothing:
+/// tolerance, never repair (AD-23).
+final class SettingEntry extends LogEntry {
+  const SettingEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.key,
+    required this.value,
+  });
+
+  @override
+  final LogKind kind = LogKind.settingChanged;
+
+  /// The setting's key — the only key this build knows is the Time
+  /// Bag's; any other key is carried verbatim and derives nothing.
+  final String key;
+
+  /// The setting's new value, as written.
+  final int value;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -184,6 +215,16 @@ enum LogRecordFlaw {
   /// [LogKind], and until then it lands here — never a `MomentEntry`
   /// carrying a foreign kind.
   unclassifiedKind,
+
+  /// `setting_changed` without its key (AD-1 — an entry must name the
+  /// setting it changed; an empty string is not a value here either).
+  settingKeyAbsent,
+
+  /// `setting_changed` without its int value.
+  settingValueAbsent,
+
+  /// A setting key or value on a kind that is not `setting_changed`.
+  settingOnNonSettingKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -206,10 +247,12 @@ bool _isMoment(LogKind kind) =>
 /// kinds are carried as [UnknownEntry] whatever their payload (AD-23);
 /// a known kind must carry exactly its own payload: an item act its full
 /// item pair and no stack, a moment neither, `crash_recorded` its stack
-/// and nothing else (AD-12, AD-14). An empty string is not a value
+/// and nothing else (AD-12, AD-14), `setting_changed` its key and int
+/// value and nothing else (AD-1). An empty string is not a value
 /// here: an itemId that is empty counts as an absent pair, an empty
-/// stack as no stack. A known kind this boundary does not classify is
-/// excluded with [LogRecordFlaw.unclassifiedKind] — never coerced.
+/// stack as no stack, an empty setting key as no key. A known kind this
+/// boundary does not classify is excluded with
+/// [LogRecordFlaw.unclassifiedKind] — never coerced.
 LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final kind = LogKind.parse(record.kind);
 
@@ -226,6 +269,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   }
 
   final itemIdIsAbsent = record.itemId?.isEmpty ?? true;
+  // The house rule, applied to the setting fields as to every other:
+  // an empty string is not a value — an empty setting key counts as
+  // absent, so it cannot make a non-setting kind "carry" a setting
+  // payload.
+  final settingKeyIsAbsent = record.settingKey?.isEmpty ?? true;
+  final carriesSetting = !settingKeyIsAbsent || record.settingValue != null;
 
   if (_isItemAct(kind)) {
     if (itemIdIsAbsent && record.itemOrigin == null) {
@@ -236,6 +285,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (record.stack != null) {
       return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
     return (
       entry: ItemActEntry(
@@ -257,6 +309,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (record.itemId != null || record.itemOrigin != null) {
       return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
     }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
     return (
       entry: CrashEntry(
         id: record.id,
@@ -268,12 +323,40 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     );
   }
 
+  if (kind == LogKind.settingChanged) {
+    if (record.settingKey?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.settingKeyAbsent);
+    }
+    if (record.settingValue == null) {
+      return (entry: null, flaw: LogRecordFlaw.settingValueAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    return (
+      entry: SettingEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        key: record.settingKey!,
+        value: record.settingValue!,
+      ),
+      flaw: null,
+    );
+  }
+
   if (_isMoment(kind)) {
     if (record.itemId != null || record.itemOrigin != null) {
       return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
     }
     if (record.stack != null) {
       return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
     return (
       entry: MomentEntry(

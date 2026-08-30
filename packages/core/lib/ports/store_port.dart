@@ -32,7 +32,9 @@ typedef PoolFactRecord = ({
 /// and — where a pool item is referenced — that item's id and origin
 /// (AD-14). [stack] is the crash payload and is set only on
 /// `crash_recorded`, which carries stack + timestamp and nothing else
-/// (AD-12).
+/// (AD-12). [settingKey]/[settingValue] are the settings payload and are
+/// set only on `setting_changed`, additively since schema v2 (AD-1,
+/// AD-23).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -41,6 +43,8 @@ typedef LogEntryRecord = ({
   String? itemId,
   Origin? itemOrigin,
   String? stack,
+  String? settingKey,
+  int? settingValue,
 });
 
 abstract interface class StorePort {

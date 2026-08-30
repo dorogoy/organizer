@@ -3,6 +3,7 @@ import 'package:core/commands/session_commands.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/weave.dart';
+import 'package:core/settings/settings.dart';
 import 'package:test/test.dart';
 
 import 'test_util.dart';
@@ -228,5 +229,87 @@ void main() {
     );
     expect(sessionEnd(log: open), isNotEmpty);
     expect(sessionEnd(log: _exhaustedDay(finalHabitOpen: false)), isEmpty);
+  });
+
+  group('the answer path derives the bag for its bundled next deal '
+      '(2.1 — the one place the bag meets the bundled card_dealt)', () {
+    SettingEntry bag(int micros, int minutes) => SettingEntry(
+      id: 'bag-$micros-$minutes',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      key: timeBagSettingKey,
+      value: minutes,
+    );
+
+    Size sizeOf(String itemId) =>
+        _catalogue.entries.firstWhere((entry) => entry.id == itemId).size;
+
+    test('cardSkipped with a seeded below-10 bag bundles a non-focus next '
+        'deal — the skip left the slot open, the bag closes the gate '
+        '(FR-7)', () {
+      final log = [
+        bag(utcMicros(2026, 8, 28, 9), 5),
+        _started(utcMicros(2026, 8, 28, 10)),
+        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      ];
+      final contents = cardSkipped(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(contents, hasLength(2));
+      expect(contents.first.kind, LogKind.cardSkipped);
+      expect(contents.last.kind, LogKind.cardDealt);
+      // With the derivation reverted to the default 15 the bundled deal
+      // would be the chunk again (the skip consumed nothing) — this pin
+      // is what fails.
+      expect(sizeOf(contents.last.itemId!), isNot(Size.focus));
+    });
+
+    test('cardDone on the focus card with a seeded below-10 bag bundles '
+        'upkeep — the slot is closed and the gate is closed (FR-7)', () {
+      final log = [
+        bag(utcMicros(2026, 8, 28, 9), 5),
+        _started(utcMicros(2026, 8, 28, 10)),
+        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      ];
+      final contents = cardDone(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(contents, hasLength(2));
+      expect(contents.first.kind, LogKind.cardDone);
+      expect(contents.last.kind, LogKind.cardDealt);
+      expect(sizeOf(contents.last.itemId!), isNot(Size.focus));
+    });
+
+    test('cardDone on an upkeep card with a seeded below-10 bag bundles '
+        'another upkeep draw — no chunk composes behind the answer '
+        '(FR-7, FR-12)', () {
+      final log = [
+        bag(utcMicros(2026, 8, 28, 9), 5),
+        _started(utcMicros(2026, 8, 28, 10)),
+        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'man-a'),
+      ];
+      final contents = cardDone(
+        itemId: 'man-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(contents, hasLength(2));
+      // With the derivation reverted to the default 15 the next deal
+      // would be the day's chunk (zona-a) — this pin is what fails.
+      expect(sizeOf(contents.last.itemId!), isNot(Size.focus));
+    });
   });
 }

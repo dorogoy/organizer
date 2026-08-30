@@ -66,10 +66,20 @@ class HechoButton extends StatelessWidget {
 /// the string is never split or shortened, and the touch target still
 /// holds 48dp. [onTap] is the screen's skip path (Story 1.10); absent,
 /// the tap stays an accepted no-op (the 1.8 anatomy harness).
+///
+/// The same grammar carries every quiet prose departure (UX-DR25):
+/// [label] overrides the card's own string for the Dispenser footer's
+/// `Nuevo proyecto` and the way-out surfaces' `Ajustes` — ink-secondary
+/// text, 48dp opaque target, never animated, emphasised, badged, nor
+/// carrying pastel mass.
 class SecondaryTextAction extends StatelessWidget {
-  const SecondaryTextAction({super.key, this.onTap});
+  const SecondaryTextAction({super.key, this.onTap, this.label});
 
   final VoidCallback? onTap;
+
+  /// The string this action carries, in the accessor the resolved
+  /// context provides; absent, the card's own unsplit secondary string.
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +98,7 @@ class SecondaryTextAction extends StatelessWidget {
         child: Center(
           // bodyMedium is the wired action-secondary role (theme.dart).
           child: Text(
-            AppStrings.of(context).actionRescueOrSkip,
+            label ?? AppStrings.of(context).actionRescueOrSkip,
             style: theme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),

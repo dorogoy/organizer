@@ -643,6 +643,18 @@ final class KitchenSink {
       );
     });
 
+    test('SettingEntry', () {
+      // The settings payload is its key and value — the settings record
+      // is a derived cache over these rows (AD-1), and no field may
+      // name an availability claim or capability grant (AD-22's
+      // discipline, ahead of its story). `kind` extracts after the
+      // constructor parameters because it is an initialized override.
+      expect(
+        _classOwnFields('SettingEntry', 'log/log_entry.dart'),
+        equals(['key', 'value', 'kind']),
+      );
+    });
+
     test('UnknownEntry', () {
       // An unknown kind is carried verbatim: the kind alone (AD-23).
       expect(
@@ -764,7 +776,8 @@ final class KitchenSink {
 
     test('LogEntryRecord', () {
       // The persisted log DTO is field-identical to the entry shapes —
-      // the schema's exact columns, no more (AD-1, AD-5).
+      // the schema's exact columns, no more (AD-1, AD-5). The two
+      // nullable setting columns are schema v2's additive pair (2.1).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -775,16 +788,26 @@ final class KitchenSink {
           'itemId',
           'itemOrigin',
           'stack',
+          'settingKey',
+          'settingValue',
         ]),
       );
     });
 
     test('LogEntryContent', () {
       // The one write shape: a kind and its payload — nothing else may
-      // be appended, by anyone (AD-3, AD-21).
+      // be appended, by anyone (AD-3, AD-21). The setting fields grow
+      // the shape additively (2.1).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
-        equals(['kind', 'itemId', 'itemOrigin', 'stack']),
+        equals([
+          'kind',
+          'itemId',
+          'itemOrigin',
+          'stack',
+          'settingKey',
+          'settingValue',
+        ]),
       );
     });
 
@@ -810,14 +833,15 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty
-    // declarations above (fifteen classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-one
+    // declarations above (sixteen classes, five record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
       'log/log_entry.dart:ItemActEntry',
       'log/log_entry.dart:MomentEntry',
       'log/log_entry.dart:CrashEntry',
+      'log/log_entry.dart:SettingEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1078,6 +1102,95 @@ final class KitchenSink {
     expect(
       definitionHome,
       contains("static const cardDone = LogKind._('card_done'"),
+    );
+  });
+
+  test('setting_changed is minted in exactly one file and read nowhere in '
+      'core — the derivation matches the entry type, never the kind '
+      'constant (Story 2.1, AD-1, AD-3)', () {
+    // The three homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary) and the one command
+    // file that mints the kind. The derivation in core/settings reads
+    // the SettingEntry *type* — a LogKind.settingChanged reference there
+    // would be a second reader of the kind, and any reference anywhere
+    // else in core lib is a finding.
+    const allowed = {'log/log_entry.dart', 'commands/settings_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bsettingChanged\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the settingChanged identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'setting_changed' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]setting_changed['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'setting_changed' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the SettingEntry override.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]setting_changed['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only setting_changed wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\bsettingChanged\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only settingChanged identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.settingChanged\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified settingChanged readers in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(
+      _source('commands/settings_commands.dart'),
+    );
+    final commandRefs = RegExp(r'LogKind\.settingChanged\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.settingChanged\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.settingChanged\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
     );
   });
 

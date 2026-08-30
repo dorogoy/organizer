@@ -4,6 +4,7 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/settings/settings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
@@ -101,6 +102,9 @@ class SessionController with WidgetsBindingObserver {
     return _enqueue(() async {
       final catalogue = await _loadCatalogue();
       final log = await _readLog();
+      // The bag derives once for the whole operation (2.1) and threads
+      // into the command, so the launch deal composes against the Time
+      // Bag the log holds — never a default the user never chose.
       final contents = [
         ...appOpened(),
         ...sessionStart(
@@ -108,6 +112,7 @@ class SessionController with WidgetsBindingObserver {
           log: log,
           instantUtcMicros: now.microsecondsSinceEpoch,
           offsetSeconds: now.timeZoneOffset.inSeconds,
+          bagMinutes: deriveTimeBagMinutes(log),
         ),
       ];
       await _appendAll(contents, now);
@@ -181,6 +186,8 @@ class SessionController with WidgetsBindingObserver {
         itemId: content.itemId,
         itemOrigin: content.itemOrigin,
         stack: content.stack,
+        settingKey: content.settingKey,
+        settingValue: content.settingValue,
       ));
     }
   }

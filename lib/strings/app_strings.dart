@@ -329,6 +329,24 @@ abstract class AppStrings {
   /// **'Nuevo proyecto'**
   String get newProjectLink;
 
+  /// The quiet text way-out inside the Nuevo proyecto surface — the only route into Settings, and with it the validator surface (NFR3, AD-26). Same prose grammar as the Dispenser footer; never a glyph, never emphasised.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustes'**
+  String get settingsWayOut;
+
+  /// Settings — the first group header of the flat platform list (UX-DR33), holding the Time Bag. Quiet support copy, ink-secondary.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu día'**
+  String get settingsGroupYourDay;
+
+  /// Settings, Tu día group — the Time Bag row label: the daily minutes the user commits, a ceiling for advance work only. Below 10 minutes the day composes without a Focus Chunk, silently; nothing anywhere names that absence.
+  ///
+  /// In es, this message translates to:
+  /// **'Bolsa de tiempo'**
+  String get settingsTimeBag;
+
   /// Typed project genesis — the consent action, with no provider name and no separate dialog.
   ///
   /// In es, this message translates to:

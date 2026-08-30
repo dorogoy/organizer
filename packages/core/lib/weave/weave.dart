@@ -30,14 +30,14 @@ import 'package:core/day/calendar.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/session.dart';
 
-/// The Time Bag default, 15 minutes (FR-7, §10.1) — a named core
-/// constant; the setter surface is Epic 2's.
-const int defaultBagMinutes = 15;
-
 /// A Focus Chunk composes only from this much bag (FR-7): below it the
-/// day composes without the "1", silently — no debt, no mention.
+/// day composes without the "1", silently — no debt, no mention. The
+/// bag's range and its default of 15 live in `core/settings` (2.1) —
+/// one source of truth; this is the weave's own policy threshold, not
+/// the setting's range.
 const int focusChunkLeastBagMinutes = 10;
 
 /// The canonical 1-3-5 draw counts (FR-12): one Focus Chunk, three
@@ -394,7 +394,7 @@ DayComposition composeDay({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int bagMinutes = defaultTimeBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
 }) {
@@ -429,7 +429,7 @@ Card? nextDeal({
   required List<LogEntry> log,
   required int instantUtcMicros,
   required int offsetSeconds,
-  int bagMinutes = defaultBagMinutes,
+  int bagMinutes = defaultTimeBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
 }) {

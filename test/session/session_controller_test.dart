@@ -140,6 +140,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   itemId: null,
   itemOrigin: null,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -150,6 +152,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   itemId: itemId,
   itemOrigin: Origin.shipped,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';

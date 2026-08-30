@@ -1,7 +1,7 @@
 // The Dispenser write path's contract (Stories 1.9–1.10): `complete(dealt)`
 // appends the `card_done` row and the bundled next `card_dealt` — one
-// minted instant for the batch, a v7 id per row, the command's
-// `bagMinutes`/energy defaults; the day's last completion appends the
+// minted instant for the batch, a v7 id per row, the bag derived once
+// per operation and threaded in; the day's last completion appends the
 // answer row alone; a rapid second `complete` reads the post-answer log
 // and the core guard appends nothing; a failing append rethrows while
 // the serialization chain recovers — the I/O matrix's write rows,
@@ -227,6 +227,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   itemId: null,
   itemOrigin: null,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -237,6 +239,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   itemId: itemId,
   itemOrigin: Origin.shipped,
   stack: null,
+  settingKey: null,
+  settingValue: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -887,5 +891,49 @@ void main() {
     final view = await controller.read();
     expect(view, isA<DispenserDealt>());
     expect((view as DispenserDealt).card.id, dealt.card.id);
+  });
+
+  test('completing with a seeded below-10 bag bundles a non-focus next '
+      'deal — the shell threads the derived bag into the answer command '
+      '(2.1, FR-7)', () async {
+    final store = _RecordingStore();
+    // A seeded bag of 5, in the log before the session opens: the shell
+    // derivation must feed cardDone, so the bundled next deal composes
+    // upkeep, not a chunk.
+    store.entries.add((
+      id: 'seed-bag',
+      kind: 'setting_changed',
+      instantUtcMicros: DateTime.utc(2026, 8, 29, 10).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: 'time_bag',
+      settingValue: 5,
+    ));
+    final dealt = await openSessionAndReadFirstDeal(store);
+    // The open's own deal composed under the same derived bag: upkeep
+    // leads the day, never the chunk.
+    final catalogue = await shippedCatalogue();
+    final openSize = catalogue.entries
+        .firstWhere((entry) => entry.id == dealt.card.id)
+        .size;
+    expect(openSize, isNot(Size.focus));
+
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    );
+    await controller.complete(dealt);
+    final nextDeal = store.entries.last;
+    expect(nextDeal.kind, 'card_dealt');
+    final nextSize = catalogue.entries
+        .firstWhere((entry) => entry.id == nextDeal.itemId)
+        .size;
+    // With the shell threading reverted to the default, the bundled
+    // deal would be a focus card — this pin is what fails.
+    expect(nextSize, isNot(Size.focus));
   });
 }

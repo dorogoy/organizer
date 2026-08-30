@@ -36,6 +36,7 @@ import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/dispenser/zone_marker.dart';
+import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/glyphs/leaf_glyph.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
@@ -913,6 +914,15 @@ void main() {
     );
   });
 
+  /// The card's own unsplit secondary — the skip control inside the
+  /// TaskCard, distinct from the bottom footer's `Nuevo proyecto`
+  /// affordance (Story 2.1) since both share the SecondaryTextAction
+  /// grammar.
+  final cardSecondaryFinder = find.descendant(
+    of: find.byType(TaskCard),
+    matching: find.byType(SecondaryTextAction),
+  );
+
   /// The shared Story 1.9 harness: a launched session over the shipped
   /// catalogue, the screen committed on the launch deal, ready to tap.
   Future<void> launchAndCommit(WidgetTester tester, StorePort store) async {
@@ -1457,7 +1467,7 @@ void main() {
     final firstDealtId = dealtEntryOf(store)!.itemId!;
     final calls = _mockPlatformCalls(tester);
 
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     // Exactly one card_skipped, naming the dealt card, with the bundled
@@ -1497,7 +1507,7 @@ void main() {
     final firstDealtId = dealtEntryOf(store)!.itemId!;
     final calls = _mockPlatformCalls(tester);
 
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     final catalogue = await loadEvergreenCatalogue(
@@ -1555,7 +1565,7 @@ void main() {
     expect(find.byType(TaskCard), findsOneWidget);
     final calls = _mockPlatformCalls(tester);
 
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     // The already-shipped warm close: no new close path, no error.
@@ -1596,9 +1606,9 @@ void main() {
     // The first skip's write parks behind the gate — the batch is
     // half-written, the skip genuinely in flight when the second tap
     // lands.
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
 
     gate.complete();
@@ -1641,7 +1651,7 @@ void main() {
     await tester.pumpAndSettle();
     var calls = _mockPlatformCalls(tester);
 
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
     await tester.tap(find.byType(HechoButton));
     await tester.pump();
@@ -1678,7 +1688,7 @@ void main() {
 
     await tester.tap(find.byType(HechoButton));
     await tester.pump();
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
 
     doneGate.complete();
@@ -1708,7 +1718,7 @@ void main() {
     await launchAndCommit(tester, store);
     final calls = _mockPlatformCalls(tester);
 
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     expect(find.byType(TaskCard), findsNothing);
@@ -1732,7 +1742,7 @@ void main() {
     // The guard's finally released the write: the secondary is not
     // bricked. The retried skip lands — the store already spent its one
     // failure — and the different card commits, still feedback-free.
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     expect(
@@ -1762,11 +1772,11 @@ void main() {
     // The grown card pushes the control below the fold — the screen
     // scrolls to it, which is itself the 200% floor's mechanism.
     await tester.scrollUntilVisible(
-      find.byType(SecondaryTextAction),
+      cardSecondaryFinder,
       200,
       scrollable: find.byType(Scrollable),
     );
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -1808,7 +1818,7 @@ void main() {
     // skipped: the skip's refresh must not touch the completion's ack —
     // it commits the alternative with the ack still above it.
     await tester.pump(const Duration(milliseconds: 1200));
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
     await tester.pump();
     expect(
@@ -1857,7 +1867,7 @@ void main() {
     // The skip's write fails under that visible ack: the empty frame
     // stands, nothing landed — and a skip touches no completion state,
     // so the ack-flag class is not this write's to clear.
-    await tester.tap(find.byType(SecondaryTextAction));
+    await tester.tap(cardSecondaryFinder);
     await tester.pump();
     await tester.pump();
     expect(find.byType(TaskCard), findsNothing);
@@ -1916,6 +1926,8 @@ void main() {
       itemId: itemId,
       itemOrigin: itemId == null ? null : Origin.shipped,
       stack: null,
+      settingKey: null,
+      settingValue: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2016,5 +2028,183 @@ void main() {
           'the absence rendered exactly what a normal day renders — '
           'no element or string references the days away',
     );
+  });
+
+  group('the Nuevo proyecto affordance (Story 2.1, UX-DR25)', () {
+    // The footer is the labelled SecondaryTextAction — the card's own
+    // skip control carries none, so the label discriminates the two
+    // grammatically identical prose controls.
+    final footerFinder = find.byWidgetPredicate(
+      (widget) => widget is SecondaryTextAction && widget.label != null,
+    );
+
+    testWidgets('sits bottom-centred as quiet ink-secondary text with a '
+        '48dp opaque target — never animated, emphasised, badged, nor '
+        'carrying pastel mass (UX-DR25)', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      final footer = find.text(AppStringsEs().newProjectLink);
+      expect(footer, findsOneWidget);
+      final style = tester.widget<Text>(footer).style!;
+      expect(style.color, FieldPalette.inkSecondary);
+      expect(style.fontFamily, FontFamilies.lexend);
+      expect(style.fontSize, 15);
+      expect(style.fontWeight, FontWeight.w400);
+
+      // Bottom-centred: the target's centre shares the screen's x-axis
+      // centre and it sits at the bottom of the body, inside the safe
+      // area.
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final target = _rect(tester, footerFinder);
+      expect(target.center.dx, closeTo(screen.width / 2, 0.5));
+      expect(target.bottom, lessThanOrEqualTo(screen.height));
+      // The 48dp opaque floor.
+      expect(target.height, greaterThanOrEqualTo(48));
+      expect(
+        tester
+            .widget<GestureDetector>(
+              find.descendant(
+                of: footerFinder,
+                matching: find.byType(GestureDetector),
+              ),
+            )
+            .behavior,
+        HitTestBehavior.opaque,
+      );
+
+      // Quiet by census: the footer subtree is text in a tap band and
+      // nothing else — no glyph, no fill, no badge, no motion.
+      final footerTypes = tester
+          .widgetList(
+            find.descendant(
+              of: footerFinder,
+              matching: find.byWidgetPredicate((_) => true),
+            ),
+          )
+          .map((widget) => widget.runtimeType.toString())
+          .toSet();
+      expect(
+        footerTypes.difference(const {
+          'SecondaryTextAction',
+          'GestureDetector',
+          'RawGestureDetector',
+          '_GestureSemantics',
+          'Listener',
+          'ConstrainedBox',
+          'Center',
+          'Text',
+          'RichText',
+        }),
+        isEmpty,
+        reason: 'the affordance is prose in a tap band and nothing else',
+      );
+      expect(
+        find.descendant(of: footerFinder, matching: find.byType(Icon)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: footerFinder, matching: find.byType(LeafGlyph)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: footerFinder, matching: find.byType(Material)),
+        findsNothing,
+        reason: 'no pastel mass: the way off the surface is prose',
+      );
+
+      // The furniture census still holds with the footer standing: no
+      // badge, no counter, no gap-shaped element beyond the known
+      // strings.
+      final census = _censusOf(tester, [
+        AppStringsEs().newProjectLink,
+        AppStringsEs().actionRescueOrSkip,
+        AppStringsEs().actionDone,
+      ]);
+      expect(census, isNot(contains(contains('Badge'))));
+      expect(census, isNot(contains(contains('Animation'))));
+    });
+
+    testWidgets('tapping it opens the intermediate surface — the first '
+        'navigation in the app (Story 2.1)', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      await tester.tap(find.text(AppStringsEs().newProjectLink));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NuevoProyectoScreen), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      // Rendering and navigating wrote nothing.
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        contains('card_dealt'),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a launch with a seeded bag of 5 deals a non-focus card, '
+        'while the default 15 leads with focus (FR-7, Story 2.1)', (
+      tester,
+    ) async {
+      Future<_RecordingStore> launchWithBag(int? minutes) async {
+        final store = _RecordingStore();
+        if (minutes != null) {
+          store.entries.add((
+            id: 'seed-setting',
+            kind: 'setting_changed',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              29,
+              10,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: null,
+            itemOrigin: null,
+            stack: null,
+            settingKey: 'time_bag',
+            settingValue: minutes,
+          ));
+        }
+        await SessionController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        ).handleAppOpen();
+        // Unmount any earlier launch first: the same harness position
+        // would otherwise reuse the previous screen state and show its
+        // committed view instead of reading the new store.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(_harness(buildController(store)));
+        await tester.pumpAndSettle();
+        return store;
+      }
+
+      final narrow = await launchWithBag(5);
+      final narrowDeal = latestDealtEntryOf(narrow)!;
+      final catalogue = await loadEvergreenCatalogue(
+        AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      );
+      final narrowEntry = catalogue.entries.firstWhere(
+        (entry) => entry.id == narrowDeal.itemId,
+      );
+      expect(narrowEntry.size, isNot(Size.focus));
+      expect(find.text('15\u00A0min'), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+
+      final control = await launchWithBag(null);
+      final controlDeal = latestDealtEntryOf(control)!;
+      final controlEntry = catalogue.entries.firstWhere(
+        (entry) => entry.id == controlDeal.itemId,
+      );
+      expect(controlEntry.size, Size.focus);
+      expect(find.text('15\u00A0min'), findsOneWidget);
+    });
   });
 }
