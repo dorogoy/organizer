@@ -19,7 +19,11 @@ PoolFactRecord _fact({String? id}) => (
   offsetSeconds: 7200,
 );
 
-LogEntryRecord _entry({String? id, String kind = 'card_done'}) => (
+LogEntryRecord _entry({
+  String? id,
+  String kind = 'card_done',
+  int? pocketMinutes,
+}) => (
   id: id ?? const Uuid().v7(),
   kind: kind,
   instantUtcMicros: 1758900000654321,
@@ -29,6 +33,7 @@ LogEntryRecord _entry({String? id, String kind = 'card_done'}) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: pocketMinutes,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -300,6 +305,7 @@ void main() {
         stack: stack,
         settingKey: null,
         settingValue: null,
+        pocketMinutes: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -322,6 +328,7 @@ void main() {
       stack: null,
       settingKey: null,
       settingValue: null,
+      pocketMinutes: null,
     );
 
     test(
@@ -389,6 +396,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        pocketMinutes: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -401,6 +409,7 @@ void main() {
         stack: '#0      build',
         settingKey: null,
         settingValue: null,
+        pocketMinutes: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -413,6 +422,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        pocketMinutes: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -505,9 +515,10 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its nine declared columns — the two '
+    test('log_entries holds exactly its ten declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
-        '2.1, AD-23)', () async {
+        '2.1) and the nullable pocket column is schema v3\'s (Story 2.2, '
+        'AD-23)', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
         'id',
@@ -516,6 +527,7 @@ void main() {
         'item_origin',
         'kind',
         'offset_seconds',
+        'pocket_minutes',
         'setting_key',
         'setting_value',
         'stack',
@@ -535,6 +547,7 @@ void main() {
         stack: null,
         settingKey: 'time_bag',
         settingValue: 25,
+        pocketMinutes: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -548,9 +561,38 @@ void main() {
       expect(snapshot.single.settingKey, 'time_bag');
       expect(snapshot.single.settingValue, 25);
     });
+
+    test('a pocketed session start round-trips through the adapter '
+        '(Story 2.2) — the pocket rides only its own kind, verbatim '
+        'whatever its value', () async {
+      final id = const Uuid().v7();
+      await store.appendLogEntry((
+        id: id,
+        kind: LogKind.sessionStarted.name,
+        instantUtcMicros: 1758900000222333,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: 15,
+      ));
+      // An out-of-range pocket stays stored verbatim too — the entry
+      // stays in the log and the derivation reads it as absent, never
+      // a repair write (AD-23).
+      await store.appendLogEntry(_entry(id: 'imported-90', pocketMinutes: 90));
+
+      final rows = await store.readLogEntries();
+      expect(rows.first.kind, 'session_started');
+      expect(rows.first.pocketMinutes, 15);
+      expect(rows.first.settingKey, isNull);
+      expect(rows.last.id, 'imported-90');
+      expect(rows.last.pocketMinutes, 90);
+    });
   });
 
-  group('the v1→v2 upgrade (Story 2.1, AD-23 — additive, ALTER-only)', () {
+  group('the v1→v3 upgrade (Stories 2.1–2.2, AD-23 — additive, ALTER-only)', () {
     /// Takes over the group's database slot with one opened over a memory
     /// executor pre-seeded with the exact v1 schema (two tables, four
     /// triggers, `user_version` 1) — the state a v1 install presents. The
@@ -601,12 +643,13 @@ void main() {
       }
     }
 
-    test('a seeded v1 database upgrades in place: two ALTERs add the '
-        'setting columns, the old rows read unchanged with null setting '
-        'fields, and the refusal triggers survive the migration', () async {
+    test('a seeded v1 database upgrades in place: the ALTERs add the '
+        'setting and pocket columns, the old rows read unchanged with '
+        'null payload fields, and the refusal triggers survive the '
+        'migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 2);
+      expect(db.schemaVersion, 3);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -619,6 +662,7 @@ void main() {
           'item_origin',
           'kind',
           'offset_seconds',
+          'pocket_minutes',
           'setting_key',
           'setting_value',
           'stack',
@@ -633,13 +677,14 @@ void main() {
       ]);
 
       // Old rows read unchanged: the v1 log row derives as its own kind
-      // with null setting fields, never coerced.
+      // with null setting and pocket fields, never coerced.
       final snapshot = await store.readLogEntries();
       expect(snapshot, hasLength(1));
       expect(snapshot.single.id, 'old-entry');
       expect(snapshot.single.kind, 'card_done');
       expect(snapshot.single.settingKey, isNull);
       expect(snapshot.single.settingValue, isNull);
+      expect(snapshot.single.pocketMinutes, isNull);
       expect(await store.readPoolFacts(), hasLength(1));
 
       // Insert-only survives the migration on both tables.
@@ -656,7 +701,7 @@ void main() {
         ),
       );
 
-      // The upgraded schema accepts new setting rows beside the old.
+      // The upgraded schema accepts new payload rows beside the old.
       await store.appendLogEntry((
         id: 'new-setting',
         kind: LogKind.settingChanged.name,
@@ -667,17 +712,30 @@ void main() {
         stack: null,
         settingKey: 'time_bag',
         settingValue: 10,
+        pocketMinutes: null,
+      ));
+      await store.appendLogEntry((
+        id: 'new-pocket',
+        kind: LogKind.sessionStarted.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: 15,
       ));
       final after = await store.readLogEntries();
-      expect(after, hasLength(2));
-      expect(after.last.kind, 'setting_changed');
-      expect(after.last.settingValue, 10);
+      expect(after, hasLength(3));
+      expect(after[1].settingValue, 10);
+      expect(after[2].pocketMinutes, 15);
     });
 
     test(
-      'a fresh v2 create carries the setting columns from the start',
+      'a fresh create carries the setting and pocket columns from the start',
       () async {
-        expect(db.schemaVersion, 2);
+        expect(db.schemaVersion, 3);
         final columns =
             (await db.customSelect('PRAGMA table_info(log_entries)').get())
                 .map((row) => row.read<String>('name'))
@@ -685,6 +743,138 @@ void main() {
               ..sort();
         expect(columns, contains('setting_key'));
         expect(columns, contains('setting_value'));
+        expect(columns, contains('pocket_minutes'));
+      },
+    );
+  });
+
+  group('the v2→v3 upgrade (Story 2.2, AD-23 — additive, ALTER-only)', () {
+    /// The v2 schema exactly as a v2 install presents it: the v1 shape
+    /// plus the two setting columns, `user_version` 2 — seeded over a
+    /// memory executor so drift's runner sees version 2 and upgrades.
+    Future<void> takeOverWithV2() async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              "INSERT INTO log_entries VALUES ('v2-open', "
+                  "'session_started', 100, 3600, NULL, NULL, NULL, NULL, "
+                  "NULL)",
+              "INSERT INTO log_entries VALUES ('v2-bag', "
+                  "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                  "'time_bag', 25)",
+              'PRAGMA user_version = 2',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test(
+      'a seeded v2 database upgrades in place: one ALTER adds the '
+      'pocket column, the v2 rows — settings intact, sessions pocketless '
+      '— read back unchanged, and a pocketed start appends beside them',
+      () async {
+        await takeOverWithV2();
+
+        expect(db.schemaVersion, 3);
+        expect(
+          (await db.customSelect('PRAGMA table_info(log_entries)').get())
+              .map((row) => row.read<String>('name'))
+              .toList()
+            ..sort(),
+          [
+            'id',
+            'instant_utc_micros',
+            'item_id',
+            'item_origin',
+            'kind',
+            'offset_seconds',
+            'pocket_minutes',
+            'setting_key',
+            'setting_value',
+            'stack',
+          ],
+        );
+        expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+        expect(await _objects(db, 'trigger'), [
+          'log_entries_refuse_delete',
+          'log_entries_refuse_update',
+          'pool_facts_refuse_delete',
+          'pool_facts_refuse_update',
+        ]);
+
+        // The v2 rows ride the migration untouched: the setting keeps its
+        // payload and the session start reads as an unbounded sitting.
+        final before = await store.readLogEntries();
+        expect(before, hasLength(2));
+        expect(before.first.id, 'v2-open');
+        expect(before.first.pocketMinutes, isNull);
+        expect(before.last.settingKey, 'time_bag');
+        expect(before.last.settingValue, 25);
+
+        // Insert-only survives this migration too.
+        await expectLater(
+          db.customUpdate(
+            "UPDATE log_entries SET kind = 'card_skipped' WHERE id = 'v2-open'",
+          ),
+          throwsA(
+            isA<SqliteException>().having(
+              (e) => e.message,
+              'message',
+              contains('insert-only (AD-2)'),
+            ),
+          ),
+        );
+
+        // The upgraded schema accepts a pocketed start beside the old rows.
+        await store.appendLogEntry((
+          id: 'v3-pocket',
+          kind: LogKind.sessionStarted.name,
+          instantUtcMicros: 300,
+          offsetSeconds: 3600,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 20,
+        ));
+        final after = await store.readLogEntries();
+        expect(after, hasLength(3));
+        expect(after.last.pocketMinutes, 20);
       },
     );
   });

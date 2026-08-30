@@ -626,10 +626,25 @@ final class KitchenSink {
     });
 
     test('MomentEntry', () {
-      // A moment in the product's life: the kind alone (AD-21).
+      // A moment in the product's life: the kind alone (AD-21). Since
+      // Story 2.2 the family holds `session_ended` and `app_opened`
+      // only — `session_started` carries the declared pocket and lives
+      // in its own subtype below.
       expect(
         _classOwnFields('MomentEntry', 'log/log_entry.dart'),
         equals(['kind']),
+      );
+    });
+
+    test('SessionStartEntry', () {
+      // A session start: the kind and the declared pocket — a quantity
+      // the user offered for this sitting, never an obligation, a
+      // remainder or a close cause (Story 2.2, AD-19). An out-of-range
+      // value stays in the log and derives as absent: tolerance, never
+      // repair (AD-23).
+      expect(
+        _classOwnFields('SessionStartEntry', 'log/log_entry.dart'),
+        equals(['kind', 'pocketMinutes']),
       );
     });
 
@@ -666,6 +681,9 @@ final class KitchenSink {
     test('LogFacts', () {
       // The derived session states facts the log makes true — no
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
+      // The two pocket facts (Story 2.2) are statements about what was
+      // declared and answered inside the sitting, never about what is
+      // owed: a spent pocket reads as a warm close, nothing else.
       expect(
         _classOwnFields('LogFacts', 'weave/session.dart'),
         equals([
@@ -675,6 +693,8 @@ final class KitchenSink {
           'answeredItemIds',
           'openSessionStart',
           'dealtUnanswered',
+          'openSessionPocketMinutes',
+          'openSessionAnsweredSeconds',
         ]),
       );
     });
@@ -777,7 +797,8 @@ final class KitchenSink {
     test('LogEntryRecord', () {
       // The persisted log DTO is field-identical to the entry shapes —
       // the schema's exact columns, no more (AD-1, AD-5). The two
-      // nullable setting columns are schema v2's additive pair (2.1).
+      // nullable setting columns are schema v2's additive pair (2.1);
+      // the nullable pocket column is schema v3's (2.2).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -790,14 +811,16 @@ final class KitchenSink {
           'stack',
           'settingKey',
           'settingValue',
+          'pocketMinutes',
         ]),
       );
     });
 
     test('LogEntryContent', () {
       // The one write shape: a kind and its payload — nothing else may
-      // be appended, by anyone (AD-3, AD-21). The setting fields grow
-      // the shape additively (2.1).
+      // be appended, by anyone (AD-3, AD-21). The setting fields grew
+      // the shape additively (2.1); the pocket field grows it again
+      // (2.2).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -807,6 +830,7 @@ final class KitchenSink {
           'stack',
           'settingKey',
           'settingValue',
+          'pocketMinutes',
         ]),
       );
     });
@@ -833,13 +857,14 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-one
-    // declarations above (sixteen classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-two
+    // declarations above (seventeen classes, five record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
       'log/log_entry.dart:ItemActEntry',
       'log/log_entry.dart:MomentEntry',
+      'log/log_entry.dart:SessionStartEntry',
       'log/log_entry.dart:CrashEntry',
       'log/log_entry.dart:SettingEntry',
       'log/log_entry.dart:UnknownEntry',
@@ -1191,6 +1216,79 @@ final class KitchenSink {
       RegExp(r'==\s*LogKind\.settingChanged\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('the session kinds are minted in exactly one file and read in '
+      'exactly one — no second session writer can appear silently '
+      '(Story 2.2, AD-3, AD-19)', () {
+    // The four homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary), the one walk that
+    // reads the kinds, and the one command file that mints them —
+    // `app_opened`, `session_started` and `session_ended` exist nowhere
+    // else in core lib, as identifiers or as wire-name literals. The
+    // shell's own census (test/no_lateness_proof_test.dart) carries the
+    // same line over lib/.
+    const allowed = {
+      'log/log_entry.dart',
+      'weave/session.dart',
+      'commands/session_commands.dart',
+    };
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\b(appOpened|sessionStart|sessionEnd|sessionDeclare)\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'session-command identifiers outside the definition, the walk '
+          'and the command file',
+    );
+
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"](app_opened|session_started|session_ended)['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "wire-name literals 'app_opened'/'session_started'/"
+          "'session_ended' outside the definition home",
+    );
+
+    // The definition home holds each wire name exactly twice — the
+    // definition and the registry — and the classifier keeps the
+    // session_started branch beside them.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    for (final name in ['app_opened', 'session_started', 'session_ended']) {
+      expect(
+        RegExp("['\"]$name['\"]").allMatches(definitionHome),
+        hasLength(2),
+        reason: "the definition and registry are the only $name wire uses",
+      );
+    }
+
+    // The one mint site: every reference in the command file names a
+    // row being written or a kind it resolves over — never a
+    // comparison against the walk's facts.
+    final commands = _withoutComments(
+      _source('commands/session_commands.dart'),
+    );
+    expect(
+      RegExp(r'kind:\s*LogKind\.(appOpened|sessionStarted|sessionEnded)\b')
+          .allMatches(commands)
+          .isNotEmpty,
+      isTrue,
+      reason: 'the command file mints the session kinds',
     );
   });
 

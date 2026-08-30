@@ -23,6 +23,7 @@ import 'package:organizer/catalogue/catalogue_names.g.dart';
 import 'package:organizer/catalogue/loader.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/session/session_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 
 /// The recording store (the session suite's own contract): appends land
@@ -90,6 +91,36 @@ class _FailFirstSkippedStore implements StorePort {
   Future<void> appendLogEntry(LogEntryRecord entry) async {
     if (!_thrown && entry.kind == 'card_skipped') {
       _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose next append after [arm] throws once — the declare's
+/// write-failure row: failing the batch's FIRST row (the supersede
+/// pair's `session_ended`) pins that no half-supersede can exist, since
+/// nothing behind a failed first row ever lands.
+class _FailNextAppendStore implements StorePort {
+  _FailNextAppendStore(this._inner);
+
+  final _RecordingStore _inner;
+  var failNextAppend = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (failNextAppend) {
+      failNextAppend = false;
       throw StateError('append failed');
     }
     await _inner.appendLogEntry(entry);
@@ -229,6 +260,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -241,6 +273,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   stack: null,
   settingKey: null,
   settingValue: null,
+  pocketMinutes: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -910,6 +943,7 @@ void main() {
       stack: null,
       settingKey: 'time_bag',
       settingValue: 5,
+      pocketMinutes: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -935,5 +969,282 @@ void main() {
     // With the shell threading reverted to the default, the bundled
     // deal would be a focus card — this pin is what fails.
     expect(nextSize, isNot(Size.focus));
+  });
+
+  group('the pocket declaration (Story 2.2, FR-8, AD-19)', () {
+    DispenserController buildFor(
+      StorePort store, {
+      LogWriteQueue? writeQueue,
+      DateTime Function() nowOf = _fixedClock,
+    }) => DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: nowOf,
+      writeQueue: writeQueue,
+    );
+
+    test('declaring from idle appends [session_started{p}, card_dealt?] '
+        '— the deal fits the pocket, and the view carries the standing '
+        'pocket for the chip', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      final view = await controller.declarePocket(15);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'card_dealt',
+      ]);
+      final started = store.entries.first;
+      expect(started.pocketMinutes, 15);
+      expect(started.itemId, isNull);
+      final catalogue = await shippedCatalogue();
+      final dealtSize = catalogue.entries
+          .firstWhere((entry) => entry.id == store.entries[1].itemId)
+          .size;
+      expect(dealtSize, Size.focus, reason: '15 holds the chunk exactly');
+
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).pocketMinutes, 15);
+
+      // A pocket the chunk cannot hold deals beneath it.
+      final narrow = _RecordingStore();
+      final narrowView = await buildFor(narrow).declarePocket(4);
+      expect(narrow.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(narrow.entries.first.pocketMinutes, 4);
+      final narrowSize = catalogue.entries
+          .firstWhere((entry) => entry.id == narrow.entries[1].itemId)
+          .size;
+      expect(narrowSize, isNot(Size.focus));
+      expect((narrowView as DispenserDealt).pocketMinutes, 4);
+    });
+
+    test('a declaration queued behind app open reads its persisted session '
+        'and supersedes it, never racing a second session_started', () async {
+      final store = _RecordingStore();
+      final writes = LogWriteQueue();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+        writeQueue: writes,
+      );
+      final dispenser = buildFor(store, writeQueue: writes);
+
+      final opening = session.handleAppOpen();
+      final declaration = dispenser.declarePocket(15);
+      await Future.wait([opening, declaration]);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'session_started',
+      ]);
+      expect(store.entries.last.pocketMinutes, 15);
+    });
+
+    test('a delayed read derives pocket dealability at its post-queue '
+        'instant, not before a pending write', () async {
+      final store = _RecordingStore()
+        ..entries.add((
+          id: 'pocket-start',
+          kind: 'session_started',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            12,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 1,
+        ));
+      final writes = LogWriteQueue();
+      final release = Completer<void>();
+      unawaited(writes.enqueue(() => release.future));
+      var now = DateTime.utc(2026, 8, 29, 12, 0, 30);
+      final read = buildFor(store, writeQueue: writes, nowOf: () => now).read();
+
+      now = DateTime.utc(2026, 8, 29, 12, 2);
+      release.complete();
+
+      expect(await read, isA<DispenserClosed>());
+    });
+
+    test(
+      'declaring with a card in progress supersedes: [session_ended, '
+      'session_started{p}] at one instant, no bundled deal — the same '
+      'card stays answerable and its Hecho consumes the new pocket',
+      () async {
+        final store = _RecordingStore();
+        final dealt = await openSessionAndReadFirstDeal(store);
+        final controller = buildFor(store);
+        final view = await controller.declarePocket(5);
+
+        expect(store.entries.map((entry) => entry.kind).toList(), [
+          'app_opened',
+          'session_started',
+          'card_dealt',
+          'session_ended',
+          'session_started',
+        ]);
+        final ended = store.entries[3];
+        final started = store.entries[4];
+        expect(started.pocketMinutes, 5);
+        expect(
+          ended.instantUtcMicros == started.instantUtcMicros,
+          isTrue,
+          reason: 'the supersede pair lands at one instant',
+        );
+        // The carried card is the view: unchanged and still answerable.
+        expect(view, isA<DispenserDealt>());
+        expect((view as DispenserDealt).card.id, dealt.card.id);
+        expect(view.pocketMinutes, 5);
+
+        // A 15-minute chunk finished under a 5-minute pocket honestly
+        // spends it: the Hecho records and nothing bundles.
+        await controller.complete(view);
+        expect(store.entries[5].kind, 'card_done');
+        expect(store.entries[5].itemId, dealt.card.id);
+        expect(store.entries, hasLength(6));
+        final after = await controller.read();
+        expect(after, isA<DispenserClosed>());
+        expect((after as DispenserClosed).pocketMinutes, 5);
+      },
+    );
+
+    test('re-declaring over a pocketed session supersedes again — '
+        'consumption restarts at zero', () async {
+      final store = _RecordingStore();
+      await buildFor(store).declarePocket(15);
+      // Answer the dealt card: 15 of 15 consumed, the read closes warm.
+      final spent = await buildFor(store).read();
+      expect(spent, isA<DispenserDealt>());
+      await buildFor(store).complete(spent as DispenserDealt);
+      expect(await buildFor(store).read(), isA<DispenserClosed>());
+
+      final view = await buildFor(store).declarePocket(20);
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      expect(kinds, [
+        'session_started',
+        'card_dealt',
+        'card_done',
+        'session_ended',
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(store.entries[4].pocketMinutes, 20);
+      // The fresh sitting deals upkeep, not the chunk: the day's focus
+      // slot closed with the first sitting's Hecho, and chaining
+      // sessions cannot multiply advance (FR-7) — the restarted
+      // consumption bounds only upkeep and habits now.
+      final catalogue = await shippedCatalogue();
+      final size = catalogue.entries
+          .firstWhere((entry) => entry.id == store.entries[5].itemId)
+          .size;
+      expect(size, isNot(Size.focus));
+      expect((view as DispenserDealt).pocketMinutes, 20);
+    });
+
+    test('a spent pocket presents the warm close through read(), with no '
+        'eager session_ended anywhere (FR-3, FR-8)', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      await controller.declarePocket(3);
+      final dealt = await controller.read();
+      expect(dealt, isA<DispenserDealt>());
+      await controller.complete(dealt as DispenserDealt);
+
+      // 3 of 3 minutes answered: the read resolves the warm close and
+      // the log holds no close row — the pocket lingers derived-open.
+      final view = await controller.read();
+      expect(view, isA<DispenserClosed>());
+      expect((view as DispenserClosed).pocketMinutes, 3);
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        isEmpty,
+      );
+    });
+
+    test('an out-of-range value the command refuses writes nothing, '
+        'returns the unchanged state, and surfaces no error — the ladder '
+        'makes it unreachable', () async {
+      final store = _RecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final view = await controller.declarePocket(61);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ], reason: 'the refusal appended nothing at all');
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, dealt.card.id);
+      expect(view.pocketMinutes, isNull);
+    });
+
+    test('the unrounded standing pocket reads on the closed surface too '
+        '— the chip\'s data survives the warm close', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      await controller.declarePocket(3);
+      await controller.complete(await controller.read() as DispenserDealt);
+      final closed = await controller.read();
+      expect(closed, isA<DispenserClosed>());
+      expect((closed as DispenserClosed).pocketMinutes, 3);
+    });
+
+    test(
+      'a failing declare append rethrows to the caller and lands '
+      'nothing — no half-supersede: no session_ended without its '
+      'session_started — and the recovered chain lands the next write',
+      () async {
+        final inner = _RecordingStore();
+        final dealt = await openSessionAndReadFirstDeal(inner);
+        final failing = _FailNextAppendStore(inner);
+        final controller = buildFor(failing);
+        final before = inner.entries.length;
+
+        // The first row of the declare batch is the supersede pair's
+        // session_ended: its failure leaves the log exactly as it stood.
+        failing.failNextAppend = true;
+        await expectLater(
+          controller.declarePocket(5),
+          throwsA(isA<StateError>()),
+        );
+        expect(inner.entries, hasLength(before));
+        expect(
+          inner.entries.where((entry) => entry.kind == 'session_ended'),
+          isEmpty,
+          reason:
+              'a landed session_ended without its session_started '
+              'would be a half-supersede — the session the declare meant '
+              'to replace stays open instead',
+        );
+
+        // The chain recovered: a later declare lands its whole batch,
+        // carried card and all.
+        final view = await controller.declarePocket(15);
+        expect(inner.entries.skip(before).map((entry) => entry.kind).toList(), [
+          'session_ended',
+          'session_started',
+        ]);
+        expect(inner.entries.last.pocketMinutes, 15);
+        expect(view, isA<DispenserDealt>());
+        expect((view as DispenserDealt).card.id, dealt.card.id);
+        expect(view.pocketMinutes, 15);
+      },
+    );
   });
 }

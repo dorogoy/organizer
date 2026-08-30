@@ -38,12 +38,14 @@ final Catalogue _catalogue = Catalogue(
   ],
 );
 
-MomentEntry _started(int micros, {String id = 's'}) => MomentEntry(
-  id: '$id-$micros',
-  instantUtcMicros: micros,
-  offsetSeconds: 0,
-  kind: LogKind.sessionStarted,
-);
+SessionStartEntry _started(int micros, {String id = 's', int? pocketMinutes}) =>
+    SessionStartEntry(
+      id: '$id-$micros',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.sessionStarted,
+      pocketMinutes: pocketMinutes,
+    );
 
 MomentEntry _ended(int micros) => MomentEntry(
   id: 'e-$micros',
@@ -108,7 +110,7 @@ void main() {
     // stored frame is what decides, never the runner's zone.
     final startUtc = utcMicros(2026, 8, 29, 1, 40);
     final log = [
-      MomentEntry(
+      SessionStartEntry(
         id: 's-offset',
         instantUtcMicros: startUtc,
         offsetSeconds: 7200,
@@ -358,5 +360,193 @@ void main() {
     );
     // The deal index still records it — the id discipline is shared.
     expect(facts.lastDealtInstantByItemId['capturada'], isNotNull);
+  });
+
+  group('the declared pocket\'s walk facts (Story 2.2, AD-19, FR-8)', () {
+    test('the open session\'s pocket is its start row\'s own payload — '
+        'in range as minted, out of range as absent, unbounded when null', () {
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 15),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        15,
+      );
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 1),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        1,
+      );
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 60),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        60,
+      );
+      // An imported 90 derives as absent → unbounded, and the row is
+      // never repaired (AD-23).
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 90),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        isNull,
+      );
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 0),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        isNull,
+      );
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10)),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        isNull,
+      );
+      // No session open: no pocket fact either.
+      expect(
+        walkLog([
+          _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 15),
+          _ended(utcMicros(2026, 8, 28, 11)),
+        ], catalogue: _catalogue).openSessionPocketMinutes,
+        isNull,
+      );
+    });
+
+    test('answered estimates charge the open session — upkeep included; a '
+        'skip releases; a dealt-unanswered card consumes nothing; a '
+        'supersede restarts at zero (FR-8, FR-12)', () {
+      final base = utcMicros(2026, 8, 28, 10);
+      final charged = walkLog([
+        _started(base, pocketMinutes: 20),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _act(LogKind.cardDone, base + 2000, 'man-a'),
+      ], catalogue: _catalogue);
+      expect(charged.openSessionAnsweredSeconds, maintenanceEstimateSeconds);
+
+      // A skip adds nothing — its estimate releases back.
+      final skipped = walkLog([
+        _started(base, pocketMinutes: 20),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _act(LogKind.cardSkipped, base + 2000, 'man-a'),
+      ], catalogue: _catalogue);
+      expect(skipped.openSessionAnsweredSeconds, 0);
+
+      // Dealt but never answered: consumed nothing.
+      final unanswered = walkLog([
+        _started(base, pocketMinutes: 20),
+        _act(LogKind.cardDealt, base + 1000, 'zona-a'),
+      ], catalogue: _catalogue);
+      expect(unanswered.openSessionAnsweredSeconds, 0);
+
+      // The supersede pair restarts consumption at zero.
+      final superseded = walkLog([
+        _started(base, pocketMinutes: 20),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _act(LogKind.cardDone, base + 2000, 'man-a'),
+        _ended(base + 3000),
+        _started(base + 3000, pocketMinutes: 5),
+      ], catalogue: _catalogue);
+      expect(superseded.openSessionAnsweredSeconds, 0);
+      expect(superseded.openSessionPocketMinutes, 5);
+
+      // Outside any session a card_done charges no pocket — there is
+      // none to charge.
+      final outside = walkLog([
+        _act(LogKind.cardDone, base + 2000, 'man-a'),
+      ], catalogue: _catalogue);
+      expect(outside.openSessionAnsweredSeconds, 0);
+    });
+
+    test('the supersede pair carries the in-progress card; any other start '
+        'clears it (AD-19, Story 2.2)', () {
+      final base = utcMicros(2026, 8, 28, 10);
+      final carried = walkLog([
+        _started(base),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _ended(base + 3000),
+        _started(base + 3000, pocketMinutes: 15),
+      ], catalogue: _catalogue);
+      expect(carried.dealtUnanswered, isNotNull);
+      expect(carried.dealtUnanswered!.itemId, 'man-a');
+      expect(carried.dealtUnanswered!.itemOrigin, Origin.shipped);
+
+      // A started row at another instant clears, even adjacent.
+      final clearedLater = walkLog([
+        _started(base),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _ended(base + 3000),
+        _started(base + 4000, pocketMinutes: 15),
+      ], catalogue: _catalogue);
+      expect(clearedLater.dealtUnanswered, isNull);
+
+      // A same-instant start that does not directly follow the ended —
+      // another row between them — clears too: adjacency is the rule.
+      final brokenByRow = walkLog([
+        _started(base),
+        _act(LogKind.cardDealt, base + 1000, 'man-a'),
+        _ended(base + 3000),
+        MomentEntry(
+          id: 'opened-between',
+          instantUtcMicros: base + 3000,
+          offsetSeconds: 0,
+          kind: LogKind.appOpened,
+        ),
+        _started(base + 3000, pocketMinutes: 15),
+      ], catalogue: _catalogue);
+      expect(brokenByRow.dealtUnanswered, isNull);
+    });
+
+    test('the carried card\'s later card_done charges the new session: a '
+        '15-minute chunk finished under a 5-minute pocket honestly spends '
+        'it (Story 2.2)', () {
+      final base = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(base),
+        _act(LogKind.cardDealt, base + 1000, 'zona-a'),
+        _ended(base + 3000),
+        _started(base + 3000, pocketMinutes: 5),
+        _act(LogKind.cardDone, base + 5000, 'zona-a'),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 5);
+      expect(facts.openSessionAnsweredSeconds, focusEstimateSeconds);
+      expect(facts.dealtUnanswered, isNull);
+    });
+
+    test('a session crossing 04:00 stays one ledger under a pocket: the '
+        'pocket is consumed across the boundary and the crossed-into '
+        'day\'s slot stays untouched (AD-19, AD-20)', () {
+      final start = utcMicros(2026, 8, 28, 3, 40);
+      final facts = walkLog([
+        _started(start, pocketMinutes: 30),
+        _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 3, 50), 'man-a'),
+        _act(LogKind.cardDone, utcMicros(2026, 8, 28, 3, 55), 'man-a'),
+        // The crossing answer, charged to the start day's ledger — the
+        // same maintenance entry re-dealt across the boundary.
+        _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 4, 10), 'man-a'),
+        _act(LogKind.cardDone, utcMicros(2026, 8, 28, 4, 15), 'man-a'),
+      ], catalogue: _catalogue);
+      const calendar = Calendar();
+      final day27 = calendar.dayOf(start, 0);
+      expect(day27.label, '2026-08-27');
+      expect(facts.openSessionAnsweredSeconds, 2 * maintenanceEstimateSeconds);
+      // Both deals charged to the session's own start day, the
+      // crossed-into day holds nothing.
+      final day28 = calendar.dayOf(utcMicros(2026, 8, 28, 12), 0);
+      expect(facts.dealtCountsByDay[day27]?[Size.maintenance], 2);
+      expect(facts.dealtCountsByDay[day28], isNull);
+      expect(facts.focusSlotClosedDays.contains(day28), isFalse);
+    });
+
+    test('two session_started rows at one instant: store read order '
+        'decides, the later wins (AD-3, deterministic replay)', () {
+      final base = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(base, pocketMinutes: 15, id: 'early'),
+        _started(base, pocketMinutes: 30, id: 'late'),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 30);
+      expect(facts.openSessionStart!.instantUtcMicros, base);
+    });
   });
 }

@@ -113,11 +113,11 @@ abstract class AppStrings {
   /// **'Otra más fácil / Ahora no'**
   String get actionRescueOrSkip;
 
-  /// {components.duration-chip} / pocket trigger — declares a session pocket and re-filters the pool.
+  /// {components.duration-chip} / pocket trigger — carries the standing declared pocket while a pocketed session is open, else the 15 default; tapping declares a session pocket and re-filters the pool. Never a countdown, never remaining minutes; the singular is the ICU plural form, one atomic numeral substituted into an otherwise fixed sentence.
   ///
   /// In es, this message translates to:
-  /// **'Tengo 15 minutos ahora'**
-  String get pocketTrigger;
+  /// **'{minutes, plural, =1 {Tengo un minuto ahora} other {Tengo {minutes} minutos ahora}}'**
+  String pocketTrigger(int minutes);
 
   /// The measured sample task, {typography.task} — the string the 26sp hero size was measured against.
   ///

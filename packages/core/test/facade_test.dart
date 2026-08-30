@@ -42,6 +42,7 @@ LogEntryRecord _record(
   String? stack,
   String? settingKey,
   int? settingValue,
+  int? pocketMinutes,
 }) => (
   id: '$id-$micros-$kind',
   kind: kind,
@@ -52,6 +53,7 @@ LogEntryRecord _record(
   stack: stack,
   settingKey: settingKey,
   settingValue: settingValue,
+  pocketMinutes: pocketMinutes,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,
@@ -359,6 +361,107 @@ void main() {
       expect(contents[1].kind, LogKind.cardDealt);
       expect(contents[1].itemId, 'man-a');
       expect(store.appends, 0, reason: 'the command writes nothing');
+    });
+  });
+
+  group('seeded pocketed logs drive the read (Story 2.2, FR-8, FR-3)', () {
+    LogEntryRecord pocketedStart(int micros, int minutes) =>
+        _record(LogKind.sessionStarted.name, micros, pocketMinutes: minutes);
+
+    test('a spent pocket drives the warm close: the read resolves null and '
+        'nothing is appended — the row lands at backgrounding, reveal or '
+        'supersede, never here', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final store = _FakeStore([
+        pocketedStart(start, 3),
+        _record(
+          LogKind.cardDealt.name,
+          start + 1000,
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+        ),
+        _record(
+          LogKind.cardDone.name,
+          start + 2000,
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+        ),
+      ]);
+      final card = await nextCard(
+        store,
+        catalogue: _catalogue,
+        instantUtcMicros: start + 60000,
+        offsetSeconds: 0,
+      );
+      expect(card, isNull, reason: '3 of 3 minutes answered: nothing fits');
+      expect(store.appends, 0);
+    });
+
+    test(
+      'the pocket re-filters the read beneath the chunk — a seeded '
+      '4-minute pocket deals upkeep where the default would deal focus',
+      () async {
+        final start = utcMicros(2026, 8, 28, 10);
+        final card = await nextCard(
+          _FakeStore([pocketedStart(start, 4)]),
+          catalogue: _catalogue,
+          instantUtcMicros: start + 1000,
+          offsetSeconds: 0,
+        );
+        expect(card, isNotNull);
+        expect(card!.size, isNot(Size.focus));
+
+        // The same seeded log with no pocket at all deals the chunk.
+        final unbounded = await nextCard(
+          _FakeStore([_record(LogKind.sessionStarted.name, start)]),
+          catalogue: _catalogue,
+          instantUtcMicros: start + 1000,
+          offsetSeconds: 0,
+        );
+        expect(unbounded!.size, Size.focus);
+      },
+    );
+
+    test('an elapsed pocket drives the warm close while its '
+        'dealt-but-unanswered card still renders answerable (AD-19, '
+        'AD-3)', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final store = _FakeStore([
+        pocketedStart(start, 15),
+        _record(
+          LogKind.cardDealt.name,
+          start + 1000,
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+        ),
+      ]);
+      // Long past the span, the read still returns the unanswered card
+      // — `Hecho` on it records — and once it is answered the next read
+      // closes warm.
+      final standing = await nextCard(
+        store,
+        catalogue: _catalogue,
+        instantUtcMicros: start + 40 * 60 * 1000 * 1000,
+        offsetSeconds: 0,
+      );
+      expect(standing!.id, 'man-a');
+
+      final answered = _FakeStore([
+        ...store._records,
+        _record(
+          LogKind.cardDone.name,
+          start + 41 * 60 * 1000 * 1000,
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+        ),
+      ]);
+      final after = await nextCard(
+        answered,
+        catalogue: _catalogue,
+        instantUtcMicros: start + 42 * 60 * 1000 * 1000,
+        offsetSeconds: 0,
+      );
+      expect(after, isNull);
     });
   });
 

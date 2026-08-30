@@ -33,6 +33,17 @@ import 'package:core/pool/pool_fact.dart';
 import 'package:core/settings/settings.dart';
 import 'package:core/weave/session.dart';
 
+// The per-size duration estimates (FR-27) live in `core/weave/session`
+// beside the walk that charges them to a declared pocket (Story 2.2);
+// re-exported here so the weave's callers keep one import — the names
+// below are this library's public surface, unchanged.
+export 'package:core/weave/session.dart'
+    show
+        estimateSecondsOf,
+        focusEstimateSeconds,
+        instantEstimateSeconds,
+        maintenanceEstimateSeconds;
+
 /// A Focus Chunk composes only from this much bag (FR-7): below it the
 /// day composes without the "1", silently — no debt, no mention. The
 /// bag's range and its default of 15 live in `core/settings` (2.1) —
@@ -45,20 +56,6 @@ const int focusChunkLeastBagMinutes = 10;
 /// counts; it never shrinks an estimate.
 const int maintenanceDrawsPerDay = 3;
 const int instantDrawsPerDay = 5;
-
-/// The per-size duration estimates (FR-27), in seconds: the canonical
-/// day sums to roughly 26 min (≈15 + 9 + 2.5), and the chunk's estimate
-/// fits the default bag exactly — 15 against 15 exceeds nothing.
-const int focusEstimateSeconds = 15 * 60;
-const int maintenanceEstimateSeconds = 3 * 60;
-const int instantEstimateSeconds = 30;
-
-/// The duration estimate of one taxonomy size, in seconds.
-int estimateSecondsOf(Size size) => switch (size) {
-  Size.focus => focusEstimateSeconds,
-  Size.maintenance => maintenanceEstimateSeconds,
-  Size.instant => instantEstimateSeconds,
-};
 
 /// One composed card (FR-1): the item's id, its taxonomy size, its
 /// resolved Spanish name (a shipped task's Origin Context, AD-16), its
@@ -332,6 +329,7 @@ typedef _DayPolicy = ({
   List<Card> maintenance,
   List<Card> instantHabits,
   Map<Size, int> dealtOnDay,
+  bool Function(Card card) pocketAllows,
 });
 
 _DayPolicy _resolveDay({
@@ -360,6 +358,31 @@ _DayPolicy _resolveDay({
       chunk = _cardOf(chunkCandidate);
     }
   }
+  // The pocket's deal filter (Story 2.2, FR-8, FR-12): while a
+  // pocketed session is open, a candidate is dealt only if the
+  // sitting's answered estimates plus the candidate's estimate stay
+  // within the declared pocket — upkeep charged like everything else —
+  // and only if the pocket has not elapsed at this resolution instant.
+  // Unbounded sessions filter nothing; the elapse is derived here,
+  // never scheduled anywhere.
+  final openStart = facts.openSessionStart;
+  final pocketMinutes = facts.openSessionPocketMinutes;
+  final pocketDeadlineMicros = (openStart == null || pocketMinutes == null)
+      ? null
+      : openStart.instantUtcMicros + pocketMinutes * microsPerMinute;
+  final pocketCeilingSeconds = pocketMinutes == null ? 0 : pocketMinutes * 60;
+  bool pocketAllows(Card card) {
+    final deadline = pocketDeadlineMicros;
+    if (deadline == null) {
+      return true;
+    }
+    if (instantUtcMicros >= deadline) {
+      return false;
+    }
+    return facts.openSessionAnsweredSeconds + card.estimateSeconds <=
+        pocketCeilingSeconds;
+  }
+
   return (
     facts: facts,
     chunk: chunk,
@@ -376,6 +399,7 @@ _DayPolicy _resolveDay({
       instantDrawsPerDay,
     ),
     dealtOnDay: facts.dealtCountsByDay[day] ?? const <Size, int>{},
+    pocketAllows: pocketAllows,
   );
 }
 
@@ -423,7 +447,13 @@ DayComposition composeDay({
 /// day's maintenance and habit draws are dealt, the day offers nothing
 /// more. An open session's dealt-but-unanswered card yields no deal at
 /// all — an unanswered card never produces a second `card_dealt` (AD-3),
-/// and the resolver itself holds that line, not only its callers.
+/// and the resolver itself holds that line, not only its callers. A
+/// candidate the open session's declared pocket cannot hold is not
+/// dealt (Story 2.2, FR-8): the tiers fall through in order — chunk,
+/// upkeep, habits — and when nothing fits, or the pocket has elapsed at
+/// this instant, the deal is absent and the read model presents the
+/// warm close. No eager `session_ended` exists here or anywhere: the
+/// close row lands at backgrounding, the declare tap, or the reveal.
 Card? nextDeal({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -449,15 +479,17 @@ Card? nextDeal({
     return null;
   }
   final chunk = policy.chunk;
-  if (chunk != null) {
+  if (chunk != null && policy.pocketAllows(chunk)) {
     return chunk;
   }
   if ((policy.dealtOnDay[Size.maintenance] ?? 0) < maintenanceDrawsPerDay &&
-      policy.maintenance.isNotEmpty) {
+      policy.maintenance.isNotEmpty &&
+      policy.pocketAllows(policy.maintenance[0])) {
     return policy.maintenance[0];
   }
   if ((policy.dealtOnDay[Size.instant] ?? 0) < instantDrawsPerDay &&
-      policy.instantHabits.isNotEmpty) {
+      policy.instantHabits.isNotEmpty &&
+      policy.pocketAllows(policy.instantHabits[0])) {
     return policy.instantHabits[0];
   }
   return null;

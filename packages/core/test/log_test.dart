@@ -10,6 +10,7 @@ LogEntryRecord _record(
   String? stack,
   String? settingKey,
   int? settingValue,
+  int? pocketMinutes,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -20,6 +21,7 @@ LogEntryRecord _record(
   stack: stack,
   settingKey: settingKey,
   settingValue: settingValue,
+  pocketMinutes: pocketMinutes,
 );
 
 void main() {
@@ -169,10 +171,16 @@ void main() {
       expect(entry.itemOrigin, Origin.shipped);
     });
 
-    test('moments and crash entries convert with their own payloads', () {
-      final moment = convertLogEntryRecord(_record('session_started')).entry;
+    test('moments, session starts and crash entries convert with their own '
+        'payloads', () {
+      final start = convertLogEntryRecord(_record('session_started')).entry;
+      expect(start, isA<SessionStartEntry>());
+      expect(start!.kind, LogKind.sessionStarted);
+      expect((start as SessionStartEntry).pocketMinutes, isNull);
+
+      final moment = convertLogEntryRecord(_record('session_ended')).entry;
       expect(moment, isA<MomentEntry>());
-      expect(moment!.kind, LogKind.sessionStarted);
+      expect(moment!.kind, LogKind.sessionEnded);
 
       final crash = convertLogEntryRecord(
         _record('crash_recorded', stack: '#0      build'),
@@ -422,6 +430,83 @@ void main() {
         );
         expect(carrying.entry, isNull);
         expect(carrying.flaw, LogRecordFlaw.settingOnNonSettingKind);
+      });
+    });
+
+    group('the pocket payload path (Story 2.2, AD-19, AD-23)', () {
+      test('a well-shaped session start converts with its pocket intact', () {
+        final conversion = convertLogEntryRecord(
+          _record('session_started', pocketMinutes: 15),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<SessionStartEntry>());
+        expect(entry!.kind, LogKind.sessionStarted);
+        expect((entry as SessionStartEntry).pocketMinutes, 15);
+      });
+
+      test('a session start without a pocket converts unbounded', () {
+        final conversion = convertLogEntryRecord(_record('session_started'));
+        expect(conversion.flaw, isNull);
+        expect((conversion.entry as SessionStartEntry).pocketMinutes, isNull);
+      });
+
+      test('an out-of-range pocket still converts — it stays in the log '
+          'and the derivation reads it as absent, never a repair write '
+          '(AD-23)', () {
+        final imported = convertLogEntryRecord(
+          _record('session_started', pocketMinutes: 90),
+        );
+        expect(imported.flaw, isNull);
+        expect((imported.entry as SessionStartEntry).pocketMinutes, 90);
+
+        final zero = convertLogEntryRecord(
+          _record('session_started', pocketMinutes: 0),
+        );
+        expect(zero.flaw, isNull);
+        expect((zero.entry as SessionStartEntry).pocketMinutes, 0);
+      });
+
+      test('a pocket on a non-session-start kind is excluded, distinctly', () {
+        final onEnd = convertLogEntryRecord(
+          _record('session_ended', pocketMinutes: 15),
+        );
+        expect(onEnd.entry, isNull);
+        expect(onEnd.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+
+        final onOpen = convertLogEntryRecord(
+          _record('app_opened', pocketMinutes: 15),
+        );
+        expect(onOpen.entry, isNull);
+        expect(onOpen.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_done',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            pocketMinutes: 15,
+          ),
+        );
+        expect(onAct.entry, isNull);
+        expect(onAct.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+
+        final onCrash = convertLogEntryRecord(
+          _record('crash_recorded', stack: '#0      build', pocketMinutes: 15),
+        );
+        expect(onCrash.entry, isNull);
+        expect(onCrash.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+
+        final onSetting = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            pocketMinutes: 15,
+          ),
+        );
+        expect(onSetting.entry, isNull);
+        expect(onSetting.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
       });
     });
 

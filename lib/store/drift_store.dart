@@ -52,6 +52,7 @@ class DriftStore implements StorePort {
             stack: Value(entry.stack),
             settingKey: Value(entry.settingKey),
             settingValue: Value(entry.settingValue),
+            pocketMinutes: Value(entry.pocketMinutes),
           ),
         );
   }
@@ -102,6 +103,7 @@ class DriftStore implements StorePort {
           stack: row.stack,
           settingKey: row.settingKey,
           settingValue: row.settingValue,
+          pocketMinutes: row.pocketMinutes,
         ),
     ];
   }

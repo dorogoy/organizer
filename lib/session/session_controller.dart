@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../catalogue/loader.dart';
 import '../strings/app_strings.dart';
+import 'log_write_queue.dart';
 
 /// Installs the session lifecycle wiring (AD-19) beside the crash guard:
 /// the controller is registered as a binding observer and the launch
@@ -22,6 +23,7 @@ SessionController installSessionController({
   AssetBundle? bundle,
   Uuid idMinter = const Uuid(),
   DateTime Function() nowOf = DateTime.now,
+  LogWriteQueue? writeQueue,
   void Function(WidgetsBindingObserver observer)? addObserver,
 }) {
   final controller = SessionController(
@@ -30,6 +32,7 @@ SessionController installSessionController({
     bundle: bundle,
     idMinter: idMinter,
     nowOf: nowOf,
+    writeQueue: writeQueue,
   );
   (addObserver ?? WidgetsBinding.instance.addObserver)(controller);
   unawaited(controller.handleAppOpen());
@@ -57,19 +60,20 @@ class SessionController with WidgetsBindingObserver {
     this.bundle,
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
-  });
+    LogWriteQueue? writeQueue,
+  }) : writeQueue = writeQueue ?? LogWriteQueue();
 
   final StorePort store;
   final AppStrings strings;
   final AssetBundle? bundle;
   final Uuid idMinter;
   final DateTime Function() nowOf;
+  final LogWriteQueue writeQueue;
   Future<Catalogue>? _catalogue;
 
   /// The serialized lifecycle: each queued step completes before the
   /// next starts. Failures clear from the chain itself so one throwing
   /// step never wedges the queue.
-  Future<void> _lifecycle = Future<void>.value();
   Future<void> _settled = Future<void>.value();
 
   /// Completes after lifecycle work queued so far. Shell readers use this
@@ -82,20 +86,22 @@ class SessionController with WidgetsBindingObserver {
   bool _leftForegroundSinceOpen = false;
 
   Future<void> _enqueue(Future<void> Function() step) {
-    final chained = _lifecycle.then((_) => step());
-    // Readers must observe the current attempt's failure, while the queue
-    // itself recovers so a later lifecycle event can retry.
+    final chained = writeQueue.enqueue(step);
+    // Readers must observe the current attempt's failure. The shared queue
+    // recovers internally so the next lifecycle or Dispenser write can run.
     _settled = chained;
-    _lifecycle = chained.catchError((Object error) {});
     return chained;
   }
 
-  /// The app came to the foreground (or launched): appends `app_opened`,
+  /// The app came to the foreground (or launched): appends `app_opened`
   /// and — only when no session is open — `session_started` with the
-  /// session's first `card_dealt` (AD-3). The event's instant is minted
-  /// at entry, before any await, so the recorded rows — and near 04:00
-  /// the charged domestic day — describe the event, not the reads that
-  /// followed it.
+  /// session's first `card_dealt` (AD-3). A pocketed session left open
+  /// by process death and fully elapsed closes here first, at this
+  /// open's own instant, before any new `session_started` — the reveal,
+  /// derived from the log, never scheduled (Story 2.2, AD-19). The
+  /// event's instant is minted at entry, before any await, so the
+  /// recorded rows — and near 04:00 the charged domestic day — describe
+  /// the event, not the reads that followed it.
   Future<void> handleAppOpen() {
     final now = nowOf();
     _leftForegroundSinceOpen = false;
@@ -105,16 +111,13 @@ class SessionController with WidgetsBindingObserver {
       // The bag derives once for the whole operation (2.1) and threads
       // into the command, so the launch deal composes against the Time
       // Bag the log holds — never a default the user never chose.
-      final contents = [
-        ...appOpened(),
-        ...sessionStart(
-          catalogue: catalogue,
-          log: log,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          bagMinutes: deriveTimeBagMinutes(log),
-        ),
-      ];
+      final contents = appOpen(
+        catalogue: catalogue,
+        log: log,
+        instantUtcMicros: now.microsecondsSinceEpoch,
+        offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
+      );
       await _appendAll(contents, now);
     });
   }
@@ -175,7 +178,10 @@ class SessionController with WidgetsBindingObserver {
 
   /// Completes the contents into records and appends them in order. One
   /// minted instant serves the whole batch — the commands resolved the
-  /// day against it, and the records must land on that same day.
+  /// day against it, and the records must land on that same day. The
+  /// supersede and reveal pairs stay adjacent at that one instant in
+  /// store read order, which is what the walk's carried-card rule reads
+  /// (Story 2.2).
   Future<void> _appendAll(List<LogEntryContent> contents, DateTime now) async {
     for (final content in contents) {
       await store.appendLogEntry((
@@ -188,6 +194,7 @@ class SessionController with WidgetsBindingObserver {
         stack: content.stack,
         settingKey: content.settingKey,
         settingValue: content.settingValue,
+        pocketMinutes: content.pocketMinutes,
       ));
     }
   }

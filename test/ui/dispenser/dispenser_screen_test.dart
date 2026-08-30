@@ -21,8 +21,10 @@ import 'dart:ui' as ui;
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/weave.dart';
 import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -178,6 +180,36 @@ class _GatedBundledDealStore implements StorePort {
     }
     if (_seenAnswer && entry.kind == 'card_dealt') {
       await _gate;
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose next append after [failNextAppend] is set throws once
+/// — the declare's write-failure row at the surface: the batch's first
+/// row fails, nothing lands, and the quiet empty frame is the whole
+/// story.
+class _FailNextAppendStore implements StorePort {
+  _FailNextAppendStore(this._inner);
+
+  final _RecordingStore _inner;
+  var failNextAppend = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (failNextAppend) {
+      failNextAppend = false;
+      throw StateError('append failed');
     }
     await _inner.appendLogEntry(entry);
   }
@@ -624,11 +656,16 @@ void main() {
     tester,
   ) async {
     final store = _RecordingStore();
+    // A ticking clock: backgrounding and resuming mint distinct instants,
+    // as production always does — under the frozen clock the close and
+    // the reopen would collapse onto one instant and read as a supersede
+    // pair, which no real background→resume can produce.
+    var minute = 0;
     final session = installSessionController(
       store: store,
       strings: AppStringsEs(),
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
-      nowOf: _fixedClock,
+      nowOf: () => DateTime.utc(2026, 8, 29, 12, minute++),
     );
     addTearDown(() => tester.binding.removeObserver(session));
     await session.settled;
@@ -1928,6 +1965,7 @@ void main() {
       stack: null,
       settingKey: null,
       settingValue: null,
+      pocketMinutes: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2168,6 +2206,7 @@ void main() {
             stack: null,
             settingKey: 'time_bag',
             settingValue: minutes,
+            pocketMinutes: null,
           ));
         }
         await SessionController(
@@ -2205,6 +2244,438 @@ void main() {
       );
       expect(controlEntry.size, Size.focus);
       expect(find.text('15\u00A0min'), findsOneWidget);
+    });
+  });
+  group('the pocket trigger and its ladder (Story 2.2, FR-8, UX-DR18)', () {
+    test('every ladder option lies inside the pocket\'s command range — '
+        'a stray out-of-range value would reach a refusal the surface '
+        'cannot show (Story 2.2)', () {
+      expect(pocketLadderOptions, isNotEmpty);
+      for (final minutes in pocketLadderOptions) {
+        expect(
+          minutes,
+          greaterThanOrEqualTo(pocketLeastMinutes),
+          reason: 'option $minutes dips below the pocket range floor',
+        );
+        expect(
+          minutes,
+          lessThanOrEqualTo(pocketMostMinutes),
+          reason: 'option $minutes climbs above the pocket range ceiling',
+        );
+      }
+    });
+
+    /// A seeded pocketed session start, as a declaration or a process
+    /// death would have left it.
+    void seedPocketedStart(_RecordingStore store, int pocketMinutes) {
+      store.entries.add((
+        id: 'seed-pocket',
+        kind: 'session_started',
+        instantUtcMicros: DateTime.utc(2026, 8, 29, 11).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: pocketMinutes,
+      ));
+    }
+
+    testWidgets('the trigger chip sits top-centred above the card, '
+        'carrying the standing declared pocket — else the 15 default — '
+        'and stands on the warm close too', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      final chip = find.byType(PocketTriggerChip);
+      expect(chip, findsOneWidget);
+      expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
+      // Top-centred: shares the screen's x-axis centre, sits above the
+      // card, inside the safe area.
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final chipRect = _rect(tester, chip);
+      expect(chipRect.center.dx, closeTo(screen.width / 2, 0.5));
+      expect(
+        chipRect.bottom,
+        lessThan(_rect(tester, find.byType(TaskCard)).top),
+        reason: 'the trigger is chrome above the scroll region',
+      );
+      expect(chipRect.top, greaterThanOrEqualTo(0));
+
+      // The standing pocket: a seeded 20-minute pocketed session reads
+      // on the chip (the launch deal suppressed by the pocket's own
+      // arithmetic lands beneath the chunk).
+      final pocketed = _RecordingStore();
+      seedPocketedStart(pocketed, 20);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_harness(buildController(pocketed)));
+      await tester.pumpAndSettle();
+      expect(find.text('Tengo 20 minutos ahora'), findsOneWidget);
+
+      // The warm close keeps the chip: a spent pocket is declared until
+      // superseded, and the surface never styles the close as absence.
+      final spent = _RecordingStore();
+      seedPocketedStart(spent, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_harness(buildController(spent)));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('por hoy no hay nada más que merezca la pena'),
+        findsOneWidget,
+      );
+      // The singular ICU plural form: an imported in-range pocket of 1
+      // reads grammatically, never "1 minutos".
+      expect(find.text('Tengo un minuto ahora'), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('tapping the chip opens a quiet, titleless ladder of '
+        'stepped pills — selected marking the standing pocket, a tap '
+        'popping the sheet and declaring', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+
+      // Every offered option, in the duration format, scoped to the
+      // sheet — the card's own duration chip sits behind it and may
+      // carry the same label. Nothing else is on the sheet: no title,
+      // no glyph, no error state.
+      Finder pillOf(int minutes) => find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('$minutes\u00A0min'),
+      );
+      for (final minutes in [5, 10, 15, 20, 25, 30, 45, 60]) {
+        expect(pillOf(minutes), findsOneWidget);
+      }
+      expect(find.byType(Icon), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+
+      // The default standing (no pocketed session) marks 15 selected:
+      // exactly one selected semantics node sits in the tree, and it
+      // belongs to the sheet.
+      final marked = tester
+          .widgetList<Semantics>(find.byType(Semantics))
+          .where((semantics) => semantics.properties.selected ?? false)
+          .toList();
+      expect(
+        marked,
+        hasLength(1),
+        reason: 'exactly the standing option is selected',
+      );
+      expect(pillOf(15), findsOneWidget);
+
+      // The tap pops the sheet and declares: [session_ended,
+      // session_started{20}] over the open launch session — a card in
+      // progress carries, so no bundled deal.
+      await tester.tap(pillOf(20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'session_started',
+      ]);
+      expect(store.entries[4].pocketMinutes, 20);
+      // The carried card still renders, and the chip reads the new
+      // standing pocket.
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text('Tengo 20 minutos ahora'), findsOneWidget);
+    });
+
+    testWidgets('declaring from the ladder with no card standing bundles '
+        'the pocket-bounded first deal (FR-8)', (tester) async {
+      final store = _RecordingStore();
+      // A closed bare session: nothing open, nothing standing. A
+      // ticking clock keeps the close and the declaration at distinct
+      // instants, as two real taps always are — under the frozen clock
+      // they would collapse onto one instant and read as a supersede
+      // pair.
+      var minute = 0;
+      DateTime ticking() => DateTime.utc(2026, 8, 29, 12, minute++);
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: ticking,
+      ).handleAppOpen();
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: ticking,
+      ).handleSessionEnd();
+      await tester.pumpWidget(
+        _harness(
+          DispenserController(
+            store: store,
+            strings: AppStringsEs(),
+            bundle: _FakeBundle({catalogueAssetPath: shipped}),
+            nowOf: ticking,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('15\u00A0min'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(store.entries[4].pocketMinutes, 15);
+      final catalogue = await loadEvergreenCatalogue(
+        AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      );
+      // The launch session's dealt chunk was never answered: the day's
+      // slot still holds it dealable, and 15 holds the chunk exactly.
+      final dealtSize = catalogue.entries
+          .firstWhere((entry) => entry.id == store.entries[5].itemId)
+          .size;
+      expect(dealtSize, Size.focus);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('the ladder at 200%: every pill holds its 48dp floor, '
+        'nothing is ellipsized, and the sheet scrolls (UX-DR45, NFR6)', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      // The always-visible trigger chip first: its whole sentence
+      // renders, never truncated, never maxLines-capped — the scaled
+      // text grows past its 100% line height (15sp × 1.40) and the
+      // chip stays inside the screen's width, wrapping into its own
+      // air if the label outgrows the margins.
+      final chipLabel = find.text('Tengo 15 minutos ahora');
+      expect(chipLabel, findsOneWidget);
+      final chipText = tester.widget<Text>(chipLabel);
+      expect(chipText.maxLines, isNull);
+      expect(chipText.overflow, isNot(TextOverflow.ellipsis));
+      expect(tester.takeException(), isNull);
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final chipRect = _rect(tester, find.byType(PocketTriggerChip));
+      expect(chipRect.left, greaterThanOrEqualTo(0));
+      expect(chipRect.right, lessThanOrEqualTo(screen.width));
+      expect(
+        tester.renderObject<RenderParagraph>(chipLabel).size.height,
+        greaterThan(15 * 1.40),
+        reason:
+            'the chip\'s text grows with the scaler, it is not shrunk '
+            'to fit',
+      );
+
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      for (final minutes in [5, 10, 15, 20, 25, 30, 45, 60]) {
+        final pill = find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('$minutes\u00A0min'),
+        );
+        expect(pill, findsOneWidget);
+        expect(
+          tester
+              .renderObject<RenderBox>(
+                find.ancestor(of: pill, matching: find.byType(InkWell)).first,
+              )
+              .size
+              .height,
+          greaterThanOrEqualTo(48),
+          reason: 'the $minutes pill holds the 48dp touch floor',
+        );
+      }
+      // A Wrap reflows and the sheet's own scroll view stands ready.
+      expect(find.byType(Wrap), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsWidgets);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the 200% ladder scrolls its lower pills into view on a '
+        'short handset', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(BottomSheet);
+      final scrollView = find.descendant(
+        of: sheet,
+        matching: find.byType(SingleChildScrollView),
+      );
+      final lastPill = find.descendant(
+        of: sheet,
+        matching: find.text('60\u00A0min'),
+      );
+      expect(tester.getRect(lastPill).bottom, greaterThan(220));
+
+      await tester.drag(scrollView, const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(lastPill).bottom, lessThanOrEqualTo(220));
+    });
+
+    testWidgets('the reveal flow: an elapsed pocket left open by process '
+        'death closes at the next open, before any new session_started — '
+        'and the carried card renders answerable through it (AD-19)', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      // Process death shape: a pocketed session opened at 11:00 with a
+      // 15-minute pocket and a dealt card, never backgrounded — at the
+      // fixed 12:00 clock the pocket is long past.
+      seedPocketedStart(store, 15);
+      store.entries.add((
+        id: 'seed-deal',
+        kind: 'card_dealt',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          0,
+          1,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: 'pasar-la-aspiradora-a-la-cocina',
+        itemOrigin: Origin.shipped,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+      ));
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+
+      expect(store.entries.skip(2).map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_ended',
+        'session_started',
+      ]);
+      expect(store.entries[4].pocketMinutes, isNull);
+
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      // The carried chunk renders; no error anywhere; the chip reads
+      // the fresh unbounded default.
+      final catalogue = await loadEvergreenCatalogue(
+        AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      );
+      final carried = catalogue.entries.firstWhere(
+        (entry) => entry.id == 'pasar-la-aspiradora-a-la-cocina',
+      );
+      expect(find.text(carried.name), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
+
+      // Hecho on the carried card records and bundles freely — the
+      // fresh sitting is unbounded.
+      await tester.tap(find.byType(HechoButton));
+      await tester.pumpAndSettle();
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done').length,
+        1,
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt').length,
+        2,
+      );
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('a failed declare leaves the quiet empty frame — no error '
+        'surface, nothing landed — and a later Hecho still works (the '
+        'in-flight guard was released)', (tester) async {
+      final inner = _RecordingStore();
+      await SessionController(
+        store: inner,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final failing = _FailNextAppendStore(inner);
+      await tester.pumpWidget(_harness(buildController(failing)));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+      final before = inner.entries.length;
+
+      // The declare's first append fails: the sheet pops, the surface
+      // settles on the empty frame, and no error shape exists anywhere.
+      failing.failNextAppend = true;
+      await tester.tap(find.byType(PocketTriggerChip));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('20\u00A0min'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(inner.entries, hasLength(before));
+
+      // The guard was released and the log stands: a real return to the
+      // foreground re-reads the carried card, and Hecho on it records.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+
+      await tester.tap(find.byType(HechoButton));
+      await tester.pumpAndSettle();
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done').length,
+        1,
+        reason: 'the Hecho landed — the failed declare wedged nothing',
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_dealt').length,
+        2,
+        reason: 'the bundled next deal landed beside it',
+      );
+      expect(find.byType(ErrorWidget), findsNothing);
     });
   });
 }
