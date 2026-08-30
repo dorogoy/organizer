@@ -406,11 +406,19 @@ void main() {
     // because no target was stored. (That composing writes no row is
     // the facade suite's own pin — `nextCard` writes nothing — not a
     // list-length assertion here.)
+    final logBeforeComposition = List<LogEntry>.from(log);
     final composition = composeDay(
       catalogue: _catalogue,
       log: log,
       instantUtcMicros: day(1),
       offsetSeconds: 0,
+    );
+    expect(
+      log,
+      equals(logBeforeComposition),
+      reason:
+          'composing the day between the deferred chunk and its next '
+          'candidate adds zero rows',
     );
     expect(composition.focus, isNotNull, reason: 'the slot is open');
     expect(composition.focus!.id, 'zona-z1-b');

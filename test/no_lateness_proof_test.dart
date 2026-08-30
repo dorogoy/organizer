@@ -18,20 +18,79 @@ import '../tool/check_core_purity.dart';
 /// prose and string contents cannot move the identifier pins — only a
 /// real identifier can.
 
-/// Strips line and block comments — line structure preserved — so doc
-/// prose mentioning a wire name cannot move the literal scans.
+/// Strips nested line and block comments — line structure preserved — so doc
+/// prose mentioning a wire name cannot move the literal scans. Strings remain
+/// intact while comments are found.
 String _withoutComments(String source) {
-  final blockBlanked = source.replaceAllMapped(
-    RegExp(r'/\*.*?\*/', dotAll: true),
-    (match) => match.group(0)!.replaceAll(RegExp(r'[^\n]'), ' '),
-  );
-  return blockBlanked
-      .split('\n')
-      .map((line) {
-        final comment = line.indexOf('//');
-        return comment < 0 ? line : line.substring(0, comment);
-      })
-      .join('\n');
+  final out = source.split('');
+  void blank(int index) {
+    if (out[index] != '\n') {
+      out[index] = ' ';
+    }
+  }
+
+  var i = 0;
+  while (i < source.length) {
+    final quote = source[i];
+    if (quote == "'" || quote == '"') {
+      final triple =
+          i + 2 < source.length &&
+          source[i + 1] == quote &&
+          source[i + 2] == quote;
+      i += triple ? 3 : 1;
+      while (i < source.length) {
+        if (!triple && source[i] == r'\' && i + 1 < source.length) {
+          i += 2;
+          continue;
+        }
+        if (source[i] == quote &&
+            (!triple ||
+                (i + 2 < source.length &&
+                    source[i + 1] == quote &&
+                    source[i + 2] == quote))) {
+          i += triple ? 3 : 1;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (source[i] != '/' || i + 1 >= source.length) {
+      i++;
+      continue;
+    }
+    if (source[i + 1] == '/') {
+      blank(i++);
+      blank(i++);
+      while (i < source.length && source[i] != '\n') {
+        blank(i++);
+      }
+      continue;
+    }
+    if (source[i + 1] == '*') {
+      var depth = 1;
+      blank(i++);
+      blank(i++);
+      while (i < source.length && depth > 0) {
+        if (i + 1 < source.length && source[i] == '/' && source[i + 1] == '*') {
+          depth++;
+          blank(i++);
+          blank(i++);
+        } else if (i + 1 < source.length &&
+            source[i] == '*' &&
+            source[i + 1] == '/') {
+          depth--;
+          blank(i++);
+          blank(i++);
+        } else {
+          blank(i++);
+        }
+      }
+      continue;
+    }
+    i++;
+  }
+  return out.join();
 }
 
 /// Every `.dart` file under [root], sorted — the forbidden-vocabulary
@@ -76,6 +135,15 @@ void main() {
       );
     },
   );
+
+  test('comment stripping preserves syntax after comment-looking strings', () {
+    final stripped = _withoutComments(
+      "final url = 'https://example.invalid'; final cardDone = 1; "
+      '/* outer /* inner */ outer */ final marker = 2;',
+    );
+    expect(stripped, contains('cardDone'));
+    expect(stripped, contains('marker'));
+  });
 
   test('no Silent Rescheduler exists: a masked scan of lib/ and '
       'packages/core/lib/ for rescheduling, postponement and lateness '

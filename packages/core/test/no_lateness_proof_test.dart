@@ -23,20 +23,78 @@ final String _libRoot = Directory('packages/core/lib').existsSync()
 
 String _source(String path) => File('$_libRoot/$path').readAsStringSync();
 
-/// Strips line and block comments — line structure preserved — so prose
-/// cannot move a pin. Naive, like every regex here.
+/// Strips nested line and block comments — line structure preserved — so
+/// prose cannot move a pin. Strings remain intact while comments are found.
 String _withoutComments(String source) {
-  final blockBlanked = source.replaceAllMapped(
-    RegExp(r'/\*.*?\*/', dotAll: true),
-    (match) => match.group(0)!.replaceAll(RegExp(r'[^\n]'), ' '),
-  );
-  return blockBlanked
-      .split('\n')
-      .map((line) {
-        final comment = line.indexOf('//');
-        return comment < 0 ? line : line.substring(0, comment);
-      })
-      .join('\n');
+  final out = source.split('');
+  void blank(int index) {
+    if (out[index] != '\n') {
+      out[index] = ' ';
+    }
+  }
+
+  var i = 0;
+  while (i < source.length) {
+    final quote = source[i];
+    if (quote == "'" || quote == '"') {
+      final triple =
+          i + 2 < source.length &&
+          source[i + 1] == quote &&
+          source[i + 2] == quote;
+      i += triple ? 3 : 1;
+      while (i < source.length) {
+        if (!triple && source[i] == r'\' && i + 1 < source.length) {
+          i += 2;
+          continue;
+        }
+        if (source[i] == quote &&
+            (!triple ||
+                (i + 2 < source.length &&
+                    source[i + 1] == quote &&
+                    source[i + 2] == quote))) {
+          i += triple ? 3 : 1;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (source[i] != '/' || i + 1 >= source.length) {
+      i++;
+      continue;
+    }
+    if (source[i + 1] == '/') {
+      blank(i++);
+      blank(i++);
+      while (i < source.length && source[i] != '\n') {
+        blank(i++);
+      }
+      continue;
+    }
+    if (source[i + 1] == '*') {
+      var depth = 1;
+      blank(i++);
+      blank(i++);
+      while (i < source.length && depth > 0) {
+        if (i + 1 < source.length && source[i] == '/' && source[i + 1] == '*') {
+          depth++;
+          blank(i++);
+          blank(i++);
+        } else if (i + 1 < source.length &&
+            source[i] == '*' &&
+            source[i + 1] == '/') {
+          depth--;
+          blank(i++);
+          blank(i++);
+        } else {
+          blank(i++);
+        }
+      }
+      continue;
+    }
+    i++;
+  }
+  return out.join();
 }
 
 /// Blanks string-literal contents (newlines preserved) over an
@@ -453,6 +511,15 @@ void main() {
     expect(_coreLibFiles(), hasLength(greaterThanOrEqualTo(10)));
   });
 
+  test('comment stripping preserves syntax after comment-looking strings', () {
+    final stripped = _withoutComments(
+      "final url = 'https://example.invalid'; final dueDay = 1; "
+      '/* outer /* inner */ outer */ final marker = 2;',
+    );
+    expect(stripped, contains('dueDay'));
+    expect(stripped, contains('marker'));
+  });
+
   test('the extractor self-test: every declaration form a field can take '
       'is caught, and nothing else is — the completeness claim is pinned '
       'by a test that can fail', () {
@@ -814,12 +881,27 @@ final class KitchenSink {
       multiLine: true,
     );
     final namedRecordTypedef = RegExp(
-      r'^[ \t]*typedef[ \t]+(\w+)[ \t]*=[ \t]*\([ \t]*\{',
+      r'^[ \t]*typedef[ \t]+(\w+)(?:[ \t]*<[^=]+>)?[ \t]*='
+      r'[ \t]*\([ \t]*\{',
       multiLine: true,
     );
     final positionalRecordTypedef = RegExp(
-      r'^[ \t]*typedef[ \t]+(\w+)[ \t]*=[ \t]*\((?![ \t]*\{)',
+      r'^[ \t]*typedef[ \t]+(\w+)(?:[ \t]*<[^=]+>)?[ \t]*='
+      r'[ \t]*\((?![ \t]*\{)',
       multiLine: true,
+    );
+    final extensionTypeDeclaration = RegExp(
+      r'^[ \t]*extension[ \t]+type[ \t]+(\w+)',
+      multiLine: true,
+    );
+
+    expect(
+      namedRecordTypedef.hasMatch('typedef Generic<T> = ({T value});'),
+      isTrue,
+    );
+    expect(
+      extensionTypeDeclaration.hasMatch('extension type Period(int value) {}'),
+      isTrue,
     );
 
     final found = <String>{};
@@ -838,6 +920,7 @@ final class KitchenSink {
       census(enumDeclaration, path, source);
       census(mixinDeclaration, path, source);
       census(extensionDeclaration, path, source);
+      census(extensionTypeDeclaration, path, source);
       census(namedRecordTypedef, path, source);
       census(positionalRecordTypedef, path, source);
     }
@@ -920,13 +1003,27 @@ final class KitchenSink {
     final definitionHome = _withoutComments(_source('log/log_entry.dart'));
     expect(
       RegExp("['\"]card_dealt['\"]").allMatches(definitionHome),
-      isNotEmpty,
-      reason: 'the definition home holds the card_dealt wire name',
+      hasLength(2),
+      reason: 'the definition and registry are the only card_dealt wire uses',
     );
     expect(
       RegExp("['\"]card_done['\"]").allMatches(definitionHome),
-      isNotEmpty,
-      reason: 'the definition home holds the card_done wire name',
+      hasLength(2),
+      reason: 'the definition and registry are the only card_done wire uses',
+    );
+    expect(
+      RegExp(r'\bcard(Dealt|Done)\b').allMatches(definitionHome),
+      hasLength(6),
+      reason:
+          'the definition, registry and validation classifier are the only '
+          'card-kind identifier uses in this file',
+    );
+    expect(
+      RegExp(r'\bLogKind\.card(Dealt|Done)\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the validation classifier is the only qualified card-kind reader '
+          'in the definition home',
     );
 
     // The one mint site: every reference in the command file names a

@@ -410,6 +410,22 @@ List<String> _censusOf(WidgetTester tester, List<String> excludedTexts) {
       find.byType(Semantics),
     ))
       semantics.properties.tooltip,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.hint,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.value,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.increasedValue,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.decreasedValue,
     for (final editable in tester.widgetList<EditableText>(
       find.byType(EditableText),
     ))
