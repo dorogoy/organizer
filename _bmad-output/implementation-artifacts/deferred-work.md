@@ -81,3 +81,19 @@
 - source_spec: `_bmad-output/implementation-artifacts/1-9-hecho.md`
   summary: Give `DispenserController.complete` and `SessionController`'s lifecycle writes one shared serialization (or pin the display invariant "only dealt cards are shown") — a backgrounding inside the ms-wide completion window can interleave `session_ended` between the answer and its bundled deal, stranding an orphan deal row beside a closed session.
   evidence: 1-9 review (Edge-Case Hunter): the two controllers hold separate `_lifecycle`/`_writes` chains over one store with no coordinator; the insert-only substrate tolerates the orphan rows but no test pins the display invariant the ack's truthfulness rests on; 1-9's read-gating on `_writes` narrows the window without closing it.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-10-the-unsplit-secondary-control-the-skip-half.md`
+  summary: The two-row skip batch (`card_skipped` + bundled `card_dealt`) has no store atomicity — a mid-batch append failure orphans the answer row.
+  evidence: Edge-case review of 1-10 (the skip append loop in lib/dispenser/dispenser_controller.dart): a failure on the second iteration leaves the skip recorded without its bundled deal, diverging day-budget and least-recently-dealt accounting; 1.9 deferred the identical card_done variant — needs a batch port or core command variant, outside 1.10's no-core-change boundary.
+
+- source_spec: `_bmad-output/implementation-artifacts/1-10-the-unsplit-secondary-control-the-skip-half.md`
+  summary: 1.9's `complete` ticking-clock test derives its mint expectation from the mint itself (rows == mints[1]), so a late mint in `complete` passes green.
+  evidence: Verification-gap review of 1-10 fixed the identical self-referential flaw in skip's test (now captures the pre-skip minute); the pre-existing complete twin ("complete stamps the whole batch with the instant minted at entry") retains it — a mint moved after the store reads stamps a later tick unobserved.
+
+## Deferred from: code review of 1-10-the-unsplit-secondary-control-the-skip-half (2026-08-30)
+
+- Lifecycle writes can split a skip batch: `DispenserController` and `SessionController` use independent queues, so `session_ended` can land between `card_skipped` and its bundled `card_dealt`. This extends the deferred 1.9 shared-serialization issue and needs a coordinator or display-invariant decision outside the story boundary.
+
+## Deferred from: manual handset validation of 1-10-the-unsplit-secondary-control-the-skip-half (2026-08-30)
+
+- A lost pause-time `session_ended` wedges the Dispenser on the warm close with no escape: process death after backgrounding loses the row (the accepted trade-off, `session_controller.dart:119-122`), the next cold open's `sessionStart` no-ops while a session is open (`session_commands.dart:59-61`), and `anchorDayOf` keeps charging every composition to the dead session's start day — once that day's budget is exhausted, `nextDeal` returns null on every open and the user faces the exhausted-day close string with zero affordances. Extends the 1-6 durability deferral (which names the lost `session_ended` but not this wedge): needs either a self-heal on open (closing a stale open session, or a fresh-session derivation when the anchored day is exhausted) or a decided recovery contract. Evidence: real handset 2026-08-30 — `session_started` 01:17:34 opened bare (day already exhausted), the process died without `session_ended`, and the opens at 10:06:04 and 10:12:51 appended `app_opened` alone and rendered the close; only the 10:14:44 cycle, whose pause write survived, recovered (fresh `session_started` + first deal at 10:14:45), confirmed by extracting the substrate log from the device.

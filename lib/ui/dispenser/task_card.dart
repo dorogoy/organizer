@@ -64,16 +64,21 @@ class HechoButton extends StatelessWidget {
 /// centered text in `ink-secondary` — no box, no fill, no underline, no
 /// animation. One control carrying two features (FR-5 rescue, FR-3 skip);
 /// the string is never split or shortened, and the touch target still
-/// holds 48dp. The tap is 1.10's to wire; here it is an accepted no-op.
+/// holds 48dp. [onTap] is the screen's skip path (Story 1.10); absent,
+/// the tap stays an accepted no-op (the 1.8 anatomy harness).
 class SecondaryTextAction extends StatelessWidget {
-  const SecondaryTextAction({super.key});
+  const SecondaryTextAction({super.key, this.onTap});
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GestureDetector(
-      // The rendered contract lands first; the wired effect is 1.10's.
-      onTap: () {},
+      // Absent, the no-op keeps the 1.8 anatomy contract: the tap is
+      // accepted and does nothing — a null onTap would render a
+      // disabled control instead.
+      onTap: onTap ?? () {},
       // Opaque so the whole 48dp band takes the tap, not just the text
       // glyphs — the touch target is the floor, and a deferToChild
       // default lets the band's gaps fall through.
@@ -96,14 +101,17 @@ class SecondaryTextAction extends StatelessWidget {
 /// The dealt card (FR-1): exactly one Micro-task with its estimated
 /// duration always visible. The zone footer renders iff [Card.zone] is
 /// non-null — the card simply ends after the secondary action otherwise.
-/// [onDone] threads the Hecho tap through (Story 1.9); the secondary
-/// stays a no-op here — its wiring is 1.10's.
+/// [onDone] threads the Hecho tap through (Story 1.9); [onSkip] threads
+/// the secondary's tap through (Story 1.10). Absent either, its tap
+/// stays the anatomy's accepted no-op.
 class TaskCard extends StatelessWidget {
-  const TaskCard({super.key, required this.card, this.onDone});
+  const TaskCard({super.key, required this.card, this.onDone, this.onSkip});
 
   final Card card;
 
   final VoidCallback? onDone;
+
+  final VoidCallback? onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +138,7 @@ class TaskCard extends StatelessWidget {
           const SizedBox(height: Spacing.taskToActions),
           HechoButton(onTap: onDone),
           const SizedBox(height: Spacing.actionGap),
-          const SecondaryTextAction(),
+          SecondaryTextAction(onTap: onSkip),
           if (card.zone != null) ...[
             // The quiet footer's detachment from the actions — the
             // ladder's 24, nearest token step above the canonical
