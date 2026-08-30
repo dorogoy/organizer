@@ -383,6 +383,87 @@ void main() {
     expect(chunkOn(5), 'zona-z1-a');
   });
 
+  test('a deferred Focus Chunk across the day boundary is simply a '
+      'candidate again — the slot stays open, a chunk still composes, the '
+      'deferred id re-deals in-run, and the next week opens on its own '
+      'zone (FR-14, AD-1)', () {
+    // The run is numbered from its own first session — Tuesday of the
+    // z1 week — so run day 6 is the Monday that crosses the week
+    // boundary.
+    int day(int runDay) => _day(runDay + 1);
+
+    // Run day 0 — Tuesday: the chunk deals and the user defers it.
+    var log = <LogEntry>[
+      _sessionStarted(utcMicros(2026, 8, 25, 10)),
+      _dealt(utcMicros(2026, 8, 25, 10, 0, 1), 'zona-z1-a'),
+      _skipped(utcMicros(2026, 8, 25, 10, 0, 2), 'zona-z1-a'),
+      _sessionEnded(utcMicros(2026, 8, 25, 10, 30)),
+    ];
+
+    // Run day 1 — Wednesday, same week: the skip consumed nothing —
+    // only a `card_done` closes the slot — so the day composes a chunk
+    // and a different candidate resolves. No visible target moved,
+    // because no target was stored. (That composing writes no row is
+    // the facade suite's own pin — `nextCard` writes nothing — not a
+    // list-length assertion here.)
+    final composition = composeDay(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: day(1),
+      offsetSeconds: 0,
+    );
+    expect(composition.focus, isNotNull, reason: 'the slot is open');
+    expect(composition.focus!.id, 'zona-z1-b');
+    expect(composition.focus!.zone, Zone.z1);
+
+    // The run continues on its own arithmetic.
+    String dealOn(int runDay) {
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: day(runDay),
+        offsetSeconds: 0,
+      );
+      expect(
+        deal,
+        isNotNull,
+        reason:
+            'run day $runDay must hold a chunk — the slot never '
+            'closed, so never an empty day while an eligible entry exists',
+      );
+      log
+        ..add(_dealt(day(runDay), deal!.id))
+        ..add(_done(day(runDay) + 1, deal.id));
+      return deal.id;
+    }
+
+    expect(dealOn(1), 'zona-z1-b');
+    expect(dealOn(2), 'zona-z1-c');
+    expect(dealOn(3), 'zona-z1-d');
+    expect(dealOn(4), 'zona-z1-e');
+    // Run day 5 — Sunday, still the same week: the zone's
+    // never-answered set holds exactly the deferred entry, so it
+    // re-deals within the run — never a carried-over target, because
+    // no target was stored.
+    expect(dealOn(5), 'zona-z1-a');
+    // Run day 6 — the Monday past the week boundary: the next zone's
+    // own entry leads the new week, and the deferred target never
+    // carries over.
+    final crossing = nextDeal(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: day(6),
+      offsetSeconds: 0,
+    );
+    expect(
+      crossing,
+      isNotNull,
+      reason: 'run day 6 — the new week\'s Monday — must hold a chunk',
+    );
+    expect(crossing!.id, 'zona-z2-a');
+    expect(crossing.zone, Zone.z2);
+  });
+
   test(
     'a chunk answered Hecho closes the day\'s slot: upkeep and habits only',
     () {

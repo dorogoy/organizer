@@ -379,6 +379,52 @@ Rect _rect(WidgetTester tester, Finder finder) {
   return box.localToGlobal(Offset.zero) & box.size;
 }
 
+/// The committed deal's visible surface, task text excluded: the whole
+/// widget tree's runtime types with counts, plus every text-bearing
+/// channel — `Text.data`, `RichText` plain text (a `Text.rich` apology
+/// cannot slip through), tooltip messages, semantics labels,
+/// editable values and icon codePoints. Any gap-shaped element — a
+/// badge, a count, an apology, an icon — surfaces here as a difference
+/// from a control launch.
+List<String> _censusOf(WidgetTester tester, List<String> excludedTexts) {
+  final typeCounts = <String, int>{};
+  for (final widget in tester.allWidgets) {
+    final name = widget.runtimeType.toString();
+    typeCounts[name] = (typeCounts[name] ?? 0) + 1;
+  }
+  final census = [
+    for (final name in typeCounts.keys.toList()..sort())
+      '$name x${typeCounts[name]}',
+  ];
+  final texts = <String?>[
+    for (final text in tester.widgetList<Text>(find.byType(Text))) text.data,
+    for (final rich in tester.widgetList<RichText>(find.byType(RichText)))
+      rich.text.toPlainText(),
+    for (final tooltip in tester.widgetList<Tooltip>(find.byType(Tooltip)))
+      tooltip.message,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.label,
+    for (final semantics in tester.widgetList<Semantics>(
+      find.byType(Semantics),
+    ))
+      semantics.properties.tooltip,
+    for (final editable in tester.widgetList<EditableText>(
+      find.byType(EditableText),
+    ))
+      editable.controller.text,
+    for (final icon in tester.widgetList<Icon>(find.byType(Icon)))
+      if (icon.icon != null) 'icon:${icon.icon!.codePoint}',
+  ];
+  return [
+    ...census,
+    for (final value in texts)
+      if (value != null && value.isNotEmpty && !excludedTexts.contains(value))
+        value,
+  ];
+}
+
 /// Records platform-channel traffic through a mock handler on
 /// `SystemChannels.platform`, so the light haptic's dispatch is observable
 /// (the story's pin: `HapticFeedback.lightImpact` fires immediately).
@@ -1821,5 +1867,138 @@ void main() {
     expect(find.text('¡Buen trabajo!'), findsNothing);
     expect(find.byType(TaskCard), findsOneWidget);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('a seven-day absence opens like any day: the normal opening '
+      'rows land, a TaskCard deals, the whole visible tree equals a '
+      'no-gap control launch, and rendering writes nothing (FR-6, FR-13, '
+      'FR-14, NFR9)', (tester) async {
+    // The milestone limb of the absence property is vacuous until Epic
+    // Projects exist — Story 5.5 tests it for real once buffers land.
+    // This pin is the vertical half that exists today: the opening
+    // itself, row by row, widget by widget.
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+
+    // One completed day seven days before the fixed clock: the chunk of
+    // that Saturday's own week, dealt, answered, closed — five rows,
+    // the day's whole log.
+    final absenceDay = DateTime.utc(2026, 8, 22, 12);
+    final absenceChunk = nextDeal(
+      catalogue: catalogue,
+      log: const [],
+      instantUtcMicros: absenceDay.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+    )!;
+    LogEntryRecord seedRow(String kind, int second, {String? itemId}) => (
+      id: 'seed-$kind',
+      kind: kind,
+      instantUtcMicros: absenceDay.microsecondsSinceEpoch + second * 1000000,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.shipped,
+      stack: null,
+    );
+
+    final gapStore = _RecordingStore()
+      ..entries.addAll([
+        seedRow('app_opened', 0),
+        seedRow('session_started', 1),
+        seedRow('card_dealt', 2, itemId: absenceChunk.id),
+        seedRow('card_done', 3, itemId: absenceChunk.id),
+        seedRow('session_ended', 4),
+      ]);
+    final seeded = gapStore.entries.length;
+
+    // Launch, seven days later.
+    await SessionController(
+      store: gapStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    // The rows the opening appended are exactly the normal opening
+    // kinds — nothing gap-shaped, nothing counting the days away.
+    expect(gapStore.entries.skip(seeded).map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ]);
+
+    await tester.pumpWidget(_harness(buildController(gapStore)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    // Rendering wrote nothing: the read is pure, so the store holds
+    // exactly the opening's rows after the frames too.
+    expect(
+      gapStore.entries.skip(seeded).map((entry) => entry.kind).toList(),
+      ['app_opened', 'session_started', 'card_dealt'],
+      reason:
+          'the UI appended nothing on render — the facade no-write '
+          'pin, witnessed at the store',
+    );
+    final gapDeal = latestDealtEntryOf(gapStore)!;
+    final gapEntry = catalogue.entries.firstWhere(
+      (entry) => entry.id == gapDeal.itemId,
+    );
+    // The census is captured while the gap launch is still mounted —
+    // materialised as a list, never lazily tied to the later tree.
+    final gapCensus = _censusOf(tester, [gapEntry.name]);
+
+    // The control: the same launch with no gap in the log at all — and
+    // its own appended rows are asserted, so the comparison baseline is
+    // itself pinned to a normal opening.
+    final controlStore = _RecordingStore();
+    await SessionController(
+      store: controlStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    expect(controlStore.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ], reason: 'the control appended exactly the normal opening rows');
+
+    await tester.pumpWidget(_harness(buildController(controlStore)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(controlStore.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ], reason: 'rendering appended nothing here either');
+    final controlDeal = latestDealtEntryOf(controlStore)!;
+    final controlEntry = catalogue.entries.firstWhere(
+      (entry) => entry.id == controlDeal.itemId,
+    );
+    // Same instant, same catalogue, and the seed's answered chunk
+    // belongs to the previous week's zone — so both launches resolve
+    // the same tier-1 candidate, and excluding that one name from both
+    // censuses makes the comparison sound by construction: everything
+    // left must be furniture.
+    expect(
+      gapDeal.itemId,
+      controlDeal.itemId,
+      reason:
+          'the absence day resolves the same first chunk as a '
+          'normal day',
+    );
+    // A chunk still leads the day after the absence: both launches deal
+    // the same size — the composition did not silently narrow.
+    expect(gapEntry.size, controlEntry.size);
+    expect(gapEntry.size, Size.focus);
+
+    expect(
+      _censusOf(tester, [controlEntry.name]),
+      gapCensus,
+      reason:
+          'the absence rendered exactly what a normal day renders — '
+          'no element or string references the days away',
+    );
   });
 }
