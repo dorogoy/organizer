@@ -56,7 +56,7 @@ final class CheckpointState {
 
   /// The permission-to-rest offer is due: a session is open and
   /// unelapsed at the read instant, and the day's cumulative session
-  /// time has crossed more interval multiples than the sitting's
+  /// time has crossed more interval multiples than same-day
   /// extensions have answered. An elapsed pocket is never due — the
   /// standing close always wins (UJ-1), and the close's own continue
   /// action is the probe's business, never this flag's.

@@ -185,9 +185,10 @@ final class SessionExtendEntry extends LogEntry {
   final LogKind kind = LogKind.sessionExtended;
 
   /// The minutes added to the sitting's declared pocket, as minted —
-  /// `checkpointIntervalMinutes` per accepted offer. A value outside
-  /// the minted shape stays in the log and derives nothing: tolerance,
-  /// never repair (AD-23).
+  /// `checkpointIntervalMinutes` per accepted offer. A non-positive
+  /// value stays in the log and sums nothing: tolerance, never repair
+  /// (AD-23). The walk and the checkpoint fold both require a positive
+  /// count; they do not re-check the minted interval.
   final int pocketMinutes;
 }
 

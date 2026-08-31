@@ -240,9 +240,20 @@ void main() {
       hechoMaterial.borderRadius,
       BorderRadius.circular(Radii.radiusDefault),
     );
-    final hechoStyle = tester.widget<Text>(find.text('Hecho')).style!;
-    expect(hechoStyle.color, FieldPalette.inkPrimary);
-    expect(hechoStyle.fontSize, 19);
+    final hechoText = tester.widget<Text>(find.text('Hecho'));
+    expect(hechoText.style!.color, FieldPalette.inkPrimary);
+    expect(hechoText.style!.fontSize, 19);
+    expect(hechoText.textAlign, TextAlign.center);
+    final hechoPad = tester.widget<Padding>(
+      find.descendant(
+        of: find.byType(HechoButton),
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(
+      hechoPad.padding,
+      const EdgeInsets.symmetric(horizontal: Spacing.chipPaddingHorizontal),
+    );
   });
 
   testWidgets('the surface separates by tone and a 1px hairline — no '
@@ -423,6 +434,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('the checkpoint stop label is centered and inset — wrapping '
+      'Nada más por el momento must not meet the clip radius', (tester) async {
+    await tester.pumpWidget(
+      _harness(HechoButton(label: AppStringsEs().checkpointStop)),
+    );
+    await tester.pumpAndSettle();
+    final text = tester.widget<Text>(find.text(AppStringsEs().checkpointStop));
+    expect(text.textAlign, TextAlign.center);
+    final pad = tester.widget<Padding>(
+      find.descendant(
+        of: find.byType(HechoButton),
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(
+      pad.padding,
+      const EdgeInsets.symmetric(horizontal: Spacing.chipPaddingHorizontal),
+    );
   });
 
   testWidgets('no origin text is ever surfaced (AD-14)', (tester) async {

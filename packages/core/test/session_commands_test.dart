@@ -240,14 +240,24 @@ void main() {
   });
 
   group('the sessionExtend matrix (Story 2.4, FR-10, AD-19)', () {
-    test('an open session yields exactly one session_extended row '
-        'carrying the interval minutes — the single sanctioned '
-        'minter, no catalogue on the path', () {
+    List<LogEntryContent> extendOf(List<LogEntry> log, {required int at}) =>
+        sessionExtend(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: at,
+          offsetSeconds: 0,
+        );
+
+    test('an open session with a standing card yields exactly one '
+        'session_extended row carrying the interval minutes — the '
+        'single sanctioned minter; the unanswered card suppresses '
+        'the bundled deal (AD-3, never re-dealt)', () {
+      final start = utcMicros(2026, 8, 28, 10);
       final open = [
-        _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 45),
-        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+        _started(start, pocketMinutes: 45),
+        _dealt(start + 1, 'zona-a'),
       ];
-      final contents = sessionExtend(log: open);
+      final contents = extendOf(open, at: start + 16 * microsPerMinute);
       expect(contents, hasLength(1));
       final row = contents.single;
       expect(row.kind, LogKind.sessionExtended);
@@ -265,11 +275,38 @@ void main() {
       );
     });
 
+    test('close-continue: an elapsed sitting with no unanswered card '
+        'returns session_extended plus the bundled next card_dealt '
+        '(AD-3 — the card the surface shows is one this command '
+        'minted)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final elapsed = [_started(start, pocketMinutes: 15)];
+      final contents = extendOf(elapsed, at: start + 15 * microsPerMinute);
+      expect(contents.map((content) => content.kind), [
+        LogKind.sessionExtended,
+        LogKind.cardDealt,
+      ]);
+      expect(contents.first.pocketMinutes, checkpointIntervalMinutes);
+      expect(contents.last.itemId, isNotNull);
+    });
+
+    test('close-continue with a standing unanswered card returns only '
+        'session_extended — the card returns, never a second deal', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = extendOf([
+        _started(start, pocketMinutes: 15),
+        _dealt(start + 1, 'zona-a'),
+      ], at: start + 15 * microsPerMinute);
+      expect(contents, hasLength(1));
+      expect(contents.single.kind, LogKind.sessionExtended);
+    });
+
     test('no open session appends nothing — the accepted quiet '
         'no-op, the sessionEnd guard\'s own shape', () {
-      expect(sessionExtend(log: const []), isEmpty);
+      final at = utcMicros(2026, 8, 28, 10);
+      expect(extendOf(const [], at: at), isEmpty);
       expect(
-        sessionExtend(log: _exhaustedDay(finalHabitOpen: false)),
+        extendOf(_exhaustedDay(finalHabitOpen: false), at: at),
         isEmpty,
         reason:
             'the session is closed: nothing appends, nothing '
@@ -280,16 +317,22 @@ void main() {
     test('the minter feeds the walk\'s lift: extend twice and the '
         'declared pocket is the start plus both intervals', () {
       final start = utcMicros(2026, 8, 28, 10);
-      var log = <LogEntry>[_started(start, pocketMinutes: 45)];
+      var log = <LogEntry>[
+        _started(start, pocketMinutes: 45),
+        _dealt(start + 1, 'zona-a'),
+      ];
       for (final minute in [16, 31]) {
-        final contents = sessionExtend(log: log);
+        final contents = extendOf(log, at: utcMicros(2026, 8, 28, 10, minute));
+        final extended = contents.firstWhere(
+          (content) => content.kind == LogKind.sessionExtended,
+        );
         log = [
           ...log,
           SessionExtendEntry(
             id: 'x-$minute',
             instantUtcMicros: utcMicros(2026, 8, 28, 10, minute),
             offsetSeconds: 0,
-            pocketMinutes: contents.single.pocketMinutes!,
+            pocketMinutes: extended.pocketMinutes!,
           ),
         ];
       }

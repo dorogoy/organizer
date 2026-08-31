@@ -92,6 +92,14 @@ void main() {
       final start = utcMicros(2026, 8, 28, 10);
       final log = [_started(start, pocketMinutes: 45)];
 
+      // The matrix's ≥ 15 boundary: floor(15/15) is the first multiple.
+      final at15 = deriveCheckpoint(
+        entries: log,
+        instantUtcMicros: start + 15 * microsPerMinute,
+        offsetSeconds: 0,
+      );
+      expect(at15.offerDue, isTrue);
+
       // The open span truncated at the read instant: 16 minutes
       // crossed the first multiple.
       final at16 = deriveCheckpoint(
@@ -139,11 +147,32 @@ void main() {
         'leave the third multiple due, and the ceiling runs '
         '45→60→75', () {
       final start = utcMicros(2026, 8, 28, 10);
-      final log = [
-        _started(start, pocketMinutes: 45),
-        _extended(start + 16 * microsPerMinute, 15),
-        _extended(start + 31 * microsPerMinute, 15),
+      final started = [_started(start, pocketMinutes: 45)];
+      expect(
+        deriveCheckpoint(
+          entries: started,
+          instantUtcMicros: start + 15 * microsPerMinute,
+          offsetSeconds: 0,
+        ).offerDue,
+        isTrue,
+        reason: 'first offer at the 15-minute multiple',
+      );
+
+      final afterFirst = [
+        ...started,
+        _extended(start + 15 * microsPerMinute, 15),
       ];
+      expect(
+        deriveCheckpoint(
+          entries: afterFirst,
+          instantUtcMicros: start + 30 * microsPerMinute,
+          offsetSeconds: 0,
+        ).offerDue,
+        isTrue,
+        reason: 'second offer at 30 after the first extend answered 15',
+      );
+
+      final log = [...afterFirst, _extended(start + 30 * microsPerMinute, 15)];
       final facts = walkLog(log);
       expect(facts.openSessionPocketMinutes, 75);
 
@@ -184,6 +213,20 @@ void main() {
         offsetSeconds: 0,
       );
       expect(resumed.offerDue, isTrue);
+
+      // The launch deal of the next sitting is preempted: cumulative
+      // at the deal instant already sits above answered (FR-10).
+      final withDeal = [
+        ...nextSitting,
+        _dealt(start + 30 * microsPerMinute, 'man-a'),
+      ];
+      final preempted = deriveCheckpoint(
+        entries: withDeal,
+        instantUtcMicros: start + 30 * microsPerMinute,
+        offsetSeconds: 0,
+      );
+      expect(preempted.offerDue, isTrue);
+      expect(preempted.offerPreemptsStandingDeal, isTrue);
     });
 
     test('chained short pockets: four ten-minute sittings leave both '
@@ -210,6 +253,20 @@ void main() {
         isTrue,
         reason: 'cumulative 40 minutes: crossing 15 and 30 both stand',
       );
+
+      // Session 5's bundled first deal is preempted — chaining cannot
+      // keep a card on screen past the unanswered multiples (FR-10).
+      final withDeal = [
+        ...log,
+        _dealt(utcMicros(2026, 8, 28, 11, 20), 'man-a'),
+      ];
+      final preempted = deriveCheckpoint(
+        entries: withDeal,
+        instantUtcMicros: utcMicros(2026, 8, 28, 11, 20),
+        offsetSeconds: 0,
+      );
+      expect(preempted.offerDue, isTrue);
+      expect(preempted.offerPreemptsStandingDeal, isTrue);
 
       final answered = [...log, _extended(utcMicros(2026, 8, 28, 11, 21), 15)];
       final after = deriveCheckpoint(
@@ -698,6 +755,16 @@ void main() {
         isTrue,
       );
 
+      // Exclusive bound: the one interval reaches instants before
+      // 10:30, not 10:30 itself.
+      expect(
+        closeContinueReachable(
+          facts: justElapsed,
+          instantUtcMicros: start + 30 * microsPerMinute,
+        ),
+        isFalse,
+      );
+
       // Forty minutes past a 15-pocket: the one interval reaches only
       // to 10:30, long gone — the tap would visibly change nothing.
       final longElapsed = walkLog([_started(start, pocketMinutes: 15)]);
@@ -746,11 +813,23 @@ void main() {
   });
 
   group('the minter (Story 2.4, FR-10, AD-19)', () {
+    List<LogEntryContent> extendOf(List<LogEntry> log, {required int at}) =>
+        sessionExtend(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: at,
+          offsetSeconds: 0,
+        );
+
     test('sessionExtend appends exactly one session_extended row '
-        'carrying the interval, and only while a session is open', () {
+        'when a standing card suppresses the deal, and only while a '
+        'session is open', () {
       final start = utcMicros(2026, 8, 28, 10);
-      final open = [_started(start, pocketMinutes: 45)];
-      final contents = sessionExtend(log: open);
+      final open = [
+        _started(start, pocketMinutes: 45),
+        _dealt(start + 1, 'zona-a'),
+      ];
+      final contents = extendOf(open, at: start + 16 * microsPerMinute);
       expect(contents, hasLength(1));
       expect(contents.single.kind, LogKind.sessionExtended);
       expect(contents.single.pocketMinutes, checkpointIntervalMinutes);
@@ -758,17 +837,32 @@ void main() {
       expect(contents.single.itemOrigin, isNull);
 
       expect(
-        sessionExtend(log: const []),
+        extendOf(const [], at: start),
         isEmpty,
         reason: 'nothing open: the quiet no-op',
       );
       expect(
-        sessionExtend(log: [...open, _ended(start + 16 * microsPerMinute)]),
+        extendOf([
+          ...open,
+          _ended(start + 16 * microsPerMinute),
+        ], at: start + 16 * microsPerMinute),
         isEmpty,
         reason:
             'the session is closed: nothing appends, nothing '
             're-opens',
       );
+    });
+
+    test('close-continue bundles the next card_dealt so Hecho can '
+        'land (AD-3)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = extendOf([
+        _started(start, pocketMinutes: 15),
+      ], at: start + 15 * microsPerMinute);
+      expect(contents.map((content) => content.kind), [
+        LogKind.sessionExtended,
+        LogKind.cardDealt,
+      ]);
     });
   });
 }

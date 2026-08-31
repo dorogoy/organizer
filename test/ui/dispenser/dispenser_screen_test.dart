@@ -3483,6 +3483,50 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a failed continue leaves the quiet empty frame — no '
+        'error surface, nothing landed — and a later continue still '
+        'works (the in-flight guard was released)', (tester) async {
+      final inner = _RecordingStore();
+      seedPocketedStart(inner, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      final failing = _FailNextAppendStore(inner);
+      await tester.pumpWidget(_harness(buildController(failing)));
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+
+      failing.failNextAppend = true;
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nada más por el momento'), findsNothing);
+      expect(find.text('Quiero seguir'), findsNothing);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_extended'),
+        isEmpty,
+        reason: 'the log stayed consistent: nothing landed',
+      );
+
+      // Continue is content, not footer chrome: the empty frame has
+      // no Quiero seguir. A real return to the foreground re-reads
+      // the still-pending offer (the declare-fail recovery).
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Quiero seguir'), findsOneWidget);
+
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_extended'),
+        hasLength(1),
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
     testWidgets('the pocket-elapsed close is the offer: Quiero seguir '
         'stands beneath the warm string while the pool could deal, '
         'and its tap extends and deals (UJ-1)', (tester) async {
@@ -3504,6 +3548,11 @@ void main() {
       expect(
         store.entries.where((entry) => entry.kind == 'session_extended'),
         hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(1),
+        reason: 'close-continue mints the deal so Hecho can land (AD-3)',
       );
       expect(find.byType(TaskCard), findsOneWidget);
       expect(find.text('Tengo 30 minutos ahora'), findsOneWidget);

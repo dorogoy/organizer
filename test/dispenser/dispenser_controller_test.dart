@@ -1578,6 +1578,88 @@ void main() {
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
 
+    test('chained short pockets: a new sitting\'s bundled first deal is '
+        'preempted — the standing permission leads (FR-10)', () async {
+      final store = _RecordingStore();
+      void sitting(String id, DateTime start, DateTime end) {
+        store.entries.add((
+          id: 'start-$id',
+          kind: 'session_started',
+          instantUtcMicros: start.microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 10,
+        ));
+        store.entries.add((
+          id: 'end-$id',
+          kind: 'session_ended',
+          instantUtcMicros: end.microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: null,
+        ));
+      }
+
+      sitting(
+        '1',
+        DateTime.utc(2026, 8, 29, 10),
+        DateTime.utc(2026, 8, 29, 10, 10),
+      );
+      sitting(
+        '2',
+        DateTime.utc(2026, 8, 29, 10, 20),
+        DateTime.utc(2026, 8, 29, 10, 30),
+      );
+      sitting(
+        '3',
+        DateTime.utc(2026, 8, 29, 10, 40),
+        DateTime.utc(2026, 8, 29, 10, 50),
+      );
+      sitting(
+        '4',
+        DateTime.utc(2026, 8, 29, 11),
+        DateTime.utc(2026, 8, 29, 11, 10),
+      );
+      seedPocketedStart(store, 10, at: DateTime.utc(2026, 8, 29, 11, 20));
+      store.entries.add((
+        id: 'seed-deal-s5',
+        kind: 'card_dealt',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          20,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: chunkSeedId,
+        itemOrigin: Origin.shipped,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+      ));
+      final view = await buildFor(
+        store,
+        nowOf: () => DateTime.utc(2026, 8, 29, 11, 21),
+      ).read();
+      expect(
+        view,
+        isA<DispenserRestOffer>(),
+        reason:
+            'cumulative 40 minutes unanswered: the launch deal hides '
+            'behind the offer, never a dodge by chaining',
+      );
+    });
+
     test('extend appends exactly one session_extended{15} — one minted '
         'instant, a v7 id — and the read-back returns the card with '
         'the lifted pocket (chip reads 60)', () async {
@@ -1591,15 +1673,20 @@ void main() {
       expect(store.entries.map((entry) => entry.kind).toList(), [
         'session_started',
         'session_extended',
+        'card_dealt',
       ]);
-      final extended = store.entries.last;
+      final extended = store.entries.firstWhere(
+        (entry) => entry.kind == 'session_extended',
+      );
       expect(extended.pocketMinutes, checkpointIntervalMinutes);
       expect(extended.itemId, isNull);
       expect(extended.id, matches(v7));
       expect(extended.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(store.entries.last.id, matches(v7));
 
-      // The offer is answered and the card returns — never re-dealt,
-      // a fresh deal — carrying the lifted pocket for the chip.
+      // No standing card existed, so the command minted the deal
+      // (AD-3) — the card the surface shows is one this write landed.
       expect(view, isA<DispenserDealt>());
       expect((view as DispenserDealt).pocketMinutes, 60);
     });
@@ -1661,8 +1748,8 @@ void main() {
     });
 
     test('extend at the close: one session_extended{15} lifts the '
-        'pocket 15→30 and the read after deals — the same silent '
-        'action, no second mechanism', () async {
+        'pocket 15→30 and the bundled card_dealt lets Hecho land — '
+        'the same silent action, no second mechanism', () async {
       final store = _RecordingStore();
       seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
       final controller = buildFor(store);
@@ -1673,10 +1760,29 @@ void main() {
 
       final view = await controller.extend();
 
-      expect(store.entries.last.kind, 'session_extended');
-      expect(store.entries.last.pocketMinutes, 15);
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'session_extended',
+        'card_dealt',
+      ]);
+      expect(
+        store.entries
+            .firstWhere((entry) => entry.kind == 'session_extended')
+            .pocketMinutes,
+        15,
+      );
       expect(view, isA<DispenserDealt>());
-      expect((view as DispenserDealt).pocketMinutes, 30);
+      if (view is! DispenserDealt) {
+        fail('expected DispenserDealt after close-continue');
+      }
+      expect(view.pocketMinutes, 30);
+
+      await controller.complete(view);
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done'),
+        hasLength(1),
+        reason: 'the bundled deal is unanswered, so Hecho lands (AD-3)',
+      );
     });
 
     test('a failing extend append rethrows to the caller and lands '
@@ -1696,12 +1802,18 @@ void main() {
         reason: 'nothing landed on the failed write',
       );
 
-      // The chain recovered: the retried extension lands its one row.
+      // The chain recovered: the retried extension lands its rows.
       final view = await controller.extend();
       expect(inner.entries.skip(before).map((entry) => entry.kind).toList(), [
         'session_extended',
+        'card_dealt',
       ]);
-      expect(inner.entries.last.pocketMinutes, 15);
+      expect(
+        inner.entries
+            .firstWhere((entry) => entry.kind == 'session_extended')
+            .pocketMinutes,
+        15,
+      );
       expect(view, isA<DispenserDealt>());
     });
 

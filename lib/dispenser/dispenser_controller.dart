@@ -75,7 +75,9 @@ final class DispenserRestOffer extends DispenserView {
 /// per operation and threaded in (2.1); `declarePocket` (Story 2.2) and
 /// `pause` (Story 2.3, FR-9) round the surface — a declaration and the
 /// quiet one-row stop — and `extend` (Story 2.4, FR-10) is the
-/// checkpoint's silent continue, the one-row extension.
+/// checkpoint's silent continue: one `session_extended`, plus the
+/// bundled next deal when the lift unblocks a sitting with no
+/// unanswered card (AD-3).
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -349,28 +351,37 @@ class DispenserController {
   }
 
   /// Extends the sitting (Story 2.4, FR-10, AD-19): the checkpoint's
-  /// silent continue, in [pause]'s shape minus the catalogue —
-  /// `sessionExtend` reads only the log, so no catalogue load exists on
-  /// this path. Exactly one `session_extended` row appends when a
-  /// session is open — one minted instant, a v7 id, and
+  /// silent continue, in [declarePocket]'s write shape — `sessionExtend`
+  /// needs the catalogue for the bundled next deal (AD-3), the same
+  /// door `sessionStart` uses. Exactly one `session_extended` row
+  /// appends when a session is open — one minted instant, a v7 id, and
   /// `checkpointIntervalMinutes` added minutes as the row's whole
-  /// payload — through the core's single sanctioned minter; a tap with
-  /// nothing open appends nothing at all: the accepted quiet no-op, the
-  /// pause's own precedent. The walk lifts the sitting's declared
-  /// pocket by the added minutes (deadline and ceiling; the sum may
-  /// pass the declarable 1–60 range, which bounds starts only), while
-  /// the start row keeps FR-23's original pocket. The instant is minted
-  /// at entry, before any await, so the row describes the tap. A
-  /// failing append rethrows to the caller while the chain recovers.
-  /// The fresh view — the card returned to the surface, or the close
-  /// still standing — is read back from the log the extension made
-  /// true, and the standing card is never re-dealt: the extension
-  /// touches no `card_*` row.
+  /// payload — through the core's single sanctioned minter; when the
+  /// lift unblocks a sitting with no unanswered card the command also
+  /// returns the next `card_dealt`, so the card the surface shows is
+  /// one this write minted. A tap with nothing open appends nothing at
+  /// all: the accepted quiet no-op, the pause's own precedent. The walk
+  /// lifts the sitting's declared pocket by the added minutes (deadline
+  /// and ceiling; the sum may pass the declarable 1–60 range, which
+  /// bounds starts only), while the start row keeps FR-23's original
+  /// pocket. The instant is minted at entry, before any await, so the
+  /// rows describe the tap. A failing append rethrows to the caller
+  /// while the chain recovers. The fresh view — the standing card
+  /// returned, the newly dealt card, or the close still standing — is
+  /// read back from the log the extension made true, and a standing
+  /// card is never re-dealt.
   Future<DispenserView> extend() {
     final now = nowOf();
     final write = _enqueueWrite(() async {
+      final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
-      final contents = sessionExtend(log: log);
+      final contents = sessionExtend(
+        catalogue: catalogue,
+        log: log,
+        instantUtcMicros: now.microsecondsSinceEpoch,
+        offsetSeconds: now.timeZoneOffset.inSeconds,
+        bagMinutes: deriveTimeBagMinutes(log),
+      );
       for (final content in contents) {
         await store.appendLogEntry((
           id: idMinter.v7(),

@@ -53,11 +53,19 @@ class HechoButton extends StatelessWidget {
             constraints: const BoxConstraints(
               minHeight: Spacing.touchTargetMin,
             ),
-            child: Center(
-              // bodyLarge is the wired action-primary role (theme.dart).
-              child: Text(
-                label ?? AppStrings.of(context).actionDone,
-                style: theme.textTheme.bodyLarge,
+            child: Padding(
+              // The checkpoint's wrapping sentence must stay inside
+              // the 14px clip radius; `Hecho` never met the corners.
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.chipPaddingHorizontal,
+              ),
+              child: Center(
+                // bodyLarge is the wired action-primary role (theme.dart).
+                child: Text(
+                  label ?? AppStrings.of(context).actionDone,
+                  style: theme.textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ),

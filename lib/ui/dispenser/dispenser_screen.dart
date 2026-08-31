@@ -588,16 +588,18 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// (Story 2.4, FR-10): `_onPause`'s mechanics verbatim over the
   /// controller's extend path — exactly one `session_extended` row, or
   /// nothing at all when no session is open (the accepted quiet no-op)
-  /// — and the committed view *is* the answer: the card returns to the
-  /// surface, never re-dealt, or the close stands as it did. The
-  /// extension is the checkpoint's silent secondary: never highlighted,
-  /// never animated, no haptic, nothing celebration-shaped. The same
-  /// in-flight guard as an answer keeps the continue from interleaving
-  /// with a `Hecho`, a skip, a declaration or a stop at the surface; a
-  /// launch or foreground read still reading the old log cannot
-  /// overwrite this extension after it lands (the generation bump). A
-  /// failed write is absorbed by the empty frame, quietly, and no
-  /// completion-ack state is this write's to touch.
+  /// — plus the bundled next `card_dealt` when the lift unblocks a
+  /// sitting with no unanswered card (close-continue, AD-3). The
+  /// committed view *is* the answer: the standing card returns, never
+  /// re-dealt; the newly minted deal shows; or the close stands as it
+  /// did. The extension is the checkpoint's silent secondary: never
+  /// highlighted, never animated, no haptic, nothing celebration-shaped.
+  /// The same in-flight guard as an answer keeps the continue from
+  /// interleaving with a `Hecho`, a skip, a declaration or a stop at
+  /// the surface; a launch or foreground read still reading the old log
+  /// cannot overwrite this extension after it lands (the generation
+  /// bump). A failed write is absorbed by the empty frame, quietly, and
+  /// no completion-ack state is this write's to touch.
   Future<void> _onExtend() async {
     if (_writeInFlight) {
       return;

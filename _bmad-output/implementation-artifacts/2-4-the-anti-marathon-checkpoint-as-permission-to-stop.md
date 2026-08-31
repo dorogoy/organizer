@@ -3,7 +3,7 @@ title: 'The Anti-Marathon checkpoint as permission to stop'
 type: 'feature'
 created: '2026-08-31'
 status: 'done'
-review_loop_iteration: 0
+review_loop_iteration: 2
 baseline_commit: '73c713621a44d02c0c52f18ecfd963abe6cf1b61'
 context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44', 'UX-DR51', 'UJ-1', 'NFR9']
 ---
@@ -58,13 +58,13 @@ context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44',
 - `packages/core/lib/derive/checkpoint.dart` (new) -- the derivation + interval constants; `read_facade.dart:4-5` names `core/derive` as derived signals' home (its doc gains the arrival line); AD-6 carve-out; start-day charging idiom `energy/energy.dart:55-78`; `microsPerMinute` `settings/settings.dart:65`; deadline-comparison pattern `weave/weave.dart:368-384`
 - `packages/core/lib/log/log_entry.dart:24-69,144-159` -- ninth kind `sessionExtended` + `SessionExtendEntry{kind, pocketMinutes}` reusing the record column (`ports/store_port.dart:49`), no schema bump (additive pattern `store/substrate.dart:41-63`); renegotiate the `:140` "extensions are 2.4's" doc; parse/convert paths
 - `packages/core/lib/weave/session.dart:139-268` -- the walk's new case: extensions sum into `openSessionPocketMinutes` while a session is open; the start's 1–60 guard (`:200-206`) unchanged; supersede adjacency (`:182-195,208-219`) untouched — the command's guard keeps the kind out of pair interiors
-- `packages/core/lib/commands/session_commands.dart` -- `sessionExtend` beside `sessionDeclare` (`:219-253` the template): `{log, instantUtcMicros}` (no catalogue — `sessionEnd`'s `:200-206` shape), open-session guard, one row carrying the interval; doc: single sanctioned minter, AD-19 sum, FR-23 original-pocket, no fourth closing cause (`:192-199`)
+- `packages/core/lib/commands/session_commands.dart` -- `sessionExtend` beside `sessionDeclare`: `{catalogue, log, instantUtcMicros, offsetSeconds}` (sessionDeclare's shape, review iteration 1 — AD-3 bundled deal on close-continue), open-session guard, one `session_extended` carrying the interval plus `card_dealt?` when no unanswered card stands; doc: single sanctioned minter, AD-19 sum, FR-23 original-pocket, no fourth closing cause
 - `packages/core/lib/weave/weave.dart` -- narrow pool probe (`dealExistsIgnoringPocket` or an equivalent internal seam): the resolver's tiers with `pocketAllows` lifted, documented as the checkpoint's close-continue probe
 - `packages/core/test/log_test.dart:29-51` -- kind pin eight→nine, deliberate; payload pins
 - `packages/core/test/session_test.dart` + `packages/core/test/session_commands_test.dart` -- sum pins (deadline/ceiling lift, original preserved, supersede drops the old session's extensions, 04:00 span charging, stray tolerance); the `sessionExtend` matrix; builders `_started(micros, {pocketMinutes})` (`session_test.dart:41-48`) + an `_extended` sibling
 - `packages/core/test/checkpoint_test.dart` (new) -- every matrix row above + the interval pin; `utcMicros` helper `test/test_util.dart:4-22`
 - `packages/core/test/no_lateness_proof_test.dart:639-700,857-995` -- freeze registration for the new shapes (`SessionExtendEntry`, the derivation's state record); `LogFacts` list unchanged
-- `lib/dispenser/dispenser_controller.dart:21-47,89-120,262-282` -- third variant `DispenserRestOffer{pocketMinutes}`; `read()` maps the derivation per the frozen precedence; `extend()` in `pause()`'s shape — the no-catalogue core call + write-then-read-back
+- `lib/dispenser/dispenser_controller.dart:21-47,89-120,262-282` -- third variant `DispenserRestOffer{pocketMinutes}`; `read()` maps the derivation per the frozen precedence; `extend()` in `declarePocket`'s write shape — catalogue + bag threaded, write-then-read-back
 - `lib/ui/dispenser/dispenser_screen.dart:384-396,403-409,484-562` -- the offer arm (primary `checkpointStop` in the Done button's register, `task_card.dart:75-109`'s grammar; `checkpointContinue` as `SecondaryTextAction`); `_onExtend` = `_onPause` verbatim; the closed arm's conditional continue; `_withCompletionAck` wrap; short-surface reflow inherited (`:90,350-370`)
 - `lib/l10n/app_es.arb:129-137` -- READ ONLY: both strings pre-seeded with accessors generated; `make codegen-check` must stay green with zero churn
 - `test/no_lateness_proof_test.dart:10-17,199-207,311-334` -- census 4→5 in both maps, header wording, `bannedWireNames` += `session_extended`; constant-idiom scan: `sessionExtend(` exactly once in the controller (`:270-283` pattern)
@@ -86,7 +86,7 @@ context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44',
 
 **Acceptance Criteria:**
 - Given a session and a day whose cumulative session time crosses an unanswered interval multiple, when any read resolves, then the permission-to-rest screen is the primary surface — `Nada más por el momento` primary, `Quiero seguir` silent secondary — and no continuation question exists anywhere (FR-10, UX-DR44, UX-DR51)
-- Given the offer, when either action is taken, then exactly one row appends (`session_extended{15}` or `session_ended`) and stopping costs one tap (FR-9, FR-10)
+- Given the offer, when either action is taken, then exactly one `session_extended{15}` or `session_ended` appends and stopping costs one tap (FR-9, FR-10); when the lift unblocks a sitting with no unanswered card, the command also returns the bundled next `card_dealt` (AD-3)
 - Given chained same-day sessions, when a multiple crosses, then it stays pending until extended — no boundary, supersede or stop consumes it (FR-10, AD-19)
 - Given a card in flight at the crossing, when the surface resolves, then the card stays finishable and the offer preempts only deals made at-or-after the boundary (FR-10)
 - Given a pocket that elapses at a multiple, when the close resolves, then the close is the offer — `Quiero seguir` offered only while the pool could deal — and no second surface exists (FR-10, UJ-1)
@@ -94,6 +94,8 @@ context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44',
 - Given the completion gate, then `make check`, `make test-core` and `make gate` are green
 
 ## Spec Change Log
+
+- 2026-08-31 review iteration 1: `sessionExtend` takes catalogue + instant (`sessionDeclare`'s shape) and returns `[session_extended, card_dealt?]` when the lift unblocks a sitting with no unanswered card, so close-continue's visible card is command-minted (AD-3). Mid-pocket still one row. Frozen Always (`exactly one session_extended`) unchanged.
 
 ## Design Notes
 
@@ -148,7 +150,7 @@ context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44',
 
 **The minter**
 
-- `sessionExtend`, log-only, single row, +interval, refusal is silence
+- `sessionExtend`, catalogue + instant, one `session_extended` plus bundled deal when unanswered is empty, +interval, refusal is silence
   [`session_commands.dart:231`](../../packages/core/lib/commands/session_commands.dart#L231)
 
 **The probe**
@@ -197,3 +199,28 @@ context: ['FR-10', 'FR-8', 'FR-9', 'FR-23', 'AD-6', 'AD-17', 'AD-19', 'UX-DR44',
 
 - The census — five append sites, the wire name, the header wording
   [`no_lateness_proof_test.dart:311`](../../test/no_lateness_proof_test.dart#L311)
+
+### Review Findings
+
+Chunk 1 of 4 — production core (`derive/checkpoint`, `session_commands`, `session` walk, `weave`, `log_entry`, `read_facade`). Shell, tests, and artifacts are later chunks.
+
+- [x] [Review][Patch] Close-continue shows a never-dealt card, so Hecho appends nothing — `sessionExtend` takes catalogue + instant (sessionDeclare's shape) and returns `[session_extended, card_dealt?]` when the lift unblocks a sitting with no unanswered card; mid-pocket stays one row. Human chose option 2. [`packages/core/lib/commands/session_commands.dart:231`]
+- [x] [Review][Patch] `SessionExtendEntry` documents minted-shape-or-absent; walk and derive accept any `pocketMinutes > 0` [`packages/core/lib/log/log_entry.dart:187`]
+- [x] [Review][Patch] `offerDue` field comment says "the sitting's extensions" but the fold is same-day across sittings [`packages/core/lib/derive/checkpoint.dart:57`]
+
+Chunk 2 of 4 — shell (`dispenser_controller.dart`, `dispenser_screen.dart`, `task_card.dart`).
+
+- [x] [Review][Patch] Failed `Quiero seguir` has no screen pin of the I/O empty-frame row — pause and declare already have the `_FailNextAppendStore` surface test; continue does not [`test/ui/dispenser/dispenser_screen_test.dart:3430`]
+- [x] [Review][Patch] `HechoButton` with the wrapping checkpoint label has no `textAlign: center` and no horizontal inset, so `Nada más por el momento` at 200% sits start-aligned and can meet the 14px clip radius [`lib/ui/dispenser/task_card.dart:58`]
+- [x] [Review][Patch] `_onExtend` still documents a one-row extension / card-returns-or-close-stands and omits close-continue's command-minted deal [`lib/ui/dispenser/dispenser_screen.dart:587`]
+- [x] [Review][Defer] Sequential `appendLogEntry` is not a transaction — if bundled `card_dealt` throws after `session_extended` landed, resume can show a never-dealt card [`lib/dispenser/dispenser_controller.dart:385`] — deferred, pre-existing
+
+Chunk 3+4 of 4 — tests and artifacts (combined pass).
+
+- [x] [Review][Patch] Mid-pocket due is pinned at 16, never at the matrix `≥ 15` boundary [`packages/core/test/checkpoint_test.dart:97`]
+- [x] [Review][Patch] Three-offers row never derives at 15 or 30 — only after both extends at minute 46 [`packages/core/test/checkpoint_test.dart:138`]
+- [x] [Review][Patch] Chained shorts / stop-then-next-sitting never put a bundled `card_dealt` on the new sitting, so `offerPreemptsStandingDeal` (FR-10's named dodge) is unpinned [`packages/core/test/checkpoint_test.dart:189`]
+- [x] [Review][Patch] Close-continue with a standing unanswered card is untested — bundling must not mint a second deal [`packages/core/test/session_commands_test.dart:280`]
+- [x] [Review][Patch] `HechoButton` wrap/inset is proven on `'Hecho'`, not on `checkpointStop` [`test/ui/dispenser/task_card_test.dart:243`]
+- [x] [Review][Patch] `closeContinueReachable` is sampled at just-elapsed and +40, never at the exclusive `pocket+interval` bound [`packages/core/test/checkpoint_test.dart:685`]
+- [x] [Review][Defer] Pool-exhausted stray `extend()` on an still-open sitting is UI-guarded (`continueOffered: false`) while the minter still only no-ops when nothing is open — same open-session command shape as pause [`packages/core/lib/commands/session_commands.dart:252`] — deferred, pre-existing command guard
