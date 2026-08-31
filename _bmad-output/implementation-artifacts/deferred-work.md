@@ -126,3 +126,8 @@
 - source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
   summary: The write paths' awaited chain (sessionSettled + controller write + read-back) has no timeout — a hung future holds `_writeInFlight` forever, dead-locking every write control on the surface.
   evidence: Review loop 2 (blind-hunter + edge-case): `_onPause`/`_onDeclarePocket`/`_onSkip`/`_onDone` all await unbounded; the pattern ships since 2.2, applies to all four controls equally, and a local drift store makes hangs unlikely — but the wedge is real and wants one decided recovery contract.
+
+## Deferred from: code review of 2-3-pause-and-the-advance-upkeep-split-applied-to-it.md (2026-08-31)
+
+- Separate a successful write from a failed read-back: `_onPause` and the established write handlers collapse both failures into the empty frame, so a persisted `session_ended` is not represented until a subsequent foreground refresh. This is a pre-existing, shared recovery-contract decision.
+- Recover the Dispenser write guard from a permanently pending dependency: every write handler awaits lifecycle settlement, persistence, and read-back without a timeout or cancellation policy. This is a pre-existing, shared recovery-contract decision.

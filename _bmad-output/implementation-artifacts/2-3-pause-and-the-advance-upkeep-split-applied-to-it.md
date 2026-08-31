@@ -75,11 +75,17 @@ context: ['FR-9', 'FR-7', 'FR-12', 'AD-1', 'AD-19', 'AD-20', 'UX-DR41', 'UX-DR43
 - [x] `packages/core/test/weave_test.dart` + `packages/core/test/session_test.dart` + `packages/core/test/facade_test.dart` -- afterEnd flip, sessionless nulls, three worked cases, 04:00 pause-path, bag invariance
 - [x] `test/no_lateness_proof_test.dart` -- dispenser census 3→4
 - [x] `test/dispenser/dispenser_controller_test.dart` + `test/ui/dispenser/dispenser_screen_test.dart` -- pause matrix + screen flows + census updates
-- [x] `lib/ui/dispenser/dispenser_screen.dart` -- the short-surface floor: the Dispenser lays out with ZERO RenderFlex overflow on the 320×220 @200% class Story 2.2 pinned — when the pinned chrome (chip + footer band) cannot fit, the footer band joins the scroll region (or an equivalent explicit reflow); the accessibility floor outranks pinned chrome (UX-DR45's pin is a comfort, not a truncation license)
+- [x] `lib/ui/dispenser/dispenser_screen.dart` -- the short-surface floor: the Dispenser lays out with ZERO RenderFlex overflow on the 320×220 @200% class Story 2.2 pinned — when the pinned chrome cannot fit, the chip and footer band join the scroll region together; the accessibility floor outranks pinned chrome (UX-DR45's pin is a comfort, not a truncation license)
 - [x] `test/ui/dispenser/dispenser_screen_test.dart` -- the short-surface pin RESTORED at 320×220 @200% asserting `tester.takeException()` is null and both footer tap targets lay out inside the viewport; the pin is never retargeted to match the code
 - [x] `test/ui/dispenser/dispenser_screen_test.dart` -- stop present on the empty frame (post-failed-write `_view = null`): the control renders and taps serialize through the guard
 - [x] `test/ui/dispenser/dispenser_screen_test.dart` + `test/dispenser/dispenser_controller_test.dart` -- pause race pins mirroring the ack-generation and declare-interleave patterns: a stale launch/foreground read cannot overwrite the committed close (`_readGeneration`), and a pause enqueued behind a completion lands coherently through the shared queue
 - [x] `test/dispenser/dispenser_controller_test.dart` -- the two untested matrix rows: pausing a lingering exhausted-POOL session (surface already the close, `[session_ended]` lands), and a pocketed-unelapsed mid-pause with the card standing (chip reads the declared pocket before, 15 after)
+
+### Review Findings
+
+- [x] [Review][Patch] Reflow all Dispenser chrome when it cannot fit [lib/ui/dispenser/dispenser_screen.dart:354]
+- [x] [Review][Defer] Separate a successful write from a failed read-back [lib/ui/dispenser/dispenser_screen.dart:550] -- deferred, pre-existing
+- [x] [Review][Defer] Recover the Dispenser write guard from a permanently pending dependency [lib/ui/dispenser/dispenser_screen.dart:539] -- deferred, pre-existing
 
 **Acceptance Criteria:**
 - Given any rendered Dispenser state, when the surface is inspected, then the stop control is present, tappable and never disabled, and a tap costs exactly one interaction with no confirmation (FR-9, UX-DR43)

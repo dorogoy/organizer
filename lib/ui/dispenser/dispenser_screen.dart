@@ -60,8 +60,8 @@
 // default: the close is the stop's whole presentation, silent by
 // construction. A tap with nothing open appends nothing — the accepted
 // quiet no-op. The footer band wraps (never truncates) at 200%, and on
-// a body too short to hold the pinned chrome the band joins the scroll
-// region: the accessibility floor outranks UX-DR45's pin.
+// a body too short to hold the pinned chrome the chip and band join the
+// scroll region together: the accessibility floor outranks UX-DR45's pin.
 import 'dart:async';
 
 import 'package:core/settings/settings.dart';
@@ -81,17 +81,13 @@ import 'task_card.dart';
 /// (`Spacing.screenMargin`) stays in force below it.
 const double _cardMaxWidth = 480;
 
-/// The short-surface floor's decision height (Story 2.3, UX-DR45 vs
-/// NFR6): the band stays pinned chrome while the body holds the
-/// common short-handset height (the 320-wide class at 480 tall, whose
-/// 200%-grown chrome still fits beside a scrolling card); at the
-/// Story-2.2 pin class of 320×220 and below, the 200%-grown chrome
-/// (chip + band) outgrows the body — measured, not guessed — and the
-/// band joins the scroll region rather than overflowing. The
-/// accessibility floor outranks pinned chrome, never the reverse; the
-/// 320×220 @200% pin guards this number from below and is never
-/// retargeted.
-const double _pinnedFooterLeastBodyHeight = 320;
+/// The short-surface floor's base decision height (Story 2.3, UX-DR45 vs
+/// NFR6). It scales with the user's text scale: at 200%, the chrome stays
+/// pinned from 320dp upward; below that, both the chip and footer join one
+/// scroll region. Moving all chrome together prevents a viewport shorter
+/// than the grown chip itself from overflowing. The 320×220 @200% pin
+/// guards this floor without making 320 a fixed answer at every scale.
+const double _pinnedChromeBaseBodyHeight = 160;
 
 /// The ladder's stepped options (Story 2.2): every offered value is
 /// inside the pocket's command range, so out-of-range is unreachable
@@ -348,53 +344,56 @@ class _DispenserScreenState extends State<DispenserScreen>
       // trigger sits above the scroll region and the footer below it as
       // Dispenser chrome, so neither scrolls away and the card between
       // them grows and scrolls on its own (UX-DR45) — until the body is
-      // too short to hold that grown chrome (the 320×220 class at 200%):
-      // then the footer band joins the scroll region, for the
+      // too short to hold that grown chrome: then the chip and footer join
+      // the same scroll region, for the
       // accessibility floor outranks the pin (Story 2.3).
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final bandPinned =
-              constraints.maxHeight >= _pinnedFooterLeastBodyHeight;
-          final joinedBand = bandPinned ? null : _footerActions(context);
+          final chromePinned =
+              constraints.maxHeight >=
+              _pinnedChromeBaseBodyHeight *
+                  MediaQuery.textScalerOf(context).scale(1);
+          final content = _viewContent(context, view);
+          if (!chromePinned) {
+            return _frame(
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _pocketTrigger(context, inFrame: true),
+                  const SizedBox(height: Spacing.cardPadding),
+                  content,
+                  const SizedBox(height: Spacing.cardPadding),
+                  _footerActions(context),
+                ],
+              ),
+            );
+          }
           return Column(
             children: [
               _pocketTrigger(context),
-              Expanded(
-                child: switch (view) {
-                  // The empty frame keeps its bare ground — and on a
-                  // short body the joined band stays present on it too:
-                  // the stop renders in every Dispenser state.
-                  null =>
-                    joinedBand == null
-                        ? const SizedBox.shrink()
-                        : _frame(
-                            const SizedBox.shrink(),
-                            joinedFooterBand: joinedBand,
-                          ),
-                  DispenserDealt dealt => _frame(
-                    _withCompletionAck(
-                      context,
-                      TaskCard(
-                        card: dealt.card,
-                        onDone: () => _onDone(dealt),
-                        onSkip: () => _onSkip(dealt),
-                      ),
-                    ),
-                    joinedFooterBand: joinedBand,
-                  ),
-                  DispenserClosed() => _frame(
-                    _withCompletionAck(context, _closeText(context)),
-                    joinedFooterBand: joinedBand,
-                  ),
-                },
-              ),
-              if (bandPinned) _pinnedFooterBand(context),
+              Expanded(child: _frame(content)),
+              _pinnedFooterBand(context),
             ],
           );
         },
       ),
     );
   }
+
+  Widget _viewContent(BuildContext context, DispenserView? view) =>
+      switch (view) {
+        null => const SizedBox.shrink(),
+        DispenserDealt dealt => _withCompletionAck(
+          context,
+          TaskCard(
+            card: dealt.card,
+            onDone: () => _onDone(dealt),
+            onSkip: () => _onSkip(dealt),
+          ),
+        ),
+        DispenserClosed() => _withCompletionAck(context, _closeText(context)),
+      };
 
   /// The standing declared pocket the trigger chip carries: the
   /// committed view's own fact — the open session's pocket, absent when
@@ -414,18 +413,20 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// too, because a spent pocket is declared until superseded. The
   /// carried minutes are log-derived data, never session state held in
   /// memory as truth.
-  Widget _pocketTrigger(BuildContext context) {
+  Widget _pocketTrigger(BuildContext context, {bool inFrame = false}) {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.screenMargin,
-          vertical: Spacing.spacingBase,
-        ),
-        child: Center(
-          child: PocketTriggerChip(
-            minutes: _standingPocketMinutes,
-            onTap: _openPocketLadder,
+        padding: const EdgeInsets.symmetric(vertical: Spacing.spacingBase),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: inFrame ? 0 : Spacing.screenMargin,
+          ),
+          child: Center(
+            child: PocketTriggerChip(
+              minutes: _standingPocketMinutes,
+              onTap: _openPocketLadder,
+            ),
           ),
         ),
       ),
@@ -595,9 +596,8 @@ class _DispenserScreenState extends State<DispenserScreen>
   }
 
   /// The band as pinned chrome below the scroll region (UX-DR45) — the
-  /// common surface. A body shorter than
-  /// [_pinnedFooterLeastBodyHeight] never reaches here: the actions
-  /// join the scroll region instead, inside [_frame].
+  /// common surface. A body below the text-scaled chrome floor never
+  /// reaches here: both chrome controls join the scroll region instead.
   Widget _pinnedFooterBand(BuildContext context) {
     return SafeArea(
       top: false,
@@ -649,28 +649,13 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// with the 48dp minimum air inside the screen margins and the
   /// max-width bound. SafeArea first, so scrolled content never renders
   /// under the status bar or a cutout — the minimum air lives inside it.
-  /// [joinedFooterBand] is the short-surface reflow (Story 2.3): the
-  /// footer actions riding inside the scroll region below the view —
-  /// present and tappable, growing and scrolling, never truncated —
-  /// when the body is too short to hold them as pinned chrome.
-  Widget _frame(Widget child, {Widget? joinedFooterBand}) {
-    Widget content = Center(
+  Widget _frame(Widget child) {
+    final content = Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
         child: child,
       ),
     );
-    if (joinedFooterBand != null) {
-      content = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          content,
-          const SizedBox(height: Spacing.cardPadding),
-          joinedFooterBand,
-        ],
-      );
-    }
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(

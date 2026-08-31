@@ -3077,8 +3077,9 @@ void main() {
         expect(rect.bottom, lessThanOrEqualTo(screen.height));
       }
 
-      // One step below: the band has joined the scroll region — it is
-      // the scroll's own Wrap now.
+      // One step below: all chrome has joined the scroll region. Moving
+      // only the band would leave the chip outside the accessibility
+      // fallback, where a still-shorter body could overflow it.
       await pumpAt(const ui.Size(320, 319));
       expect(tester.takeException(), isNull);
       expect(
@@ -3087,8 +3088,48 @@ void main() {
           matching: find.byType(Wrap),
         ),
         findsOneWidget,
-        reason: 'the band joins the scroll below the boundary',
+        reason: 'the footer joins the scroll below the boundary',
       );
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(PocketTriggerChip),
+        ),
+        findsOneWidget,
+        reason: 'the chip follows the footer into the scroll fallback',
+      );
+    });
+
+    testWidgets('a body shorter than the grown chip reflows all chrome '
+        'without overflow', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      expect(tester.takeException(), isNull);
+      final scrollable = find.byType(Scrollable);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(PocketTriggerChip),
+        ),
+        findsOneWidget,
+      );
+      for (final label in [
+        AppStringsEs().actionStop,
+        AppStringsEs().newProjectLink,
+      ]) {
+        final target = find.text(label);
+        await tester.scrollUntilVisible(target, 200, scrollable: scrollable);
+        final rect = _rect(tester, target);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(100));
+      }
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('the stop stands on the empty frame of a short surface '
