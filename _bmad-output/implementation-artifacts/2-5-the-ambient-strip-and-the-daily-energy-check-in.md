@@ -120,6 +120,12 @@ context: ['FR-4', 'FR-10', 'UX-DR4', 'UX-DR9', 'UX-DR20', 'UX-DR22', 'UX-DR41', 
 - [x] [Review][Patch] The strip harness omitted `sessionSettled` (launch frame could be the pre-session close, so "below the card" was never asserted) and duplicated an `@override`; the harness threads the settle future, the first test pins card-above-strip geometry, and a new test pins the strip below the rest offer. [`test/ui/dispenser/ambient_strip_test.dart`]
 - [x] [Review][Patch] Matrix row "Low-energy close-continue" was verified only at the core boundary with hand-fed energy — the seam threading to the probe was unpinned. New controller test: baja day + spent instant tier behind an elapsed pocket reads `DispenserClosed.continueOffered == false` through `read()`. [`test/dispenser/dispenser_controller_test.dart`]
 - [x] [Review][Patch] The two new strip handlers had no stale-read race pin (siblings pause/continue do): a queued-read fake now drives the ✕-vs-stale-`checkInShown: true`-read race and pins the `_readGeneration` refusal — a dismissed strip cannot resurrect within the opening. [`test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] Future-dated log rows no longer affect the current resolution — energy and strip derivations exclude entries after the supplied read instant; core pins cover both a future answer and opening. [`packages/core/lib/energy/energy.dart`, `packages/core/lib/derive/strip.dart`]
+- [x] [Review][Patch] The tap timestamp is captured before lifecycle settlement and passed into the controller for both an answer and a dismissal; a controller pin crosses 04:00. [`lib/ui/dispenser/dispenser_screen.dart`, `lib/dispenser/dispenser_controller.dart`]
+- [x] [Review][Patch] The ✕ now shares the ambient action guard with battery marks, and the widget suite proves a pending dismissal rejects a stale battery tap. [`lib/ui/dispenser/dispenser_screen.dart`, `test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] Widget tests now prove llena and media emit wire values 0 and 1 and leave the next deal outside the instant-only filter. [`test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] The widget suite now proves a failed energy append restores the standing card and unanswered check-in. [`test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] Removed the extra terminal blank line; `git diff --check` passes. [`_bmad-output/implementation-artifacts/2-5-the-ambient-strip-and-the-daily-energy-check-in.md`]
 
 ## Suggested Review Order
 
@@ -183,5 +189,3 @@ context: ['FR-4', 'FR-10', 'UX-DR4', 'UX-DR9', 'UX-DR20', 'UX-DR22', 'UX-DR41', 
 
 - Screen flows, geometry below card and offer, the ✕ race, the 200% floor
   [`ambient_strip_test.dart`](../../test/ui/dispenser/ambient_strip_test.dart)
-
-

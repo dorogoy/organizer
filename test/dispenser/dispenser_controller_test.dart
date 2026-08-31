@@ -2076,6 +2076,35 @@ void main() {
       expect(view.checkInShown, isFalse);
     });
 
+    test('an energy answer and dismissal honor their tap-time day across '
+        '04:00', () async {
+      var now = DateTime.utc(2026, 8, 29, 12);
+      final tappedAt = now;
+      final answerStore = _RecordingStore();
+      await openSessionAndReadFirstDeal(answerStore);
+      final answering = buildFor(answerStore, nowOf: () => now);
+
+      now = DateTime.utc(2026, 8, 30, 5);
+      await answering.setEnergy(EnergyLevel.low, tappedAt: tappedAt);
+      expect(
+        answerStore.entries.last.instantUtcMicros,
+        tappedAt.microsecondsSinceEpoch,
+      );
+
+      final dismissalStore = _RecordingStore();
+      await openSessionAndReadFirstDeal(dismissalStore);
+      now = DateTime.utc(2026, 8, 29, 12);
+      final dismissing = buildFor(dismissalStore, nowOf: () => now);
+      now = DateTime.utc(2026, 8, 30, 5);
+      await dismissing.dismissCheckIn(tapTime: tappedAt);
+      now = tappedAt;
+      expect(
+        (await dismissing.read()).checkInShown,
+        isFalse,
+        reason: 'the marker belongs to the day on which the user tapped ✕',
+      );
+    });
+
     test('the ✕ dismissal writes nothing and hides the strip for the '
         'rest of the opening; a later same-day opening hides it by the '
         'derivation alone (matrix: dismissal, re-open)', () async {

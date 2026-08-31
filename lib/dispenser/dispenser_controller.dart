@@ -483,8 +483,8 @@ class DispenserController {
   /// never withdrawn; on media and llena the pool is unchanged. A
   /// failing append rethrows to the caller while the chain recovers —
   /// nothing landed, the strip stands, and the retry is the same tap.
-  Future<DispenserView> setEnergy(EnergyLevel level) {
-    final now = nowOf();
+  Future<DispenserView> setEnergy(EnergyLevel level, {DateTime? tappedAt}) {
+    final now = tappedAt ?? nowOf();
     final write = _enqueueWrite(() async {
       // `energySet` is pure over its input — no log read, no bundled
       // deal — so the write path reads nothing: the row is the tap.
@@ -516,11 +516,11 @@ class DispenserController {
   /// hides the resident — whatever opening it belongs to — and the
   /// next day starts clean, decided by the derivation on its own rows.
   /// Never re-shown within the day, never styled as anything owed.
-  Future<DispenserView> dismissCheckIn() {
+  Future<DispenserView> dismissCheckIn({DateTime? tapTime}) {
     // The day is minted at entry, from the tap's own instant — no log
     // read exists on this path, because nothing about the dismissal
     // depends on the log.
-    _checkInDismissMarker = _dayOf(nowOf());
+    _checkInDismissMarker = _dayOf(tapTime ?? nowOf());
     return read();
   }
 

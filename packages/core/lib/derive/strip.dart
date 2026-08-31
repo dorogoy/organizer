@@ -97,10 +97,17 @@ bool _residentEligible(
   Calendar calendar,
   Day today, {
   required bool answeredToday,
+  required int instantUtcMicros,
 }) {
   switch (resident) {
     case StripResident.energyCheckIn:
-      return !answeredToday && _firstOpeningUnderway(entries, calendar, today);
+      return !answeredToday &&
+          _firstOpeningUnderway(
+            entries,
+            calendar,
+            today,
+            instantUtcMicros: instantUtcMicros,
+          );
     case StripResident.firstRunCuration:
       // FR-31's once-ever offer — Epic 8's data.
       return false;
@@ -144,13 +151,17 @@ bool _residentEligible(
 bool _firstOpeningUnderway(
   List<LogEntry> entries,
   Calendar calendar,
-  Day today,
-) {
+  Day today, {
+  required int instantUtcMicros,
+}) {
   var appOpensToday = 0;
   LogEntry? earliestToday;
   var sessionOpen = false;
   Day? openSessionDay;
   for (final entry in entries) {
+    if (entry.instantUtcMicros > instantUtcMicros) {
+      continue;
+    }
     final ownDay = calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds);
     if (ownDay == today) {
       earliestToday ??= entry;
@@ -215,6 +226,7 @@ StripState? deriveStrip({
   var answeredToday = false;
   for (final entry in entries) {
     if (entry is EnergySetEntry &&
+        entry.instantUtcMicros <= instantUtcMicros &&
         calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds) == today) {
       answeredToday = true;
       break;
@@ -227,6 +239,7 @@ StripState? deriveStrip({
       calendar,
       today,
       answeredToday: answeredToday,
+      instantUtcMicros: instantUtcMicros,
     )) {
       return StripState(resident: resident);
     }

@@ -479,13 +479,14 @@ class _DispenserScreenState extends State<DispenserScreen>
       return;
     }
     _writeInFlight = true;
+    final tappedAt = widget.controller.nowOf();
     // A launch or foreground refresh may still be reading the old log. Its
     // result must not overwrite this answer after it lands.
     _readGeneration++;
     var releaseAfterRefresh = false;
     try {
       await widget.sessionSettled?.call();
-      final view = await widget.controller.setEnergy(level);
+      final view = await widget.controller.setEnergy(level, tappedAt: tappedAt);
       if (!mounted) {
         return;
       }
@@ -522,25 +523,37 @@ class _DispenserScreenState extends State<DispenserScreen>
 
   /// The ✕ tap (Story 2.5, FR-4, UX-DR22): skip-for-today, and
   /// deliberately no write — the dismissal is shell state keyed by the
-  /// opening, so the committed view is simply the same read minus the
-  /// strip. No in-flight guard is this tap's: it owns no write path a
-  /// `Hecho` could interleave with, and a read it races lands behind it
-  /// on the controller's own queue. A failed read is absorbed by the
+  /// day, so the committed view is simply the same read minus the strip.
+  /// It shares the in-flight guard with a battery mark: while either
+  /// action waits for lifecycle settlement, the stale alternative cannot
+  /// turn a dismissal into an answer. A failed read is absorbed by the
   /// empty frame, quietly.
   Future<void> _onDismissCheckIn() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    final tapTime = widget.controller.nowOf();
     // A launch or foreground refresh may still be reading the old log.
     // Its result must not resurrect the strip after this dismissal
     // commits.
     _readGeneration++;
+    var releaseAfterRefresh = false;
     try {
       await widget.sessionSettled?.call();
-      final view = await widget.controller.dismissCheckIn();
+      final view = await widget.controller.dismissCheckIn(tapTime: tapTime);
       if (mounted) {
         setState(() => _view = view);
+        releaseAfterRefresh = true;
+        _releaseWriteAfterRefreshFrame();
       }
     } catch (_) {
       if (mounted) {
         setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
       }
     }
   }

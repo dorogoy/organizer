@@ -131,6 +131,18 @@ void main() {
       }
     });
 
+    test('same-day rows after the read instant do not answer or consume '
+        'the opening', () {
+      expect(
+        resolve([
+          _opened(utcMicros(2026, 8, 29, 9)),
+          _energy(utcMicros(2026, 8, 29, 13), EnergyLevel.low),
+          _opened(utcMicros(2026, 8, 29, 14), id: 'future-open'),
+        ])?.resident,
+        StripResident.energyCheckIn,
+      );
+    });
+
     test('only the current day\'s rows answer — yesterday\'s energy_set '
         'leaves today due again (matrix: day boundary)', () {
       expect(

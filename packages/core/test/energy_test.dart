@@ -133,6 +133,26 @@ void main() {
     });
 
     test(
+      'a same-day observation after the read instant waits for its time',
+      () {
+        expect(
+          deriveEnergyForLivePool(
+            [
+              (
+                level: EnergyLevel.low,
+                instantUtcMicros: utcMicros(2026, 8, 29, 19),
+                offsetSeconds: nowOffsetSeconds,
+              ),
+            ],
+            nowUtcMicros,
+            nowOffsetSeconds,
+          ),
+          EnergyLevel.full,
+        );
+      },
+    );
+
+    test(
       'exact-microsecond ties resolve to the later-in-input observation',
       () {
         final tie = utcMicros(2026, 8, 29, 9);

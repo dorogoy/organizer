@@ -35,12 +35,19 @@ import 'package:organizer/ui/theme.dart';
 /// in order and every read replays them.
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
+  var failNextAppend = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (failNextAppend) {
+      failNextAppend = false;
+      throw StateError('planned append failure');
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async => const [];
@@ -128,7 +135,7 @@ class _QueuedDismissController extends _QueuedReadController {
   final dismissal = Completer<DispenserView>();
 
   @override
-  Future<DispenserView> dismissCheckIn() => dismissal.future;
+  Future<DispenserView> dismissCheckIn({DateTime? tapTime}) => dismissal.future;
 }
 
 Widget _harness(
@@ -276,6 +283,52 @@ void main() {
     expect(nextSize, Size.instant);
   });
 
+  testWidgets('llena and media write their own levels without narrowing '
+      'the next deal', (tester) async {
+    for (final (label, wire) in [('Llena', 0), ('Media', 1)]) {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      final controller = await launchAndCommit(tester);
+      final store = storeOf(controller);
+      final catalogue = await loadEvergreenCatalogue(
+        AppStringsEs(),
+        bundle: bundle(),
+      );
+
+      await tester.ensureVisible(find.bySemanticsLabel(label));
+      await tester.tap(find.bySemanticsLabel(label));
+      await tester.pumpAndSettle();
+
+      expect(store.entries.last.kind, 'energy_set');
+      expect(store.entries.last.energyLevel, wire);
+      await tester.tap(find.text('Hecho'));
+      await tester.pumpAndSettle();
+      final nextDeal = store.entries.lastWhere(
+        (entry) => entry.kind == 'card_dealt',
+      );
+      expect(
+        catalogue.entries
+            .firstWhere((entry) => entry.id == nextDeal.itemId)
+            .size,
+        isNot(Size.instant),
+      );
+    }
+  });
+
+  testWidgets('a failed energy append restores the standing card and '
+      'check-in', (tester) async {
+    final controller = await launchAndCommit(tester);
+    final store = storeOf(controller)..failNextAppend = true;
+
+    await tester.ensureVisible(find.bySemanticsLabel('Baja'));
+    await tester.tap(find.bySemanticsLabel('Baja'));
+    await tester.pumpAndSettle();
+
+    expect(store.entries.where((entry) => entry.kind == 'energy_set'), isEmpty);
+    expect(find.text('¿Cuánta energía tienes hoy?'), findsOneWidget);
+    expect(find.byType(TaskCard), findsOneWidget);
+  });
+
   testWidgets('the ✕ dismissal writes nothing and hides the strip for '
       'the rest of the opening (UX-DR22, FR-4)', (tester) async {
     final controller = await launchAndCommit(tester);
@@ -299,6 +352,35 @@ void main() {
       findsOneWidget,
       reason: 'the card surface is untouched by the dismissal',
     );
+  });
+
+  testWidgets('a pending dismissal blocks a stale battery tap', (tester) async {
+    final controller = await launchAndCommit(tester);
+    final store = storeOf(controller);
+    final settlement = Completer<void>();
+    var settleActions = false;
+
+    await tester.pumpWidget(
+      _harness(
+        controller,
+        sessionSettled: () =>
+            settleActions ? settlement.future : Future<void>.value(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    settleActions = true;
+
+    await tester.ensureVisible(find.bySemanticsLabel('Cerrar'));
+    await tester.tap(find.bySemanticsLabel('Cerrar'));
+    await tester.pump();
+    await tester.ensureVisible(find.bySemanticsLabel('Baja'));
+    await tester.tap(find.bySemanticsLabel('Baja'));
+    await tester.pump();
+    settlement.complete();
+    await tester.pumpAndSettle();
+
+    expect(store.entries.where((entry) => entry.kind == 'energy_set'), isEmpty);
+    expect(find.text('¿Cuánta energía tienes hoy?'), findsNothing);
   });
 
   testWidgets('an answered day re-renders nothing on a later same-day '

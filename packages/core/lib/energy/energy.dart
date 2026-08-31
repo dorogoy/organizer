@@ -78,6 +78,9 @@ EnergyLevel deriveEnergyForLivePool(
   var newestMicros = 0;
   EnergyLevel? newest;
   for (final observation in observations) {
+    if (observation.instantUtcMicros > instantUtcMicros) {
+      continue;
+    }
     if (calendar.dayOf(
           observation.instantUtcMicros,
           observation.offsetSeconds,
@@ -97,7 +100,8 @@ EnergyLevel deriveEnergyForLivePool(
 /// (Story 2.5's seam): [deriveEnergyForLivePool] over the observations
 /// the handed-in log's `energy_set` rows map to — each in its own
 /// stored offset, a corrupt row already excluded at the read boundary
-/// — so a log with none for today still defaults to 🟢 (AD-4). The
+/// and a later row excluded until its instant arrives — so a log with
+/// none for today still defaults to 🟢 (AD-4). The
 /// mapping lives HERE, at this one seam — never at each caller, where
 /// the default would have to change in lockstep.
 EnergyLevel deriveLivePoolEnergy(
