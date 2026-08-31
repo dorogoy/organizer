@@ -420,8 +420,8 @@ void main() {
       // And an answer on any later day of the week counts — the
       // carried week is the whole match, never the instant re-derived.
       final answeredMidWeek = resolve([
-        _opened(utcMicros(2026, 8, 31, 9)),
-        _started(utcMicros(2026, 8, 31, 9, 0, 1)),
+        _opened(utcMicros(2026, 9, 3, 17)),
+        _started(utcMicros(2026, 9, 3, 17, 0, 1)),
         answer(utcMicros(2026, 9, 3, 18), 2, weekOfAug24),
       ], utcMicros(2026, 9, 3, 18, 30));
       expect(answeredMidWeek?.resident, isNot(StripResident.weeklySelfReport));
@@ -429,7 +429,7 @@ void main() {
         answeredMidWeek?.resident,
         StripResident.energyCheckIn,
         reason:
-            'the Friday answer closed the 08-24 week — the '
+            'the Thursday answer closed the 08-24 week — the '
             'check-in takes the slot in that same opening',
       );
     });
@@ -643,25 +643,28 @@ void main() {
       expect(monday?.reportWeekOrdinal, weekOfAug24);
     });
 
-    test('a pre-open answer row betrays the consumed opening — the '
+    test('a pre-open report row betrays the consumed opening — the '
         'report waits for the next day (matrix: pre-open answer row)', () {
-      // The answer is today\'s earliest row, so the day\'s lone
+      final entries = [
+        // A foreign-week answer keeps the due week unanswered, so a
+        // null result below can only come from the opening gate.
+        answer(utcMicros(2026, 8, 31, 8), 5, weekOfAug17),
+        _opened(utcMicros(2026, 8, 31, 9)),
+        _started(utcMicros(2026, 8, 31, 9, 0, 1)),
+        _ended(utcMicros(2026, 8, 31, 10)),
+      ];
+      // The answer row is today's earliest row, so the day's lone
       // app_opened is not its first row: the opening was consumed
-      // before the open, whatever the kind of that earliest row.
-      expect(
-        resolve([
-          answer(utcMicros(2026, 8, 29, 8), 5, weekOfAug17),
-          _opened(utcMicros(2026, 8, 29, 9)),
-          _started(utcMicros(2026, 8, 29, 9, 0, 1)),
-        ]),
-        isNull,
-      );
-      // The week stays due — it answers to the next day\'s first
-      // opening, still carrying the same ordinal.
+      // before the open, whatever week that row carries.
+      expect(resolve(entries, utcMicros(2026, 8, 31, 12)), isNull);
+      // The same log on the next day's first opening still carries the
+      // same due week: the foreign answer neither answered nor removed
+      // it, and only the prior day's opening was consumed.
       final nextDay = resolve([
-        _opened(utcMicros(2026, 8, 30, 9)),
-        _started(utcMicros(2026, 8, 30, 9, 0, 1)),
-      ], utcMicros(2026, 8, 30, 12));
+        ...entries,
+        _opened(utcMicros(2026, 9, 1, 9), id: 'next-open'),
+        _started(utcMicros(2026, 9, 1, 9, 0, 1), id: 'next-start'),
+      ], utcMicros(2026, 9, 1, 12));
       expect(nextDay?.resident, StripResident.weeklySelfReport);
       expect(nextDay?.reportWeekOrdinal, weekOfAug24);
     });

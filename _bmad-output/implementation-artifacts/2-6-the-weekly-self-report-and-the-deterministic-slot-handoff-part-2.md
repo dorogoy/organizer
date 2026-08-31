@@ -50,14 +50,14 @@ context: ['SM-2', 'FR-4', 'AD-21', 'AD-23', 'UX-DR22']
 
 ## Code Map
 
-- `packages/core/lib/derive/strip.dart:94-129,220-249` -- the stub at :123-127 becomes the fold (`!answeredDueWeek && firstOpening`); `deriveStrip` grows the due-week + answer folds on the `answeredToday` pattern (:227-235), the `excludeResidents` skip in the walk (:236-247), and the ternary `StripState` ctor; :81-86 gains the field; library doc :1-31 gains the report paragraph
-- `packages/core/lib/derive/strip.dart:151-207` -- READ ONLY (the gate; :185's no-op arm stays)
+- `packages/core/lib/derive/strip.dart:1-47,95-164,270-324` -- library contract; `StripState.reportWeekOrdinal`; report eligibility (`!answeredDueWeek && firstOpening`); due-week and answer folds; `excludeResidents` skip; resident-specific state construction
+- `packages/core/lib/derive/strip.dart:168-244` -- READ ONLY (the existing first-opening gate; the `ReportAnsweredEntry` no-op arm remains at :222)
 - `packages/core/lib/day/calendar.dart:135-141,215-248` -- READ ONLY (`weekOrdinal`, `dayOf`, `weekOf`; `Day.weekday` ISO Mon=1..Sun=7; the week anchored Mon 2026-08-24 = 1390 (weave_test.dart:1411), so Mon 2026-08-31 = 1391, Sun 2026-08-30's week = 1390, Sat 08-29's due = 1389)
 - `packages/core/lib/log/log_entry.dart:304-328` -- READ ONLY (`ReportAnsweredEntry{value, week}`)
 - `packages/core/lib/energy/energy.dart:80-95` -- READ ONLY (the seam rules the answer fold copies)
-- `lib/dispenser/dispenser_controller.dart:183-188` -- the interim exclusion + code-doc (part 3's remover)
-- `packages/core/test/strip_test.dart:59-68,70-105,108-324,326-381` -- `resolve` gains the exclusion param; 2-5 groups switch to a wrapper excluding the report (assertions unchanged); the stub-pinning group :326-381 is replaced by `the weekly self-report eligibility (matrix rows, SM-2, FR-4)` covering every matrix row, on the Saturday base clock plus `DateTime.utc(2026, 8, 30, …)` Sunday clocks
-- `packages/core/test/no_lateness_proof_test.dart:918-928` -- StripState freeze → `['resident', 'reportWeekOrdinal']` + revised comment
+- `lib/dispenser/dispenser_controller.dart:183-196` -- the interim exclusion + code-doc (part 3's remover)
+- `packages/core/test/strip_test.dart:59-80,82-347,349-710` -- `resolve` gains the exclusion param; 2-5 groups use the report-excluding wrapper with assertions unchanged; `the weekly self-report eligibility (matrix rows, SM-2, FR-4)` covers every matrix row on Saturday, Sunday and later-week clocks
+- `packages/core/test/no_lateness_proof_test.dart:918-932` -- StripState freeze → `['resident', 'reportWeekOrdinal']` + revised comment
 
 ## Tasks & Acceptance
 
@@ -84,6 +84,10 @@ context: ['SM-2', 'FR-4', 'AD-21', 'AD-23', 'UX-DR22']
 - [x] [Review][Patch] Stale "every 2-5 test" scoping comment on the base clock [packages/core/test/strip_test.dart]
 - [x] [Review][Reject] Install-week gate, `StripState` assert, negative-epoch due week, seam dual justification, signature acretion, eager folds, terminology — no requirement names them; idiom or unreachability decides
 - [x] [Review][Human] Frozen-matrix week literals were off by one vs `calendar.dart` (1389/1388 → 1390/1389/1390) — human sanctioned the correction; the frozen formula was exact throughout
+- [x] [Review][Patch] The whole Story 2.6 is marked `review` although part 3 remains explicitly unimplemented [_bmad-output/implementation-artifacts/sprint-status.yaml:58]
+- [x] [Review][Patch] The pre-open-answer matrix test is satisfied by the answer fold and therefore does not prove that the earlier row consumed the opening [packages/core/test/strip_test.dart:646]
+- [x] [Review][Patch] The mid-week persistence fixture reads on Thursday without a current-day opening while claiming a Friday same-opening handoff [packages/core/test/strip_test.dart:420]
+- [x] [Review][Patch] Code Map ranges point to the pre-expansion locations rather than the landed derivation and report matrix [_bmad-output/implementation-artifacts/2-6-the-weekly-self-report-and-the-deterministic-slot-handoff-part-2.md:53]
 
 ## Spec Change Log
 
