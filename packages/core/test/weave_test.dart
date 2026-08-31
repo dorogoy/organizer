@@ -1,4 +1,5 @@
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/commands/session_commands.dart';
 import 'package:core/curation/curation.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/energy/energy.dart';
@@ -269,18 +270,37 @@ void main() {
       reason: 'an unanswered card never produces a second card_dealt',
     );
 
-    // Closing the session frees the resolver: the slot never closed, so
-    // the chunk tier resolves — a different z1 candidate than the one
-    // still outstanding when the session ended.
+    // Closing the session holds the sitting line (Story 2.3): with no
+    // open session the resolver proposes nothing at all — the read
+    // model presents the warm close, never a dead card no command can
+    // answer.
     final ended = [...log, _sessionEnded(utcMicros(2026, 8, 28, 10, 30))];
-    final afterEnd = nextDeal(
+    expect(
+      nextDeal(
+        catalogue: _catalogue,
+        log: ended,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      ),
+      isNull,
+      reason: 'no open session — no deal (the pause\'s other half)',
+    );
+
+    // The freed resolver proves out through a fresh `sessionStart`
+    // bundle: its synthesized start present is the deal's only door
+    // back in, and the slot never closed — a different z1 candidate
+    // resolves than the one outstanding at the close.
+    final reopened = sessionStart(
       catalogue: _catalogue,
       log: ended,
       instantUtcMicros: now,
       offsetSeconds: 0,
     );
-    expect(afterEnd!.size, Size.focus);
-    expect(afterEnd.id, 'zona-z1-b');
+    expect(reopened.map((content) => content.kind).toList(), [
+      LogKind.sessionStarted,
+      LogKind.cardDealt,
+    ]);
+    expect(reopened.last.itemId, 'zona-z1-b');
 
     // Answering frees it too — and closes the day's slot, so the next
     // deal is upkeep, never a second chunk the same day.
@@ -295,6 +315,52 @@ void main() {
       offsetSeconds: 0,
     );
     expect(afterDone!.size, Size.maintenance);
+  });
+
+  test('no open session means no deal, whatever else the log holds — the '
+      'sessionless pin (Story 2.3, AD-19)', () {
+    // An empty log, a closed session, and a log holding imported
+    // sessionless acts all resolve absent alike: the walk tolerates the
+    // rows (their days and indices still charge), the resolver proposes
+    // nothing over them.
+    final closed = [
+      _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      _sessionEnded(utcMicros(2026, 8, 28, 10, 30)),
+    ];
+    final importedActs = [
+      _dealt(utcMicros(2026, 8, 27, 10), 'man-a'),
+      _done(utcMicros(2026, 8, 27, 10, 0, 1), 'man-a'),
+    ];
+    for (final log in [const <LogEntry>[], closed, importedActs]) {
+      expect(
+        nextDeal(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: now,
+          offsetSeconds: 0,
+        ),
+        isNull,
+        reason: 'no unmatched session_started — never a sessionless deal',
+      );
+    }
+
+    // The sitting's start is the only door back in: over the imported
+    // acts a fresh sessionStart bundles the sitting's first deal.
+    final reopened = sessionStart(
+      catalogue: _catalogue,
+      log: importedActs,
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+    );
+    expect(reopened.map((content) => content.kind).toList(), [
+      LogKind.sessionStarted,
+      LogKind.cardDealt,
+    ]);
+    expect(
+      reopened.last.itemId,
+      isNot('man-a'),
+      reason: 'man-a answered all-time; the bundle deals onward',
+    );
   });
 
   test('the pipeline holds the AD-3 line too: a dealt-but-unanswered card '
@@ -359,8 +425,11 @@ void main() {
 
   test('a skipped zone entry stays in its tier: it deals again before '
       'fondo once its zone-mates are answered (AD-20)', () {
+    // Deals exist only inside sittings (Story 2.3), so each run day is
+    // its own sitting: start, deal, answer, close.
     var log = <LogEntry>[];
     String chunkOn(int day) {
+      log.add(_sessionStarted(_day(day)));
       final deal = nextDeal(
         catalogue: _catalogue,
         log: log,
@@ -368,12 +437,13 @@ void main() {
         offsetSeconds: 0,
       )!;
       log
-        ..add(_dealt(_day(day), deal.id))
+        ..add(_dealt(_day(day) + 1, deal.id))
         ..add(
           day == 0
-              ? _skipped(_day(day) + 1, deal.id)
-              : _done(_day(day) + 1, deal.id),
-        );
+              ? _skipped(_day(day) + 2, deal.id)
+              : _done(_day(day) + 2, deal.id),
+        )
+        ..add(_sessionEnded(_day(day) + 3));
       return deal.id;
     }
 
@@ -428,8 +498,10 @@ void main() {
     expect(composition.focus!.id, 'zona-z1-b');
     expect(composition.focus!.zone, Zone.z1);
 
-    // The run continues on its own arithmetic.
+    // The run continues on its own arithmetic — each day its own
+    // sitting (Story 2.3): start, deal, answer, close.
     String dealOn(int runDay) {
+      log.add(_sessionStarted(day(runDay)));
       final deal = nextDeal(
         catalogue: _catalogue,
         log: log,
@@ -444,8 +516,9 @@ void main() {
             'closed, so never an empty day while an eligible entry exists',
       );
       log
-        ..add(_dealt(day(runDay), deal!.id))
-        ..add(_done(day(runDay) + 1, deal.id));
+        ..add(_dealt(day(runDay) + 1, deal!.id))
+        ..add(_done(day(runDay) + 2, deal.id))
+        ..add(_sessionEnded(day(runDay) + 3));
       return deal.id;
     }
 
@@ -461,6 +534,7 @@ void main() {
     // Run day 6 — the Monday past the week boundary: the next zone's
     // own entry leads the new week, and the deferred target never
     // carries over.
+    log.add(_sessionStarted(day(6)));
     final crossing = nextDeal(
       catalogue: _catalogue,
       log: log,
@@ -830,6 +904,162 @@ void main() {
     });
   });
 
+  group('the advance/upkeep split applied to the pause (FR-7, FR-9, '
+      'FR-12, Story 2.3)', () {
+    test('bag 15, pocket 10: the chunk (900 s) waits — upkeep and habits '
+        'deal within the pocket, and a fuller same-day pocket deals the '
+        'chunk (the slot still open)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      // Pocket 10 holds 600 s: the chunk's 900 never fits, so it waits —
+      // the sitting deals upkeep and habits instead.
+      final log = [_sessionStarted(start, pocketMinutes: 10)];
+      final first = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+      );
+      expect(first!.size, Size.maintenance);
+      // The pocket filtered the deal, never the composition: the chunk
+      // stands composed against the bag, waiting for a fuller pocket.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+      );
+      expect(composition.focus, isNotNull);
+
+      // A fuller same-day pocket deals the chunk: the declare
+      // supersedes, consumption restarts at zero, and the slot — never
+      // closed, for nothing was answered — resolves it.
+      final declared = sessionDeclare(
+        catalogue: _catalogue,
+        log: log,
+        pocketMinutes: 15,
+        instantUtcMicros: start + 2000,
+        offsetSeconds: 0,
+      );
+      expect(declared.map((content) => content.kind).toList(), [
+        LogKind.sessionEnded,
+        LogKind.sessionStarted,
+        LogKind.cardDealt,
+      ]);
+      final dealtSize = _catalogue.entries
+          .firstWhere((entry) => entry.id == declared.last.itemId)
+          .size;
+      expect(dealtSize, Size.focus);
+    });
+
+    test('bag 5: no chunk exists at all, silently — upkeep and habits '
+        'deal inside the sitting, no debt, no mention', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [_sessionStarted(start)];
+      // The day composes without the "1" at the range's own floor.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+        bagMinutes: 5,
+      );
+      expect(composition.focus, isNull);
+      expect(composition.maintenance, hasLength(3));
+      expect(composition.instantHabits, hasLength(5));
+      // Inside the sitting the same bag deals upkeep, never a chunk.
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+        bagMinutes: 5,
+      );
+      expect(deal!.size, isNot(Size.focus));
+    });
+
+    test('bag 30: exactly one chunk — the surplus buys nothing, and '
+        'upkeep and habits are charged nowhere', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final first = [_sessionStarted(start)];
+      // The chunk deals against the day's whole bag...
+      final chunk = nextDeal(
+        catalogue: _catalogue,
+        log: first,
+        instantUtcMicros: start + 1000,
+        offsetSeconds: 0,
+        bagMinutes: 30,
+      );
+      expect(chunk!.size, Size.focus);
+      // ...and its answer closes the slot: a second same-day sitting
+      // composes upkeep and habits only — the 15 unspent minutes buy
+      // nothing, for the bag bounds the day's advance, not its sittings.
+      final answered = [
+        ...first,
+        _dealt(start + 2000, chunk.id),
+        _done(start + 3000, chunk.id),
+      ];
+      final second = [
+        ...answered,
+        _sessionEnded(start + 4000),
+        _sessionStarted(start + 5000),
+      ];
+      final next = nextDeal(
+        catalogue: _catalogue,
+        log: second,
+        instantUtcMicros: start + 6000,
+        offsetSeconds: 0,
+        bagMinutes: 30,
+      );
+      expect(next!.size, isNot(Size.focus));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: second,
+        instantUtcMicros: start + 6000,
+        offsetSeconds: 0,
+        bagMinutes: 30,
+      );
+      expect(composition.focus, isNull);
+      expect(composition.maintenance, hasLength(3));
+      expect(composition.instantHabits, hasLength(5));
+    });
+
+    test('a session crossing 04:00, paused after the boundary — the '
+        'crossed-into day\'s chunk resolves once the pause lands (AD-19, '
+        'Story 2.3)', () {
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 3, 40), pocketMinutes: 30),
+        _dealt(utcMicros(2026, 8, 28, 3, 41), 'zona-z1-a'),
+        _done(utcMicros(2026, 8, 28, 3, 50), 'zona-z1-a'),
+        // The pause tap, after the 04:00 boundary: the ledger it closes
+        // is charged whole to the session's own start day (session_test
+        // pins the walk facts; this pin is the composition's).
+        _sessionEnded(utcMicros(2026, 8, 28, 4, 10)),
+      ];
+      // The crossed-into day's slot stays untouched: the morning after
+      // composes its own chunk through a fresh sitting.
+      final morning = [...log, _sessionStarted(utcMicros(2026, 8, 28, 8))];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: morning,
+        instantUtcMicros: utcMicros(2026, 8, 28, 8, 1),
+        offsetSeconds: 0,
+      );
+      expect(composition.focus, isNotNull);
+      expect(composition.focus!.id, 'zona-z1-b');
+      final reopened = sessionStart(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 28, 8),
+        offsetSeconds: 0,
+      );
+      expect(reopened.map((content) => content.kind).toList(), [
+        LogKind.sessionStarted,
+        LogKind.cardDealt,
+      ]);
+      expect(reopened.last.itemId, 'zona-z1-b');
+    });
+  });
+
   test('low energy composes no chunk; medium changes nothing (FR-4)', () {
     final low = composeDay(
       catalogue: _catalogue,
@@ -868,6 +1098,8 @@ void main() {
     final log = [
       _dealt(_day(0), redDay.maintenance.first.id),
       _done(_day(0) + 1, redDay.maintenance.first.id),
+      // Day 2's sitting opens before its deal resolves (Story 2.3).
+      _sessionStarted(_day(1)),
     ];
     // Day 2: the zone's tier-1 set is untouched — nothing was answered.
     final deal = nextDeal(
@@ -890,9 +1122,11 @@ void main() {
         _entry('hab-a', Size.instant, Cadence.daily),
       ],
     );
+    // The sitting stands open (Story 2.3): deals resolve inside it.
+    final log = [_sessionStarted(utcMicros(2026, 8, 28, 11))];
     final composition = composeDay(
       catalogue: upkeepOnly,
-      log: const [],
+      log: log,
       instantUtcMicros: now,
       offsetSeconds: 0,
     );
@@ -901,7 +1135,7 @@ void main() {
     expect(composition.instantHabits.map((card) => card.id), ['hab-a']);
     final deal = nextDeal(
       catalogue: upkeepOnly,
-      log: const [],
+      log: log,
       instantUtcMicros: now,
       offsetSeconds: 0,
     );
@@ -1150,17 +1384,18 @@ void main() {
 
     test('the composition follows the ring across the week boundary', () {
       // Friday of the z1 week composes a z1 chunk; the following Monday
-      // composes a z2 chunk — the rotation turns on the boundary.
+      // composes a z2 chunk — the rotation turns on the boundary. Each
+      // resolve sits inside its own open sitting (Story 2.3).
       final friday = nextDeal(
         catalogue: _catalogue,
-        log: const [],
+        log: [_sessionStarted(utcMicros(2026, 8, 28, 11))],
         instantUtcMicros: utcMicros(2026, 8, 28, 12),
         offsetSeconds: 0,
       );
       expect(friday!.zone, Zone.z1);
       final monday = nextDeal(
         catalogue: _catalogue,
-        log: const [],
+        log: [_sessionStarted(utcMicros(2026, 8, 31, 11))],
         instantUtcMicros: utcMicros(2026, 8, 31, 12),
         offsetSeconds: 0,
       );
@@ -1184,10 +1419,12 @@ void main() {
 
       // The whole z2 week runs its own arithmetic, and the untouched z1
       // entries never jump the queue: they wait for tier 3 while z2 and
-      // fondo fill the week.
+      // fondo fill the week. Each run day is its own sitting (Story
+      // 2.3): start, deal, answer, close.
       var log = <LogEntry>[];
       final dealt = <String>[];
       for (var day = 7; day < 14; day++) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1196,8 +1433,9 @@ void main() {
         )!;
         dealt.add(deal.id);
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
       }
       expect(dealt, [
         'zona-z2-a',
@@ -1213,6 +1451,7 @@ void main() {
       // and fondo spends its last entries — 27 distinct deals, never a
       // z1 entry — until only the missed week's entries remain.
       for (var day = 14; day < 34; day++) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1221,8 +1460,9 @@ void main() {
         )!;
         dealt.add(deal.id);
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
       }
       expect(dealt, hasLength(27));
       expect(dealt.toSet(), hasLength(27));
@@ -1236,6 +1476,7 @@ void main() {
       // entry as tier 1 of the returned week, never a tier-3
       // jump-ahead. (Day 34, the spent pool's own tier-3 day, is left
       // uncomposed: this pin is the ring's, not the repetition's.)
+      log.add(_sessionStarted(_day(35)));
       final returned = nextDeal(
         catalogue: _catalogue,
         log: log,
@@ -1265,7 +1506,7 @@ void main() {
       expect(
         nextDeal(
           catalogue: _catalogue,
-          log: const [],
+          log: [_sessionStarted(utcMicros(2026, 9, 22, 11))],
           instantUtcMicros: tuesdayOfZ5Week,
           offsetSeconds: 0,
         )!.id,
@@ -1349,7 +1590,7 @@ void main() {
       expect(
         nextDeal(
           catalogue: _catalogue,
-          log: const [],
+          log: [_sessionStarted(utcMicros(2026, 8, 30, 11))],
           instantUtcMicros: utcMicros(2026, 8, 30, 12),
           offsetSeconds: 0,
           activeClusters: sunday,
@@ -1467,7 +1708,9 @@ void main() {
       expect(
         nextDeal(
           catalogue: _catalogue,
-          log: const [],
+          // The sitting stands open, so the null names the empty offer —
+          // not the sessionless line (Story 2.3).
+          log: [_sessionStarted(utcMicros(2026, 8, 28, 11))],
           instantUtcMicros: now,
           offsetSeconds: 0,
           activeClusters: const {},
@@ -1499,8 +1742,11 @@ void main() {
   group('the chunk tiers (AD-20)', () {
     test('the zone exhausts in-week and fondo fills before any repetition '
         '(FR-31)', () {
+      // Each run day is its own sitting (Story 2.3): start, deal,
+      // answer, close.
       var log = <LogEntry>[];
       Card chunkOn(int day) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1508,8 +1754,9 @@ void main() {
           offsetSeconds: 0,
         )!;
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
         return deal;
       }
 
@@ -1547,6 +1794,7 @@ void main() {
       );
       var log = <LogEntry>[];
       Card chunkOn(int day, {bool skip = false}) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: catalogue,
           log: log,
@@ -1554,12 +1802,13 @@ void main() {
           offsetSeconds: 0,
         )!;
         log
-          ..add(_dealt(_day(day), deal.id))
+          ..add(_dealt(_day(day) + 1, deal.id))
           ..add(
             skip
-                ? _skipped(_day(day) + 1, deal.id)
-                : _done(_day(day) + 1, deal.id),
-          );
+                ? _skipped(_day(day) + 2, deal.id)
+                : _done(_day(day) + 2, deal.id),
+          )
+          ..add(_sessionEnded(_day(day) + 3));
         return deal;
       }
 
@@ -1588,9 +1837,11 @@ void main() {
         CurationCluster.anclas,
         CurationCluster.sosten,
       };
+      // Each run day is its own sitting (Story 2.3).
       var log = <LogEntry>[];
       final dealt = <String>[];
       for (var day = 0; day < 17; day++) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1601,12 +1852,14 @@ void main() {
         expect(deal, isNotNull, reason: 'never an empty day (day $day)');
         dealt.add(deal!.id);
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
       }
       expect(dealt.toSet(), hasLength(17), reason: 'all eligible answered');
       // Day 18: tiers 1 and 2 hold nothing — tier 3 repeats the
       // least-recently-dealt eligible entry, the deal of day 1.
+      log.add(_sessionStarted(_day(17)));
       final repetition = nextDeal(
         catalogue: _catalogue,
         log: log,
@@ -1632,10 +1885,12 @@ void main() {
         CurationCluster.z4,
         CurationCluster.z5,
       ]);
+      // Each run day is its own sitting (Story 2.3).
       var log = <LogEntry>[];
       final dealt = <String>[];
       final dealtZones = <Zone?>[];
       for (var day = 0; day < 21; day++) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1647,8 +1902,9 @@ void main() {
         dealt.add(deal!.id);
         dealtZones.add(deal.zone);
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
       }
       expect(dealt.take(20).toSet(), hasLength(20));
       // The ring advanced across weeks while the floor was broken:
@@ -1667,9 +1923,11 @@ void main() {
 
     test('28 answered chunks over the default state never repeat a '
         'Micro-task — the shipped arithmetic (FR-31, AC)', () {
+      // Each run day is its own sitting (Story 2.3).
       var log = <LogEntry>[];
       final dealtIds = <String>[];
       for (var day = 0; day < 28; day++) {
+        log.add(_sessionStarted(_day(day)));
         final deal = nextDeal(
           catalogue: _catalogue,
           log: log,
@@ -1680,8 +1938,9 @@ void main() {
         expect(deal!.size, Size.focus);
         dealtIds.add(deal.id);
         log
-          ..add(_dealt(_day(day), deal.id))
-          ..add(_done(_day(day) + 1, deal.id));
+          ..add(_dealt(_day(day) + 1, deal.id))
+          ..add(_done(_day(day) + 2, deal.id))
+          ..add(_sessionEnded(_day(day) + 3));
       }
       expect(dealtIds.toSet(), hasLength(28));
       // The tier arithmetic day by day: five z1 days, fondo fills the
@@ -1750,6 +2009,40 @@ void main() {
       expect(withSettings.answeredItemIds, without.answeredItemIds);
       expect(withSettings.openSessionStart, without.openSessionStart);
       expect(withSettings.dealtUnanswered, without.dealtUnanswered);
+    });
+
+    test('the bag derivation is invariant to acts and session rows — '
+        'FR-9\'s rollback is vacuous (Story 2.3)', () {
+      // The no_lateness_proof style, on the ceiling: append every act
+      // shape the product can write and the derivation stands — nothing
+      // was ever subtracted, so nothing returns and no accumulator can
+      // exist.
+      final alone = [setting(_day(0, 8), 'time_bag', 15)];
+      expect(deriveTimeBagMinutes(alone), 15);
+      final withActs = [
+        ...alone,
+        _sessionStarted(_day(0, 9)),
+        _dealt(utcMicros(2026, 8, 24, 9, 0, 1), 'zona-z1-a'),
+        _done(utcMicros(2026, 8, 24, 9, 0, 2), 'zona-z1-a'),
+        _skipped(utcMicros(2026, 8, 24, 9, 0, 3), 'man-a'),
+        _sessionEnded(utcMicros(2026, 8, 24, 9, 30)),
+        _sessionStarted(_day(0, 10), pocketMinutes: 10),
+      ];
+      expect(
+        deriveTimeBagMinutes(withActs),
+        15,
+        reason:
+            'no card act, session row or pocket moves the ceiling — '
+            'the bag reads setting_changed rows alone',
+      );
+      // The derivation moves forward only, as ever.
+      expect(
+        deriveTimeBagMinutes([
+          ...withActs,
+          setting(_day(1, 8), 'time_bag', 30),
+        ]),
+        30,
+      );
     });
 
     test('the below-10 gate reads the threaded bag; the default is the '

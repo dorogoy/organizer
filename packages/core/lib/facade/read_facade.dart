@@ -17,7 +17,10 @@ import 'package:core/weave/weave.dart';
 /// The card the surface renders (AD-3, AD-6): the dealt-but-unanswered
 /// card of the open session when one exists — an unanswered card never
 /// produces a second deal — else the resolver's next choice, computed
-/// purely and appended by no one here. Energy arrives through
+/// purely and appended by no one here. A log with no open session
+/// resolves absent too — the warm close (Story 2.3): deals exist only
+/// inside sittings, so the facade never hands the shell a card no
+/// command can answer. Energy arrives through
 /// [deriveLivePoolEnergy]: no observations exist in 1.6, so the day
 /// defaults to 🟢 until 2.5 maps them at that one seam. The Time Bag
 /// derives from this read's own log (2.1, AD-1): an explicit

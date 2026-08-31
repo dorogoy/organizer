@@ -110,3 +110,24 @@
 ## Deferred from: code review of 2-2-the-declared-pocket-and-the-derived-session.md (2026-08-30)
 
 - Multi-row log bundles append row-by-row instead of in a transaction. A crash after `session_ended` but before the following `session_started` can tear a declaration or elapsed-pocket reveal; resolving it requires an explicit batch port and transactional Drift implementation.
+
+- source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
+  summary: The screen's write paths conflate a failed append with a failed post-write read-back — a landed `session_ended` whose read-back throws still renders the empty frame until the next foreground cycle.
+  evidence: Review loop 1 (blind-hunter + edge-case): `_onPause`/`_onDeclarePocket`'s single `catch` covers both; the pattern is shipped identically for done/skip/declare since 2.2, so it is pre-existing across every write path, not pause-specific — a deliberate recovery contract belongs to the whole surface, not this story.
+- source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
+  summary: Four hand-maintained copies of the tap-write dance (`_onDone`, `_onSkip`, `_onDeclarePocket`, `_onPause`) and a duplicated `buildFor` helper in the controller tests want one shared commit seam.
+  evidence: Review loop 1 (blind-hunter): the guard + `_readGeneration++` + release-after-frame sequence exists line-for-line four times in `dispenser_screen.dart` with no `_commitWrite` extraction; the frozen spec prescribed verbatim mechanics, so the dedup is a deliberate later refactor, not an in-story patch.
+- source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
+  summary: The short-surface reflow is a fixed body-height constant (320), not a measured-chrome decision — bodies below the 320×220 class (e.g. split-screen) can still clip the chip, and copy/scale growth above 200% can overflow the 320–479 band.
+  evidence: Review loop 2 (blind-hunter + edge-case): only the footer band reflows; the chip is always pinned chrome, so a body shorter than the chip's own grown height overflows the Column; a LayoutBuilder-on-chrome measurement (or extending the reflow to the whole chrome column) is the deliberate decision owed.
+- source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
+  summary: Silent commits are silent to assistive tech too — the pause (and every quiet commit: done, skip, declare) raises no SemanticsService/live-region event, so a TalkBack user gets no signal a stop landed.
+  evidence: Review loop 2 (blind-hunter): the silence tests assert no SnackBar/banner/dialog but never inspect the semantics tree; whether an a11y announcement violates FR-9's "silent and invisible" or is its own obligation is a product-wide a11y policy decision, not one surface's call.
+- source_spec: `_bmad-output/implementation-artifacts/2-3-pause-and-the-advance-upkeep-split-applied-to-it.md`
+  summary: The write paths' awaited chain (sessionSettled + controller write + read-back) has no timeout — a hung future holds `_writeInFlight` forever, dead-locking every write control on the surface.
+  evidence: Review loop 2 (blind-hunter + edge-case): `_onPause`/`_onDeclarePocket`/`_onSkip`/`_onDone` all await unbounded; the pattern ships since 2.2, applies to all four controls equally, and a local drift store makes hangs unlikely — but the wedge is real and wants one decided recovery contract.
+
+## Deferred from: code review of 2-3-pause-and-the-advance-upkeep-split-applied-to-it.md (2026-08-31)
+
+- Separate a successful write from a failed read-back: `_onPause` and the established write handlers collapse both failures into the empty frame, so a persisted `session_ended` is not represented until a subsequent foreground refresh. This is a pre-existing, shared recovery-contract decision.
+- Recover the Dispenser write guard from a permanently pending dependency: every write handler awaits lifecycle settlement, persistence, and read-back without a timeout or cancellation policy. This is a pre-existing, shared recovery-contract decision.

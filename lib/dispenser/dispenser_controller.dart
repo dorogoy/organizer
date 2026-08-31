@@ -46,12 +46,14 @@ final class DispenserClosed extends DispenserView {
   final int? pocketMinutes;
 }
 
-/// The Dispenser's read and write surface (Stories 1.8–1.10): the app's
-/// home surface derives its card and standing pocket from one log snapshot,
+/// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.3): the
+/// app's home surface derives its card and standing pocket from one log snapshot,
 /// and answers it through the two core answer commands, each appending its
 /// answer and the bundled next deal itself (AD-3): `cardDone` (Story 1.9)
 /// and `cardSkipped` (Story 1.10, FR-3), each with the Time Bag derived once
-/// per operation and threaded in (2.1).
+/// per operation and threaded in (2.1); `declarePocket` (Story 2.2) and
+/// `pause` (Story 2.3, FR-9) round the surface — a declaration and the
+/// quiet one-row stop.
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -228,6 +230,40 @@ class DispenserController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
       );
+      for (final content in contents) {
+        await store.appendLogEntry((
+          id: idMinter.v7(),
+          kind: content.kind.name,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          itemId: content.itemId,
+          itemOrigin: content.itemOrigin,
+          stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
+        ));
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Pauses (Story 2.3, FR-9, AD-19): the quiet stop, in
+  /// [declarePocket]'s write shape minus the catalogue — `sessionEnd`
+  /// reads only the log, so no catalogue load exists on this path.
+  /// Exactly one `session_ended` row appends when a session is open —
+  /// one minted instant, a v7 id, no payload, no new LogKind — and a
+  /// tap with nothing open appends nothing at all: the accepted quiet
+  /// no-op, the `PocketTriggerChip` precedent. The instant is minted at
+  /// entry, before any await, so the row describes the tap. A failing
+  /// append rethrows to the caller while the chain recovers. The fresh
+  /// view — the standing warm close with the chip back at its 15
+  /// default — is read back from the log the pause made true.
+  Future<DispenserView> pause() {
+    final now = nowOf();
+    final write = _enqueueWrite(() async {
+      final log = logEntriesOf(await store.readLogEntries());
+      final contents = sessionEnd(log: log);
       for (final content in contents) {
         await store.appendLogEntry((
           id: idMinter.v7(),

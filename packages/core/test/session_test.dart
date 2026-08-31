@@ -104,6 +104,45 @@ void main() {
     expect(facts.focusSlotClosedDays.contains(day28), isFalse);
   });
 
+  test('a session crossing 04:00 paused after the boundary charges its '
+      'whole ledger to its own start day; the crossed-into day\'s Focus '
+      'slot stays untouched (AD-19, Story 2.3 — the pause-path variant)', () {
+    final log = [
+      _started(utcMicros(2026, 8, 28, 3, 40), pocketMinutes: 30),
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 3, 41), 'zona-a'),
+      _act(LogKind.cardDone, utcMicros(2026, 8, 28, 3, 50), 'zona-a'),
+      // Work past the boundary: a second deal standing unanswered when
+      // the pause lands.
+      _act(LogKind.cardDealt, utcMicros(2026, 8, 28, 4, 5), 'man-a'),
+      // The pause tap itself — 04:10, inside the crossed-into civil day
+      // but closing the sitting whose ledger is its own start day's.
+      _ended(utcMicros(2026, 8, 28, 4, 10)),
+    ];
+    final facts = walkLog(log, catalogue: _catalogue);
+
+    const calendar = Calendar();
+    final day27 = calendar.dayOf(utcMicros(2026, 8, 28, 3, 40), 0);
+    final day28 = calendar.dayOf(utcMicros(2026, 8, 28, 12), 0);
+    expect(day27.label, '2026-08-27');
+
+    // The pause closed the sitting; nothing lingers open.
+    expect(facts.openSessionStart, isNull);
+    expect(
+      facts.dealtUnanswered,
+      isNull,
+      reason: 'the close cleared the card standing at the pause',
+    );
+    // The whole ledger — the answered chunk and the standing upkeep —
+    // is charged to the session's own start day...
+    expect(facts.dealtCountsByDay[day27]?[Size.focus], 1);
+    expect(facts.dealtCountsByDay[day27]?[Size.maintenance], 1);
+    // ...the crossed-into day holds nothing, and its slot was never
+    // touched by the crossing session's acts.
+    expect(facts.dealtCountsByDay[day28], isNull);
+    expect(facts.focusSlotClosedDays, {day27});
+    expect(facts.focusSlotClosedDays.contains(day28), isFalse);
+  });
+
   test('the same crossing under a nonzero stored offset: +02:00 entries at '
       '03:40 charge to the previous domestic day (AD-4)', () {
     // 03:40 +02:00 on the 29th is 01:40 UTC — the wall clock in the

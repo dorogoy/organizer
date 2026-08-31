@@ -12,8 +12,14 @@
 ///
 /// The Time Bag is a ceiling, never a wallet (FR-7, FR-12): it covers
 /// advance work only, nothing ever subtracts from it, and no
-/// accumulator exists anywhere. This file holds no write path at all —
-/// the single sanctioned `setting_changed` minter lives in
+/// accumulator exists anywhere. FR-9's rollback clause — unspent pocket
+/// minutes returning to the bag on pause — is therefore satisfied
+/// vacuously: nothing was ever subtracted, so nothing returns (Story
+/// 2.3). A depleting wallet is the rejected alternative, recorded here
+/// so no later reader implements one, for subtraction would make debt
+/// expressible (NFR9) — the very ledger the ceiling exists to keep out
+/// of the schema. This file holds no write path at all — the single
+/// sanctioned `setting_changed` minter lives in
 /// `commands/settings_commands.dart`.
 
 library;
@@ -70,7 +76,11 @@ bool _isValidTimeBagMinutes(int minutes) =>
 /// earlier valid value (or the default) stands. Ties at one instant
 /// need no rule of their own: store read order (instant, then append
 /// sequence) is the input order, and the last valid entry in it wins
-/// (AD-3).
+/// (AD-3). The pass reads `setting_changed` rows alone: every other
+/// kind — `card_*` acts, session rows, pockets — is invisible to it, so
+/// acts append and the ceiling stands unchanged, which is the whole of
+/// FR-9's vacuous rollback (the bag-invariance proof's object, Story
+/// 2.3).
 int deriveTimeBagMinutes(List<LogEntry> entries) {
   var bag = defaultTimeBagMinutes;
   for (final entry in entries) {

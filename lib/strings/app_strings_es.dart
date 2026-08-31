@@ -155,6 +155,9 @@ class AppStringsEs extends AppStrings {
   String get newProjectLink => 'Nuevo proyecto';
 
   @override
+  String get actionStop => 'Quiero parar';
+
+  @override
   String get settingsWayOut => 'Ajustes';
 
   @override

@@ -223,6 +223,11 @@
     "description": "Dispenser — the quiet text departure, opening the empty intermediate carrier whose only content is the Ajustes way-out. Prose, not a glyph: on the Dispenser, mass means work and prose means leaving."
   },
 
+  "actionStop": "Quiero parar",
+  "@actionStop": {
+    "description": "Dispenser chrome — the quiet stop (FR-9, UX-DR43): one tap, any moment, any reason; the first-person mirror of the checkpoint's Quiero seguir. Never disabled, never suggested; the warm close is its whole presentation."
+  },
+
   "settingsWayOut": "Ajustes",
   "@settingsWayOut": {
     "description": "The quiet text way-out inside the Nuevo proyecto surface — the only route into Settings, and with it the validator surface (NFR3, AD-26). Same prose grammar as the Dispenser footer; never a glyph, never emphasised."
