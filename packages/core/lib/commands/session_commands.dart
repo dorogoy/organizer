@@ -33,10 +33,26 @@
 /// `sessionEnd` unchanged — one row, no payload, no new LogKind — and
 /// `nextDeal` itself now holds the sitting line (no open session, no
 /// deal), so the post-pause read model is the standing warm close.
+///
+/// Story 2.4 adds the checkpoint's silent continue (FR-10, AD-19):
+/// `sessionExtend` is the kind's single sanctioned minter — exactly one
+/// `session_extended` row carrying `checkpointIntervalMinutes` added
+/// minutes when a session is open. The walk sums a sitting's
+/// extensions into its declared pocket (the deadline and ceiling
+/// lift; the sum may pass the declarable 1–60 range, which bounds
+/// starts only), while the start row keeps FR-23's original pocket.
+/// When the lift unblocks a sitting with no unanswered card — the
+/// close-continue path — the command also returns the bundled next
+/// `card_dealt`, `sessionStart`'s own door: a visible card exists
+/// only because a command returned it (AD-3). Mid-pocket, the
+/// standing card stays unanswered and the deal is suppressed. There
+/// is no fourth closing cause: `sessionExtend` never appends
+/// `session_ended` and never re-opens a closed sitting.
 
 library;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/derive/checkpoint.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -85,6 +101,16 @@ LogEntryContent _deal(Card card) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: null,
+);
+
+LogEntryContent _extend() => (
+  kind: LogKind.sessionExtended,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  pocketMinutes: checkpointIntervalMinutes,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -203,6 +229,55 @@ List<LogEntryContent> sessionEnd({required List<LogEntry> log}) {
     return const [];
   }
   return [_moment(LogKind.sessionEnded)];
+}
+
+/// The checkpoint's silent continue (Story 2.4, FR-10, AD-19): the
+/// single sanctioned minter of `session_extended` — a row exists only
+/// because this returned it, so no second extension writer can appear
+/// silently. Exactly one `session_extended` when a session is open,
+/// carrying [checkpointIntervalMinutes] added minutes; a tap with
+/// nothing open returns no content and appends nothing — the accepted
+/// quiet no-op (the `PocketTriggerChip` no-op precedent). The row
+/// never closes and never re-opens: `session_ended` stays exactly
+/// AD-19's three causes.
+///
+/// The bundled next deal (AD-3): the lift is synthesized onto the log
+/// and `nextDeal` resolves over it, `sessionStart`'s own door. A
+/// sitting that still holds its unanswered card suppresses the deal
+/// — mid-pocket, the card returns, never re-dealt. A sitting with no
+/// unanswered card (the elapsed close) returns the deal the lifted
+/// pocket can now hold, so the card the surface shows is one this
+/// command minted. The shell mints each row's instant at the commit
+/// of the act.
+List<LogEntryContent> sessionExtend({
+  required Catalogue catalogue,
+  required List<LogEntry> log,
+  required int instantUtcMicros,
+  required int offsetSeconds,
+  int? bagMinutes,
+}) {
+  final facts = walkLog(log, catalogue: catalogue);
+  if (facts.openSessionStart == null) {
+    return const [];
+  }
+  final extendLog = [
+    ...log,
+    SessionExtendEntry(
+      id: '',
+      instantUtcMicros: instantUtcMicros,
+      offsetSeconds: offsetSeconds,
+      pocketMinutes: checkpointIntervalMinutes,
+    ),
+  ];
+  final deal = nextDeal(
+    catalogue: catalogue,
+    log: extendLog,
+    instantUtcMicros: instantUtcMicros,
+    offsetSeconds: offsetSeconds,
+    bagMinutes: bagMinutes ?? deriveTimeBagMinutes(extendLog),
+    energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
+  );
+  return [_extend(), if (deal != null) _deal(deal)];
 }
 
 /// The declare tap (Story 2.2, FR-8, AD-19): declares a pocket, ending

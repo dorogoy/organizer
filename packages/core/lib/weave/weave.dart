@@ -340,6 +340,7 @@ _DayPolicy _resolveDay({
   required int bagMinutes,
   required EnergyLevel energy,
   required Set<CurationCluster>? activeClusters,
+  bool liftedPocket = false,
 }) {
   final facts = walkLog(log, catalogue: catalogue);
   final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
@@ -364,7 +365,9 @@ _DayPolicy _resolveDay({
   // within the declared pocket — upkeep charged like everything else —
   // and only if the pocket has not elapsed at this resolution instant.
   // Unbounded sessions filter nothing; the elapse is derived here,
-  // never scheduled anywhere.
+  // never scheduled anywhere. The checkpoint's close-continue probe
+  // (Story 2.4) runs this same pipeline with [liftedPocket], so the
+  // two surfaces of the filter cannot drift.
   final openStart = facts.openSessionStart;
   final pocketMinutes = facts.openSessionPocketMinutes;
   final pocketDeadlineMicros = (openStart == null || pocketMinutes == null)
@@ -372,6 +375,9 @@ _DayPolicy _resolveDay({
       : openStart.instantUtcMicros + pocketMinutes * microsPerMinute;
   final pocketCeilingSeconds = pocketMinutes == null ? 0 : pocketMinutes * 60;
   bool pocketAllows(Card card) {
+    if (liftedPocket) {
+      return true;
+    }
     final deadline = pocketDeadlineMicros;
     if (deadline == null) {
       return true;
@@ -481,6 +487,17 @@ Card? nextDeal({
     energy: energy,
     activeClusters: activeClusters,
   );
+  return _guardedTierDealOf(policy, policy.pocketAllows);
+}
+
+/// The one decision behind both surfaces of the deal (Story 2.4's
+/// unification): the sitting line and the tier ladder, with [allows]
+/// as the offer's admission predicate — `nextDeal` threads the open
+/// pocket's filter, and the checkpoint's close-continue probe runs
+/// this same ladder over a lifted filter, so a change to the tiers can
+/// never leave the close's continue offer behind (AD-20's single
+/// resolver, one decision).
+Card? _guardedTierDealOf(_DayPolicy policy, bool Function(Card card) allows) {
   if (policy.facts.openSessionStart == null) {
     // No open session, no deal (Story 2.3, AD-19): the resolver stops
     // proposing unanswerable cards — `cardDone` would refuse the answer,
@@ -495,21 +512,63 @@ Card? nextDeal({
     // — or closing the session — clears the fact and frees the resolver.
     return null;
   }
+  // The tiers (AD-20): the chunk while it composes, then the day's
+  // remaining maintenance draws, then the instant draws — each tier's
+  // head offered only when [allows] admits it. When nothing does, the
+  // deal is absent and the read model presents the warm close. No
+  // eager `session_ended` exists here or anywhere: the close row lands
+  // at backgrounding, the declare tap, the reveal, or the pause tap —
+  // AD-19's three closing causes at their four emission sites.
   final chunk = policy.chunk;
-  if (chunk != null && policy.pocketAllows(chunk)) {
+  if (chunk != null && allows(chunk)) {
     return chunk;
   }
   if ((policy.dealtOnDay[Size.maintenance] ?? 0) < maintenanceDrawsPerDay &&
       policy.maintenance.isNotEmpty &&
-      policy.pocketAllows(policy.maintenance[0])) {
+      allows(policy.maintenance[0])) {
     return policy.maintenance[0];
   }
   if ((policy.dealtOnDay[Size.instant] ?? 0) < instantDrawsPerDay &&
       policy.instantHabits.isNotEmpty &&
-      policy.pocketAllows(policy.instantHabits[0])) {
+      allows(policy.instantHabits[0])) {
     return policy.instantHabits[0];
   }
   return null;
+}
+
+/// Whether a deal would exist if the open session's pocket had room —
+/// the checkpoint's close-continue probe (Story 2.4, FR-10, UJ-1). The
+/// resolver's own pipeline runs with the pocket filter lifted, so the
+/// shared ladder above decides on the pool alone: a pool-exhausted day
+/// and a spent day's draws answer false exactly as they would behind
+/// the filter, while an elapsed or spent pocket can no longer hide
+/// candidates the sitting could still hold. Everything else is
+/// `nextDeal`'s own contract: no open session, or a
+/// dealt-but-unanswered card standing, and no deal would exist either
+/// way — the close carries nothing to continue with. A read, never a
+/// write: the probe appends nothing and deals nothing (AD-3, AD-20).
+bool dealExistsIgnoringPocket({
+  required Catalogue catalogue,
+  required List<LogEntry> log,
+  required int instantUtcMicros,
+  required int offsetSeconds,
+  int bagMinutes = defaultTimeBagMinutes,
+  EnergyLevel energy = EnergyLevel.full,
+  Set<CurationCluster>? activeClusters,
+}) {
+  final policy = _resolveDay(
+    catalogue: catalogue,
+    log: log,
+    instantUtcMicros: instantUtcMicros,
+    offsetSeconds: offsetSeconds,
+    bagMinutes: bagMinutes,
+    energy: energy,
+    activeClusters: activeClusters,
+    liftedPocket: true,
+  );
+  // The lifted pocket's filter admits every card, so the ladder reads
+  // the pool's own truth and nothing else.
+  return _guardedTierDealOf(policy, policy.pocketAllows) != null;
 }
 
 /// The card for a referenced catalogue item, or absent when the catalogue

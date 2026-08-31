@@ -2,6 +2,7 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
 import 'package:core/weave/session.dart';
 import 'package:test/test.dart';
 
@@ -586,6 +587,106 @@ void main() {
       ], catalogue: _catalogue);
       expect(facts.openSessionPocketMinutes, 30);
       expect(facts.openSessionStart!.instantUtcMicros, base);
+    });
+  });
+
+  group('the extensions sum (Story 2.4, FR-10, AD-19, FR-23)', () {
+    SessionExtendEntry anExtended(int micros, int minutes) =>
+        SessionExtendEntry(
+          id: 'x-$micros',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          pocketMinutes: minutes,
+        );
+
+    test('the declared pocket is the start plus the sum of its '
+        'extensions — the deadline and the ceiling lift, and the sum '
+        'may pass the declarable 1–60 range (it bounds starts only)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start, pocketMinutes: 45),
+        anExtended(start + 16 * microsPerMinute, 15),
+        anExtended(start + 31 * microsPerMinute, 15),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 75);
+    });
+
+    test('the original pocket stays readable on the start row (FR-23): '
+        'the walk lifts its fact, never the row', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final started = _started(start, pocketMinutes: 45);
+      final facts = walkLog([
+        started,
+        anExtended(start + 16 * microsPerMinute, 15),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 60);
+      expect(
+        started.pocketMinutes,
+        45,
+        reason:
+            'the comfortable-day predicate reads the original: an '
+            'extension the user chose is never scored as a marathon',
+      );
+    });
+
+    test('a supersede drops the old session\'s extensions: the new '
+        'sitting\'s pocket is its own start row\'s, and a later '
+        'extension sums into it alone', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start, pocketMinutes: 45, id: 'old'),
+        anExtended(start + 10 * microsPerMinute, 15),
+        _ended(start + 20 * microsPerMinute),
+        _started(start + 30 * microsPerMinute, id: 'new', pocketMinutes: 20),
+        anExtended(start + 40 * microsPerMinute, 15),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 35);
+    });
+
+    test('a session crossing 04:00 sums its extensions whatever the '
+        'civil day they land in — the sitting is one ledger (AD-19)', () {
+      final start = utcMicros(2026, 8, 28, 3, 40);
+      final facts = walkLog([
+        _started(start, pocketMinutes: 30),
+        anExtended(utcMicros(2026, 8, 28, 4, 5), 15),
+      ], catalogue: _catalogue);
+      expect(facts.openSessionPocketMinutes, 45);
+    });
+
+    test('stray rows are tolerance, never repairs (AD-23): an '
+        'extension outside any session, a non-positive value, and an '
+        'unbounded sitting that stays unbounded', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      // No session open: the row stays in the log and sums nothing.
+      final orphan = walkLog([anExtended(start, 15)], catalogue: _catalogue);
+      expect(orphan.openSessionStart, isNull);
+      expect(orphan.openSessionPocketMinutes, isNull);
+
+      // A closed sitting's trailing extension sums nothing.
+      final afterClose = walkLog([
+        _started(start, pocketMinutes: 30, id: 's1'),
+        _ended(start + 10 * microsPerMinute),
+        anExtended(start + 20 * microsPerMinute, 15),
+      ], catalogue: _catalogue);
+      expect(afterClose.openSessionStart, isNull);
+      expect(afterClose.openSessionPocketMinutes, isNull);
+
+      // A non-positive value derives as absent, the start row's
+      // out-of-range precedent.
+      final strayValue = walkLog([
+        _started(start, pocketMinutes: 30),
+        anExtended(start + 10 * microsPerMinute, 0),
+      ], catalogue: _catalogue);
+      expect(strayValue.openSessionPocketMinutes, 30);
+
+      // An unbounded sitting stays unbounded: an extension cannot
+      // retroactively bound what no start declared.
+      final unbounded = walkLog([
+        _started(start),
+        anExtended(start + 16 * microsPerMinute, 15),
+      ], catalogue: _catalogue);
+      expect(unbounded.openSessionPocketMinutes, isNull);
+      expect(unbounded.openSessionStart, isNotNull);
     });
   });
 }

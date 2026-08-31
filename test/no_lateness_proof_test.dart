@@ -10,7 +10,7 @@ import '../tool/check_core_purity.dart';
 /// findings, because nothing was assigned to a future day, so nothing
 /// needs re-planning — plus the shell's write-path census: the card and
 /// moment wire names appear nowhere in `lib/`, records over core
-/// `LogEntryContent` are constructed only in the Dispenser's four
+/// `LogEntryContent` are constructed only in the Dispenser's five
 /// user-act append sites plus the session, settings and crash channels
 /// the census maps enumerate, the adapter's store module owns the only
 /// drift insert companions, and no pool-fact write exists outside the
@@ -191,7 +191,7 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, seven wire names wide: every user-act and
+    // The absolute ban, eight wire names wide: every user-act and
     // moment kind exists in the shell only inside the core's own
     // constants — a quoted wire name in lib/ is a minter that
     // bypasses the vocabulary. (crash_recorded is not banned here:
@@ -202,6 +202,7 @@ void main() {
       'card_skipped',
       'session_started',
       'session_ended',
+      'session_extended',
       'app_opened',
       'setting_changed',
     ];
@@ -239,7 +240,8 @@ void main() {
     // channel's `LogKind.crashRecorded`, pinned by name below).
     // `cardDone`/`cardSkipped` appear exactly twice in the shell —
     // the two core-command invocations in the sanctioned Dispenser
-    // controller, each as a call — which is the LogEntryContent path
+    // controller, each as a call — and `sessionExtend` exactly once,
+    // the checkpoint's minter — which is the LogEntryContent path
     // this census exists to protect.
     final constantOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -281,17 +283,25 @@ void main() {
           'exactly one core cardSkipped command invocation — the '
           'LogEntryContent path',
     );
+    expect(
+      RegExp(r'\bsessionExtend\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core sessionExtend command invocation — the '
+          'checkpoint extension\'s LogEntryContent path (Story 2.4)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
-    // implementation) are, inside the Dispenser controller, its four
+    // implementation) are, inside the Dispenser controller, its five
     // user-act append sites over core LogEntryContent — the two
-    // answers, the pocket declaration (Story 2.2) and the pause
-    // (Story 2.3) — beside the session and settings channels and
-    // AD-12's crash channel, each mapped below; together, the only
-    // paths that can mint user-act and session kinds. The exact counts
-    // pin an unlisted call site even inside a sanctioned file;
-    // tear-offs (`.appendLogEntry` without a call) are zero.
+    // answers, the pocket declaration (Story 2.2), the pause
+    // (Story 2.3) and the checkpoint extension (Story 2.4) — beside
+    // the session and settings channels and AD-12's crash channel,
+    // each mapped below; together, the only paths that can mint
+    // user-act and session kinds. The exact counts pin an unlisted
+    // call site even inside a sanctioned file; tear-offs
+    // (`.appendLogEntry` without a call) are zero.
     final callCounts = <String, int>{};
     final contentCounts = <String, int>{};
     for (final entry in sources.entries) {
@@ -312,7 +322,7 @@ void main() {
       callCounts,
       {
         'lib/crash.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 4,
+        'lib/dispenser/dispenser_controller.dart': 5,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },
@@ -324,7 +334,7 @@ void main() {
     expect(
       contentCounts,
       {
-        'lib/dispenser/dispenser_controller.dart': 4,
+        'lib/dispenser/dispenser_controller.dart': 5,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },

@@ -366,6 +366,18 @@ class _QueuedPauseController extends _QueuedReadController {
   Future<DispenserView> pause() => pauseView.future;
 }
 
+/// A queued reader whose extension resolves from a held completer: the
+/// pause's generation-guard pattern, on the checkpoint's continue
+/// (Story 2.4).
+class _QueuedExtendController extends _QueuedReadController {
+  _QueuedExtendController(super.reads);
+
+  final Completer<DispenserView> extendView = Completer<DispenserView>();
+
+  @override
+  Future<DispenserView> extend() => extendView.future;
+}
+
 /// A store whose `card_done` appends fail once, and only once an
 /// earlier one has landed — the second-completion write-failure shape:
 /// a first ack is mid-window and visible when the failed write's catch
@@ -3278,6 +3290,441 @@ void main() {
         expect(rect.top, greaterThanOrEqualTo(0));
         expect(rect.bottom, lessThanOrEqualTo(screen.height));
       }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the checkpoint offer (Story 2.4, FR-10, UX-DR44/51)', () {
+    /// A seeded pocketed session start, as a declaration or a process
+    /// death would have left it — the start instant injectable so a
+    /// pocket sits elapsed or unelapsed at the fixed 12:00 clock.
+    void seedPocketedStart(
+      _RecordingStore store,
+      int pocketMinutes, {
+      DateTime? at,
+    }) {
+      store.entries.add((
+        id: 'seed-pocket',
+        kind: 'session_started',
+        instantUtcMicros:
+            (at ?? DateTime.utc(2026, 8, 29, 11)).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: pocketMinutes,
+      ));
+    }
+
+    /// A sitting seeded 40 minutes into a 45-minute pocket at the
+    /// fixed clock: unelapsed (deadline 12:05), the first multiple
+    /// crossed — the controller's read resolves the rest offer.
+    Future<_RecordingStore> seedOfferSitting(WidgetTester tester) async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      return store;
+    }
+
+    testWidgets('the offer renders both strings — Nada más por el '
+        'momento as the primary permission, Quiero seguir as the '
+        'silent secondary — and nothing else (no question, no count, '
+        'UJ-1, UX-DR44)', (tester) async {
+      await seedOfferSitting(tester);
+
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+      expect(find.text('Quiero seguir'), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.byType(DurationChip), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      // The chip carries the standing declared pocket, lifted
+      // extensions and all.
+      expect(find.text('Tengo 45 minutos ahora'), findsOneWidget);
+      // No continuation question exists anywhere (FR-10).
+      expect(find.textContaining('¿'), findsNothing);
+    });
+
+    testWidgets('the continue is never primary: prose in the unsplit '
+        'secondary grammar, while the stop holds the Done button\'s '
+        'register — never filled, never emphasized', (tester) async {
+      await seedOfferSitting(tester);
+
+      // The stop is the one filled primary on the surface.
+      final stop = find.text('Nada más por el momento');
+      final stopStyle = tester.widget<Text>(stop).style!;
+      // bodyLarge — the wired action-primary role (theme.dart).
+      expect(stopStyle.fontSize, TypeRoles.actionPrimary.fontSize);
+      expect(stopStyle.color, FieldPalette.inkPrimary);
+      final stopButton = tester.widget<HechoButton>(
+        find.ancestor(of: stop, matching: find.byType(HechoButton)),
+      );
+      expect(stopButton.label, AppStringsEs().checkpointStop);
+
+      // The continue is a SecondaryTextAction: ink-secondary prose in
+      // a 48dp opaque band, no fill of its own.
+      final secondary = find.byWidgetPredicate(
+        (widget) =>
+            widget is SecondaryTextAction &&
+            widget.label == AppStringsEs().checkpointContinue,
+      );
+      expect(secondary, findsOneWidget);
+      final continueStyle = tester
+          .widget<Text>(find.text('Quiero seguir'))
+          .style!;
+      expect(continueStyle.color, FieldPalette.inkSecondary);
+      expect(continueStyle.fontFamily, FontFamilies.lexend);
+      expect(
+        continueStyle.fontSize,
+        TypeRoles.actionSecondary.fontSize,
+        reason:
+            'bodyMedium, the action-secondary role — never the '
+            'primary register',
+      );
+      // The tap band, not the glyphs, holds the 48dp floor.
+      final target = _rect(tester, secondary);
+      expect(target.height, greaterThanOrEqualTo(48));
+      expect(
+        tester
+            .widget<GestureDetector>(
+              find.descendant(
+                of: secondary,
+                matching: find.byType(GestureDetector),
+              ),
+            )
+            .behavior,
+        HitTestBehavior.opaque,
+      );
+    });
+
+    testWidgets('the offer\'s stop is one tap: Nada más por el momento '
+        'runs the pause write — exactly one session_ended, the warm '
+        'close commits, silence everywhere', (tester) async {
+      final store = await seedOfferSitting(tester);
+      final calls = _mockPlatformCalls(tester);
+
+      await tester.tap(find.text('Nada más por el momento'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_extended'),
+        isEmpty,
+        reason:
+            'the stop appended nothing but the close row: the '
+            'multiple stays standing for the next sitting',
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(_hapticImpacts(calls), isEmpty);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the offer\'s continue is silent: Quiero seguir appends '
+        'exactly one session_extended{15}, no haptic, and the card '
+        'returns — never re-dealt', (tester) async {
+      final store = await seedOfferSitting(tester);
+      // A standing card dealt into the pending offer (cumulative 17).
+      store.entries.add((
+        id: 'seed-deal',
+        kind: 'card_dealt',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          37,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: 'pasar-la-aspiradora-a-la-cocina',
+        itemOrigin: Origin.shipped,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+      ));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+
+      final calls = _mockPlatformCalls(tester);
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_extended'),
+        hasLength(1),
+      );
+      final extended = store.entries.lastWhere(
+        (entry) => entry.kind == 'session_extended',
+      );
+      expect(extended.pocketMinutes, 15);
+      // The standing card returned to the surface — one deal row only,
+      // never re-dealt (FR-10).
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(1),
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(
+        find.text('Tengo 60 minutos ahora'),
+        findsOneWidget,
+        reason: 'the chip reads the lifted pocket',
+      );
+      expect(_hapticImpacts(calls), isEmpty);
+      expect(find.text('¡Buen trabajo!'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failed continue leaves the quiet empty frame — no '
+        'error surface, nothing landed — and a later continue still '
+        'works (the in-flight guard was released)', (tester) async {
+      final inner = _RecordingStore();
+      seedPocketedStart(inner, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      final failing = _FailNextAppendStore(inner);
+      await tester.pumpWidget(_harness(buildController(failing)));
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+
+      failing.failNextAppend = true;
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nada más por el momento'), findsNothing);
+      expect(find.text('Quiero seguir'), findsNothing);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_extended'),
+        isEmpty,
+        reason: 'the log stayed consistent: nothing landed',
+      );
+
+      // Continue is content, not footer chrome: the empty frame has
+      // no Quiero seguir. A real return to the foreground re-reads
+      // the still-pending offer (the declare-fail recovery).
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Quiero seguir'), findsOneWidget);
+
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_extended'),
+        hasLength(1),
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the pocket-elapsed close is the offer: Quiero seguir '
+        'stands beneath the warm string while the pool could deal, '
+        'and its tap extends and deals (UJ-1)', (tester) async {
+      final store = _RecordingStore();
+      // Seeded 11:45 with 15 minutes: the close and the checkpoint
+      // coincide exactly at the fixed clock.
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.text('Quiero seguir'), findsOneWidget);
+      expect(find.text('Nada más por el momento'), findsNothing);
+      expect(find.byType(TaskCard), findsNothing);
+
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_extended'),
+        hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(1),
+        reason: 'close-continue mints the deal so Hecho can land (AD-3)',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text('Tengo 30 minutos ahora'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a pool-exhausted close carries nothing: no continue '
+        'action exists to tap', (tester) async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
+      await tester.pumpWidget(
+        _harness(
+          buildController(
+            store,
+            bundle: _FakeBundle({
+              catalogueAssetPath: '{"version":1,"entries":[]}',
+            }),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.text('Quiero seguir'), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the extension\'s commit lands last: a read resolving '
+        'mid-extension cannot outrun it — the tap\'s generation bump, '
+        'on the continue (_readGeneration)', (tester) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedExtendController([first, second]);
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(const DispenserRestOffer());
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+
+      // The continue tap starts its write (generation bumped) while a
+      // real return to the foreground fires its own refresh read —
+      // the two now race for the surface.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.text('Nada más por el momento'), findsNothing);
+
+      // The refresh's read resolves while the extension is still in
+      // flight; the extension's own commit then lands on top — the
+      // surface ends on the extension's truth, never on the
+      // interleaved read's.
+      second.complete(const DispenserDealt(_longCard));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(_longCard.name), findsOneWidget);
+
+      controller.extendView.complete(const DispenserRestOffer());
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+    });
+
+    testWidgets('the 320×220 @200% offer: the surface grows and '
+        'scrolls, both actions whole and reachable, zero overflow (the '
+        'short-surface floor)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = await seedOfferSitting(tester);
+
+      expect(tester.takeException(), isNull);
+      final screen = tester.getSize(find.byType(Scaffold));
+      expect(screen.height, 220);
+      for (final label in ['Nada más por el momento', 'Quiero seguir']) {
+        final target = find.text(label);
+        expect(target, findsOneWidget);
+        final widget = tester.widget<Text>(target);
+        expect(widget.maxLines, isNull);
+        expect(widget.overflow, isNot(TextOverflow.ellipsis));
+        await tester.scrollUntilVisible(
+          target,
+          200,
+          scrollable: find.byType(Scrollable),
+        );
+        final rect = _rect(tester, target);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(screen.height));
+      }
+      // The continue is tappable at the floor: its tap lands the
+      // extension and the card returns.
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quiero seguir'));
+      await tester.pumpAndSettle();
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_extended'),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a refresh read started before the continue tap cannot '
+        'overwrite the committed extension — the pause race\'s mirror, '
+        'on the continue (_readGeneration)', (tester) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedExtendController([first, second]);
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(const DispenserRestOffer());
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+
+      // The committed offer's continue callback, captured from the
+      // tree — the stale-callback pattern: the control lives in the
+      // content arm, which a refresh clears before its read resolves.
+      final onExtend = tester
+          .widget<SecondaryTextAction>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is SecondaryTextAction &&
+                  widget.label == AppStringsEs().checkpointContinue,
+            ),
+          )
+          .onTap!;
+
+      // A foreground refresh starts reading (generation 2) — its read
+      // hangs and the surface is the empty frame.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      // The stale callback still commits its extension — the tap's
+      // bump makes the surface generation 3 — and the card returns.
+      onExtend();
+      await tester.pump();
+      controller.extendView.complete(const DispenserDealt(_testCard));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(_testCard.name), findsOneWidget);
+
+      // The stale read lands last carrying the offer: its generation
+      // (2) is no longer the surface's — dropped, the card stands.
+      second.complete(const DispenserRestOffer());
+      await tester.pumpAndSettle();
+      expect(find.text(_testCard.name), findsOneWidget);
+      expect(find.text('Nada más por el momento'), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a long-elapsed close carries no continue — the chip '
+        'is the way back in, never a dead action', (tester) async {
+      final store = _RecordingStore();
+      // A 15-pocket started 11:05: elapsed at 11:20, forty minutes
+      // past at the fixed clock — one interval cannot reach.
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 5));
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.text('Quiero seguir'), findsNothing);
+      // The chip keeps the declared pocket: the ladder back in.
+      expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

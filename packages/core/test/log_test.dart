@@ -26,13 +26,14 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s eight kinds', () {
+    test('holds exactly the build\'s nine kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
         LogKind.cardSkipped,
         LogKind.sessionStarted,
         LogKind.sessionEnded,
+        LogKind.sessionExtended,
         LogKind.appOpened,
         LogKind.crashRecorded,
         LogKind.settingChanged,
@@ -44,10 +45,11 @@ void main() {
         'card_skipped',
         'crash_recorded',
         'session_ended',
+        'session_extended',
         'session_started',
         'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(8));
+      expect(LogKind.knownByName, hasLength(9));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -154,6 +156,20 @@ void main() {
       expect(entry.key, 'time_bag');
       expect(entry.value, 20);
       expect(entry.instantUtcMicros, 7000);
+      expect(entry.offsetSeconds, 3600);
+    });
+
+    test('a session extension carries its added minutes and nothing else '
+        '(Story 2.4, FR-10, AD-19)', () {
+      final entry = SessionExtendEntry(
+        id: '0190aaaa-0000-7000-8000-00000000000a',
+        instantUtcMicros: 8000,
+        offsetSeconds: 3600,
+        pocketMinutes: 15,
+      );
+      expect(entry.kind, LogKind.sessionExtended);
+      expect(entry.pocketMinutes, 15);
+      expect(entry.instantUtcMicros, 8000);
       expect(entry.offsetSeconds, 3600);
     });
   });
@@ -467,18 +483,19 @@ void main() {
         expect((zero.entry as SessionStartEntry).pocketMinutes, 0);
       });
 
-      test('a pocket on a non-session-start kind is excluded, distinctly', () {
+      test('a pocket on a kind that carries no pocket is excluded, '
+          'distinctly', () {
         final onEnd = convertLogEntryRecord(
           _record('session_ended', pocketMinutes: 15),
         );
         expect(onEnd.entry, isNull);
-        expect(onEnd.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+        expect(onEnd.flaw, LogRecordFlaw.pocketOnNonPocketKind);
 
         final onOpen = convertLogEntryRecord(
           _record('app_opened', pocketMinutes: 15),
         );
         expect(onOpen.entry, isNull);
-        expect(onOpen.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+        expect(onOpen.flaw, LogRecordFlaw.pocketOnNonPocketKind);
 
         final onAct = convertLogEntryRecord(
           _record(
@@ -489,13 +506,13 @@ void main() {
           ),
         );
         expect(onAct.entry, isNull);
-        expect(onAct.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+        expect(onAct.flaw, LogRecordFlaw.pocketOnNonPocketKind);
 
         final onCrash = convertLogEntryRecord(
           _record('crash_recorded', stack: '#0      build', pocketMinutes: 15),
         );
         expect(onCrash.entry, isNull);
-        expect(onCrash.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+        expect(onCrash.flaw, LogRecordFlaw.pocketOnNonPocketKind);
 
         final onSetting = convertLogEntryRecord(
           _record(
@@ -506,7 +523,74 @@ void main() {
           ),
         );
         expect(onSetting.entry, isNull);
-        expect(onSetting.flaw, LogRecordFlaw.pocketOnNonSessionStartKind);
+        expect(onSetting.flaw, LogRecordFlaw.pocketOnNonPocketKind);
+      });
+    });
+
+    group('the extension payload path (Story 2.4, FR-10, AD-19, AD-23)', () {
+      test('a well-shaped session extension converts with its minutes', () {
+        final conversion = convertLogEntryRecord(
+          _record('session_extended', pocketMinutes: 15),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<SessionExtendEntry>());
+        expect(entry!.kind, LogKind.sessionExtended);
+        expect((entry as SessionExtendEntry).pocketMinutes, 15);
+      });
+
+      test('an extension without its minutes is excluded, distinctly — '
+          'the minutes are the row\'s whole payload', () {
+        final conversion = convertLogEntryRecord(_record('session_extended'));
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.extendMinutesAbsent);
+      });
+
+      test('an out-of-range minute value still converts — it stays in '
+          'the log and the derivation treats it as absent, never a '
+          'repair write (AD-23)', () {
+        final zero = convertLogEntryRecord(
+          _record('session_extended', pocketMinutes: 0),
+        );
+        expect(zero.flaw, isNull);
+        expect((zero.entry as SessionExtendEntry).pocketMinutes, 0);
+
+        final negative = convertLogEntryRecord(
+          _record('session_extended', pocketMinutes: -5),
+        );
+        expect(negative.flaw, isNull);
+        expect((negative.entry as SessionExtendEntry).pocketMinutes, -5);
+      });
+
+      test('an item pair, a stack or setting fields on session_extended '
+          'are excluded', () {
+        final withItem = convertLogEntryRecord(
+          _record(
+            'session_extended',
+            pocketMinutes: 15,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+        );
+        expect(withItem.entry, isNull);
+        expect(withItem.flaw, LogRecordFlaw.itemOnNonItemKind);
+
+        final withStack = convertLogEntryRecord(
+          _record('session_extended', pocketMinutes: 15, stack: '#0      b'),
+        );
+        expect(withStack.entry, isNull);
+        expect(withStack.flaw, LogRecordFlaw.stackOffCrashKind);
+
+        final withSetting = convertLogEntryRecord(
+          _record(
+            'session_extended',
+            pocketMinutes: 15,
+            settingKey: 'time_bag',
+            settingValue: 15,
+          ),
+        );
+        expect(withSetting.entry, isNull);
+        expect(withSetting.flaw, LogRecordFlaw.settingOnNonSettingKind);
       });
     });
 

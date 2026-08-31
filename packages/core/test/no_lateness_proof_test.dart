@@ -648,6 +648,18 @@ final class KitchenSink {
       );
     });
 
+    test('SessionExtendEntry', () {
+      // A checkpoint extension (Story 2.4, FR-10, AD-19): the minutes
+      // the user added to the sitting's declared pocket, reusing the
+      // pocket fact `session_started` already carries — no new column,
+      // no schema bump (AD-23). `kind` extracts after the constructor
+      // parameter because it is an initialized override.
+      expect(
+        _classOwnFields('SessionExtendEntry', 'log/log_entry.dart'),
+        equals(['pocketMinutes', 'kind']),
+      );
+    });
+
     test('CrashEntry', () {
       // The crash payload is its stack and its pinned kind — and
       // nothing else rides along (AD-12; `kind` extracts after the
@@ -852,19 +864,34 @@ final class KitchenSink {
         equals(['cluster', 'enabled', 'instantUtcMicros', 'offsetSeconds']),
       );
     });
+
+    test('CheckpointState', () {
+      // The checkpoint derivation's state (Story 2.4, FR-10): two
+      // boolean facts the log makes true at one read instant — the
+      // offer's due-ness and its preemption of the standing deal. No
+      // count, no remaining-minutes figure, no scheduled instant rides
+      // the reveal to the surface: the offer's surface is two actions,
+      // and a number that would have been higher is exactly what the
+      // surface must never carry (UJ-1, UX-DR44).
+      expect(
+        _classOwnFields('CheckpointState', 'derive/checkpoint.dart'),
+        equals(['offerDue', 'offerPreemptsStandingDeal']),
+      );
+    });
   });
 
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-two
-    // declarations above (seventeen classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-four
+    // declarations above (nineteen classes, five record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
       'log/log_entry.dart:ItemActEntry',
       'log/log_entry.dart:MomentEntry',
       'log/log_entry.dart:SessionStartEntry',
+      'log/log_entry.dart:SessionExtendEntry',
       'log/log_entry.dart:CrashEntry',
       'log/log_entry.dart:SettingEntry',
       'log/log_entry.dart:UnknownEntry',
@@ -882,6 +909,7 @@ final class KitchenSink {
       'commands/session_commands.dart:LogEntryContent',
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',
+      'derive/checkpoint.dart:CheckpointState',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {

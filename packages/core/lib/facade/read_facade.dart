@@ -3,6 +3,11 @@
 /// (AD-3), and no function in this library returns a collection of work
 /// items. Derived signals, when they arrive, are named as facts and live
 /// in `core/derive` — inputs to the weave, not outputs to the shell.
+/// That home has its first resident now (Story 2.4):
+/// `core/derive/checkpoint.dart` derives the FR-10 checkpoint as a
+/// state fact the shell renders as a non-work surface — AD-6's stated
+/// crossing for derived state, on the `warmReturnDue` precedent — while
+/// every work signal this facade exposes stays `nextCard` alone.
 
 library;
 
