@@ -28,6 +28,11 @@
 /// reveal composition: a pocket that elapsed while the app was not
 /// foregrounded closes at the open's own instant, before the fresh
 /// `session_started` — two derived-open sessions never coexist.
+///
+/// Story 2.3 adds the pause (FR-9): the quiet stop emits through
+/// `sessionEnd` unchanged — one row, no payload, no new LogKind — and
+/// `nextDeal` itself now holds the sitting line (no open session, no
+/// deal), so the post-pause read model is the standing warm close.
 
 library;
 
@@ -184,10 +189,14 @@ List<LogEntryContent> cardSkipped({
   );
 }
 
-/// `session_ended` — only when a session is open. Backgrounding, the
-/// declare tap's supersede, and the elapsed-pocket reveal at `app_opened`
-/// are AD-19's three closing causes; no fourth emission site exists, and
-/// no close cause rides the row.
+/// `session_ended` — only when a session is open. The user stopping —
+/// the pause tap (Story 2.3) beside the declare tap's supersede — the
+/// declared pocket elapsing while the app is foregrounded (revealed at
+/// `app_opened`), and the app being backgrounded are AD-19's three
+/// closing causes; there is no fourth closing cause and no emission
+/// outside the three causes' sites (the sites themselves are four — the
+/// census's business, not the vocabulary's), and no close cause rides
+/// the row.
 List<LogEntryContent> sessionEnd({required List<LogEntry> log}) {
   final facts = walkLog(log);
   if (facts.openSessionStart == null) {

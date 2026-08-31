@@ -438,9 +438,16 @@ DayComposition composeDay({
   );
 }
 
-/// The resolver's next deal (AD-3, AD-20): what the command that answers
-/// the previous card — or `session_started` for a session's first card —
-/// appends. Pure: it computes the card and writes nothing. The chunk
+/// The resolver's next deal (AD-3, AD-20, AD-19): what the command that
+/// answers the previous card — or `session_started` for a session's first
+/// card — appends. **No open session, no deal**: a log with no unmatched
+/// `session_started` resolves absent (Story 2.3) — deals exist only
+/// inside sittings, exactly as this contract has always read, and a
+/// sessionless proposal would be a card no command can answer
+/// (`cardDone`'s side-door guard refuses sessionless answers). A
+/// sitting's start — `sessionStart`'s synthesized present, or the
+/// supersede pair's second half — is the deal's only door. Pure: it
+/// computes the card and writes nothing. The chunk
 /// slot resolves first while open and gated — through the same tier
 /// pipeline `composeDay` reads; identity re-resolves on every deal, so a
 /// skip yields a different candidate and consumes no rotation; once the
@@ -453,7 +460,9 @@ DayComposition composeDay({
 /// upkeep, habits — and when nothing fits, or the pocket has elapsed at
 /// this instant, the deal is absent and the read model presents the
 /// warm close. No eager `session_ended` exists here or anywhere: the
-/// close row lands at backgrounding, the declare tap, or the reveal.
+/// close row lands at backgrounding, the declare tap, the reveal, or
+/// the pause tap — AD-19's three closing causes at their four emission
+/// sites.
 Card? nextDeal({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -472,6 +481,14 @@ Card? nextDeal({
     energy: energy,
     activeClusters: activeClusters,
   );
+  if (policy.facts.openSessionStart == null) {
+    // No open session, no deal (Story 2.3, AD-19): the resolver stops
+    // proposing unanswerable cards — `cardDone` would refuse the answer,
+    // so the read model presents the warm close instead of a dead card.
+    // The walk tolerates imported sessionless `card_*` rows unchanged;
+    // only the proposal stops here.
+    return null;
+  }
   if (policy.facts.dealtUnanswered != null) {
     // The open session still holds its dealt-but-unanswered card: no
     // second deal exists to append while it stands (AD-3). Answering it

@@ -50,6 +50,18 @@
 // carried card, a pocket-bounded deal, or the same warm close as pool
 // exhaustion. No countdown, no remaining minutes, no new session state,
 // and no error surface anywhere on this path.
+//
+// The stop control (Story 2.3, FR-9, UX-DR43): `Quiero parar` stands in
+// the footer band on BOTH the dealt and closed views — never disabled,
+// never suggested, one tap, any moment, any reason. The tap is
+// `_onDeclarePocket`'s mechanics verbatim over the controller's pause
+// path — exactly one `session_ended` row, no payload — and the committed
+// view is the standing warm close with the trigger chip back at its 15
+// default: the close is the stop's whole presentation, silent by
+// construction. A tap with nothing open appends nothing — the accepted
+// quiet no-op. The footer band wraps (never truncates) at 200%, and on
+// a body too short to hold the pinned chrome the band joins the scroll
+// region: the accessibility floor outranks UX-DR45's pin.
 import 'dart:async';
 
 import 'package:core/settings/settings.dart';
@@ -68,6 +80,18 @@ import 'task_card.dart';
 /// DESIGN token exists for it, and the tokenized side rule
 /// (`Spacing.screenMargin`) stays in force below it.
 const double _cardMaxWidth = 480;
+
+/// The short-surface floor's decision height (Story 2.3, UX-DR45 vs
+/// NFR6): the band stays pinned chrome while the body holds the
+/// common short-handset height (the 320-wide class at 480 tall, whose
+/// 200%-grown chrome still fits beside a scrolling card); at the
+/// Story-2.2 pin class of 320×220 and below, the 200%-grown chrome
+/// (chip + band) outgrows the body — measured, not guessed — and the
+/// band joins the scroll region rather than overflowing. The
+/// accessibility floor outranks pinned chrome, never the reverse; the
+/// 320×220 @200% pin guards this number from below and is never
+/// retargeted.
+const double _pinnedFooterLeastBodyHeight = 320;
 
 /// The ladder's stepped options (Story 2.2): every offered value is
 /// inside the pocket's command range, so out-of-range is unreachable
@@ -323,30 +347,51 @@ class _DispenserScreenState extends State<DispenserScreen>
       // modes — the empty frame is already the whole surface. The pocket
       // trigger sits above the scroll region and the footer below it as
       // Dispenser chrome, so neither scrolls away and the card between
-      // them grows and scrolls on its own (UX-DR45).
-      body: Column(
-        children: [
-          _pocketTrigger(context),
-          Expanded(
-            child: switch (view) {
-              null => const SizedBox.shrink(),
-              DispenserDealt dealt => _frame(
-                _withCompletionAck(
-                  context,
-                  TaskCard(
-                    card: dealt.card,
-                    onDone: () => _onDone(dealt),
-                    onSkip: () => _onSkip(dealt),
+      // them grows and scrolls on its own (UX-DR45) — until the body is
+      // too short to hold that grown chrome (the 320×220 class at 200%):
+      // then the footer band joins the scroll region, for the
+      // accessibility floor outranks the pin (Story 2.3).
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final bandPinned =
+              constraints.maxHeight >= _pinnedFooterLeastBodyHeight;
+          final joinedBand = bandPinned ? null : _footerActions(context);
+          return Column(
+            children: [
+              _pocketTrigger(context),
+              Expanded(
+                child: switch (view) {
+                  // The empty frame keeps its bare ground — and on a
+                  // short body the joined band stays present on it too:
+                  // the stop renders in every Dispenser state.
+                  null =>
+                    joinedBand == null
+                        ? const SizedBox.shrink()
+                        : _frame(
+                            const SizedBox.shrink(),
+                            joinedFooterBand: joinedBand,
+                          ),
+                  DispenserDealt dealt => _frame(
+                    _withCompletionAck(
+                      context,
+                      TaskCard(
+                        card: dealt.card,
+                        onDone: () => _onDone(dealt),
+                        onSkip: () => _onSkip(dealt),
+                      ),
+                    ),
+                    joinedFooterBand: joinedBand,
                   ),
-                ),
+                  DispenserClosed() => _frame(
+                    _withCompletionAck(context, _closeText(context)),
+                    joinedFooterBand: joinedBand,
+                  ),
+                },
               ),
-              DispenserClosed() => _frame(
-                _withCompletionAck(context, _closeText(context)),
-              ),
-            },
-          ),
-          _newProjectFooter(context),
-        ],
+              if (bandPinned) _pinnedFooterBand(context),
+            ],
+          );
+        },
       ),
     );
   }
@@ -468,34 +513,97 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// The one quiet departure (UX-DR25, Story 2.1): `Nuevo proyecto`
-  /// bottom-centred as ink-secondary text in the `action-secondary`
-  /// pattern — never animated, never emphasised, never badged, no
-  /// pastel mass, no glyph. Mass means work and prose means leaving;
-  /// this is the surface's only prose control, and it opens the
-  /// intermediate surface that carries the `Ajustes` way-out alone
-  /// (Epic 5's typed genesis is that surface's other half, not this
-  /// story's). The first navigation in the app — no route table
-  /// exists, so the push carries its page inline.
-  Widget _newProjectFooter(BuildContext context) {
+  /// One tap, no confirmation, no feedback of any kind (Story 2.3,
+  /// FR-9, UX-DR43): the pause is `_onDeclarePocket`'s mechanics
+  /// verbatim over the controller's pause path — exactly one
+  /// `session_ended` row, or nothing at all when no session is open
+  /// (the accepted quiet no-op) — and the committed warm close *is* the
+  /// stop's whole presentation, silent by construction: no toast, no
+  /// banner, no announcement, and the chip returns to its 15 default as
+  /// its own data does. The same in-flight guard as an answer keeps the
+  /// stop from interleaving with a `Hecho`, a skip or a declaration at
+  /// the surface; a launch or foreground read still reading the old log
+  /// cannot overwrite this close after it lands (the generation bump).
+  /// A failed write is absorbed by the empty frame, quietly, and no
+  /// completion-ack state is this write's to touch.
+  Future<void> _onPause() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    // A launch or foreground refresh may still be reading the old log. Its
+    // result must not overwrite this pause after it lands.
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.pause();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _view = view);
+      // The old surface remains in the render tree until this refresh's
+      // frame. Keep the shared guard through it so its stale callbacks
+      // cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed: quiet and deliberate — the empty frame stands,
+      // nothing surfaced, and a real return to the foreground re-reads.
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The footer band's two prose controls (Stories 2.1, 2.3, UX-DR25,
+  /// UX-DR43): `Quiero parar` beside `Nuevo proyecto`, both through the
+  /// `action-secondary` grammar — ink-secondary text, 48dp opaque
+  /// targets, no glyph, no pastel mass, nothing animated. The band
+  /// wraps; nothing in it ever truncates.
+  Widget _footerActions(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: Spacing.actionGap,
+      runSpacing: Spacing.spacingBase,
+      children: [
+        SecondaryTextAction(label: strings.actionStop, onTap: _onPause),
+        SecondaryTextAction(
+          label: strings.newProjectLink,
+          onTap: () {
+            // A rapid second tap during the route transition would stack
+            // a second route: while another route is coming in, this one
+            // is not the navigator's current route, and the push is
+            // refused.
+            if (ModalRoute.of(context)?.isCurrent ?? false) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      NuevoProyectoScreen(settings: widget.settings),
+                ),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  /// The band as pinned chrome below the scroll region (UX-DR45) — the
+  /// common surface. A body shorter than
+  /// [_pinnedFooterLeastBodyHeight] never reaches here: the actions
+  /// join the scroll region instead, inside [_frame].
+  Widget _pinnedFooterBand(BuildContext context) {
     return SafeArea(
       top: false,
-      child: SecondaryTextAction(
-        label: AppStrings.of(context).newProjectLink,
-        onTap: () {
-          // A rapid second tap during the route transition would stack
-          // a second route: while another route is coming in, this one
-          // is not the navigator's current route, and the push is
-          // refused.
-          if (ModalRoute.of(context)?.isCurrent ?? false) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    NuevoProyectoScreen(settings: widget.settings),
-              ),
-            );
-          }
-        },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.screenMargin),
+        child: _footerActions(context),
       ),
     );
   }
@@ -541,7 +649,28 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// with the 48dp minimum air inside the screen margins and the
   /// max-width bound. SafeArea first, so scrolled content never renders
   /// under the status bar or a cutout — the minimum air lives inside it.
-  Widget _frame(Widget child) {
+  /// [joinedFooterBand] is the short-surface reflow (Story 2.3): the
+  /// footer actions riding inside the scroll region below the view —
+  /// present and tappable, growing and scrolling, never truncated —
+  /// when the body is too short to hold them as pinned chrome.
+  Widget _frame(Widget child, {Widget? joinedFooterBand}) {
+    Widget content = Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
+        child: child,
+      ),
+    );
+    if (joinedFooterBand != null) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          content,
+          const SizedBox(height: Spacing.cardPadding),
+          joinedFooterBand,
+        ],
+      );
+    }
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -555,12 +684,7 @@ class _DispenserScreenState extends State<DispenserScreen>
                 // reads as a fixed value (UX-DR14).
                 vertical: Spacing.touchTargetMin,
               ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: child,
-                ),
-              ),
+              child: content,
             ),
           ),
         ),

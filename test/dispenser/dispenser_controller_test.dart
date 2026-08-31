@@ -971,19 +971,22 @@ void main() {
     expect(nextSize, isNot(Size.focus));
   });
 
-  group('the pocket declaration (Story 2.2, FR-8, AD-19)', () {
-    DispenserController buildFor(
-      StorePort store, {
-      LogWriteQueue? writeQueue,
-      DateTime Function() nowOf = _fixedClock,
-    }) => DispenserController(
-      store: store,
-      strings: AppStringsEs(),
-      bundle: _FakeBundle({catalogueAssetPath: shipped}),
-      nowOf: nowOf,
-      writeQueue: writeQueue,
-    );
+  /// The Story-2.2 harness builder, shared by the declare and pause
+  /// groups (the pause matrix mirrors the pocket group's, it does not
+  /// duplicate it).
+  DispenserController buildFor(
+    StorePort store, {
+    LogWriteQueue? writeQueue,
+    DateTime Function() nowOf = _fixedClock,
+  }) => DispenserController(
+    store: store,
+    strings: AppStringsEs(),
+    bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    nowOf: nowOf,
+    writeQueue: writeQueue,
+  );
 
+  group('the pocket declaration (Story 2.2, FR-8, AD-19)', () {
     test('declaring from idle appends [session_started{p}, card_dealt?] '
         '— the deal fits the pocket, and the view carries the standing '
         'pocket for the chip', () async {
@@ -1246,5 +1249,244 @@ void main() {
         expect(view.pocketMinutes, 15);
       },
     );
+  });
+
+  group('the pause (Story 2.3, FR-9, AD-19)', () {
+    test('pausing an open session appends exactly [session_ended] — one '
+        'row, one minted instant, a v7 id, no payload — and the committed '
+        'view is the warm close with the chip back at its default', () async {
+      final store = _RecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final view = await controller.pause();
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+      ]);
+      final ended = store.entries.last;
+      expect(ended.itemId, isNull);
+      expect(ended.pocketMinutes, isNull);
+      expect(ended.id, matches(v7));
+      expect(ended.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+
+      // The committed view is the standing warm close, no pocket fact.
+      expect(view, isA<DispenserClosed>());
+      expect((view as DispenserClosed).pocketMinutes, isNull);
+      // The dealt card no longer renders as answerable: the read stays
+      // closed.
+      expect(await controller.read(), isA<DispenserClosed>());
+      expect(dealt.card, isNotNull);
+    });
+
+    test('pausing with nothing open appends nothing at all — the accepted '
+        'quiet no-op, the view unchanged', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      await controller.pause();
+      expect(store.entries, isEmpty);
+
+      // And again after a real pause: exactly one session_ended ever.
+      await openSessionAndReadFirstDeal(store);
+      await controller.pause();
+      await controller.pause();
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(await controller.read(), isA<DispenserClosed>());
+    });
+
+    test('a failing pause append rethrows to the caller and lands nothing; '
+        'the recovered chain lands the next write', () async {
+      final inner = _RecordingStore();
+      await openSessionAndReadFirstDeal(inner);
+      final failing = _FailNextAppendStore(inner);
+      final controller = buildFor(failing);
+      final before = inner.entries.length;
+
+      failing.failNextAppend = true;
+      await expectLater(controller.pause(), throwsA(isA<StateError>()));
+      expect(inner.entries, hasLength(before));
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_ended'),
+        isEmpty,
+        reason: 'nothing landed on the failed write',
+      );
+
+      // The chain recovered: the retried pause lands its one row.
+      final view = await controller.pause();
+      expect(inner.entries.skip(before).map((entry) => entry.kind).toList(), [
+        'session_ended',
+      ]);
+      expect(view, isA<DispenserClosed>());
+    });
+
+    test(
+      'pausing a lingering exhausted-pool session still lands '
+      '[session_ended] — the surface was already the close, unchanged',
+      () async {
+        final store = _RecordingStore();
+        final controller = buildFor(store);
+        await SessionController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        ).handleAppOpen();
+        // Run the day to exhaustion inside the one open sitting: the
+        // ninth answer appends no bundled deal, the read closes warm —
+        // and the session lingers derived-open.
+        var view = await controller.read();
+        while (view is DispenserDealt) {
+          await controller.complete(view);
+          view = await controller.read();
+        }
+        expect(view, isA<DispenserClosed>());
+
+        final paused = await controller.pause();
+        expect(
+          store.entries.where((entry) => entry.kind == 'session_ended'),
+          hasLength(1),
+        );
+        expect(store.entries.last.kind, 'session_ended');
+        expect(paused, isA<DispenserClosed>());
+        expect(
+          (paused as DispenserClosed).pocketMinutes,
+          isNull,
+          reason: 'no pocket was ever declared',
+        );
+      },
+    );
+
+    test('a pocketed-unelapsed mid-pause with the card standing: the chip '
+        'reads the declared pocket before, the 15 default after', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      final declared = await controller.declarePocket(20);
+      expect(declared, isA<DispenserDealt>());
+      expect((declared as DispenserDealt).pocketMinutes, 20);
+      // The card stands dealt-but-unanswered inside the unelapsed
+      // pocket when the pause lands.
+      final paused = await controller.pause();
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'card_dealt',
+        'session_ended',
+      ]);
+      expect(paused, isA<DispenserClosed>());
+      expect((paused as DispenserClosed).pocketMinutes, isNull);
+      // The post-pause read keeps the close: no card renders, and the
+      // chip's data is gone with the session.
+      final after = await controller.read();
+      expect(after, isA<DispenserClosed>());
+      expect((after as DispenserClosed).pocketMinutes, isNull);
+    });
+
+    test('a pause queued behind a completion lands coherently through the '
+        'shared queue — the declare-interleave pattern, on the stop', () async {
+      final store = _RecordingStore();
+      final writes = LogWriteQueue();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+        writeQueue: writes,
+      );
+      final dispenser = buildFor(store, writeQueue: writes);
+      await session.handleAppOpen();
+      final dealt = (await dispenser.read()) as DispenserDealt;
+
+      final completing = dispenser.complete(dealt);
+      final pausing = dispenser.pause();
+      await Future.wait([completing, pausing]);
+
+      // The completion's batch landed whole, then the pause's one row —
+      // coherent order through the one shared chain.
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'card_done',
+        'card_dealt',
+        'session_ended',
+      ]);
+      expect(await dispenser.read(), isA<DispenserClosed>());
+    });
+
+    test('pause stamps its row with the instant minted at entry — the '
+        'clock\'s later ticks and the queued write never reach the row '
+        '(the complete/skip pattern, on the stop)', () async {
+      var minute = 0;
+      final mints = <int>[];
+      DateTime advancingClock() {
+        final now = DateTime.utc(2026, 8, 29, 12, minute++);
+        mints.add(now.microsecondsSinceEpoch);
+        return now;
+      }
+
+      final inner = _RecordingStore()
+        ..entries.addAll([
+          _moment('session_started', DateTime.utc(2026, 8, 29, 11), 'seed-1'),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 1),
+            'seed-2',
+            chunkSeedId,
+          ),
+        ]);
+      // The shared queue holds a gated antecedent write, so the pause's
+      // write parks behind it — and the antecedent advances the clock
+      // at its own completion moment before the pause's closure starts.
+      // A mint taken anywhere inside that closure — at its top or after
+      // the ticking store read — therefore lands on a later,
+      // observably different minute than the tap's.
+      final writes = LogWriteQueue();
+      final release = Completer<void>();
+      unawaited(
+        writes.enqueue(() async {
+          await release.future;
+          minute++;
+        }),
+      );
+      final store = _TickingReadStore(inner, () => minute++);
+      final controller = buildFor(
+        store,
+        writeQueue: writes,
+        nowOf: advancingClock,
+      );
+
+      // The minute pause() must mint, captured immediately before the
+      // call: the row must describe the tap, never the post-queue
+      // moment.
+      final pauseMinute = minute;
+      final pausing = controller.pause();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_ended'),
+        isEmpty,
+        reason: 'the write is still parked behind the gated antecedent',
+      );
+
+      release.complete();
+      await pausing;
+
+      // Exactly two mints — pause()'s entry mint and its read-back's.
+      expect(mints, hasLength(2));
+      final entryMint = DateTime.utc(
+        2026,
+        8,
+        29,
+        12,
+        pauseMinute,
+      ).microsecondsSinceEpoch;
+      final ended = inner.entries.last;
+      expect(ended.kind, 'session_ended');
+      expect(ended.instantUtcMicros, entryMint);
+      expect(ended.offsetSeconds, 0);
+    });
   });
 }

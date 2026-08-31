@@ -10,9 +10,11 @@ import '../tool/check_core_purity.dart';
 /// findings, because nothing was assigned to a future day, so nothing
 /// needs re-planning — plus the shell's write-path census: the card and
 /// moment wire names appear nowhere in `lib/`, records over core
-/// `LogEntryContent` are constructed only in the two sanctioned append
-/// sites, the adapter's store module owns the only drift insert
-/// companions, and no pool-fact write exists outside the adapter.
+/// `LogEntryContent` are constructed only in the Dispenser's four
+/// user-act append sites plus the session, settings and crash channels
+/// the census maps enumerate, the adapter's store module owns the only
+/// drift insert companions, and no pool-fact write exists outside the
+/// adapter.
 /// Masking reuses `tool/check_core_purity.dart`'s
 /// `maskCommentsAndStrings` (the `test/tool/` import precedent), so
 /// prose and string contents cannot move the identifier pins — only a
@@ -282,13 +284,14 @@ void main() {
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
-    // implementation) are the three Code-Map append sites over core
-    // LogEntryContent — the Dispenser's two answers plus its pocket
-    // declaration (Story 2.2), the only paths that can mint user-act
-    // and session kinds — plus AD-12's crash channel, which constructs
-    // its `crash_recorded` row directly and can mint nothing else. The
-    // exact counts pin a fifth call site even inside a sanctioned
-    // file; tear-offs (`.appendLogEntry` without a call) are zero.
+    // implementation) are, inside the Dispenser controller, its four
+    // user-act append sites over core LogEntryContent — the two
+    // answers, the pocket declaration (Story 2.2) and the pause
+    // (Story 2.3) — beside the session and settings channels and
+    // AD-12's crash channel, each mapped below; together, the only
+    // paths that can mint user-act and session kinds. The exact counts
+    // pin an unlisted call site even inside a sanctioned file;
+    // tear-offs (`.appendLogEntry` without a call) are zero.
     final callCounts = <String, int>{};
     final contentCounts = <String, int>{};
     for (final entry in sources.entries) {
@@ -309,25 +312,25 @@ void main() {
       callCounts,
       {
         'lib/crash.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 3,
+        'lib/dispenser/dispenser_controller.dart': 4,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },
       reason:
-          'the exact census of append sites changed — a fourth '
+          'the exact census of append sites changed — an unlisted '
           'construction site is a candidate silent minter; freeze it or '
           'renegotiate the census',
     );
     expect(
       contentCounts,
       {
-        'lib/dispenser/dispenser_controller.dart': 3,
+        'lib/dispenser/dispenser_controller.dart': 4,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },
       reason:
           'records constructed over core LogEntryContent exist '
-          'only in the three sanctioned append sites',
+          'only in the sanctioned append sites',
     );
     final tearOffs = <String>[];
     for (final entry in sources.entries) {

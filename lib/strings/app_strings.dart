@@ -329,6 +329,12 @@ abstract class AppStrings {
   /// **'Nuevo proyecto'**
   String get newProjectLink;
 
+  /// Dispenser chrome — the quiet stop (FR-9, UX-DR43): one tap, any moment, any reason; the first-person mirror of the checkpoint's Quiero seguir. Never disabled, never suggested; the warm close is its whole presentation.
+  ///
+  /// In es, this message translates to:
+  /// **'Quiero parar'**
+  String get actionStop;
+
   /// The quiet text way-out inside the Nuevo proyecto surface — the only route into Settings, and with it the validator surface (NFR3, AD-26). Same prose grammar as the Dispenser footer; never a glyph, never emphasised.
   ///
   /// In es, this message translates to:

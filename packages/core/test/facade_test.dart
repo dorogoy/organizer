@@ -83,7 +83,8 @@ final Catalogue _catalogue = Catalogue(
 void main() {
   final now = utcMicros(2026, 8, 28, 12);
   test(
-    'a fresh store yields the resolver\'s next card, one card only',
+    'a fresh store resolves no card — deals exist only inside sittings; '
+    'the open\'s bundle is the card\'s only door (Story 2.3, AD-19)',
     () async {
       final store = _FakeStore();
       final card = await nextCard(
@@ -92,13 +93,50 @@ void main() {
         instantUtcMicros: now,
         offsetSeconds: 0,
       );
-      expect(card, isNotNull);
-      expect(card!.id, 'zona-a');
-      expect(card.size, Size.focus);
-      expect(card.name, 'Tarea de zona-a');
-      expect(card.origin, Origin.shipped);
-      expect(card.estimateSeconds, focusEstimateSeconds);
+      expect(
+        card,
+        isNull,
+        reason:
+            'no open session — never a dead card no command can answer; '
+            'the read presents the warm close',
+      );
       expect(store.appends, 0);
+
+      // The open's own bundle deals the first card: `app_opened` plus
+      // `session_started` and its first `card_dealt`, and the read that
+      // follows resolves the dealt card.
+      final opened = appOpen(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(opened.map((content) => content.kind).toList(), [
+        LogKind.appOpened,
+        LogKind.sessionStarted,
+        LogKind.cardDealt,
+      ]);
+      final dealt = await nextCard(
+        _FakeStore([
+          _record(LogKind.appOpened.name, now - 2000),
+          _record(LogKind.sessionStarted.name, now - 1000, id: 'open'),
+          _record(
+            LogKind.cardDealt.name,
+            now - 999,
+            itemId: 'zona-a',
+            itemOrigin: Origin.shipped,
+          ),
+        ]),
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(dealt, isNotNull);
+      expect(dealt!.id, 'zona-a');
+      expect(dealt.size, Size.focus);
+      expect(dealt.name, 'Tarea de zona-a');
+      expect(dealt.origin, Origin.shipped);
+      expect(dealt.estimateSeconds, focusEstimateSeconds);
     },
   );
 
@@ -110,9 +148,16 @@ void main() {
       settingValue: minutes,
     );
 
+    /// An open sitting — deals resolve only inside one (Story 2.3).
+    LogEntryRecord sitting(int micros, [String id = 'open']) =>
+        _record(LogKind.sessionStarted.name, micros, id: id);
+
     test('a derived bag below 10 composes no Focus Chunk, silently — '
         'upkeep leads the day and nothing names the absence', () async {
-      final store = _FakeStore([bag(utcMicros(2026, 8, 28, 8), 5)]);
+      final store = _FakeStore([
+        bag(utcMicros(2026, 8, 28, 8), 5),
+        sitting(utcMicros(2026, 8, 28, 9)),
+      ]);
       final card = await nextCard(
         store,
         catalogue: _catalogue,
@@ -128,7 +173,10 @@ void main() {
     test('a derived bag at the weave\'s floor composes the chunk; the '
         'facade derives from its own read, no parameter passed', () async {
       final raised = await nextCard(
-        _FakeStore([bag(utcMicros(2026, 8, 28, 8), 10)]),
+        _FakeStore([
+          bag(utcMicros(2026, 8, 28, 8), 10),
+          sitting(utcMicros(2026, 8, 28, 9)),
+        ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
         offsetSeconds: 0,
@@ -136,7 +184,10 @@ void main() {
       expect(raised!.id, 'zona-a');
 
       final defaulted = await nextCard(
-        _FakeStore([bag(utcMicros(2026, 8, 28, 8), 15)]),
+        _FakeStore([
+          bag(utcMicros(2026, 8, 28, 8), 15),
+          sitting(utcMicros(2026, 8, 28, 9)),
+        ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
         offsetSeconds: 0,
@@ -152,6 +203,7 @@ void main() {
         _FakeStore([
           bag(utcMicros(2026, 8, 28, 8), 5),
           bag(utcMicros(2026, 8, 28, 9), 20),
+          sitting(utcMicros(2026, 8, 28, 10)),
         ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
@@ -161,14 +213,15 @@ void main() {
 
       // The closed slot: the day's chunk was answered Hecho earlier
       // (bag 15), then the bag moved 5 → 20. A closed slot never
-      // re-opens, raise or no raise.
+      // re-opens, raise or no raise — and the later same-day sitting
+      // that reads it deals inside its own open session.
       final closed = await nextCard(
         _FakeStore([
           bag(utcMicros(2026, 8, 28, 8), 15),
           _record(
             LogKind.sessionStarted.name,
             utcMicros(2026, 8, 28, 9),
-            id: 'open',
+            id: 'first',
           ),
           _record(
             LogKind.cardDealt.name,
@@ -183,8 +236,9 @@ void main() {
             itemOrigin: Origin.shipped,
           ),
           _record(LogKind.sessionEnded.name, utcMicros(2026, 8, 28, 9, 0, 3)),
-          bag(utcMicros(2026, 8, 28, 10), 5),
-          bag(utcMicros(2026, 8, 28, 11), 20),
+          sitting(utcMicros(2026, 8, 28, 10), 'second'),
+          bag(utcMicros(2026, 8, 28, 11), 5),
+          bag(utcMicros(2026, 8, 28, 12), 20),
         ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
@@ -200,7 +254,7 @@ void main() {
           _record(
             LogKind.sessionStarted.name,
             utcMicros(2026, 8, 28, 9),
-            id: 'open',
+            id: 'first',
           ),
           _record(
             LogKind.cardDealt.name,
@@ -215,8 +269,9 @@ void main() {
             itemOrigin: Origin.shipped,
           ),
           _record(LogKind.sessionEnded.name, utcMicros(2026, 8, 28, 9, 0, 3)),
-          bag(utcMicros(2026, 8, 28, 10), 5),
-          bag(utcMicros(2026, 8, 28, 11), 20),
+          sitting(utcMicros(2026, 8, 28, 10), 'second'),
+          bag(utcMicros(2026, 8, 28, 11), 5),
+          bag(utcMicros(2026, 8, 28, 12), 20),
         ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
@@ -290,6 +345,9 @@ void main() {
           itemOrigin: Origin.shipped,
         ),
         _record(LogKind.sessionEnded.name, utcMicros(2026, 8, 28, 9, 0, 3)),
+        // A later same-day sitting reads the closed slot (Story 2.3's
+        // sitting line: deals resolve only inside one).
+        sitting(utcMicros(2026, 8, 28, 10), 'second'),
       ];
       final store = _FakeStore(rows);
       final before = await nextCard(
@@ -323,6 +381,7 @@ void main() {
             settingKey: 'time_bag',
             settingValue: 45,
           ),
+          sitting(utcMicros(2026, 8, 28, 9)),
         ]),
         catalogue: _catalogue,
         instantUtcMicros: now,
@@ -338,6 +397,7 @@ void main() {
             settingKey: 'future_setting',
             settingValue: 5,
           ),
+          sitting(utcMicros(2026, 8, 28, 9)),
         ]),
         catalogue: _catalogue,
         instantUtcMicros: now,

@@ -19,6 +19,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/commands/session_commands.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
@@ -353,6 +354,18 @@ class _QueuedAnswerController extends _QueuedReadController {
   Future<void> skip(DispenserDealt dealt) async {}
 }
 
+/// A queued reader whose pause resolves from a held completer: it
+/// isolates the screen's generation guard from the controller's
+/// persistence mechanics — the ack-generation pattern, on the stop.
+class _QueuedPauseController extends _QueuedReadController {
+  _QueuedPauseController(super.reads);
+
+  final Completer<DispenserView> pauseView = Completer<DispenserView>();
+
+  @override
+  Future<DispenserView> pause() => pauseView.future;
+}
+
 /// A store whose `card_done` appends fail once, and only once an
 /// earlier one has landed — the second-completion write-failure shape:
 /// a first ack is mid-window and visible when the failed write's catch
@@ -582,6 +595,9 @@ void main() {
     expect(find.text('15\u00A0min'), findsOneWidget);
     expect(find.text('Hecho'), findsOneWidget);
     expect(find.text('Otra más fácil / Ahora no'), findsOneWidget);
+    // The stop stands in the footer band on the dealt view too — never
+    // disabled, never suggested (Story 2.3, UX-DR43).
+    expect(find.text('Quiero parar'), findsOneWidget);
 
     // The footer iff the dealt entry carries a zone — never invented.
     if (entry.zone != null) {
@@ -708,6 +724,9 @@ void main() {
       find.text('por hoy no hay nada más que merezca la pena'),
       findsOneWidget,
     );
+    // The stop stands on the closed view as on the dealt one — one tap,
+    // any moment, any reason (Story 2.3, UX-DR43).
+    expect(find.text('Quiero parar'), findsOneWidget);
     // Quiet: the secondary action's role and ink, centered, no card, no
     // error surface.
     final style = tester
@@ -917,7 +936,48 @@ void main() {
     'a failed catalogue read leaves the empty frame standing and clears '
     'the memo — the next read retries (the session controller\'s pattern)',
     () async {
-      final store = _RecordingStore();
+      final store = _RecordingStore()
+        // The sitting stands open with its dealt card: the retry read
+        // resolves the dealt-unanswered card (deals exist only inside
+        // sittings, Story 2.3).
+        ..entries.addAll([
+          (
+            id: 'seed-open',
+            kind: 'session_started',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              29,
+              11,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: null,
+            itemOrigin: null,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            pocketMinutes: null,
+          ),
+          (
+            id: 'seed-deal',
+            kind: 'card_dealt',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              29,
+              11,
+              0,
+              1,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: 'pasar-la-aspiradora-a-la-cocina',
+            itemOrigin: Origin.shipped,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            pocketMinutes: null,
+          ),
+        ]);
       final controller = DispenserController(
         store: store,
         strings: AppStringsEs(),
@@ -1947,14 +2007,16 @@ void main() {
 
     // One completed day seven days before the fixed clock: the chunk of
     // that Saturday's own week, dealt, answered, closed — five rows,
-    // the day's whole log.
+    // the day's whole log. The seed chunk resolves through a sitting
+    // (Story 2.3: deals exist only inside one).
     final absenceDay = DateTime.utc(2026, 8, 22, 12);
-    final absenceChunk = nextDeal(
+    final absenceOpen = sessionStart(
       catalogue: catalogue,
       log: const [],
       instantUtcMicros: absenceDay.microsecondsSinceEpoch,
       offsetSeconds: 0,
-    )!;
+    );
+    final absenceChunkId = absenceOpen.last.itemId!;
     LogEntryRecord seedRow(String kind, int second, {String? itemId}) => (
       id: 'seed-$kind',
       kind: kind,
@@ -1972,8 +2034,8 @@ void main() {
       ..entries.addAll([
         seedRow('app_opened', 0),
         seedRow('session_started', 1),
-        seedRow('card_dealt', 2, itemId: absenceChunk.id),
-        seedRow('card_done', 3, itemId: absenceChunk.id),
+        seedRow('card_dealt', 2, itemId: absenceChunkId),
+        seedRow('card_done', 3, itemId: absenceChunkId),
         seedRow('session_ended', 4),
       ]);
     final seeded = gapStore.entries.length;
@@ -2069,16 +2131,20 @@ void main() {
   });
 
   group('the Nuevo proyecto affordance (Story 2.1, UX-DR25)', () {
-    // The footer is the labelled SecondaryTextAction — the card's own
-    // skip control carries none, so the label discriminates the two
-    // grammatically identical prose controls.
+    // The footer band holds two labelled prose controls now (Story 2.3
+    // added the stop); the label discriminates each grammatically
+    // identical SecondaryTextAction.
     final footerFinder = find.byWidgetPredicate(
-      (widget) => widget is SecondaryTextAction && widget.label != null,
+      (widget) =>
+          widget is SecondaryTextAction &&
+          widget.label == AppStringsEs().newProjectLink,
     );
 
-    testWidgets('sits bottom-centred as quiet ink-secondary text with a '
-        '48dp opaque target — never animated, emphasised, badged, nor '
-        'carrying pastel mass (UX-DR25)', (tester) async {
+    testWidgets('sits in the bottom-centred footer band as quiet '
+        'ink-secondary text with a 48dp opaque target — never animated, '
+        'emphasised, badged, nor carrying pastel mass (UX-DR25)', (
+      tester,
+    ) async {
       final store = _RecordingStore();
       await launchAndCommit(tester, store);
 
@@ -2090,12 +2156,15 @@ void main() {
       expect(style.fontSize, 15);
       expect(style.fontWeight, FontWeight.w400);
 
-      // Bottom-centred: the target's centre shares the screen's x-axis
-      // centre and it sits at the bottom of the body, inside the safe
-      // area.
+      // Bottom-centred as a band: the wrap holding both prose controls
+      // shares the screen's x-axis centre and sits at the bottom of the
+      // body, inside the safe area — each control inside the viewport.
       final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final band = _rect(tester, find.byType(Wrap));
+      expect(band.center.dx, closeTo(screen.width / 2, 0.5));
+      expect(band.bottom, lessThanOrEqualTo(screen.height));
       final target = _rect(tester, footerFinder);
-      expect(target.center.dx, closeTo(screen.width / 2, 0.5));
+      expect(target.top, greaterThanOrEqualTo(0));
       expect(target.bottom, lessThanOrEqualTo(screen.height));
       // The 48dp opaque floor.
       expect(target.height, greaterThanOrEqualTo(48));
@@ -2151,13 +2220,14 @@ void main() {
         reason: 'no pastel mass: the way off the surface is prose',
       );
 
-      // The furniture census still holds with the footer standing: no
+      // The furniture census still holds with the footer band standing: no
       // badge, no counter, no gap-shaped element beyond the known
       // strings.
       final census = _censusOf(tester, [
         AppStringsEs().newProjectLink,
         AppStringsEs().actionRescueOrSkip,
         AppStringsEs().actionDone,
+        AppStringsEs().actionStop,
       ]);
       expect(census, isNot(contains(contains('Badge'))));
       expect(census, isNot(contains(contains('Animation'))));
@@ -2513,7 +2583,16 @@ void main() {
         );
       }
       // A Wrap reflows and the sheet's own scroll view stands ready.
-      expect(find.byType(Wrap), findsOneWidget);
+      // (The footer band's Wrap is another, outside the sheet — the
+      // band joined the pinned chrome or the scroll region per the
+      // floor; this pin is the sheet's own.)
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Wrap),
+        ),
+        findsOneWidget,
+      );
       expect(find.byType(SingleChildScrollView), findsWidgets);
       expect(find.byType(ErrorWidget), findsNothing);
     });
@@ -2676,6 +2755,489 @@ void main() {
         reason: 'the bundled next deal landed beside it',
       );
       expect(find.byType(ErrorWidget), findsNothing);
+    });
+  });
+
+  group('the stop control (Story 2.3, FR-9, UX-DR43)', () {
+    /// A seeded pocketed session start, as a declaration would have
+    /// left it — the pocket group's own seeding shape, with the start
+    /// instant injectable so a pocket can sit unelapsed at the fixed
+    /// clock.
+    void seedPocketedStart(
+      _RecordingStore store,
+      int pocketMinutes, {
+      DateTime? at,
+    }) {
+      store.entries.add((
+        id: 'seed-pocket',
+        kind: 'session_started',
+        instantUtcMicros:
+            (at ?? DateTime.utc(2026, 8, 29, 11)).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: pocketMinutes,
+      ));
+    }
+
+    testWidgets('one tap on Quiero parar appends exactly one session_ended '
+        'and commits the warm close — chip at 15, silence everywhere '
+        '(FR-9, UX-DR43)', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+      final calls = _mockPlatformCalls(tester);
+
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      // Exactly one close row; the surface is the standing warm close.
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(store.entries.last.kind, 'session_ended');
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      // The chip reads its default again: no pocket fact stands.
+      expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
+      // Silence by construction: no haptic, no toast, no banner, no
+      // dialog — recalculation is invisible.
+      expect(_hapticImpacts(calls), isEmpty);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(MaterialBanner), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a pocketed sitting paused mid-card: the chip reads the '
+        'declared pocket before, the 15 default after', (tester) async {
+      final store = _RecordingStore();
+      // Seeded 11:50 with 20 minutes: unelapsed at the fixed 12:00
+      // clock, the dealt card standing inside it.
+      seedPocketedStart(store, 20, at: DateTime.utc(2026, 8, 29, 11, 50));
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      expect(find.text('Tengo 20 minutos ahora'), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
+
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a repeat tap with nothing open is the accepted quiet '
+        'no-op — no rows, no state change, silent', (tester) async {
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+      final calls = _mockPlatformCalls(tester);
+
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+      // The second tap on the close: nothing appends, nothing moves.
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(_hapticImpacts(calls), isEmpty);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a return after pausing deals the next Micro-task directly '
+        '— no resume menu, no summary, nothing about the past (FR-9, '
+        'UX-DR41)', (tester) async {
+      final store = _RecordingStore();
+      // A ticking clock: backgrounding and resuming mint distinct
+      // instants, as production always does.
+      var minute = 0;
+      DateTime ticking() => DateTime.utc(2026, 8, 29, 12, minute++);
+      final session = installSessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: ticking,
+      );
+      addTearDown(() => tester.binding.removeObserver(session));
+      await session.settled;
+
+      await tester.pumpWidget(
+        _harness(
+          DispenserController(
+            store: store,
+            strings: AppStringsEs(),
+            bundle: _FakeBundle({catalogueAssetPath: shipped}),
+            nowOf: ticking,
+          ),
+          sessionSettled: () => session.settled,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+      final firstDealtId = dealtEntryOf(store)!.itemId!;
+
+      // The pause: one row, the close.
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+      // Leave and return: the open appends exactly the normal opening
+      // rows — the next Micro-task deals directly.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(store.entries.skip(4).map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(latestDealtEntryOf(store)!.itemId, isNot(firstDealtId));
+      // Nothing about the past exists anywhere on the surface.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(MaterialBanner), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the stop stands on the empty frame after a failed pause '
+        'write — present, tappable, never disabled — and the retried tap '
+        'commits the close through the released guard', (tester) async {
+      final inner = _RecordingStore();
+      await SessionController(
+        store: inner,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final failing = _FailNextAppendStore(inner);
+      await tester.pumpWidget(_harness(buildController(failing)));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+
+      // The pause's only append fails: nothing lands, the quiet empty
+      // frame stands — and the stop is still on it, never disabled.
+      failing.failNextAppend = true;
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TaskCard), findsNothing);
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsNothing);
+      expect(find.text('Quiero parar'), findsOneWidget);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_ended'),
+        isEmpty,
+        reason: 'the log stayed consistent: nothing landed',
+      );
+
+      // The guard was released and the log stands: the retried stop
+      // lands its one row and commits the close.
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('a stale launch/foreground read cannot overwrite the '
+        'committed close — the ack-generation pattern, on the pause '
+        '(_readGeneration)', (tester) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedPauseController([first, second]);
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+
+      // A foreground refresh starts reading (generation 2) — and while
+      // its read hangs, the stop tap commits its own close (generation
+      // 3).
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pump();
+      controller.pauseView.complete(const DispenserClosed());
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+      // The stale read lands last carrying a dealt view: the generation
+      // guard refuses it — the close stands.
+      second.complete(const DispenserDealt(_longCard));
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+    });
+
+    testWidgets('200%: both footer texts stand whole — wrapping, never '
+        'truncating — inside the viewport, the band pinned below the '
+        'scroll region', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      expect(tester.takeException(), isNull);
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      for (final label in [
+        AppStringsEs().actionStop,
+        AppStringsEs().newProjectLink,
+      ]) {
+        final text = find.text(label);
+        expect(text, findsOneWidget);
+        final widget = tester.widget<Text>(text);
+        expect(widget.maxLines, isNull);
+        expect(widget.overflow, isNot(TextOverflow.ellipsis));
+        final rect = _rect(tester, text);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(screen.height));
+      }
+      // Pinned chrome: the band is not inside the scroll region.
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Wrap),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the reflow threshold holds its exact boundary: the band '
+        'stays pinned at a 320-tall body and joins the scroll one step '
+        'below — moving the threshold in either direction fails here', (
+      tester,
+    ) async {
+      Future<void> pumpAt(ui.Size size) async {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+      }
+
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      // Exactly at the threshold: pinned chrome — the band is not
+      // inside the scroll region, both targets render inside the
+      // viewport, and the boundary really is the height under test.
+      await pumpAt(const ui.Size(320, 320));
+      expect(tester.takeException(), isNull);
+      final screen = tester.getSize(find.byType(Scaffold));
+      expect(screen.height, 320, reason: 'the boundary height is live');
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Wrap),
+        ),
+        findsNothing,
+        reason: 'the band stays pinned at the exact boundary height',
+      );
+      for (final label in [
+        AppStringsEs().actionStop,
+        AppStringsEs().newProjectLink,
+      ]) {
+        final rect = _rect(tester, find.text(label));
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(screen.height));
+      }
+
+      // One step below: the band has joined the scroll region — it is
+      // the scroll's own Wrap now.
+      await pumpAt(const ui.Size(320, 319));
+      expect(tester.takeException(), isNull);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Wrap),
+        ),
+        findsOneWidget,
+        reason: 'the band joins the scroll below the boundary',
+      );
+    });
+
+    testWidgets('the stop stands on the empty frame of a short surface '
+        'too — the reflow keeps it present in every rendered state', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final inner = _RecordingStore();
+      await SessionController(
+        store: inner,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final failing = _FailNextAppendStore(inner);
+      await tester.pumpWidget(_harness(buildController(failing)));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+      // The band is below the fold on this class — scroll it into view
+      // before the tap.
+      await tester.scrollUntilVisible(
+        find.text('Quiero parar'),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+
+      failing.failNextAppend = true;
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      // The empty frame stands — and the stop is still on it, inside
+      // the scroll region, whole and reachable.
+      expect(find.byType(TaskCard), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(
+        find.text('Quiero parar'),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(find.text('Quiero parar'), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the warm close on a short surface keeps both footer '
+        'controls — the joined band renders on the closed view too (the '
+        'stop is present in every rendered state)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      // From the dealt view: pause — scrolling the stop into view
+      // first, as this class's band lives below the fold.
+      await tester.scrollUntilVisible(
+        find.text('Quiero parar'),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.tap(find.text('Quiero parar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+      expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+      expect(find.byType(TaskCard), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      // The closed view's joined band still carries both footer texts —
+      // whole, never truncated, reachable inside the scroll region's
+      // viewport.
+      final screen = tester.getSize(find.byType(Scaffold));
+      for (final label in [
+        AppStringsEs().actionStop,
+        AppStringsEs().newProjectLink,
+      ]) {
+        final target = find.text(label);
+        expect(target, findsOneWidget);
+        final widget = tester.widget<Text>(target);
+        expect(widget.maxLines, isNull);
+        expect(widget.overflow, isNot(TextOverflow.ellipsis));
+        await tester.scrollUntilVisible(
+          target,
+          200,
+          scrollable: find.byType(Scrollable),
+        );
+        final rect = _rect(tester, target);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(screen.height));
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the 320×220 @200% class lays out with zero overflow and '
+        'both footer tap targets lay out inside the viewport (the '
+        'Story-2.2 pinned surface; never retargeted)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 220));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _RecordingStore();
+      await launchAndCommit(tester, store);
+
+      // Zero RenderFlex overflow on the pinned class: the grown chrome
+      // (chip + band) outgrows the 220 body, so the band has joined
+      // the scroll region — the floor outranks the pin, never the
+      // reverse.
+      expect(tester.takeException(), isNull);
+      final screen = tester.getSize(find.byType(Scaffold));
+      expect(screen.height, 220);
+      // The chip stands as the pinned chrome that remains, inside the
+      // viewport.
+      final chipRect = _rect(tester, find.byType(PocketTriggerChip));
+      expect(chipRect.top, greaterThanOrEqualTo(0));
+      expect(chipRect.bottom, lessThanOrEqualTo(screen.height));
+
+      // Both footer tap targets lay out inside the viewport: they are
+      // part of the scrollable viewport's content — reachable, whole,
+      // never truncated — and scroll into view.
+      final scrollable = find.byType(Scrollable);
+      expect(
+        tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'the grown card scrolls between the chip and the band',
+      );
+      for (final label in [
+        AppStringsEs().actionStop,
+        AppStringsEs().newProjectLink,
+      ]) {
+        final target = find.text(label);
+        expect(target, findsOneWidget);
+        final widget = tester.widget<Text>(target);
+        expect(widget.maxLines, isNull);
+        expect(widget.overflow, isNot(TextOverflow.ellipsis));
+        await tester.scrollUntilVisible(target, 200, scrollable: scrollable);
+        final rect = _rect(tester, target);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(screen.height));
+      }
+      expect(tester.takeException(), isNull);
     });
   });
 }

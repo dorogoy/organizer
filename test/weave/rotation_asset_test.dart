@@ -109,6 +109,20 @@ ItemActEntry _done(int micros, String itemId) => ItemActEntry(
   itemOrigin: Origin.shipped,
 );
 
+SessionStartEntry _sessionStarted(int micros) => SessionStartEntry(
+  id: 'started-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.sessionStarted,
+);
+
+MomentEntry _sessionEnded(int micros) => MomentEntry(
+  id: 'ended-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.sessionEnded,
+);
+
 void main() {
   test('28 answered chunks over the shipped asset never repeat a Micro-task '
       '(FR-31, AD-16)', () async {
@@ -140,12 +154,14 @@ void main() {
     // 28 days of deal+answer from Monday 2026-08-24 — the week whose
     // ring position is z1 (weeks since the epoch Monday 2000-01-03:
     // 1390, mod 5 = 0), the default all-active curation state, 🟢 and
-    // the default bag throughout.
+    // the default bag throughout. Each day is its own sitting
+    // (Story 2.3): start, deal, answer, close.
     var log = <LogEntry>[];
     final dealtIds = <String>[];
     final dealtZones = <Zone?>[];
     for (var day = 0; day < 28; day++) {
       final instant = _utcMicros(2026, 8, 24, 12) + day * _microsPerDay;
+      log.add(_sessionStarted(instant));
       final deal = nextDeal(
         catalogue: catalogue,
         log: log,
@@ -157,8 +173,9 @@ void main() {
       dealtIds.add(deal.id);
       dealtZones.add(deal.zone);
       log
-        ..add(_dealt(instant, deal.id))
-        ..add(_done(instant + 1, deal.id));
+        ..add(_dealt(instant + 1, deal.id))
+        ..add(_done(instant + 2, deal.id))
+        ..add(_sessionEnded(instant + 3));
     }
 
     // The AC itself: 28 answered chunks, no Micro-task repeated.
@@ -208,12 +225,14 @@ void main() {
     expect(z5Ids, hasLength(3), reason: 'the shipped arithmetic: 3 z5 focus');
 
     // The week anchored Monday 2026-09-21 is ordinal 1394 — mod 5 = 4,
-    // the ring's z5. Seven days of deal+answer run the whole week.
+    // the ring's z5. Seven days of deal+answer run the whole week —
+    // each day its own sitting (Story 2.3).
     var log = <LogEntry>[];
     final dealt = <String>[];
     final dealtZones = <Zone?>[];
     for (var day = 0; day < 7; day++) {
       final instant = _utcMicros(2026, 9, 21, 12) + day * _microsPerDay;
+      log.add(_sessionStarted(instant));
       final deal = nextDeal(
         catalogue: catalogue,
         log: log,
@@ -224,8 +243,9 @@ void main() {
       dealt.add(deal!.id);
       dealtZones.add(deal.zone);
       log
-        ..add(_dealt(instant, deal.id))
-        ..add(_done(instant + 1, deal.id));
+        ..add(_dealt(instant + 1, deal.id))
+        ..add(_done(instant + 2, deal.id))
+        ..add(_sessionEnded(instant + 3));
     }
 
     expect(dealt, hasLength(7));
@@ -261,11 +281,13 @@ void main() {
     ]..sort();
     expect(eligibleIds, hasLength(17));
 
-    // Eighteen days of deal+answer from Monday 2026-08-24, the z1 week.
+    // Eighteen days of deal+answer from Monday 2026-08-24, the z1 week —
+    // each day its own sitting (Story 2.3).
     var log = <LogEntry>[];
     final dealt = <String>[];
     for (var day = 0; day < 18; day++) {
       final instant = _utcMicros(2026, 8, 24, 12) + day * _microsPerDay;
+      log.add(_sessionStarted(instant));
       final deal = nextDeal(
         catalogue: catalogue,
         log: log,
@@ -276,8 +298,9 @@ void main() {
       expect(deal, isNotNull, reason: 'never an empty day (day $day)');
       dealt.add(deal!.id);
       log
-        ..add(_dealt(instant, deal.id))
-        ..add(_done(instant + 1, deal.id));
+        ..add(_dealt(instant + 1, deal.id))
+        ..add(_done(instant + 2, deal.id))
+        ..add(_sessionEnded(instant + 3));
     }
 
     // Days 1-17 answer every eligible entry exactly once — the ring
