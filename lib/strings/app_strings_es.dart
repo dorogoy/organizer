@@ -209,6 +209,11 @@ class AppStringsEs extends AppStrings {
   String get selfReportScaleHigh => 'Muchísimo';
 
   @override
+  String selfReportScaleValue(int value) {
+    return '$value';
+  }
+
+  @override
   String get captureTitle => 'Un rincón de la casa';
 
   @override

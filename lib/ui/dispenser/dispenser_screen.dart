@@ -76,18 +76,25 @@
 // pool could still deal — so the close and the offer are one grammar
 // with no second surface.
 //
-// The ambient strip (Story 2.5, FR-4, UX-DR20/22): below the view,
-// inside the scroll region, whenever the read's own fact says the
-// check-in resident is showing — the question verbatim, three battery
-// marks, the ✕. A tap on any mark answers the day (one write, the
-// strip gone for the day, baja narrowing the next deal only); the ✕
-// dismisses with no write, hidden for the rest of the opening. The
-// strip inherits the short-surface floor — it grows and scrolls at
-// 200%, nothing truncated, every target at or above 48dp — and after
-// it leaves, nothing on this surface displays the level: the narrower
-// deal is the display (AD-4, UX-DR41).
+// The ambient strip (Stories 2.5–2.6, FR-4, UX-DR20/22): below the
+// view, inside the scroll region, whenever the read's own fact says a
+// resident is showing — the surface switches on which. The check-in:
+// the question verbatim, three battery marks, the ✕; a tap on any
+// mark answers the day (one write, the strip gone for the day, baja
+// narrowing the next deal only). The weekly self-report (SM-2):
+// hairlined, the question verbatim, the 1–5 numerals, the end labels,
+// the ✕; a tap on any numeral answers the asked week (one write
+// carrying the week, the report gone for the week), and the ✕
+// dismisses with no write, hidden for the rest of the opening only —
+// never for the week. Either resolution hands the slot to the
+// check-in in the same opening when the day still owes it (FR-4's
+// deterministic handoff). The strip inherits the short-surface floor —
+// it grows and scrolls at 200%, nothing truncated, every target at or
+// above 48dp — and after it leaves, nothing on this surface displays
+// the level: the narrower deal is the display (AD-4, UX-DR41).
 import 'dart:async';
 
+import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
@@ -437,18 +444,20 @@ class _DispenserScreenState extends State<DispenserScreen>
         ),
       };
 
-  /// The view with the ambient strip below it (Story 2.5, UX-DR22):
-  /// inside the frame's scroll region, beneath whatever the read
-  /// committed — the strip's own fact on the view decides, never the
-  /// surface's memory. Nothing else moves: the card's air, the ack
-  /// line and the pinned chrome keep their geometry, and the strip
-  /// grows into the same scroll at 200%.
+  /// The view with the ambient strip below it (Stories 2.5–2.6,
+  /// UX-DR22): inside the frame's scroll region, beneath whatever the
+  /// read committed — the strip's own resident on the view decides,
+  /// never the surface's memory, and the widget switches on which
+  /// resident it is. Nothing else moves: the card's air, the ack line
+  /// and the pinned chrome keep their geometry, and the strip grows
+  /// into the same scroll at 200%.
   Widget _withAmbientStrip(
     BuildContext context,
     DispenserView view,
     Widget content,
   ) {
-    if (!view.checkInShown) {
+    final resident = view.stripResident;
+    if (resident == null) {
       return content;
     }
     return Column(
@@ -456,7 +465,23 @@ class _DispenserScreenState extends State<DispenserScreen>
       children: [
         content,
         const SizedBox(height: Spacing.cardPadding),
-        AmbientStrip(onEnergy: _onSetEnergy, onDismiss: _onDismissCheckIn),
+        switch (resident) {
+          StripResident.energyCheckIn => AmbientStrip(
+            onEnergy: _onSetEnergy,
+            onDismiss: _onDismissCheckIn,
+          ),
+          StripResident.weeklySelfReport => SelfReportStrip(
+            onAnswer: _onAnswerReport,
+            onDismiss: _onDismissReport,
+          ),
+          // The four later residents are never eligible in this
+          // build — their stories' data does not exist yet — so the
+          // read can never hand this switch one.
+          StripResident.firstRunCuration ||
+          StripResident.quarantineFollowUp ||
+          StripResident.seasonalSuggestion ||
+          StripResident.snowball => content,
+        },
       ],
     );
   }
@@ -542,6 +567,106 @@ class _DispenserScreenState extends State<DispenserScreen>
     try {
       await widget.sessionSettled?.call();
       final view = await widget.controller.dismissCheckIn(tapTime: tapTime);
+      if (mounted) {
+        setState(() => _view = view);
+        releaseAfterRefresh = true;
+        _releaseWriteAfterRefreshFrame();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// One tap on a numeral (Story 2.6, SM-2, FR-4): `_onSetEnergy`'s
+  /// mechanics verbatim over the controller's answerReport path —
+  /// exactly one `report_answered` row carrying the asked week, never
+  /// a bundled deal — and the committed view *is* the answer: the
+  /// report is gone for the week and, when the day still owes it, the
+  /// check-in takes the slot in this same opening. No haptic, no
+  /// feedback of any kind. The same in-flight guard keeps the answer
+  /// from interleaving with any other write at the surface; a failed
+  /// write landed nothing, so the report still stands (the frozen I/O
+  /// matrix's row): the failure path runs a recovery read — the
+  /// derivation re-resolves the unanswered week and the standing
+  /// surface returns — blanking only if that read fails too.
+  Future<void> _onAnswerReport(int value) async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    final tappedAt = widget.controller.nowOf();
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not overwrite this answer after it lands.
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.answerReport(
+        value,
+        tappedAt: tappedAt,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _view = view);
+      // The old surface remains in the render tree until this
+      // refresh's frame. Keep the shared guard through it so its
+      // stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed and landed nothing: the week is still
+      // unanswered — recover with a fresh read rather than the
+      // family's empty frame, so the standing surface (card, close or
+      // offer, report included) returns instead of a blank.
+      try {
+        final view = await widget.controller.read();
+        if (mounted) {
+          setState(() => _view = view);
+        }
+      } catch (_) {
+        // The recovery read failed too: the empty frame is the
+        // remaining quiet story, and a real return to the foreground
+        // re-reads.
+        if (mounted) {
+          setState(() => _view = null);
+        }
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The report's ✕ tap (Story 2.6, FR-4, SM-2, UX-DR22):
+  /// skip-for-this-opening, and deliberately no write — the dismissal
+  /// is shell state keyed by the opening, so the committed view is
+  /// the same read with the check-in holding the freed slot (FR-4's
+  /// deterministic handoff); the report itself returns at the next
+  /// opening the derivation judges first, never styled as anything
+  /// owed. It shares the in-flight guard with the numeral answers; a
+  /// failed read is absorbed by the empty frame, quietly.
+  Future<void> _onDismissReport() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    final tapTime = widget.controller.nowOf();
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not resurrect the report after this dismissal
+    // commits.
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.dismissReport(tapTime: tapTime);
       if (mounted) {
         setState(() => _view = view);
         releaseAfterRefresh = true;

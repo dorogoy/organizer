@@ -10,7 +10,7 @@ import '../tool/check_core_purity.dart';
 /// findings, because nothing was assigned to a future day, so nothing
 /// needs re-planning — plus the shell's write-path census: the card and
 /// moment wire names appear nowhere in `lib/`, records over core
-/// `LogEntryContent` are constructed only in the Dispenser's six
+/// `LogEntryContent` are constructed only in the Dispenser's seven
 /// user-act append sites plus the session, settings and crash channels
 /// the census maps enumerate, the adapter's store module owns the only
 /// drift insert companions, and no pool-fact write exists outside the
@@ -299,14 +299,21 @@ void main() {
           'exactly one core energySet command invocation — the check-in '
           'answer\'s LogEntryContent path (Story 2.5)',
     );
+    expect(
+      RegExp(r'\breportAnswered\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core reportAnswered command invocation — the '
+          'report answer\'s LogEntryContent path (Story 2.6)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
-    // implementation) are, inside the Dispenser controller, its six
+    // implementation) are, inside the Dispenser controller, its seven
     // user-act append sites over core LogEntryContent — the two
     // answers, the pocket declaration (Story 2.2), the pause
-    // (Story 2.3), the checkpoint extension (Story 2.4) and the
-    // check-in answer (Story 2.5) — beside
+    // (Story 2.3), the checkpoint extension (Story 2.4), the check-in
+    // answer (Story 2.5) and the report answer (Story 2.6) — beside
     // the session and settings channels and AD-12's crash channel,
     // each mapped below; together, the only paths that can mint
     // user-act and session kinds. The exact counts pin an unlisted
@@ -332,7 +339,7 @@ void main() {
       callCounts,
       {
         'lib/crash.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 6,
+        'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },
@@ -344,7 +351,7 @@ void main() {
     expect(
       contentCounts,
       {
-        'lib/dispenser/dispenser_controller.dart': 6,
+        'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
       },

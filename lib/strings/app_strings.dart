@@ -437,6 +437,12 @@ abstract class AppStrings {
   /// **'Muchísimo'**
   String get selfReportScaleHigh;
 
+  /// Sunday self-report — one 1–5 scale numeral, rendered as its own 48dp tap target in the figure role. The digits are not string literals (AD-15, the mockup's own rule): each passes through this one int placeholder, the duration format's atomic-numeral precedent. Spoken by the digit target's semantics; never composed with any other string.
+  ///
+  /// In es, this message translates to:
+  /// **'{value}'**
+  String selfReportScaleValue(int value);
+
   /// Manual Capture — title, names a place (the spatial frame, rule 1).
   ///
   /// In es, this message translates to:

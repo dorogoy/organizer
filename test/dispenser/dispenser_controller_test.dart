@@ -16,6 +16,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/derive/checkpoint.dart';
+import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -252,6 +253,34 @@ class _FakeBundle implements AssetBundle {
 }
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
+
+/// The week a Saturday 2026-08-29 read judges due (the week anchored
+/// Monday 2026-08-17 — its Sunday, the 23rd, has arrived) and the week
+/// Sunday 2026-08-30 asks about (the running week, anchored Monday
+/// 2026-08-24), as `Week.weekOrdinal`s — the seed rows' keys.
+const weekOfAug17 = 1389;
+const weekOfAug24 = 1390;
+const weekOfAug31 = 1391;
+
+/// A `report_answered` row closing [week] — the 2-5 group's seed: with
+/// the report's own week answered, Saturday's read owes no report and
+/// every 2.5 pin holds exactly as shipped, the mechanical translation
+/// part 3 records.
+LogEntryRecord _answeredWeek(int week, String id) => (
+  id: id,
+  kind: 'report_answered',
+  instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+  offsetSeconds: 0,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  pocketMinutes: null,
+  energyLevel: null,
+  reportValue: 3,
+  reportWeek: week,
+);
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
   id: id,
@@ -1967,9 +1996,11 @@ void main() {
       'the day\'s first opening reads with the check-in showing below '
       'the card — and nothing else about energy anywhere on the view',
       () async {
-        final store = _RecordingStore();
+        final store = _RecordingStore()
+          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
         final view = await openSessionAndReadFirstDeal(store);
-        expect(view.checkInShown, isTrue);
+        expect(view.stripResident, StripResident.energyCheckIn);
+        expect(view.reportWeekOrdinal, isNull);
         expect(view.card, isNotNull);
         // Reading wrote nothing: the strip renders, it never writes.
         expect(
@@ -1982,7 +2013,8 @@ void main() {
     test('a baja tap with a card in progress: exactly one energy_set row, '
         'the strip gone for the day, the card finishable, and the NEXT '
         'deal instant-tier only', () async {
-      final store = _RecordingStore();
+      final store = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       final dealt = await openSessionAndReadFirstDeal(store);
       final controller = buildFor(store);
 
@@ -2010,8 +2042,8 @@ void main() {
       expect(after, isA<DispenserDealt>());
       expect((after as DispenserDealt).card.id, dealt.card.id);
       expect(
-        after.checkInShown,
-        isFalse,
+        after.stripResident,
+        isNull,
         reason: 'answered — gone for the day',
       );
 
@@ -2033,7 +2065,8 @@ void main() {
         (EnergyLevel.medium, 1),
         (EnergyLevel.full, 0),
       ]) {
-        final store = _RecordingStore();
+        final store = _RecordingStore()
+          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
         await openSessionAndReadFirstDeal(store);
         final controller = buildFor(store);
 
@@ -2042,7 +2075,7 @@ void main() {
         final row = store.entries.last;
         expect(row.kind, 'energy_set');
         expect(row.energyLevel, wire);
-        expect(after.checkInShown, isFalse);
+        expect(after.stripResident, isNull);
         // The pool is unchanged: the next deal is the standing card's
         // own successor at the ordinary tier, never narrowed.
         await controller.complete(after as DispenserDealt);
@@ -2063,7 +2096,8 @@ void main() {
     test('a failing setEnergy append rethrows, lands nothing, and the '
         'strip stands — the retry is the same tap (matrix: failing '
         'append)', () async {
-      final inner = _RecordingStore();
+      final inner = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       await openSessionAndReadFirstDeal(inner);
       final failing = _FailNextAppendStore(inner);
       final controller = buildFor(failing);
@@ -2082,8 +2116,8 @@ void main() {
       // fresh read re-resolves the day unanswered — the strip stands.
       final standing = await controller.read();
       expect(
-        standing.checkInShown,
-        isTrue,
+        standing.stripResident,
+        StripResident.energyCheckIn,
         reason: 'the failed write changed nothing the derivation reads',
       );
 
@@ -2093,14 +2127,15 @@ void main() {
         inner.entries.where((entry) => entry.kind == 'energy_set'),
         hasLength(1),
       );
-      expect(view.checkInShown, isFalse);
+      expect(view.stripResident, isNull);
     });
 
     test('an energy answer and dismissal honor their tap-time day across '
         '04:00', () async {
       var now = DateTime.utc(2026, 8, 29, 12);
       final tappedAt = now;
-      final answerStore = _RecordingStore();
+      final answerStore = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       await openSessionAndReadFirstDeal(answerStore);
       final answering = buildFor(answerStore, nowOf: () => now);
 
@@ -2111,7 +2146,8 @@ void main() {
         tappedAt.microsecondsSinceEpoch,
       );
 
-      final dismissalStore = _RecordingStore();
+      final dismissalStore = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       await openSessionAndReadFirstDeal(dismissalStore);
       now = DateTime.utc(2026, 8, 29, 12);
       final dismissing = buildFor(dismissalStore, nowOf: () => now);
@@ -2119,8 +2155,8 @@ void main() {
       await dismissing.dismissCheckIn(tapTime: tappedAt);
       now = tappedAt;
       expect(
-        (await dismissing.read()).checkInShown,
-        isFalse,
+        (await dismissing.read()).stripResident,
+        isNull,
         reason: 'the marker belongs to the day on which the user tapped ✕',
       );
     });
@@ -2128,21 +2164,23 @@ void main() {
     test('the ✕ dismissal writes nothing and hides the strip for the '
         'rest of the opening; a later same-day opening hides it by the '
         'derivation alone (matrix: dismissal, re-open)', () async {
-      final store = _RecordingStore();
+      final store = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       await openSessionAndReadFirstDeal(store);
       final controller = buildFor(store);
 
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
       final dismissed = await controller.dismissCheckIn();
 
-      expect(store.entries.map((entry) => entry.kind).toList(), [
-        'app_opened',
-        'session_started',
-        'card_dealt',
-      ], reason: 'a dismissal appends nothing at all');
-      expect(dismissed.checkInShown, isFalse);
       expect(
-        (await controller.read()).checkInShown,
-        isFalse,
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'a dismissal appends nothing at all',
+      );
+      expect(dismissed.stripResident, isNull);
+      expect(
+        (await controller.read()).stripResident,
+        isNull,
         reason: 'hidden for the rest of the opening',
       );
 
@@ -2162,8 +2200,8 @@ void main() {
       ).handleAppOpen();
       final reopened = await controller.read();
       expect(
-        reopened.checkInShown,
-        isFalse,
+        reopened.stripResident,
+        isNull,
         reason:
             'a second app_opened row today — the first opening was '
             'consumed, whatever the shell state holds',
@@ -2175,6 +2213,7 @@ void main() {
         'opening — shown once (matrix: crossing)', () async {
       final store = _RecordingStore()
         ..entries.addAll([
+          _answeredWeek(weekOfAug17, 'seed-week-answered'),
           _moment('app_opened', DateTime.utc(2026, 8, 28, 23), 'crossing-open'),
           _moment(
             'session_started',
@@ -2186,12 +2225,15 @@ void main() {
         store,
         nowOf: () => DateTime.utc(2026, 8, 29, 5),
       );
-      expect((await controller.read()).checkInShown, isTrue);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+      );
 
       // Answered during the crossing: the crossed-into day is done.
       final answered = await controller.setEnergy(EnergyLevel.low);
-      expect(answered.checkInShown, isFalse);
-      expect((await controller.read()).checkInShown, isFalse);
+      expect(answered.stripResident, isNull);
+      expect((await controller.read()).stripResident, isNull);
     });
 
     test('a prior-day session dangling unended: the relaunch\'s lone '
@@ -2215,7 +2257,7 @@ void main() {
         bundle: _FakeBundle({catalogueAssetPath: shipped}),
         nowOf: _fixedClock,
       ).handleAppOpen();
-      expect((await controller.read()).checkInShown, isFalse);
+      expect((await controller.read()).stripResident, isNull);
     });
 
     test('a baja day with the instant tier spent behind an elapsed '
@@ -2305,7 +2347,8 @@ void main() {
         'first opening shows the check-in again (FR-4, matrix: day '
         'boundary)', () async {
       var now = DateTime.utc(2026, 8, 29, 12);
-      final store = _RecordingStore();
+      final store = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
       final session = SessionController(
         store: store,
         strings: AppStringsEs(),
@@ -2316,25 +2359,495 @@ void main() {
 
       // Day 1: the launch, the strip, the ✕.
       await session.handleAppOpen();
-      expect((await controller.read()).checkInShown, isTrue);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+      );
       await controller.dismissCheckIn();
       expect(
-        (await controller.read()).checkInShown,
-        isFalse,
+        (await controller.read()).stripResident,
+        isNull,
         reason: 'skip-for-today holds across every read of the day',
       );
 
       // The day turns: the sitting closes before the boundary, the new
       // day's open lands its own app_opened — and the strip returns.
+      // (The new day is a Sunday: its own due week, 1390, is answered
+      // by seed too, so what returns is the check-in and nothing
+      // rarer — the 2.5 semantics, translated.)
       await session.handleSessionEnd();
+      store.entries.add(_answeredWeek(weekOfAug24, 'seed-sunday-answered'));
       now = DateTime.utc(2026, 8, 30, 9);
       await session.handleAppOpen();
       expect(
-        (await controller.read()).checkInShown,
-        isTrue,
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
         reason:
             'the dismissal keyed the old day alone; the new day '
             'starts clean and its first opening is due',
+      );
+    });
+  });
+
+  group('the weekly self-report and the deterministic slot handoff '
+      '(Story 2.6, SM-2, FR-4)', () {
+    /// Sunday 2026-08-30 12:00 — the spec's own matrix clock: the day
+    /// the running week (1390, anchored Monday the 24th) closes and
+    /// the report asks about it.
+    DateTime sundayClock() => DateTime.utc(2026, 8, 30, 12);
+
+    /// The Sunday launch: the lifecycle's open lands the day's one
+    /// `app_opened` (plus the auto-open sitting and its first deal),
+    /// and the controller over the same store reads from the settled
+    /// log — the widget harness's shape, minus the screen.
+    Future<DispenserController> launchSunday(
+      _RecordingStore store, {
+      DateTime Function()? nowOf,
+    }) async {
+      final clock = nowOf ?? sundayClock;
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: clock,
+      ).handleAppOpen();
+      return buildFor(store, nowOf: clock);
+    }
+
+    test('Sunday\'s first opening holds the report: the due week 1390 '
+        'rides the view, the check-in displaced — never consumed (SM-2, '
+        'FR-4, matrix: Sunday first read)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+
+      final view = await controller.read();
+
+      expect(view, isA<DispenserDealt>());
+      final dealt = view as DispenserDealt;
+      expect(dealt.stripResident, StripResident.weeklySelfReport);
+      expect(dealt.reportWeekOrdinal, weekOfAug24);
+      expect(dealt.card, isNotNull);
+      // The check-in is displaced, not consumed: no energy-shaped row
+      // exists anywhere, and the day's energy still derives the llena
+      // default — the handoff tests below hand the slot back the
+      // moment the report clears it.
+      expect(
+        store.entries.where((entry) => entry.kind == 'energy_set'),
+        isEmpty,
+      );
+    });
+
+    test('a digit tap mid-opening lands exactly one report_answered row '
+        'carrying the asked week, and the same opening\'s read hands the '
+        'slot to the check-in (matrix: answer lands)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+      final dealt = await controller.read() as DispenserDealt;
+      final launchRows = store.entries.length;
+
+      final after = await controller.answerReport(3);
+
+      // One row, the tapped value beside the asked week, nothing
+      // bundled — the report never deals a card.
+      final rows = store.entries
+          .where((entry) => entry.kind == 'report_answered')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(store.entries.length, launchRows + 1);
+      final row = rows.single;
+      expect(row.reportValue, 3);
+      expect(row.reportWeek, weekOfAug24);
+      expect(row.itemId, isNull);
+      expect(row.instantUtcMicros, sundayClock().microsecondsSinceEpoch);
+      expect(row.id, matches(v7));
+
+      // The standing card stays the view; the same opening's read
+      // hands the slot to the check-in — displaced, not consumed.
+      expect(after, isA<DispenserDealt>());
+      expect((after as DispenserDealt).card.id, dealt.card.id);
+      expect(after.stripResident, StripResident.energyCheckIn);
+      expect(after.reportWeekOrdinal, isNull);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+        reason: 'the handoff holds across the same opening\'s reads',
+      );
+    });
+
+    test('the report\'s ✕ writes nothing, frees the slot for that '
+        'opening alone — the check-in takes it — and the report hides '
+        'for the rest of the opening (matrix: ✕ dismissal)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+      await controller.read();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      final dismissed = await controller.dismissReport();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'a dismissal appends nothing at all',
+      );
+      expect(dismissed.stripResident, StripResident.energyCheckIn);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+        reason: 'hidden for this opening; the check-in holds the slot',
+      );
+    });
+
+    test('a dismissal taken during a 04:00 crossing (opens = 0) re-arms '
+        'when the day\'s app_opened lands: opens = 1 ≠ the marker, and '
+        'the report re-offers at that first opening (matrix: re-arm at a '
+        'crossing)', () async {
+      // A Saturday sitting, closed before midnight: Sunday holds no
+      // rows at all when the crossing read happens.
+      final store = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 29, 22), 'sat-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 22, 0, 1),
+            'sat-start',
+          ),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, 29, 22, 30),
+            'sat-end',
+          ),
+        ]);
+      var now = DateTime.utc(2026, 8, 30, 5);
+      final controller = buildFor(store, nowOf: () => now);
+
+      // The crossing read: no app_opened in Sunday yet, so this is the
+      // day's first opening — and the due report holds it.
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+      final dismissed = await controller.dismissReport();
+      expect(
+        dismissed.stripResident,
+        StripResident.energyCheckIn,
+        reason: 'the dismissal frees the slot for the crossing opening',
+      );
+
+      // The day's app_opened lands: the census grows past the marker's
+      // 0, and the still-unanswered report re-offers at that opening.
+      store.entries.add(
+        _moment('app_opened', DateTime.utc(2026, 8, 30, 9), 'sun-open'),
+      );
+      now = DateTime.utc(2026, 8, 30, 9, 0, 30);
+      final reoffered = await controller.read();
+      expect(
+        reoffered.stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the marker is opening-scoped, never day-scoped — a new '
+            'opening lifts the exclusion by itself',
+      );
+      expect(reoffered.reportWeekOrdinal, weekOfAug24);
+    });
+
+    test('the report\'s dismissal is skip-for-this-opening and no '
+        'further: the next day\'s first opening offers the report again, '
+        'never dismissed for the week (SM-2, matrix: day scope)', () async {
+      var now = sundayClock();
+      final store = _RecordingStore();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => now,
+      );
+      final controller = buildFor(store, nowOf: () => now);
+
+      // Sunday: the report holds the slot; the ✕ frees it for the
+      // opening alone.
+      await session.handleAppOpen();
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+      await controller.dismissReport();
+
+      // Monday's first opening: the marker keyed Sunday alone, and the
+      // week 1390 the Sunday closed is still the due week on Monday —
+      // the report returns, unanswered week or not.
+      await session.handleSessionEnd();
+      now = DateTime.utc(2026, 8, 31, 9);
+      await session.handleAppOpen();
+      final reopened = await controller.read();
+      expect(
+        reopened.stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'a dismissal hides the report for one opening, never for '
+            'the week — Monday\'s first opening asks again',
+      );
+      expect(reopened.reportWeekOrdinal, weekOfAug24);
+    });
+
+    test('a same-day second app_opened lifts the marker\'s exclusion — '
+        'and the derivation hides the report anyway: the first-opening '
+        'gate owns the rest of the day, and the next day\'s first '
+        'opening asks again (FR-4, SM-2, the marker/derivation '
+        'layering)', () async {
+      var now = sundayClock();
+      final store = _RecordingStore();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => now,
+      );
+      final controller = buildFor(store, nowOf: () => now);
+
+      // Sunday's first opening: the report holds the slot; the ✕
+      // frees it for the opening alone, marker (day, opens: 1).
+      await session.handleAppOpen();
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+      await controller.dismissReport();
+
+      // A second same-day app_opened lands: the census grows past the
+      // marker, so the exclusion lifts on its own — and the report
+      // stays hidden anyway, because the derivation's first-opening
+      // gate now owns the day (the opening was consumed). The layering
+      // is the pin: the marker lifted, the derivation hid.
+      await session.handleSessionEnd();
+      now = DateTime.utc(2026, 8, 30, 15);
+      await session.handleAppOpen();
+      final sameDay = await controller.read();
+      expect(
+        sameDay.stripResident,
+        isNull,
+        reason:
+            'the marker no longer excludes the report (opens 2 ≠ 1) '
+            'and still nothing shows — the consumed opening is the '
+            'derivation\'s fact, not the shell\'s',
+      );
+
+      // The next day's first opening: a new `Day`, a fresh opening —
+      // and the still-unanswered week asks again.
+      await session.handleSessionEnd();
+      now = DateTime.utc(2026, 8, 31, 9);
+      await session.handleAppOpen();
+      final nextDay = await controller.read();
+      expect(
+        nextDay.stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the new day starts clean — the marker and the consumed '
+            'opening both keyed Sunday alone',
+      );
+      expect(nextDay.reportWeekOrdinal, weekOfAug24);
+    });
+
+    test('refusal is silence: a value outside the scale or a null asked '
+        'week writes nothing, and the fresh read returns the report '
+        '(matrix: refusal guard)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+
+      // Out of scale: the minter refuses, nothing lands, no error
+      // surface exists anywhere to reach.
+      final after = await controller.answerReport(9);
+      expect(
+        store.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+      );
+      expect(
+        after.stripResident,
+        StripResident.weeklySelfReport,
+        reason: 'the week was not answered — the report stands',
+      );
+
+      // A null asked week: a controller whose reads never showed the
+      // report mints nothing at all.
+      final silentStore = _RecordingStore();
+      await launchSunday(silentStore);
+      final unread = buildFor(silentStore);
+      await unread.answerReport(3);
+      expect(
+        silentStore.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+      );
+      expect(
+        (await unread.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+    });
+
+    test('a failing answerReport append rethrows, lands nothing, and '
+        'the report still stands — the retry is the same tap (matrix: '
+        'failed append)', () async {
+      final inner = _RecordingStore();
+      await launchSunday(inner);
+      final failing = _FailNextAppendStore(inner);
+      final controller = buildFor(failing, nowOf: sundayClock);
+      // The showing read runs through the answering controller: the
+      // asked week is a controller field, established by ITS read.
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+
+      failing.failNextAppend = true;
+      await expectLater(controller.answerReport(3), throwsA(isA<StateError>()));
+      expect(
+        inner.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+        reason: 'nothing landed on the failed write',
+      );
+      final standing = await controller.read();
+      expect(
+        standing.stripResident,
+        StripResident.weeklySelfReport,
+        reason: 'the failed write changed nothing the derivation reads',
+      );
+
+      // The recovered chain lands the retry, and the week resolves
+      // with the same-opening handoff.
+      final done = await controller.answerReport(3);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'report_answered'),
+        hasLength(1),
+      );
+      expect(done.stripResident, StripResident.energyCheckIn);
+    });
+
+    test('a tap landing past the 04:00 boundary answers the asked week: '
+        'the row\'s instant is the tap\'s, its week the view carried '
+        '(AD-21, matrix: tap across 04:00)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+      );
+
+      // The view committed inside Sunday; the tap lands Monday, past
+      // the boundary — the row describes the tap, and answers the week
+      // the user was asked.
+      final tap = DateTime.utc(2026, 8, 31, 5);
+      await controller.answerReport(4, tappedAt: tap);
+
+      final row = store.entries.singleWhere(
+        (entry) => entry.kind == 'report_answered',
+      );
+      expect(row.instantUtcMicros, tap.microsecondsSinceEpoch);
+      expect(row.reportWeek, weekOfAug24);
+      expect(row.reportValue, 4);
+    });
+
+    test('supersession, not accumulation: a foreign-week answer counts '
+        'for nothing, and the unanswered week is superseded at the next '
+        'Sunday (SM-2, matrix: supersession)', () async {
+      // Saturday 23:00: the 1389 report — unanswered since its own
+      // Sunday — holds the slot at the day's first opening.
+      final store = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 29, 22), 'sat-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 22, 0, 1),
+            'sat-start',
+          ),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, 29, 22, 30),
+            'sat-end',
+          ),
+        ]);
+      var now = DateTime.utc(2026, 8, 29, 23);
+      final controller = buildFor(store, nowOf: () => now);
+      final saturday = await controller.read();
+      expect(saturday.stripResident, StripResident.weeklySelfReport);
+      expect(
+        saturday.reportWeekOrdinal,
+        weekOfAug17,
+        reason: 'the week the Saturday read was asking is 1389',
+      );
+
+      // The tap lands across the boundary, on Sunday — where the
+      // derivation now offers 1390. The row answers what was asked.
+      final tap = DateTime.utc(2026, 8, 30, 5);
+      await controller.answerReport(2, tappedAt: tap);
+      final row = store.entries.singleWhere(
+        (entry) => entry.kind == 'report_answered',
+      );
+      expect(row.reportWeek, weekOfAug17);
+      expect(row.instantUtcMicros, tap.microsecondsSinceEpoch);
+
+      // Sunday's read: 1389's answer is a foreign week — quiet, never
+      // a match — and 1390 stands due at most once, the new week's
+      // report taking the slot.
+      now = DateTime.utc(2026, 8, 30, 9);
+      final sunday = await controller.read();
+      expect(sunday.stripResident, StripResident.weeklySelfReport);
+      expect(sunday.reportWeekOrdinal, weekOfAug24);
+
+      // And week 1390 unanswered into Sunday 2026-09-06: the due week
+      // is 1391 — superseded, never accumulated.
+      final nextStore = _RecordingStore();
+      final nextSundayClock = DateTime.utc(2026, 9, 6, 12);
+      await SessionController(
+        store: nextStore,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => nextSundayClock,
+      ).handleAppOpen();
+      final nextController = buildFor(nextStore, nowOf: () => nextSundayClock);
+      final nextSunday = await nextController.read();
+      expect(nextSunday.stripResident, StripResident.weeklySelfReport);
+      expect(
+        nextSunday.reportWeekOrdinal,
+        weekOfAug31,
+        reason:
+            'the Sunday the 1390 week closed into has passed — at most '
+            'one report is ever asked, the newest week\'s',
+      );
+    });
+
+    test('a day that ends with the report unresolved owes the check-in '
+        'nothing: energy carries the llena default and the pool never '
+        'narrows (FR-4, matrix: check-in never shown)', () async {
+      final store = _RecordingStore();
+      final controller = await launchSunday(store);
+      final dealt = await controller.read() as DispenserDealt;
+      expect(dealt.stripResident, StripResident.weeklySelfReport);
+
+      // The report holds every read of the opening; no energy row can
+      // exist. The card is answered anyway — and the bundled next deal
+      // is ordinary-tier, the llena default carrying the day.
+      await controller.complete(dealt);
+      final stillHolding = await controller.read();
+      expect(
+        stillHolding.stripResident,
+        StripResident.weeklySelfReport,
+        reason: 'unanswered — the report keeps holding the slot',
+      );
+      final catalogue = await shippedCatalogue();
+      final nextDealRow = store.entries.lastWhere(
+        (entry) => entry.kind == 'card_dealt',
+      );
+      final nextSize = catalogue.entries
+          .firstWhere((entry) => entry.id == nextDealRow.itemId)
+          .size;
+      expect(
+        nextSize,
+        isNot(Size.instant),
+        reason:
+            'the check-in never shown means the 🟢 default, never a '
+            'narrowed pool — the day owes nothing',
       );
     });
   });

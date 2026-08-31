@@ -2180,8 +2180,13 @@ void main() {
       // Bottom-centred as a band: the wrap holding both prose controls
       // shares the screen's x-axis centre and sits at the bottom of the
       // body, inside the safe area — each control inside the viewport.
+      // (The band's own wrap, named through its controls — the report
+      // resident's digits row is a wrap in the scroll region too.)
       final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-      final band = _rect(tester, find.byType(Wrap));
+      final band = _rect(
+        tester,
+        find.ancestor(of: footerFinder, matching: find.byType(Wrap)).first,
+      );
       expect(band.center.dx, closeTo(screen.width / 2, 0.5));
       expect(band.bottom, lessThanOrEqualTo(screen.height));
       final target = _rect(tester, footerFinder);
@@ -3065,11 +3070,16 @@ void main() {
         expect(rect.top, greaterThanOrEqualTo(0));
         expect(rect.bottom, lessThanOrEqualTo(screen.height));
       }
-      // Pinned chrome: the band is not inside the scroll region.
+      // Pinned chrome: the band is not inside the scroll region — the
+      // band's own wrap, named through its controls, never the report
+      // resident's digits row that legitimately scrolls.
       expect(
         find.descendant(
           of: find.byType(SingleChildScrollView),
-          matching: find.byType(Wrap),
+          matching: find.ancestor(
+            of: find.byType(SecondaryTextAction),
+            matching: find.byType(Wrap),
+          ),
         ),
         findsNothing,
       );
@@ -3102,7 +3112,10 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(SingleChildScrollView),
-          matching: find.byType(Wrap),
+          matching: find.ancestor(
+            of: find.byType(SecondaryTextAction),
+            matching: find.byType(Wrap),
+          ),
         ),
         findsNothing,
         reason: 'the band stays pinned at the exact boundary height',
@@ -3124,7 +3137,10 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(SingleChildScrollView),
-          matching: find.byType(Wrap),
+          matching: find.ancestor(
+            of: find.byType(SecondaryTextAction),
+            matching: find.byType(Wrap),
+          ),
         ),
         findsOneWidget,
         reason: 'the footer joins the scroll below the boundary',
@@ -3324,12 +3340,30 @@ void main() {
   group('the checkpoint offer (Story 2.4, FR-10, UX-DR44/51)', () {
     /// A seeded pocketed session start, as a declaration or a process
     /// death would have left it — the start instant injectable so a
-    /// pocket sits elapsed or unelapsed at the fixed 12:00 clock.
+    /// pocket sits elapsed or unelapsed at the fixed 12:00 clock. The
+    /// sitting is seeded beside week 1389's report answered — the week
+    /// a Saturday read judges due — so the strip below the offer keeps
+    /// holding the check-in exactly as Story 2.5 shipped it.
     void seedPocketedStart(
       _RecordingStore store,
       int pocketMinutes, {
       DateTime? at,
     }) {
+      store.entries.add((
+        id: 'seed-week-answered',
+        kind: 'report_answered',
+        instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: 3,
+        reportWeek: 1389,
+      ));
       store.entries.add((
         id: 'seed-pocket',
         kind: 'session_started',
