@@ -902,8 +902,12 @@ void main() {
           _record('report_answered', reportValue: 4, reportWeek: 1394),
         ]);
         expect(entries, hasLength(2));
-        expect((entries[0] as ReportAnsweredEntry).week, 1390);
-        expect((entries[1] as ReportAnsweredEntry).week, 1394);
+        final first = entries[0] as ReportAnsweredEntry;
+        final second = entries[1] as ReportAnsweredEntry;
+        expect(first.value, 2);
+        expect(first.week, 1390);
+        expect(second.value, 4);
+        expect(second.week, 1394);
       });
     });
 

@@ -44,14 +44,14 @@ context: ['SM-2', 'AD-21', 'AD-23', 'NFR17']
 
 ## Code Map
 
-- `packages/core/lib/log/log_entry.dart:29-78,254-270,289-345,379-602` -- eleventh kind + `ReportAnsweredEntry` in `EnergySetEntry`'s fixed-kind shape (:254-270); three flaws; convert branch on the energy pattern (:546-572) with the range check + mirrored guards (:421,450,480,505,533,587)
-- `packages/core/lib/ports/store_port.dart:42-54` + `lib/store/substrate.dart:39-58,72-88` + `lib/store/substrate.drift:40-52` + `lib/store/drift_store.dart:41-59,85-111` -- record gains `int? reportValue, int? reportWeek`; two named ALTER constants; `schemaVersion => 5`; `if (from < 5)`; drift columns; `Value(...)` insert; passthrough decode; v5 doc paragraph
+- `packages/core/lib/log/log_entry.dart:31-71,284-327,404-422,673-707` -- eleventh kind + `ReportAnsweredEntry` in `EnergySetEntry`'s fixed-kind shape (:304-327); three flaws; convert branch on the energy pattern (:673-707) with the range check + mirrored guards (:504,536,569,597,628,659,725)
+- `packages/core/lib/ports/store_port.dart:41-59` + `lib/store/substrate.dart:48-59,71,102-105` + `lib/store/substrate.drift:58-59` + `lib/store/drift_store.dart:40-59,86-114` -- record gains `int? reportValue, int? reportWeek`; two named ALTER constants; `schemaVersion => 5`; `if (from < 5)`; drift columns; `Value(...)` insert; passthrough decode; v5 doc paragraph
 - `tool/check_no_literal_strings.dart` (namedConstantAllowance) -- the two ALTER constants join the substrate set
-- `packages/core/lib/commands/report_commands.dart` (new) -- the minter on `energy_commands.dart:28-41`'s shape with `settings_commands.dart:29-50`'s range guard; `session_commands.dart:68-121,436-445` -- content typedef + every literal grows the nulls
+- `packages/core/lib/commands/report_commands.dart` (new) -- the minter on `energy_commands.dart:28-41`'s shape with `settings_commands.dart:29-50`'s range guard; `session_commands.dart:68-79` -- content typedef + every literal grows the nulls
 - `packages/core/lib/day/calendar.dart:111-151,135-141` -- READ ONLY (the stored week); `energy.dart:33-44` -- wire-int precedent
-- `packages/core/test/log_test.dart:7-28,32-58,602-740` -- `_record` grows two params; kind pin 11; payload group
-- `test/store/substrate_test.dart:22-38,524-543,641-1080` -- column audit → 13; version → 5; v4→v5 upgrade group on the v3→v4 template
-- `packages/core/test/no_lateness_proof_test.dart:693-703,821-863,910-1064,1282-1366` -- entry freeze (kind last); record 13 / content 10; census counts; mint-site family clone
+- `packages/core/test/log_test.dart:7-32,36-64,730-907` -- `_record` grows two params; kind pin 11; payload group
+- `test/store/substrate_test.dart:22-42,518-543,663,1218` -- column audit → 13; version → 5; composed store→boundary paths; v4→v5 upgrade group on the v3→v4 template
+- `packages/core/test/no_lateness_proof_test.dart:705-717,836-860,863,946,1390` -- entry freeze (kind last); record 13 / content 10; census counts; mint-site family clone
 
 ## Tasks & Acceptance
 
@@ -67,6 +67,14 @@ context: ['SM-2', 'AD-21', 'AD-23', 'NFR17']
 - Given `reportAnswered` outside 1–5, then nothing is minted — refusal is silence; at 1–5 exactly one row
 - Given a v4 substrate holding rows, when it opens under v5, then ALTERs run in place, the version reads 5, every prior row survives
 - Given the completion gate, then `make codegen-check`, `make check`, `make test-core` and `make gate` are green
+
+### Review Findings
+
+- [x] [Review][Patch] No in-scale composed DriftStore→boundary path [test/store/substrate_test.dart:663]
+- [x] [Review][Patch] Code Map line numbers do not match the landed file [_bmad-output/implementation-artifacts/2-6-the-weekly-self-report-and-the-deterministic-slot-handoff.md:47]
+- [x] [Review][Patch] `logEntriesOf` survival test asserts week only, not the surviving values [packages/core/test/log_test.dart:905]
+- [x] [Review][Defer] Dual unwrapped v5 ALTERs can tear on process death [lib/store/substrate.dart:102] — deferred, pre-existing
+- [x] [Review][Defer] Raw-typed INTEGER cells have no drift-mapping tolerance [lib/store/substrate.g.dart:699] — deferred, pre-existing
 
 ## Spec Change Log
 

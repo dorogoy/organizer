@@ -695,6 +695,43 @@ void main() {
       expect(conversion.flaw, LogRecordFlaw.reportValueAbsent);
       expect(logEntriesOf(snapshot), isEmpty);
     });
+
+    test('an in-scale answer row rides both production layers — '
+        'stored by DriftStore, then converted to ReportAnsweredEntry '
+        'carrying both ints (Story 2.6, SM-2)', () async {
+      final id = const Uuid().v7();
+      await store.appendLogEntry((
+        id: id,
+        kind: LogKind.reportAnswered.name,
+        instantUtcMicros: 1758900000444555,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: 3,
+        reportWeek: 1394,
+      ));
+
+      final snapshot = await store.readLogEntries();
+      expect(snapshot, hasLength(1));
+      expect(snapshot.single.id, id);
+      expect(snapshot.single.reportValue, 3);
+      expect(snapshot.single.reportWeek, 1394);
+
+      final conversion = convertLogEntryRecord(snapshot.single);
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry as ReportAnsweredEntry;
+      expect(entry.value, 3);
+      expect(entry.week, 1394);
+      final accepted = logEntriesOf(snapshot);
+      expect(accepted, hasLength(1));
+      expect((accepted.single as ReportAnsweredEntry).value, 3);
+      expect((accepted.single as ReportAnsweredEntry).week, 1394);
+    });
   });
 
   group('the v1→v5 upgrade (Stories 2.1–2.6, AD-23 — additive, ALTER-only)', () {
