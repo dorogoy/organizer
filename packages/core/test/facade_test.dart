@@ -43,6 +43,7 @@ LogEntryRecord _record(
   String? settingKey,
   int? settingValue,
   int? pocketMinutes,
+  int? energyLevel,
 }) => (
   id: '$id-$micros-$kind',
   kind: kind,
@@ -54,6 +55,7 @@ LogEntryRecord _record(
   settingKey: settingKey,
   settingValue: settingValue,
   pocketMinutes: pocketMinutes,
+  energyLevel: energyLevel,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,
@@ -594,6 +596,54 @@ void main() {
     );
     expect(card!.id, 'hab-a');
     expect(store.appends, 0);
+  });
+
+  test('the energy seam narrows the resolver through the facade\'s own '
+      'read — a baja day deals instant-tier only, and a standing card '
+      'stays the card (Story 2.5, FR-4)', () async {
+    final nowMicros = utcMicros(2026, 8, 28, 12);
+    final lowDay = _FakeStore([
+      _record(LogKind.sessionStarted.name, nowMicros, id: 'open'),
+      _record('energy_set', nowMicros + 1, id: 'baja', energyLevel: 2),
+    ]);
+    final card = await nextCard(
+      lowDay,
+      catalogue: _catalogue,
+      instantUtcMicros: nowMicros + 2,
+      offsetSeconds: 0,
+    );
+    expect(
+      card!.size,
+      Size.instant,
+      reason:
+          'the seam maps the day\'s energy_set rows inside the '
+          'facade\'s own read — the resolver narrows with no caller '
+          'threading',
+    );
+    expect(lowDay.appends, 0);
+
+    // A standing card survives the baja: the facade returns the
+    // dealt-but-unanswered card itself, never withdrawn (FR-10's
+    // grammar, the filter applying to the next deal).
+    final standing = _FakeStore([
+      _record(LogKind.sessionStarted.name, nowMicros, id: 'open'),
+      _record(
+        LogKind.cardDealt.name,
+        nowMicros + 1,
+        id: 'deal',
+        itemId: 'zona-a',
+        itemOrigin: Origin.shipped,
+      ),
+      _record('energy_set', nowMicros + 2, id: 'baja', energyLevel: 2),
+    ]);
+    final standingCard = await nextCard(
+      standing,
+      catalogue: _catalogue,
+      instantUtcMicros: nowMicros + 3,
+      offsetSeconds: 0,
+    );
+    expect(standingCard!.id, 'zona-a');
+    expect(standingCard.size, Size.focus);
   });
 
   test('the facade\'s shape is a single-card surface: one function, no '

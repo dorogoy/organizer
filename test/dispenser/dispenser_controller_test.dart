@@ -16,6 +16,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/derive/checkpoint.dart';
+import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
@@ -263,6 +264,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: null,
+  energyLevel: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -276,6 +278,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: null,
+  energyLevel: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -946,6 +949,7 @@ void main() {
       settingKey: 'time_bag',
       settingValue: 5,
       pocketMinutes: null,
+      energyLevel: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1073,6 +1077,7 @@ void main() {
           settingKey: null,
           settingValue: null,
           pocketMinutes: 1,
+          energyLevel: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1513,6 +1518,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: pocketMinutes,
+        energyLevel: null,
       ));
     }
 
@@ -1551,6 +1557,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1574,6 +1581,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1593,6 +1601,7 @@ void main() {
           settingKey: null,
           settingValue: null,
           pocketMinutes: 10,
+          energyLevel: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1605,6 +1614,7 @@ void main() {
           settingKey: null,
           settingValue: null,
           pocketMinutes: null,
+          energyLevel: null,
         ));
       }
 
@@ -1646,6 +1656,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       final view = await buildFor(
         store,
@@ -1927,6 +1938,379 @@ void main() {
         reason:
             'the chip keeps the declared pocket: the ladder, never '
             'a dead action, is the way back in',
+      );
+    });
+  });
+
+  group('the ambient strip and the check-in (Story 2.5, FR-4, UX-DR22)', () {
+    test(
+      'the day\'s first opening reads with the check-in showing below '
+      'the card — and nothing else about energy anywhere on the view',
+      () async {
+        final store = _RecordingStore();
+        final view = await openSessionAndReadFirstDeal(store);
+        expect(view.checkInShown, isTrue);
+        expect(view.card, isNotNull);
+        // Reading wrote nothing: the strip renders, it never writes.
+        expect(
+          store.entries.map((entry) => entry.kind),
+          isNot(contains('energy_set')),
+        );
+      },
+    );
+
+    test('a baja tap with a card in progress: exactly one energy_set row, '
+        'the strip gone for the day, the card finishable, and the NEXT '
+        'deal instant-tier only', () async {
+      final store = _RecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+
+      final after = await controller.setEnergy(EnergyLevel.low);
+
+      // One row, the level's stable wire int, nothing bundled — the
+      // check-in never deals a card.
+      expect(
+        store.entries.where((entry) => entry.kind == 'energy_set'),
+        hasLength(1),
+      );
+      final row = store.entries.last;
+      expect(row.kind, 'energy_set');
+      expect(row.energyLevel, 2);
+      expect(row.itemId, isNull);
+      expect(row.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+      expect(row.id, matches(v7));
+      expect(
+        store.entries[store.entries.length - 2].kind,
+        isNot('energy_set'),
+        reason: 'exactly one row, never a batch',
+      );
+
+      // The standing card stays the view — finishable, never withdrawn.
+      expect(after, isA<DispenserDealt>());
+      expect((after as DispenserDealt).card.id, dealt.card.id);
+      expect(
+        after.checkInShown,
+        isFalse,
+        reason: 'answered — gone for the day',
+      );
+
+      // The filter applies to the next deal: the completion bundles an
+      // instant-tier card under baja.
+      await controller.complete(after);
+      final nextDealRow = store.entries.last;
+      expect(nextDealRow.kind, 'card_dealt');
+      final catalogue = await shippedCatalogue();
+      final nextSize = catalogue.entries
+          .firstWhere((entry) => entry.id == nextDealRow.itemId)
+          .size;
+      expect(nextSize, Size.instant);
+    });
+
+    test('a media or an explicit llena tap lands its row and changes no '
+        'pool — only baja narrows', () async {
+      for (final (level, wire) in [
+        (EnergyLevel.medium, 1),
+        (EnergyLevel.full, 0),
+      ]) {
+        final store = _RecordingStore();
+        await openSessionAndReadFirstDeal(store);
+        final controller = buildFor(store);
+
+        final after = await controller.setEnergy(level);
+
+        final row = store.entries.last;
+        expect(row.kind, 'energy_set');
+        expect(row.energyLevel, wire);
+        expect(after.checkInShown, isFalse);
+        // The pool is unchanged: the next deal is the standing card's
+        // own successor at the ordinary tier, never narrowed.
+        await controller.complete(after as DispenserDealt);
+        final catalogue = await shippedCatalogue();
+        final nextSize = catalogue.entries
+            .firstWhere((entry) => entry.id == store.entries.last.itemId)
+            .size;
+        expect(
+          nextSize,
+          isNot(Size.instant),
+          reason:
+              'media filters nothing, and an explicit llena is the '
+              'default made visible',
+        );
+      }
+    });
+
+    test('a failing setEnergy append rethrows, lands nothing, and the '
+        'strip stands — the retry is the same tap (matrix: failing '
+        'append)', () async {
+      final inner = _RecordingStore();
+      await openSessionAndReadFirstDeal(inner);
+      final failing = _FailNextAppendStore(inner);
+      final controller = buildFor(failing);
+
+      failing.failNextAppend = true;
+      await expectLater(
+        controller.setEnergy(EnergyLevel.low),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'energy_set'),
+        isEmpty,
+        reason: 'nothing landed on the failed write',
+      );
+      // The observable outcome the matrix names: nothing landed, so a
+      // fresh read re-resolves the day unanswered — the strip stands.
+      final standing = await controller.read();
+      expect(
+        standing.checkInShown,
+        isTrue,
+        reason: 'the failed write changed nothing the derivation reads',
+      );
+
+      // The recovered chain lands the retry, and the day resolves.
+      final view = await controller.setEnergy(EnergyLevel.low);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'energy_set'),
+        hasLength(1),
+      );
+      expect(view.checkInShown, isFalse);
+    });
+
+    test('an energy answer and dismissal honor their tap-time day across '
+        '04:00', () async {
+      var now = DateTime.utc(2026, 8, 29, 12);
+      final tappedAt = now;
+      final answerStore = _RecordingStore();
+      await openSessionAndReadFirstDeal(answerStore);
+      final answering = buildFor(answerStore, nowOf: () => now);
+
+      now = DateTime.utc(2026, 8, 30, 5);
+      await answering.setEnergy(EnergyLevel.low, tappedAt: tappedAt);
+      expect(
+        answerStore.entries.last.instantUtcMicros,
+        tappedAt.microsecondsSinceEpoch,
+      );
+
+      final dismissalStore = _RecordingStore();
+      await openSessionAndReadFirstDeal(dismissalStore);
+      now = DateTime.utc(2026, 8, 29, 12);
+      final dismissing = buildFor(dismissalStore, nowOf: () => now);
+      now = DateTime.utc(2026, 8, 30, 5);
+      await dismissing.dismissCheckIn(tapTime: tappedAt);
+      now = tappedAt;
+      expect(
+        (await dismissing.read()).checkInShown,
+        isFalse,
+        reason: 'the marker belongs to the day on which the user tapped ✕',
+      );
+    });
+
+    test('the ✕ dismissal writes nothing and hides the strip for the '
+        'rest of the opening; a later same-day opening hides it by the '
+        'derivation alone (matrix: dismissal, re-open)', () async {
+      final store = _RecordingStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+
+      final dismissed = await controller.dismissCheckIn();
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ], reason: 'a dismissal appends nothing at all');
+      expect(dismissed.checkInShown, isFalse);
+      expect(
+        (await controller.read()).checkInShown,
+        isFalse,
+        reason: 'hidden for the rest of the opening',
+      );
+
+      // The opening ends; a second open lands its own app_opened — the
+      // derivation itself says not due now, never styled as anything.
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleSessionEnd();
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final reopened = await controller.read();
+      expect(
+        reopened.checkInShown,
+        isFalse,
+        reason:
+            'a second app_opened row today — the first opening was '
+            'consumed, whatever the shell state holds',
+      );
+    });
+
+    test('a session crossing 04:00 with no app_opened in the '
+        'crossed-into day: the next resolution is that day\'s first '
+        'opening — shown once (matrix: crossing)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 28, 23), 'crossing-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 28, 23, 0, 1),
+            'crossing-start',
+          ),
+        ]);
+      final controller = buildFor(
+        store,
+        nowOf: () => DateTime.utc(2026, 8, 29, 5),
+      );
+      expect((await controller.read()).checkInShown, isTrue);
+
+      // Answered during the crossing: the crossed-into day is done.
+      final answered = await controller.setEnergy(EnergyLevel.low);
+      expect(answered.checkInShown, isFalse);
+      expect((await controller.read()).checkInShown, isFalse);
+    });
+
+    test('a prior-day session dangling unended: the relaunch\'s lone '
+        'app_opened is not a first opening (kill-during-crossing)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 28, 23), 'killed-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 28, 23, 0, 1),
+            'killed-start',
+          ),
+        ]);
+      final controller = buildFor(store);
+      // The relaunch mints the crossing reveal: app_opened lands in
+      // today as its first row, and the dangling start betrays the
+      // opening already underway.
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      expect((await controller.read()).checkInShown, isFalse);
+    });
+
+    test('a baja day with the instant tier spent behind an elapsed '
+        'pocket closes with no continue — the derived level reaches the '
+        'probe through the seam (FR-4, Story 2.5)', () async {
+      final store = _RecordingStore();
+      // The baja row, answered at the day's first opening.
+      store.entries.add((
+        id: 'seed-baja',
+        kind: 'energy_set',
+        instantUtcMicros: DateTime.utc(2026, 8, 29, 10).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: 2,
+      ));
+      // A 60-pocket sitting opened at 11:00: elapsed exactly at the
+      // fixed 12:00 clock, while one +15 acceptance could still lift
+      // the deadline to 12:15 — the probe, not the window, decides.
+      store.entries.add((
+        id: 'seed-pocket-60',
+        kind: 'session_started',
+        instantUtcMicros: DateTime.utc(2026, 8, 29, 11).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: 60,
+        energyLevel: null,
+      ));
+      // The day's whole instant tier spent inside the sitting: five
+      // dealt-and-answered habits, as the launch lifecycle would have
+      // left them (ids from the shipped asset, never invented).
+      final catalogue = await shippedCatalogue();
+      final instantIds = [
+        for (final entry in catalogue.entries)
+          if (entry.size == Size.instant) entry.id,
+      ].take(5).toList();
+      expect(instantIds, hasLength(5));
+      for (final (index, id) in instantIds.indexed) {
+        final minute = 1 + index;
+        store.entries.add(
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, minute),
+            'spent-deal-$index',
+            id,
+          ),
+        );
+        store.entries.add(
+          _act(
+            'card_done',
+            DateTime.utc(2026, 8, 29, 11, minute, 30),
+            'spent-done-$index',
+            id,
+          ),
+        );
+      }
+
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserClosed>());
+      final close = view as DispenserClosed;
+      expect(close.pocketMinutes, 60);
+      expect(
+        close.continueOffered,
+        isFalse,
+        reason:
+            'the pocket elapsed and one interval could still reach, '
+            'but the probe finds nothing the baja day may deal — the '
+            'chunk and upkeep fall to the 60 s ceiling and the instant '
+            'draws are spent',
+      );
+    });
+
+    test('a dismissal is skip-for-today and no further: the next day\'s '
+        'first opening shows the check-in again (FR-4, matrix: day '
+        'boundary)', () async {
+      var now = DateTime.utc(2026, 8, 29, 12);
+      final store = _RecordingStore();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => now,
+      );
+      final controller = buildFor(store, nowOf: () => now);
+
+      // Day 1: the launch, the strip, the ✕.
+      await session.handleAppOpen();
+      expect((await controller.read()).checkInShown, isTrue);
+      await controller.dismissCheckIn();
+      expect(
+        (await controller.read()).checkInShown,
+        isFalse,
+        reason: 'skip-for-today holds across every read of the day',
+      );
+
+      // The day turns: the sitting closes before the boundary, the new
+      // day's open lands its own app_opened — and the strip returns.
+      await session.handleSessionEnd();
+      now = DateTime.utc(2026, 8, 30, 9);
+      await session.handleAppOpen();
+      expect(
+        (await controller.read()).checkInShown,
+        isTrue,
+        reason:
+            'the dismissal keyed the old day alone; the new day '
+            'starts clean and its first opening is due',
       );
     });
   });

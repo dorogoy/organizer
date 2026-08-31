@@ -1,6 +1,9 @@
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/commands/energy_commands.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/day/calendar.dart';
 import 'package:core/derive/checkpoint.dart';
+import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
@@ -19,8 +22,21 @@ import '../strings/app_strings.dart';
 /// close when the deal is absent. The read-not-yet-resolved state is the
 /// screen's own (an empty `surfaceBase` frame, never a loader), so it
 /// lives there and not here.
+///
+/// Every variant also carries the ambient strip's fact (Story 2.5,
+/// UX-DR22): whether the check-in resident is showing below the card —
+/// derived in the same queue-consistent read as the card itself, never
+/// held in memory as truth. A dismissal is shell state keyed by the
+/// domestic day — skip-for-today (see
+/// [DispenserController.dismissCheckIn]); an answer is a row, and the
+/// derivation hides the strip for the day on its own.
 sealed class DispenserView {
-  const DispenserView();
+  const DispenserView({this.checkInShown = false});
+
+  /// Whether the ambient strip holds the energy check-in on this read
+  /// — the precedence derivation's resident, suppressed by a dismissal
+  /// of the current opening and by nothing else in the shell.
+  final bool checkInShown;
 }
 
 /// The dealt-unanswered card of the open session — the launch deal on a
@@ -30,7 +46,7 @@ sealed class DispenserView {
 /// own pocket fact, absent when the sitting is unbounded — the trigger
 /// chip's data, never session state held as truth (AD-19).
 final class DispenserDealt extends DispenserView {
-  const DispenserDealt(this.card, {this.pocketMinutes});
+  const DispenserDealt(this.card, {this.pocketMinutes, super.checkInShown});
 
   final Card card;
 
@@ -47,7 +63,11 @@ final class DispenserDealt extends DispenserView {
 /// would exist if the pocket had room (the core's probe, UJ-1); a
 /// pool-exhausted or long-elapsed close carries nothing.
 final class DispenserClosed extends DispenserView {
-  const DispenserClosed({this.pocketMinutes, this.continueOffered = false});
+  const DispenserClosed({
+    this.pocketMinutes,
+    this.continueOffered = false,
+    super.checkInShown,
+  });
 
   final int? pocketMinutes;
 
@@ -62,12 +82,12 @@ final class DispenserClosed extends DispenserView {
 /// counts anything: the surface is two actions, never a question,
 /// never a number that would have been higher (UJ-1, UX-DR44).
 final class DispenserRestOffer extends DispenserView {
-  const DispenserRestOffer({this.pocketMinutes});
+  const DispenserRestOffer({this.pocketMinutes, super.checkInShown});
 
   final int? pocketMinutes;
 }
 
-/// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.4): the
+/// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.5): the
 /// app's home surface derives its card and standing pocket from one log snapshot,
 /// and answers it through the two core answer commands, each appending its
 /// answer and the bundled next deal itself (AD-3): `cardDone` (Story 1.9)
@@ -77,7 +97,10 @@ final class DispenserRestOffer extends DispenserView {
 /// quiet one-row stop — and `extend` (Story 2.4, FR-10) is the
 /// checkpoint's silent continue: one `session_extended`, plus the
 /// bundled next deal when the lift unblocks a sitting with no
-/// unanswered card (AD-3).
+/// unanswered card (AD-3). `setEnergy` and `dismissCheckIn`
+/// (Story 2.5, FR-4) carry the ambient strip below the card: the
+/// check-in's one-row answer and its write-free dismissal, the
+/// resident's fact riding every read.
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -106,6 +129,19 @@ class DispenserController {
   final LogWriteQueue writeQueue;
   Future<Catalogue>? _catalogue;
 
+  /// The day whose check-in the ✕ dismissed (Story 2.5, UX-DR22) —
+  /// shell state, never a row: AD-21's vocabulary has no dismissal
+  /// kind and a synthetic `energy_set` is forbidden. A dismissal is
+  /// skip-for-TODAY, so the day alone keys it: every read of the same
+  /// domestic day is suppressed whatever the opening census does — a
+  /// dismissal taken during a sitting with no `app_opened` in the day
+  /// (the crossing or idle-foreground shape) cannot lapse when the
+  /// day's first `app_opened` later lands and the derivation judges
+  /// the first opening underway again. The next day is a different
+  /// `Day` by construction, so the marker never over-reaches and the
+  /// derivation decides the new day on its own rows.
+  Day? _checkInDismissMarker;
+
   /// Reads the card to display (AD-3: a pure computation, never a write).
   /// It runs in the shared log queue, so the pocket and card come from one
   /// post-write snapshot and the clock is read only when that snapshot is
@@ -119,6 +155,14 @@ class DispenserController {
   /// or the deal that would now resolve. A card in flight at the
   /// crossing stays visible and finishable; every later deal hides
   /// behind the offer and returns with one silent tap, never re-dealt.
+  ///
+  /// Story 2.5 adds the ambient strip's fact to the same snapshot: the
+  /// strip derivation resolves the check-in resident — due at the day's
+  /// first opening while the day holds no `energy_set` row — and the
+  /// shell suppresses it only for the day the user dismissed
+  /// (skip-for-today); an answered day hides on its own, a later
+  /// opening hides by the derivation, and nothing else in the shell
+  /// touches it.
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();
@@ -129,6 +173,19 @@ class DispenserController {
     final log = logEntriesOf(await store.readLogEntries());
     final facts = walkLog(log, catalogue: catalogue);
     final pocket = facts.openSessionPocketMinutes;
+    // The strip's fact (Story 2.5): the resident derivation over the
+    // same queue-consistent log, suppressed by a dismissal of this
+    // DAY alone — skip-for-today, never skip-for-this-opening, so no
+    // later app_opened of the same day can resurrect a dismissed
+    // strip. A new day is a different `Day`, and the derivation
+    // decides it on its own rows.
+    final today = _dayOf(now);
+    final strip = deriveStrip(
+      entries: log,
+      instantUtcMicros: now.microsecondsSinceEpoch,
+      offsetSeconds: now.timeZoneOffset.inSeconds,
+    );
+    final checkInShown = strip != null && _checkInDismissMarker != today;
     final unanswered = facts.dealtUnanswered;
     final card = unanswered == null
         ? nextDeal(
@@ -138,6 +195,7 @@ class DispenserController {
             offsetSeconds: now.timeZoneOffset.inSeconds,
             bagMinutes: deriveTimeBagMinutes(log),
             energy: deriveLivePoolEnergy(
+              log,
               now.microsecondsSinceEpoch,
               now.timeZoneOffset.inSeconds,
             ),
@@ -169,10 +227,12 @@ class DispenserController {
               offsetSeconds: now.timeZoneOffset.inSeconds,
               bagMinutes: deriveTimeBagMinutes(log),
               energy: deriveLivePoolEnergy(
+                log,
                 now.microsecondsSinceEpoch,
                 now.timeZoneOffset.inSeconds,
               ),
             ),
+        checkInShown: checkInShown,
       );
     }
     final checkpoint = deriveCheckpoint(
@@ -182,9 +242,16 @@ class DispenserController {
     );
     if (checkpoint.offerDue &&
         (unanswered == null || checkpoint.offerPreemptsStandingDeal)) {
-      return DispenserRestOffer(pocketMinutes: pocket);
+      return DispenserRestOffer(
+        pocketMinutes: pocket,
+        checkInShown: checkInShown,
+      );
     }
-    return DispenserDealt(card, pocketMinutes: pocket);
+    return DispenserDealt(
+      card,
+      pocketMinutes: pocket,
+      checkInShown: checkInShown,
+    );
   });
 
   /// Answers the dealt card (Story 1.9's one write path, FR-2): runs the
@@ -224,6 +291,7 @@ class DispenserController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });
@@ -269,6 +337,7 @@ class DispenserController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });
@@ -310,6 +379,7 @@ class DispenserController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });
@@ -344,6 +414,7 @@ class DispenserController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });
@@ -394,15 +465,75 @@ class DispenserController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });
     return write.then((_) => read());
   }
 
+  /// Answers the check-in (Story 2.5, FR-4): one `energy_set` row
+  /// through the core's single sanctioned minter, in [declarePocket]'s
+  /// write-then-read shape minus the catalogue — `energySet` reads no
+  /// log and bundles no deal, so the check-in never deals a card
+  /// (AD-3). The instant is minted at entry, before any await, so the
+  /// row describes the tap. On baja the fresh read narrows the next
+  /// deal to instant-tier only while a card in progress stays
+  /// finishable — the standing card is the read's own answered fact,
+  /// never withdrawn; on media and llena the pool is unchanged. A
+  /// failing append rethrows to the caller while the chain recovers —
+  /// nothing landed, the strip stands, and the retry is the same tap.
+  Future<DispenserView> setEnergy(EnergyLevel level, {DateTime? tappedAt}) {
+    final now = tappedAt ?? nowOf();
+    final write = _enqueueWrite(() async {
+      // `energySet` is pure over its input — no log read, no bundled
+      // deal — so the write path reads nothing: the row is the tap.
+      final contents = energySet(level: level);
+      for (final content in contents) {
+        await store.appendLogEntry((
+          id: idMinter.v7(),
+          kind: content.kind.name,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          itemId: content.itemId,
+          itemOrigin: content.itemOrigin,
+          stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
+        ));
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Dismisses the check-in (Story 2.5, FR-4, UX-DR22): skip-for-today,
+  /// and deliberately NOT a write — AD-21's vocabulary has no dismissal
+  /// kind, a synthetic `energy_set` row is forbidden, and the strip
+  /// renders but never writes (AD-3). The dismissal lives in shell
+  /// state keyed by the tap's own domestic day: every read of that day
+  /// hides the resident — whatever opening it belongs to — and the
+  /// next day starts clean, decided by the derivation on its own rows.
+  /// Never re-shown within the day, never styled as anything owed.
+  Future<DispenserView> dismissCheckIn({DateTime? tapTime}) {
+    // The day is minted at entry, from the tap's own instant — no log
+    // read exists on this path, because nothing about the dismissal
+    // depends on the log.
+    _checkInDismissMarker = _dayOf(tapTime ?? nowOf());
+    return read();
+  }
+
   Future<void> _enqueueWrite(Future<void> Function() step) {
     return writeQueue.enqueue(step);
   }
+
+  /// The domestic day of [now] in its own offset (AD-4's calendar is
+  /// the only authority) — the dismissal state's whole key.
+  Day _dayOf(DateTime now) => const Calendar().dayOf(
+    now.microsecondsSinceEpoch,
+    now.timeZoneOffset.inSeconds,
+  );
 
   /// The catalogue loads once per controller lifetime. A failed load is
   /// not memoized — the memo clears on error so the next read retries

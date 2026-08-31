@@ -44,6 +44,7 @@ List<LogEntryContent> settingChanged({
       settingKey: key,
       settingValue: value,
       pocketMinutes: null,
+      energyLevel: null,
     ),
   ];
 }

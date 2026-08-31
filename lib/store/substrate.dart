@@ -36,17 +36,26 @@ const String logEntriesSettingValueUpgrade =
 const String logEntriesPocketMinutesUpgrade =
     'ALTER TABLE log_entries ADD COLUMN pocket_minutes INTEGER NULL';
 
+/// Schema v4's additive upgrade of `log_entries` (Story 2.5, AD-23): the
+/// one nullable `energy_set` payload column — the tapped level's stable
+/// wire int — added by ALTER TABLE only, on the v2→v3 pattern: no table
+/// rebuild, no data migration, refusal triggers untouched. A named
+/// infrastructure identifier on the store module's terms (AD-15's ban
+/// is on literals reaching a widget).
+const String logEntriesEnergyLevelUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN energy_level INTEGER NULL';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 3 (Story 2.2): the only change from 2
-/// is the nullable pocket column above, and every later change is
+/// migration (AD-2). schemaVersion 4 (Story 2.5): the only change from 3
+/// is the nullable energy level column above, and every later change is
 /// additive-only (AD-23).
 @DriftDatabase(include: {substrateSchemaFile})
 class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// The initial migration creates everything: both tables and the four
   /// `.drift`-declared triggers. The v1→v2 step adds the setting columns
@@ -54,7 +63,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// rebuild and its rows read back unchanged — old rows with null setting
   /// fields. The v2→v3 step adds the pocket column the same way, so a v2
   /// install upgrades with its rows unchanged too — old rows with a null
-  /// pocket, deriving as unbounded sessions. The mechanism is drift's; the
+  /// pocket, deriving as unbounded sessions. The v3→v4 step adds the
+  /// energy level column the same way, so a v3 install upgrades with its
+  /// rows unchanged too — old rows with a null level, deriving as
+  /// unanswered days. The mechanism is drift's; the
   /// outcomes — triggers present after first open on a fresh install, old
   /// rows intact after upgrade — are pinned by `test/store/substrate_test.dart`.
   @override
@@ -67,6 +79,9 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 3) {
         await customStatement(logEntriesPocketMinutesUpgrade);
+      }
+      if (from < 4) {
+        await customStatement(logEntriesEnergyLevelUpgrade);
       }
     },
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

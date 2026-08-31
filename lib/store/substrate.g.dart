@@ -481,6 +481,17 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _energyLevelMeta = const VerificationMeta(
+    'energyLevel',
+  );
+  late final GeneratedColumn<int> energyLevel = GeneratedColumn<int>(
+    'energy_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -493,6 +504,7 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     settingKey,
     settingValue,
     pocketMinutes,
+    energyLevel,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -583,6 +595,15 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         ),
       );
     }
+    if (data.containsKey('energy_level')) {
+      context.handle(
+        _energyLevelMeta,
+        energyLevel.isAcceptableOrUnknown(
+          data['energy_level']!,
+          _energyLevelMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -632,6 +653,10 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}pocket_minutes'],
       ),
+      energyLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}energy_level'],
+      ),
     );
   }
 
@@ -655,6 +680,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final String? settingKey;
   final int? settingValue;
   final int? pocketMinutes;
+  final int? energyLevel;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -666,6 +692,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.settingKey,
     this.settingValue,
     this.pocketMinutes,
+    this.energyLevel,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -691,6 +718,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || pocketMinutes != null) {
       map['pocket_minutes'] = Variable<int>(pocketMinutes);
+    }
+    if (!nullToAbsent || energyLevel != null) {
+      map['energy_level'] = Variable<int>(energyLevel);
     }
     return map;
   }
@@ -719,6 +749,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       pocketMinutes: pocketMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(pocketMinutes),
+      energyLevel: energyLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(energyLevel),
     );
   }
 
@@ -738,6 +771,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       settingKey: serializer.fromJson<String?>(json['setting_key']),
       settingValue: serializer.fromJson<int?>(json['setting_value']),
       pocketMinutes: serializer.fromJson<int?>(json['pocket_minutes']),
+      energyLevel: serializer.fromJson<int?>(json['energy_level']),
     );
   }
   @override
@@ -754,6 +788,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'setting_key': serializer.toJson<String?>(settingKey),
       'setting_value': serializer.toJson<int?>(settingValue),
       'pocket_minutes': serializer.toJson<int?>(pocketMinutes),
+      'energy_level': serializer.toJson<int?>(energyLevel),
     };
   }
 
@@ -768,6 +803,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<String?> settingKey = const Value.absent(),
     Value<int?> settingValue = const Value.absent(),
     Value<int?> pocketMinutes = const Value.absent(),
+    Value<int?> energyLevel = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -781,6 +817,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     pocketMinutes: pocketMinutes.present
         ? pocketMinutes.value
         : this.pocketMinutes,
+    energyLevel: energyLevel.present ? energyLevel.value : this.energyLevel,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -806,6 +843,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       pocketMinutes: data.pocketMinutes.present
           ? data.pocketMinutes.value
           : this.pocketMinutes,
+      energyLevel: data.energyLevel.present
+          ? data.energyLevel.value
+          : this.energyLevel,
     );
   }
 
@@ -821,7 +861,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('stack: $stack, ')
           ..write('settingKey: $settingKey, ')
           ..write('settingValue: $settingValue, ')
-          ..write('pocketMinutes: $pocketMinutes')
+          ..write('pocketMinutes: $pocketMinutes, ')
+          ..write('energyLevel: $energyLevel')
           ..write(')'))
         .toString();
   }
@@ -838,6 +879,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     settingKey,
     settingValue,
     pocketMinutes,
+    energyLevel,
   );
   @override
   bool operator ==(Object other) =>
@@ -852,7 +894,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.stack == this.stack &&
           other.settingKey == this.settingKey &&
           other.settingValue == this.settingValue &&
-          other.pocketMinutes == this.pocketMinutes);
+          other.pocketMinutes == this.pocketMinutes &&
+          other.energyLevel == this.energyLevel);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -866,6 +909,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<String?> settingKey;
   final Value<int?> settingValue;
   final Value<int?> pocketMinutes;
+  final Value<int?> energyLevel;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -878,6 +922,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.settingKey = const Value.absent(),
     this.settingValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
+    this.energyLevel = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -891,6 +936,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.settingKey = const Value.absent(),
     this.settingValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
+    this.energyLevel = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -907,6 +953,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<String>? settingKey,
     Expression<int>? settingValue,
     Expression<int>? pocketMinutes,
+    Expression<int>? energyLevel,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -920,6 +967,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (settingKey != null) 'setting_key': settingKey,
       if (settingValue != null) 'setting_value': settingValue,
       if (pocketMinutes != null) 'pocket_minutes': pocketMinutes,
+      if (energyLevel != null) 'energy_level': energyLevel,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -935,6 +983,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<String?>? settingKey,
     Value<int?>? settingValue,
     Value<int?>? pocketMinutes,
+    Value<int?>? energyLevel,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -948,6 +997,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       settingKey: settingKey ?? this.settingKey,
       settingValue: settingValue ?? this.settingValue,
       pocketMinutes: pocketMinutes ?? this.pocketMinutes,
+      energyLevel: energyLevel ?? this.energyLevel,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -985,6 +1035,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (pocketMinutes.present) {
       map['pocket_minutes'] = Variable<int>(pocketMinutes.value);
     }
+    if (energyLevel.present) {
+      map['energy_level'] = Variable<int>(energyLevel.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1004,6 +1057,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('settingKey: $settingKey, ')
           ..write('settingValue: $settingValue, ')
           ..write('pocketMinutes: $pocketMinutes, ')
+          ..write('energyLevel: $energyLevel, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1283,6 +1337,7 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> settingKey,
   Value<int?> settingValue,
   Value<int?> pocketMinutes,
+  Value<int?> energyLevel,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -1296,6 +1351,7 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> settingKey,
   Value<int?> settingValue,
   Value<int?> pocketMinutes,
+  Value<int?> energyLevel,
   Value<int> rowid,
 });
 
@@ -1355,6 +1411,11 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<int> get pocketMinutes => $composableBuilder(
     column: $table.pocketMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get energyLevel => $composableBuilder(
+    column: $table.energyLevel,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1417,6 +1478,11 @@ class $LogEntriesOrderingComposer
     column: $table.pocketMinutes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get energyLevel => $composableBuilder(
+    column: $table.energyLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -1469,6 +1535,11 @@ class $LogEntriesAnnotationComposer
     column: $table.pocketMinutes,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get energyLevel => $composableBuilder(
+    column: $table.energyLevel,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -1509,6 +1580,7 @@ class $LogEntriesTableManager
                 Value<String?> settingKey = const Value.absent(),
                 Value<int?> settingValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
+                Value<int?> energyLevel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -1521,6 +1593,7 @@ class $LogEntriesTableManager
                 settingKey: settingKey,
                 settingValue: settingValue,
                 pocketMinutes: pocketMinutes,
+                energyLevel: energyLevel,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1535,6 +1608,7 @@ class $LogEntriesTableManager
                 Value<String?> settingKey = const Value.absent(),
                 Value<int?> settingValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
+                Value<int?> energyLevel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -1547,6 +1621,7 @@ class $LogEntriesTableManager
                 settingKey: settingKey,
                 settingValue: settingValue,
                 pocketMinutes: pocketMinutes,
+                energyLevel: energyLevel,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

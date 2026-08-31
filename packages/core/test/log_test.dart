@@ -1,3 +1,4 @@
+import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -11,6 +12,7 @@ LogEntryRecord _record(
   String? settingKey,
   int? settingValue,
   int? pocketMinutes,
+  int? energyLevel,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -22,11 +24,12 @@ LogEntryRecord _record(
   settingKey: settingKey,
   settingValue: settingValue,
   pocketMinutes: pocketMinutes,
+  energyLevel: energyLevel,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s nine kinds', () {
+    test('holds exactly the build\'s ten kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -37,6 +40,7 @@ void main() {
         LogKind.appOpened,
         LogKind.crashRecorded,
         LogKind.settingChanged,
+        LogKind.energySet,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -44,12 +48,13 @@ void main() {
         'card_done',
         'card_skipped',
         'crash_recorded',
+        'energy_set',
         'session_ended',
         'session_extended',
         'session_started',
         'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(9));
+      expect(LogKind.knownByName, hasLength(10));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -591,6 +596,128 @@ void main() {
         );
         expect(withSetting.entry, isNull);
         expect(withSetting.flaw, LogRecordFlaw.settingOnNonSettingKind);
+      });
+    });
+
+    group('the energy payload path (Story 2.5, FR-4, AD-4, AD-23)', () {
+      test('a well-shaped energy row converts with its level', () {
+        for (final (wire, level) in [
+          (0, EnergyLevel.full),
+          (1, EnergyLevel.medium),
+          (2, EnergyLevel.low),
+        ]) {
+          final conversion = convertLogEntryRecord(
+            _record('energy_set', energyLevel: wire),
+          );
+          final entry = conversion.entry;
+          expect(conversion.flaw, isNull);
+          expect(entry, isA<EnergySetEntry>());
+          expect(entry!.kind, LogKind.energySet);
+          expect((entry as EnergySetEntry).level, level);
+        }
+      });
+
+      test('the stable wire ints are pinned: 0/1/2 and nothing else '
+          'converts', () {
+        expect(energyLevelWireOf(EnergyLevel.full), 0);
+        expect(energyLevelWireOf(EnergyLevel.medium), 1);
+        expect(energyLevelWireOf(EnergyLevel.low), 2);
+
+        final absent = convertLogEntryRecord(_record('energy_set'));
+        expect(absent.entry, isNull);
+        expect(absent.flaw, LogRecordFlaw.energyLevelAbsent);
+
+        for (final outside in [3, -1, 99]) {
+          final outOfRange = convertLogEntryRecord(
+            _record('energy_set', energyLevel: outside),
+          );
+          expect(
+            outOfRange.entry,
+            isNull,
+            reason: 'an out-of-range level excludes the row, quietly',
+          );
+          expect(outOfRange.flaw, LogRecordFlaw.energyLevelAbsent);
+        }
+      });
+
+      test('an item pair, a stack, setting fields or a pocket on '
+          'energy_set are excluded', () {
+        final withItem = convertLogEntryRecord(
+          _record(
+            'energy_set',
+            energyLevel: 2,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+        );
+        expect(withItem.entry, isNull);
+        expect(withItem.flaw, LogRecordFlaw.itemOnNonItemKind);
+
+        final withStack = convertLogEntryRecord(
+          _record('energy_set', energyLevel: 2, stack: '#0      b'),
+        );
+        expect(withStack.entry, isNull);
+        expect(withStack.flaw, LogRecordFlaw.stackOffCrashKind);
+
+        final withSetting = convertLogEntryRecord(
+          _record(
+            'energy_set',
+            energyLevel: 2,
+            settingKey: 'time_bag',
+            settingValue: 15,
+          ),
+        );
+        expect(withSetting.entry, isNull);
+        expect(withSetting.flaw, LogRecordFlaw.settingOnNonSettingKind);
+
+        final withPocket = convertLogEntryRecord(
+          _record('energy_set', energyLevel: 2, pocketMinutes: 15),
+        );
+        expect(withPocket.entry, isNull);
+        expect(withPocket.flaw, LogRecordFlaw.pocketOnNonPocketKind);
+      });
+
+      test('an energy level on any other kind is excluded — the payload '
+          'rides its own kind and no other', () {
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_done',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            energyLevel: 1,
+          ),
+        );
+        expect(onAct.entry, isNull);
+        expect(onAct.flaw, LogRecordFlaw.energyOnNonEnergyKind);
+
+        final onMoment = convertLogEntryRecord(
+          _record('app_opened', energyLevel: 1),
+        );
+        expect(onMoment.entry, isNull);
+        expect(onMoment.flaw, LogRecordFlaw.energyOnNonEnergyKind);
+
+        final onStart = convertLogEntryRecord(
+          _record('session_started', pocketMinutes: 15, energyLevel: 1),
+        );
+        expect(onStart.entry, isNull);
+        expect(onStart.flaw, LogRecordFlaw.energyOnNonEnergyKind);
+
+        final onCrash = convertLogEntryRecord(
+          _record('crash_recorded', stack: '#0      build', energyLevel: 1),
+        );
+        expect(onCrash.entry, isNull);
+        expect(onCrash.flaw, LogRecordFlaw.energyOnNonEnergyKind);
+      });
+
+      test('a corrupt energy row never becomes an entry — the day '
+          'derives as unanswered downstream', () {
+        final entries = logEntriesOf([
+          _record('energy_set'),
+          _record('energy_set', energyLevel: 7),
+          _record('energy_set', energyLevel: 2),
+        ]);
+        expect(entries, hasLength(1));
+        expect(entries.single, isA<EnergySetEntry>());
       });
     });
 

@@ -282,6 +282,7 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
         }
       case CrashEntry():
       case SettingEntry():
+      case EnergySetEntry():
       case UnknownEntry():
         break;
     }

@@ -2,17 +2,17 @@
 /// observation of the current domestic day, defaulting to 🟢 — derived,
 /// never written.
 ///
-/// This file holds only the derivation. The `energy_set` log kind, its
-/// storage, the port DTO growth and the check-in writer are Story 2.5's;
-/// when they land, 2.5 maps stored entries to [EnergyObservation] records
-/// and hands them here. Structurally there is no write path to forbid:
-/// this is a pure function with no store access, so no synthetic
-/// `energy_set` row can exist at a boundary and yesterday's level is
-/// never carried across one.
+/// This file holds the derivation and the one seam the shell-wide read
+/// passes through: `deriveLivePoolEnergy` maps stored `energy_set` rows
+/// into observations and hands them here. Structurally there is no write
+/// path to forbid: this is a pure function with no store access, so no
+/// synthetic `energy_set` row can exist at a boundary and yesterday's
+/// level is never carried across one.
 
 library;
 
 import 'package:core/day/calendar.dart';
+import 'package:core/log/log_entry.dart';
 
 /// The three energy levels (FR-4): semantic names only — the Spanish copy
 /// is the ARB table's concern (Story 2.5), never this vocabulary's.
@@ -25,6 +25,22 @@ enum EnergyLevel {
 
   /// 🔴 — narrows the live pool for the rest of the domestic day.
   low,
+}
+
+/// The stable `energy_level` wire ints (Story 2.5, AD-23): 0/1/2 for
+/// full/medium/low — the column's whole vocabulary, pinned by test so
+/// the enum's declaration order can never drift past the stored rows.
+int energyLevelWireOf(EnergyLevel level) => level.index;
+
+/// The level a stored `energy_level` int names, or absent when the int
+/// falls outside the stable mapping — the read boundary's quiet
+/// tolerance (AD-23): the row is excluded and the day derives
+/// unanswered, never repaired.
+EnergyLevel? energyLevelOfWire(int? value) {
+  if (value == null || value < 0 || value >= EnergyLevel.values.length) {
+    return null;
+  }
+  return EnergyLevel.values[value];
 }
 
 /// One energy observation as inert data: the level, the instant it was
@@ -62,6 +78,9 @@ EnergyLevel deriveEnergyForLivePool(
   var newestMicros = 0;
   EnergyLevel? newest;
   for (final observation in observations) {
+    if (observation.instantUtcMicros > instantUtcMicros) {
+      continue;
+    }
     if (calendar.dayOf(
           observation.instantUtcMicros,
           observation.offsetSeconds,
@@ -77,11 +96,28 @@ EnergyLevel deriveEnergyForLivePool(
   return newest ?? EnergyLevel.full;
 }
 
-/// The live pool's energy as this build can derive it at one instant:
-/// [deriveEnergyForLivePool] over the observations this build can
-/// produce — none yet, so the day defaults to 🟢 (AD-4). Story 2.5 maps
-/// stored `energy_set` rows into observations HERE, at this one seam —
-/// never at each caller, where the default would have to change in
-/// lockstep.
-EnergyLevel deriveLivePoolEnergy(int instantUtcMicros, int offsetSeconds) =>
-    deriveEnergyForLivePool(const [], instantUtcMicros, offsetSeconds);
+/// The live pool's energy as this build derives it at one instant
+/// (Story 2.5's seam): [deriveEnergyForLivePool] over the observations
+/// the handed-in log's `energy_set` rows map to — each in its own
+/// stored offset, a corrupt row already excluded at the read boundary
+/// and a later row excluded until its instant arrives — so a log with
+/// none for today still defaults to 🟢 (AD-4). The
+/// mapping lives HERE, at this one seam — never at each caller, where
+/// the default would have to change in lockstep.
+EnergyLevel deriveLivePoolEnergy(
+  List<LogEntry> entries,
+  int instantUtcMicros,
+  int offsetSeconds,
+) => deriveEnergyForLivePool(
+  [
+    for (final entry in entries)
+      if (entry is EnergySetEntry)
+        (
+          level: entry.level,
+          instantUtcMicros: entry.instantUtcMicros,
+          offsetSeconds: entry.offsetSeconds,
+        ),
+  ],
+  instantUtcMicros,
+  offsetSeconds,
+);

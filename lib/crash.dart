@@ -47,6 +47,7 @@ Future<void> appendCrashEntry(
     settingKey: null,
     settingValue: null,
     pocketMinutes: null,
+    energyLevel: null,
   );
   try {
     await store.appendLogEntry(entry);

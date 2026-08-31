@@ -51,6 +51,18 @@ export 'package:core/weave/session.dart'
 /// the setting's range.
 const int focusChunkLeastBagMinutes = 10;
 
+/// A 🔴 day admits only work this short (FR-4, Story 2.5): while the
+/// derived energy is low, a candidate is dealt — or composed — only
+/// when its duration estimate stays within this ceiling. The rule is
+/// estimate-based, not size-based, on purpose: today's catalogue makes
+/// it ≡ Instant Habits, but FR-5's rescue steps and Epic 6's purge
+/// steps (each ≤ 60 s) stay eligible on a 🔴 day by construction —
+/// the epic's cross-dependency line — and no second filter needs to
+/// know about them. The ceiling applies to the next deal and the
+/// composed day alike, never to a card in progress (work in progress
+/// is never withdrawn, FR-10's grammar).
+const int lowEnergyMaxEstimateSeconds = 60;
+
 /// The canonical 1-3-5 draw counts (FR-12): one Focus Chunk, three
 /// Micro-maintenance draws, five Instant Habit draws. Scaling drops
 /// counts; it never shrinks an estimate.
@@ -345,7 +357,29 @@ _DayPolicy _resolveDay({
   final facts = walkLog(log, catalogue: catalogue);
   final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
   final clusters = activeClusters ?? allCurationClusters;
-  final candidates = shippedCandidates(catalogue, activeClusters: clusters);
+  // The 🔴 day's admission (FR-4, Story 2.5): while the derived energy
+  // is low, only candidates whose duration estimate stays within
+  // [lowEnergyMaxEstimateSeconds] reach the chunk tier or any draw
+  // list — the single filter every consumer inherits, inside this
+  // pipeline, so `nextDeal`, `composeDay` and the close-continue probe
+  // cannot drift (the chunk gate above already drops the "1" at low;
+  // this line narrows the tiers beneath it). The ceiling reads the
+  // card's estimate; today that estimate derives from taxonomy size
+  // because the catalogue carries no per-item estimates — so the rule
+  // and today's sizes coincide at the instant tier — and transient
+  // steps that carry their own estimates (FR-5's rescue, Epic 6's
+  // purge, each ≤ 60 s) meet the same ceiling when their sources
+  // arrive.
+  bool lowEnergyAdmits(Size size) =>
+      energy != EnergyLevel.low ||
+      estimateSecondsOf(size) <= lowEnergyMaxEstimateSeconds;
+  final candidates = [
+    for (final candidate in shippedCandidates(
+      catalogue,
+      activeClusters: clusters,
+    ))
+      if (lowEnergyAdmits(candidate.size)) candidate,
+  ];
   Card? chunk;
   if (_chunkComposes(bagMinutes, energy, facts, day) &&
       facts.dealtUnanswered == null) {
@@ -414,7 +448,11 @@ _DayPolicy _resolveDay({
 /// — default: all active). The chunk is composed only when the bag holds
 /// [focusChunkLeastBagMinutes] or more and the derived energy is not low
 /// — otherwise the day composes without the "1", silently; 🟡 changes
-/// nothing (FR-4). A day whose slot a `card_done` already closed composes
+/// nothing (FR-4). A 🔴 day narrows further (Story 2.5): only
+/// candidates within [lowEnergyMaxEstimateSeconds] reach any draw list
+/// — upkeep (3 min) drops with the chunk and the instant habits stand —
+/// while a card already in progress is never withdrawn (FR-10's
+/// grammar). A day whose slot a `card_done` already closed composes
 /// upkeep and habits only, and so does a day whose open session still
 /// holds a dealt-but-unanswered card — an unanswered card never produces
 /// a second card (AD-3), the shared pipeline's line now, not just the

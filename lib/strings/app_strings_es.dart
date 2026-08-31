@@ -191,6 +191,18 @@ class AppStringsEs extends AppStrings {
   String get energyCheckInQuestion => '¿Cuánta energía tienes hoy?';
 
   @override
+  String get energyLevelFull => 'Llena';
+
+  @override
+  String get energyLevelMedium => 'Media';
+
+  @override
+  String get energyLevelLow => 'Baja';
+
+  @override
+  String get ambientStripDismiss => 'Cerrar';
+
+  @override
   String get selfReportScaleLow => 'Nada';
 
   @override

@@ -8,9 +8,11 @@
 /// open session's dealt-but-unanswered card: a duplicate Hecho, or one
 /// naming an item never dealt, appends nothing at all.
 ///
-/// Energy enters through `deriveLivePoolEnergy`: 1.6 has no stored
-/// observations, so the level is the 🟢 default until 2.5 maps them at
-/// that one seam. The Time Bag enters through `deriveTimeBagMinutes`
+/// Energy enters through `deriveLivePoolEnergy` over the very log each
+/// command hands to the weave (2.5's seam): the day's `energy_set` rows
+/// narrow the next deal exactly as the shell's own read would, so no
+/// command path can compose against a level the surface cannot see. The
+/// Time Bag enters through `deriveTimeBagMinutes`
 /// (2.1): callers may pass a value derived once for the whole operation
 /// — the shell's threading — and a caller that passes none gets the
 /// derivation over the very log it hands in, so no composition path can
@@ -71,6 +73,7 @@ typedef LogEntryContent = ({
   String? settingKey,
   int? settingValue,
   int? pocketMinutes,
+  int? energyLevel,
 });
 
 LogEntryContent _moment(LogKind kind) => (
@@ -81,6 +84,7 @@ LogEntryContent _moment(LogKind kind) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: null,
+  energyLevel: null,
 );
 
 LogEntryContent _start({int? pocketMinutes}) => (
@@ -91,6 +95,7 @@ LogEntryContent _start({int? pocketMinutes}) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: pocketMinutes,
+  energyLevel: null,
 );
 
 LogEntryContent _deal(Card card) => (
@@ -101,6 +106,7 @@ LogEntryContent _deal(Card card) => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: null,
+  energyLevel: null,
 );
 
 LogEntryContent _extend() => (
@@ -111,6 +117,7 @@ LogEntryContent _extend() => (
   settingKey: null,
   settingValue: null,
   pocketMinutes: checkpointIntervalMinutes,
+  energyLevel: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -157,7 +164,7 @@ List<LogEntryContent> sessionStart({
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(startLog),
-    energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
+    energy: deriveLivePoolEnergy(startLog, instantUtcMicros, offsetSeconds),
   );
   return [_start(pocketMinutes: pocketMinutes), if (deal != null) _deal(deal)];
 }
@@ -275,7 +282,7 @@ List<LogEntryContent> sessionExtend({
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(extendLog),
-    energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
+    energy: deriveLivePoolEnergy(extendLog, instantUtcMicros, offsetSeconds),
   );
   return [_extend(), if (deal != null) _deal(deal)];
 }
@@ -423,7 +430,7 @@ List<LogEntryContent> _answered({
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(answeredLog),
-    energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
+    energy: deriveLivePoolEnergy(answeredLog, instantUtcMicros, offsetSeconds),
   );
   return [
     (
@@ -434,6 +441,7 @@ List<LogEntryContent> _answered({
       settingKey: null,
       settingValue: null,
       pocketMinutes: null,
+      energyLevel: null,
     ),
     if (deal != null) _deal(deal),
   ];

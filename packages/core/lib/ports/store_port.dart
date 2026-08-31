@@ -36,6 +36,9 @@ typedef PoolFactRecord = ({
 /// set only on `setting_changed`, additively since schema v2 (AD-1,
 /// AD-23). [pocketMinutes] is the declared pocket and is set only on
 /// `session_started`, additively since schema v3 (Story 2.2, AD-19).
+/// [energyLevel] is the tapped level's stable wire int (0/1/2) and is
+/// set only on `energy_set`, additively since schema v4 (Story 2.5,
+/// AD-4).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -47,6 +50,7 @@ typedef LogEntryRecord = ({
   String? settingKey,
   int? settingValue,
   int? pocketMinutes,
+  int? energyLevel,
 });
 
 abstract interface class StorePort {

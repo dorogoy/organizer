@@ -969,6 +969,7 @@ void main() {
             settingKey: null,
             settingValue: null,
             pocketMinutes: null,
+            energyLevel: null,
           ),
           (
             id: 'seed-deal',
@@ -988,6 +989,7 @@ void main() {
             settingKey: null,
             settingValue: null,
             pocketMinutes: null,
+            energyLevel: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2040,6 +2042,7 @@ void main() {
       settingKey: null,
       settingValue: null,
       pocketMinutes: null,
+      energyLevel: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2289,6 +2292,7 @@ void main() {
             settingKey: 'time_bag',
             settingValue: minutes,
             pocketMinutes: null,
+            energyLevel: null,
           ));
         }
         await SessionController(
@@ -2361,6 +2365,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: pocketMinutes,
+        energyLevel: null,
       ));
     }
 
@@ -2438,10 +2443,16 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
 
       // The default standing (no pocketed session) marks 15 selected:
-      // exactly one selected semantics node sits in the tree, and it
-      // belongs to the sheet.
+      // exactly one selected semantics node sits in the sheet — the
+      // strip's pre-marked llena below the card is the ambient
+      // surface's own standing default, never a ladder option.
       final marked = tester
-          .widgetList<Semantics>(find.byType(Semantics))
+          .widgetList<Semantics>(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byType(Semantics),
+            ),
+          )
           .where((semantics) => semantics.properties.selected ?? false)
           .toList();
       expect(
@@ -2666,6 +2677,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       await SessionController(
         store: store,
@@ -2792,6 +2804,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: pocketMinutes,
+        energyLevel: null,
       ));
     }
 
@@ -3315,6 +3328,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: pocketMinutes,
+        energyLevel: null,
       ));
     }
 
@@ -3343,8 +3357,15 @@ void main() {
       // The chip carries the standing declared pocket, lifted
       // extensions and all.
       expect(find.text('Tengo 45 minutos ahora'), findsOneWidget);
-      // No continuation question exists anywhere (FR-10).
-      expect(find.textContaining('¿'), findsNothing);
+      // No continuation question exists anywhere (FR-10) — the only
+      // ¿-sentence the surface may carry is the ambient strip's own
+      // check-in question below the offer (Story 2.5), never a
+      // ¿seguimos-shaped ask.
+      final questionTexts = tester
+          .widgetList<Text>(find.textContaining('¿'))
+          .map((text) => text.data)
+          .toSet();
+      expect(questionTexts, {'¿Cuánta energía tienes hoy?'});
     });
 
     testWidgets('the continue is never primary: prose in the unsplit '
@@ -3448,6 +3469,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));

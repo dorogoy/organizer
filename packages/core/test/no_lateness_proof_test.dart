@@ -690,6 +690,18 @@ final class KitchenSink {
       );
     });
 
+    test('EnergySetEntry', () {
+      // The energy payload is the level and nothing else (Story 2.5,
+      // FR-4): no session attribution, no source tag, no nag count —
+      // the level is day-scoped in the derivation, never on the row.
+      // `kind` extracts after the constructor parameters because it is
+      // an initialized override.
+      expect(
+        _classOwnFields('EnergySetEntry', 'log/log_entry.dart'),
+        equals(['level', 'kind']),
+      );
+    });
+
     test('LogFacts', () {
       // The derived session states facts the log makes true — no
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
@@ -810,7 +822,8 @@ final class KitchenSink {
       // The persisted log DTO is field-identical to the entry shapes —
       // the schema's exact columns, no more (AD-1, AD-5). The two
       // nullable setting columns are schema v2's additive pair (2.1);
-      // the nullable pocket column is schema v3's (2.2).
+      // the nullable pocket column is schema v3's (2.2); the nullable
+      // energy level column is schema v4's (2.5).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -824,6 +837,7 @@ final class KitchenSink {
           'settingKey',
           'settingValue',
           'pocketMinutes',
+          'energyLevel',
         ]),
       );
     });
@@ -832,7 +846,7 @@ final class KitchenSink {
       // The one write shape: a kind and its payload — nothing else may
       // be appended, by anyone (AD-3, AD-21). The setting fields grew
       // the shape additively (2.1); the pocket field grows it again
-      // (2.2).
+      // (2.2); the energy level field grows it once more (2.5).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -843,6 +857,7 @@ final class KitchenSink {
           'settingKey',
           'settingValue',
           'pocketMinutes',
+          'energyLevel',
         ]),
       );
     });
@@ -878,13 +893,25 @@ final class KitchenSink {
         equals(['offerDue', 'offerPreemptsStandingDeal']),
       );
     });
+
+    test('StripState', () {
+      // The ambient strip derivation's state (Story 2.5, FR-4,
+      // UX-DR22): the one resident the precedence order resolved to —
+      // at most one is ever visible. No dismissal flag, no answered
+      // marker, nothing the surface owes: a dismissal is shell state
+      // precisely because the log has no field for it (AD-21).
+      expect(
+        _classOwnFields('StripState', 'derive/strip.dart'),
+        equals(['resident']),
+      );
+    });
   });
 
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-four
-    // declarations above (nineteen classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-six
+    // declarations above (twenty-one classes, five record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -894,6 +921,7 @@ final class KitchenSink {
       'log/log_entry.dart:SessionExtendEntry',
       'log/log_entry.dart:CrashEntry',
       'log/log_entry.dart:SettingEntry',
+      'log/log_entry.dart:EnergySetEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -910,6 +938,7 @@ final class KitchenSink {
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',
       'derive/checkpoint.dart:CheckpointState',
+      'derive/strip.dart:StripState',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
@@ -941,6 +970,9 @@ final class KitchenSink {
       'weave/weave.dart:CandidatePrecedence',
       'curation/curation.dart:CurationCluster',
       'day/calendar.dart:SeasonKind',
+      // The ambient strip's resident vocabulary (Story 2.5) — the
+      // precedence order's members, no fields.
+      'derive/strip.dart:StripResident',
     };
 
     final classDeclaration = RegExp(
@@ -1247,20 +1279,110 @@ final class KitchenSink {
     );
   });
 
+  test('energy_set is minted in exactly one file and read nowhere in '
+      'core — the derivations match the entry type, never the kind '
+      'constant (Story 2.5, AD-4, AD-3)', () {
+    // The three homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary) and the one command
+    // file that mints the kind. The derivations that read energy — the
+    // live-pool seam and the strip's eligibility — read the
+    // EnergySetEntry *type*, so a LogKind.energySet reference anywhere
+    // else in core lib is a finding.
+    const allowed = {'log/log_entry.dart', 'commands/energy_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\benergySet\b').hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the energySet identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'energy_set' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]energy_set['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'energy_set' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the EnergySetEntry override.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]energy_set['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only energy_set wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\benergySet\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only energySet identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.energySet\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified energySet readers in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(_source('commands/energy_commands.dart'));
+    final commandRefs = RegExp(r'LogKind\.energySet\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.energySet\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.energySet\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
   test('the session kinds are minted in exactly one file and read in '
       'exactly one — no second session writer can appear silently '
       '(Story 2.2, AD-3, AD-19)', () {
     // The four homes the vocabulary allows: the definition (which also
     // classifies the payload at the read boundary), the one walk that
-    // reads the kinds, and the one command file that mints them —
+    // reads the kinds, the one command file that mints them —
     // `app_opened`, `session_started` and `session_ended` exist nowhere
-    // else in core lib, as identifiers or as wire-name literals. The
-    // shell's own census (test/no_lateness_proof_test.dart) carries the
-    // same line over lib/.
+    // else in core lib, as identifiers or as wire-name literals — and,
+    // for `app_opened` alone, the ambient strip's first-opening
+    // predicate (Story 2.5): the check-in's eligibility reads the
+    // opening delimiters, the stated-reader pattern `warmReturnDue`
+    // set. The shell's own census (test/no_lateness_proof_test.dart)
+    // carries the same line over lib/.
     const allowed = {
       'log/log_entry.dart',
       'weave/session.dart',
       'commands/session_commands.dart',
+      'derive/strip.dart',
     };
     final files = _coreLibFiles();
     final identifierOffenders = [
