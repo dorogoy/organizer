@@ -917,13 +917,18 @@ final class KitchenSink {
 
     test('StripState', () {
       // The ambient strip derivation's state (Story 2.5, FR-4,
-      // UX-DR22): the one resident the precedence order resolved to —
-      // at most one is ever visible. No dismissal flag, no answered
+      // UX-DR22; the report field since 2.6, SM-2): the one resident
+      // the precedence order resolved to — at most one is ever
+      // visible — plus, exactly when that resident is the weekly
+      // self-report, the due week it asks about (a `Week.weekOrdinal`,
+      // recomputed at every read). No dismissal flag, no answered
       // marker, nothing the surface owes: a dismissal is shell state
-      // precisely because the log has no field for it (AD-21).
+      // precisely because the log has no field for it (AD-21), and
+      // the pending week is never stored either — it is derived, so
+      // persistence and supersession stay pure folds.
       expect(
         _classOwnFields('StripState', 'derive/strip.dart'),
-        equals(['resident']),
+        equals(['resident', 'reportWeekOrdinal']),
       );
     });
   });

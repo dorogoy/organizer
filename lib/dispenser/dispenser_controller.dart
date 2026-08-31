@@ -184,6 +184,15 @@ class DispenserController {
       entries: log,
       instantUtcMicros: now.microsecondsSinceEpoch,
       offsetSeconds: now.timeZoneOffset.inSeconds,
+      // The interim exclusion — Story 2.6 part 3's remover. This
+      // reader's `checkInShown` is resident-blind (`strip != null`),
+      // so a pending report would flip every post-`setEnergy` read
+      // into a shown strip while the shell cannot render the report
+      // yet; excluding it makes the derivation minus the report
+      // exactly 2.5's, and every shell pin holds verbatim. Part 3
+      // deletes this line when `DispenserView` widens past the
+      // check-in.
+      excludeResidents: const {StripResident.weeklySelfReport},
     );
     final checkInShown = strip != null && _checkInDismissMarker != today;
     final unanswered = facts.dealtUnanswered;
