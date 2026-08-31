@@ -1,7 +1,19 @@
 import 'package:core/energy/energy.dart';
+import 'package:core/log/log_entry.dart';
 import 'package:test/test.dart';
 
 import 'test_util.dart';
+
+EnergySetEntry _energySet(
+  int micros,
+  EnergyLevel level, {
+  int offsetSeconds = 7200,
+}) => EnergySetEntry(
+  id: 'energy-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: offsetSeconds,
+  level: level,
+);
 
 void main() {
   // "Now" for every test: 2026-08-29 20:00 in a +02:00 frame (18:00 UTC).
@@ -267,6 +279,77 @@ void main() {
         EnergyLevel.medium,
         EnergyLevel.low,
       ]);
+    });
+
+    test('the stable wire ints are pinned: full 0, medium 1, low 2 '
+        '(Story 2.5, AD-23)', () {
+      expect(energyLevelWireOf(EnergyLevel.full), 0);
+      expect(energyLevelWireOf(EnergyLevel.medium), 1);
+      expect(energyLevelWireOf(EnergyLevel.low), 2);
+      expect(energyLevelOfWire(0), EnergyLevel.full);
+      expect(energyLevelOfWire(1), EnergyLevel.medium);
+      expect(energyLevelOfWire(2), EnergyLevel.low);
+      expect(energyLevelOfWire(null), isNull);
+      expect(energyLevelOfWire(3), isNull);
+      expect(energyLevelOfWire(-1), isNull);
+    });
+  });
+
+  group('the seam (Story 2.5): stored rows map at deriveLivePoolEnergy, '
+      'never at each caller', () {
+    test('the day\'s last energy_set row decides the level', () {
+      final log = <LogEntry>[
+        MomentEntry(
+          id: 'open-1',
+          instantUtcMicros: utcMicros(2026, 8, 29, 7),
+          offsetSeconds: 7200,
+          kind: LogKind.appOpened,
+        ),
+        _energySet(utcMicros(2026, 8, 29, 8), EnergyLevel.medium),
+        _energySet(utcMicros(2026, 8, 29, 9), EnergyLevel.low),
+      ];
+      expect(
+        deriveLivePoolEnergy(log, nowUtcMicros, nowOffsetSeconds),
+        EnergyLevel.low,
+      );
+    });
+
+    test('yesterday\'s rows only — the day defaults llena, no synthetic '
+        'row, never carried across the boundary (AD-4)', () {
+      final log = <LogEntry>[
+        _energySet(utcMicros(2026, 8, 28, 19), EnergyLevel.low),
+      ];
+      expect(
+        deriveLivePoolEnergy(log, nowUtcMicros, nowOffsetSeconds),
+        EnergyLevel.full,
+      );
+    });
+
+    test('each row scoped in its own stored offset, at the seam exactly '
+        'as in the derivation', () {
+      // 06:00 UTC stored with −05:00: its own wall clock reads 01:00 on
+      // 2026-08-29 — before 04:00, so its own domestic day is
+      // 2026-08-28 and it is excluded even though its instant is newer.
+      final log = <LogEntry>[
+        _energySet(utcMicros(2026, 8, 29, 5), EnergyLevel.full),
+        _energySet(
+          utcMicros(2026, 8, 29, 6),
+          EnergyLevel.low,
+          offsetSeconds: -18000,
+        ),
+      ];
+      expect(
+        deriveLivePoolEnergy(log, nowUtcMicros, nowOffsetSeconds),
+        EnergyLevel.full,
+      );
+    });
+
+    test('an empty log is the standing llena default — the seam itself '
+        'is the only place the default can change', () {
+      expect(
+        deriveLivePoolEnergy(const [], nowUtcMicros, nowOffsetSeconds),
+        EnergyLevel.full,
+      );
     });
   });
 }

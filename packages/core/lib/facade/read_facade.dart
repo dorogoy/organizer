@@ -3,11 +3,12 @@
 /// (AD-3), and no function in this library returns a collection of work
 /// items. Derived signals, when they arrive, are named as facts and live
 /// in `core/derive` — inputs to the weave, not outputs to the shell.
-/// That home has its first resident now (Story 2.4):
-/// `core/derive/checkpoint.dart` derives the FR-10 checkpoint as a
-/// state fact the shell renders as a non-work surface — AD-6's stated
-/// crossing for derived state, on the `warmReturnDue` precedent — while
-/// every work signal this facade exposes stays `nextCard` alone.
+/// That home holds two residents now: `core/derive/checkpoint.dart`
+/// (Story 2.4) derives the FR-10 checkpoint and `core/derive/strip.dart`
+/// (Story 2.5) the ambient strip's resident, each as a state fact the
+/// shell renders as a non-work surface — AD-6's stated crossing for
+/// derived state, on the `warmReturnDue` precedent — while every work
+/// signal this facade exposes stays `nextCard` alone.
 
 library;
 
@@ -26,12 +27,13 @@ import 'package:core/weave/weave.dart';
 /// resolves absent too — the warm close (Story 2.3): deals exist only
 /// inside sittings, so the facade never hands the shell a card no
 /// command can answer. Energy arrives through
-/// [deriveLivePoolEnergy]: no observations exist in 1.6, so the day
-/// defaults to 🟢 until 2.5 maps them at that one seam. The Time Bag
-/// derives from this read's own log (2.1, AD-1): an explicit
-/// [bagMinutes] overrides it for a caller that derived once for a whole
-/// operation, and no shell-reachable path relies on the default once a
-/// setting exists.
+/// [deriveLivePoolEnergy] over this read's own log (2.5's seam): the
+/// day's `energy_set` rows narrow the resolver's choice, a baja day
+/// dealing instant-tier only, while a card in progress stays the
+/// answered-unanswered card above. The Time Bag derives from this
+/// read's own log too (2.1, AD-1): an explicit [bagMinutes] overrides
+/// it for a caller that derived once for a whole operation, and no
+/// shell-reachable path relies on the default once a setting exists.
 Future<Card?> nextCard(
   StorePort store, {
   required Catalogue catalogue,
@@ -55,6 +57,6 @@ Future<Card?> nextCard(
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(entries),
-    energy: deriveLivePoolEnergy(instantUtcMicros, offsetSeconds),
+    energy: deriveLivePoolEnergy(entries, instantUtcMicros, offsetSeconds),
   );
 }

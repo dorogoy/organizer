@@ -4,19 +4,22 @@
 /// This file holds Story 1.3's slice of the vocabulary: the seven kinds the
 /// epic names, plus the unknown-kind carrier every forward-only reader must
 /// tolerate (AD-23) — and, additively since Story 2.1, the eighth kind
-/// `setting_changed`, and since Story 2.4 the ninth kind `session_extended`
-/// (FR-10, AD-19). A new kind is a new kind, never a flag on an old one.
+/// `setting_changed`, since Story 2.4 the ninth kind `session_extended`
+/// (FR-10, AD-19), and since Story 2.5 the tenth kind `energy_set`
+/// (FR-4, AD-4). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
 /// store port returns become domain entries only after their shape checks
 /// out — itemId/itemOrigin travel as a pair, `stack` rides only on
 /// `crash_recorded`, `setting_changed` carries its key and value,
-/// `session_started` and `session_extended` carry their minutes, and a
-/// known kind's payload must match the kind.
+/// `session_started` and `session_extended` carry their minutes,
+/// `energy_set` carries its level, and a known kind's payload must match
+/// the kind.
 
 library;
 
+import 'package:core/energy/energy.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 
@@ -42,6 +45,7 @@ final class LogKind {
   static const appOpened = LogKind._('app_opened', known: true);
   static const crashRecorded = LogKind._('crash_recorded', known: true);
   static const settingChanged = LogKind._('setting_changed', known: true);
+  static const energySet = LogKind._('energy_set', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -54,6 +58,7 @@ final class LogKind {
     'app_opened': appOpened,
     'crash_recorded': crashRecorded,
     'setting_changed': settingChanged,
+    'energy_set': energySet,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -237,6 +242,33 @@ final class SettingEntry extends LogEntry {
   final int value;
 }
 
+/// An `energy_set` user act (Story 2.5, FR-4, AD-4): the level the
+/// daily check-in tapped, and nothing else. One row per tap through
+/// the single sanctioned minter (`core/commands/energy_commands.dart`)
+/// — the check-in never deals a card, and no second energy writer can
+/// appear silently. Energy stays day-scoped in the derivation
+/// (`core/energy`): the last row of the current domestic day wins and
+/// every boundary defaults 🟢, so no synthetic row ever exists at one.
+/// The type offers no other field, so no nag count, no source tag and
+/// no session attribution can ride along.
+final class EnergySetEntry extends LogEntry {
+  const EnergySetEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.level,
+  });
+
+  @override
+  final LogKind kind = LogKind.energySet;
+
+  /// The tapped level — one of the three semantic levels, never an
+  /// out-of-range value (the minter's enum input makes one
+  /// unrepresentable; a stored out-of-range int excludes the row at
+  /// the read boundary, AD-23's quiet tolerance).
+  final EnergyLevel level;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -298,6 +330,18 @@ enum LogRecordFlaw {
   /// the minutes are the row's whole payload; without them it asserts
   /// nothing.
   extendMinutesAbsent,
+
+  /// An `energy_set` row without a level this build can read (Story
+  /// 2.5): the column is absent, or its int is outside the stable
+  /// 0–2 mapping — either way the row asserts nothing about the day's
+  /// energy and the day derives as unanswered, defaulting 🟢. Quiet
+  /// tolerance, never a repair write (AD-23).
+  energyLevelAbsent,
+
+  /// An energy level on a kind that is not `energy_set` — mirroring
+  /// the setting and pocket rules: every payload column rides its own
+  /// kind and no other.
+  energyOnNonEnergyKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -324,7 +368,9 @@ bool _isMoment(LogKind kind) =>
 /// structurally as null-or-int; an out-of-range value converts and
 /// derives as absent, never a repair write), `session_extended` its
 /// added minutes and nothing else (Story 2.4 — absent minutes exclude
-/// the row; an out-of-range value converts and derives as absent). An
+/// the row; an out-of-range value converts and derives as absent),
+/// `energy_set` its level and nothing else (Story 2.5 — an absent or
+/// out-of-range level excludes the row). An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known
@@ -353,6 +399,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final settingKeyIsAbsent = record.settingKey?.isEmpty ?? true;
   final carriesSetting = !settingKeyIsAbsent || record.settingValue != null;
   final carriesPocket = record.pocketMinutes != null;
+  final carriesEnergy = record.energyLevel != null;
 
   if (_isItemAct(kind)) {
     if (itemIdIsAbsent && record.itemOrigin == null) {
@@ -369,6 +416,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPocket) {
       return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
     return (
       entry: ItemActEntry(
@@ -395,6 +445,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPocket) {
       return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
     return (
       entry: CrashEntry(
@@ -423,6 +476,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPocket) {
       return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -444,6 +500,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesSetting) {
       return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
     return (
       entry: SessionStartEntry(
@@ -470,12 +529,43 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesSetting) {
       return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
         pocketMinutes: record.pocketMinutes!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.energySet) {
+    final level = energyLevelOfWire(record.energyLevel);
+    if (level == null) {
+      return (entry: null, flaw: LogRecordFlaw.energyLevelAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    return (
+      entry: EnergySetEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        level: level,
       ),
       flaw: null,
     );
@@ -493,6 +583,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPocket) {
       return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
     return (
       entry: MomentEntry(

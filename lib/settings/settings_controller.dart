@@ -70,6 +70,7 @@ class SettingsController {
           settingKey: content.settingKey,
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
         ));
       }
     });

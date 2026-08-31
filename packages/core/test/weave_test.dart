@@ -1060,7 +1060,8 @@ void main() {
     });
   });
 
-  test('low energy composes no chunk; medium changes nothing (FR-4)', () {
+  test('low energy composes no chunk and narrows to instant-tier only; '
+      'medium changes nothing (FR-4, Story 2.5)', () {
     final low = composeDay(
       catalogue: _catalogue,
       log: const [],
@@ -1069,7 +1070,10 @@ void main() {
       energy: EnergyLevel.low,
     );
     expect(low.focus, isNull);
-    expect(low.maintenance, hasLength(3));
+    // The 60 s admission: upkeep (3 min) drops with the chunk, the
+    // instant habits (30 s) stand — a baja day is instant-tier only,
+    // across composeDay and the deal alike.
+    expect(low.maintenance, isEmpty);
     expect(low.instantHabits, hasLength(5));
 
     final medium = composeDay(
@@ -1084,9 +1088,99 @@ void main() {
     expect(medium.instantHabits, hasLength(5));
   });
 
+  test('the 🔴 admission holds across every consumer — nextDeal, the '
+      'probe and the composition agree: instant-tier only (Story 2.5, '
+      'FR-4)', () {
+    // Maintenance 180 s / focus 900 s / instant 30 s candidates: only
+    // the instant tier passes the 60 s estimate ceiling.
+    final log = [_sessionStarted(now)];
+    final deal = nextDeal(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: now,
+      offsetSeconds: 0,
+      energy: EnergyLevel.low,
+    );
+    expect(deal!.size, Size.instant);
+
+    expect(
+      dealExistsIgnoringPocket(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+      ),
+      isTrue,
+      reason:
+          'the lifted pocket lifts the pocket alone — the low '
+          'admission stands, and an instant-tier deal exists',
+    );
+
+    // With the day's instant draws exhausted behind a spent pocket, the
+    // probe answers false too: nothing the sitting could hold remains.
+    final spentLog = [
+      ...log,
+      for (final (index, id) in [
+        'hab-a',
+        'hab-b',
+        'hab-c',
+        'hab-d',
+        'hab-e',
+      ].indexed) ...[_dealt(now + index, id), _done(now + index + 500, id)],
+    ];
+    expect(
+      dealExistsIgnoringPocket(
+        catalogue: _catalogue,
+        log: spentLog,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+      ),
+      isFalse,
+      reason:
+          'upkeep and the chunk stay excluded at low even with the '
+          'pocket lifted',
+    );
+  });
+
+  test('a baja tapped with a card in progress never withdraws it — the '
+      'standing-card pin (Story 2.5, FR-4, FR-10)', () {
+    // A chunk stands dealt-but-unanswered when the baja lands: the
+    // resolver proposes nothing (its own sitting line), and the facade
+    // keeps returning the standing card — finishable, never withdrawn.
+    final log = [_sessionStarted(now), _dealt(now + 1, 'zona-z1-a')];
+    expect(
+      nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now + 2,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+      ),
+      isNull,
+      reason:
+          'the standing card suppresses the deal whatever the '
+          'energy — an unanswered card never produces a second one '
+          '(AD-3)',
+    );
+    // The answer to the standing card still bundles under baja: the
+    // next deal is instant-tier only, the narrow applying to the next
+    // deal and never to the card in progress.
+    final answeredLog = [...log, _done(now + 2, 'zona-z1-a')];
+    final next = nextDeal(
+      catalogue: _catalogue,
+      log: answeredLog,
+      instantUtcMicros: now + 3,
+      offsetSeconds: 0,
+      energy: EnergyLevel.low,
+    );
+    expect(next!.size, Size.instant);
+  });
+
   test('a 🔴 day consumes no rotation: the zone entry still deals the next '
       'day (FR-31)', () {
-    // Day 1 is 🔴: no chunk composes, only upkeep deals and answers.
+    // Day 1 is 🔴: no chunk composes, only instant-tier deals answer.
     final redDay = composeDay(
       catalogue: _catalogue,
       log: const [],
@@ -1095,9 +1189,10 @@ void main() {
       energy: EnergyLevel.low,
     );
     expect(redDay.focus, isNull);
+    expect(redDay.maintenance, isEmpty);
     final log = [
-      _dealt(_day(0), redDay.maintenance.first.id),
-      _done(_day(0) + 1, redDay.maintenance.first.id),
+      _dealt(_day(0), redDay.instantHabits.first.id),
+      _done(_day(0) + 1, redDay.instantHabits.first.id),
       // Day 2's sitting opens before its deal resolves (Story 2.3).
       _sessionStarted(_day(1)),
     ];

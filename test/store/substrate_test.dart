@@ -34,6 +34,7 @@ LogEntryRecord _entry({
   settingKey: null,
   settingValue: null,
   pocketMinutes: pocketMinutes,
+  energyLevel: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -306,6 +307,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -329,6 +331,7 @@ void main() {
       settingKey: null,
       settingValue: null,
       pocketMinutes: null,
+      energyLevel: null,
     );
 
     test(
@@ -397,6 +400,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -410,6 +414,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -423,6 +428,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: null,
+        energyLevel: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -515,12 +521,14 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its ten declared columns — the two '
+    test('log_entries holds exactly its eleven declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
-        '2.1) and the nullable pocket column is schema v3\'s (Story 2.2, '
-        'AD-23)', () async {
+        '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
+        'AD-23) and the nullable energy level column is schema v4\'s '
+        '(Story 2.5)', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
+        'energy_level',
         'id',
         'instant_utc_micros',
         'item_id',
@@ -548,6 +556,7 @@ void main() {
         settingKey: 'time_bag',
         settingValue: 25,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -577,6 +586,7 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: 15,
+        energyLevel: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -590,9 +600,45 @@ void main() {
       expect(rows.last.id, 'imported-90');
       expect(rows.last.pocketMinutes, 90);
     });
+
+    test('an energy row round-trips through the adapter (Story 2.5) — '
+        'the level\'s stable wire int rides only its own kind, verbatim '
+        'whatever its value', () async {
+      final id = const Uuid().v7();
+      await store.appendLogEntry((
+        id: id,
+        kind: LogKind.energySet.name,
+        instantUtcMicros: 1758900000333444,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: 2,
+      ));
+      // An out-of-range level stays stored verbatim too — the entry
+      // stays in the log and the core's read boundary excludes it,
+      // never a repair write (AD-23).
+      await db.customInsert(
+        'INSERT INTO log_entries '
+        '(id, kind, instant_utc_micros, offset_seconds, energy_level) '
+        "VALUES ('imported-9', 'energy_set', 100, 0, 9)",
+      );
+
+      final rows = await store.readLogEntries();
+      // Replay order is by recorded instant: the raw-seeded 1970 row
+      // leads, the appended row follows.
+      expect(rows.first.id, 'imported-9');
+      expect(rows.first.energyLevel, 9);
+      expect(rows.last.kind, 'energy_set');
+      expect(rows.last.energyLevel, 2);
+      expect(rows.last.pocketMinutes, isNull);
+    });
   });
 
-  group('the v1→v3 upgrade (Stories 2.1–2.2, AD-23 — additive, ALTER-only)', () {
+  group('the v1→v4 upgrade (Stories 2.1–2.5, AD-23 — additive, ALTER-only)', () {
     /// Takes over the group's database slot with one opened over a memory
     /// executor pre-seeded with the exact v1 schema (two tables, four
     /// triggers, `user_version` 1) — the state a v1 install presents. The
@@ -644,18 +690,19 @@ void main() {
     }
 
     test('a seeded v1 database upgrades in place: the ALTERs add the '
-        'setting and pocket columns, the old rows read unchanged with '
-        'null payload fields, and the refusal triggers survive the '
+        'setting, pocket and energy columns, the old rows read unchanged '
+        'with null payload fields, and the refusal triggers survive the '
         'migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 3);
+      expect(db.schemaVersion, 4);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'energy_level',
           'id',
           'instant_utc_micros',
           'item_id',
@@ -685,6 +732,7 @@ void main() {
       expect(snapshot.single.settingKey, isNull);
       expect(snapshot.single.settingValue, isNull);
       expect(snapshot.single.pocketMinutes, isNull);
+      expect(snapshot.single.energyLevel, isNull);
       expect(await store.readPoolFacts(), hasLength(1));
 
       // Insert-only survives the migration on both tables.
@@ -713,6 +761,7 @@ void main() {
         settingKey: 'time_bag',
         settingValue: 10,
         pocketMinutes: null,
+        energyLevel: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -725,27 +774,41 @@ void main() {
         settingKey: null,
         settingValue: null,
         pocketMinutes: 15,
+        energyLevel: null,
+      ));
+      await store.appendLogEntry((
+        id: 'new-energy',
+        kind: LogKind.energySet.name,
+        instantUtcMicros: 500,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: 1,
       ));
       final after = await store.readLogEntries();
-      expect(after, hasLength(3));
+      expect(after, hasLength(4));
       expect(after[1].settingValue, 10);
       expect(after[2].pocketMinutes, 15);
+      expect(after[3].energyLevel, 1);
     });
 
-    test(
-      'a fresh create carries the setting and pocket columns from the start',
-      () async {
-        expect(db.schemaVersion, 3);
-        final columns =
-            (await db.customSelect('PRAGMA table_info(log_entries)').get())
-                .map((row) => row.read<String>('name'))
-                .toList()
-              ..sort();
-        expect(columns, contains('setting_key'));
-        expect(columns, contains('setting_value'));
-        expect(columns, contains('pocket_minutes'));
-      },
-    );
+    test('a fresh create carries the setting, pocket and energy columns from '
+        'the start', () async {
+      expect(db.schemaVersion, 4);
+      final columns =
+          (await db.customSelect('PRAGMA table_info(log_entries)').get())
+              .map((row) => row.read<String>('name'))
+              .toList()
+            ..sort();
+      expect(columns, contains('setting_key'));
+      expect(columns, contains('setting_value'));
+      expect(columns, contains('pocket_minutes'));
+      expect(columns, contains('energy_level'));
+    });
   });
 
   group('the v2→v3 upgrade (Story 2.2, AD-23 — additive, ALTER-only)', () {
@@ -809,13 +872,14 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 3);
+        expect(db.schemaVersion, 4);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList()
             ..sort(),
           [
+            'energy_level',
             'id',
             'instant_utc_micros',
             'item_id',
@@ -871,11 +935,147 @@ void main() {
           settingKey: null,
           settingValue: null,
           pocketMinutes: 20,
+          energyLevel: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(3));
         expect(after.last.pocketMinutes, 20);
       },
     );
+  });
+
+  group('the v3→v4 upgrade (Story 2.5, AD-23 — additive, ALTER-only)', () {
+    /// The v3 schema exactly as a v3 install presents it: the v2 shape
+    /// plus the pocket column, `user_version` 3 — seeded over a memory
+    /// executor so drift's runner sees version 3 and upgrades.
+    Future<void> takeOverWithV3() async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'pocket_minutes INTEGER NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              "INSERT INTO log_entries VALUES ('v3-open', "
+                  "'session_started', 100, 3600, NULL, NULL, NULL, NULL, "
+                  "NULL, 15)",
+              "INSERT INTO log_entries VALUES ('v3-bag', "
+                  "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                  "'time_bag', 25, NULL)",
+              'PRAGMA user_version = 3',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v3 database upgrades in place: one ALTER adds the energy '
+        'level column, the v3 rows — pockets intact, settings intact, '
+        'levels null — read back unchanged, and an energy row appends '
+        'beside them', () async {
+      await takeOverWithV3();
+
+      expect(db.schemaVersion, 4);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'pocket_minutes',
+          'setting_key',
+          'setting_value',
+          'stack',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v3 rows ride the migration untouched: the pocket keeps its
+      // payload and every row reads as a level-less day — deriving
+      // unanswered, defaulting 🟢.
+      final before = await store.readLogEntries();
+      expect(before, hasLength(2));
+      expect(before.first.id, 'v3-open');
+      expect(before.first.pocketMinutes, 15);
+      expect(before.first.energyLevel, isNull);
+      expect(before.last.settingKey, 'time_bag');
+      expect(before.last.settingValue, 25);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET kind = 'card_skipped' "
+          "WHERE id = 'v3-open'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts an energy row beside the old rows.
+      await store.appendLogEntry((
+        id: 'v4-energy',
+        kind: LogKind.energySet.name,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: 2,
+      ));
+      final after = await store.readLogEntries();
+      expect(after, hasLength(3));
+      expect(after.last.energyLevel, 2);
+    });
   });
 }

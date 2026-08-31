@@ -75,8 +75,20 @@
 // warm close while the close is the offer — an elapsed pocket whose
 // pool could still deal — so the close and the offer are one grammar
 // with no second surface.
+//
+// The ambient strip (Story 2.5, FR-4, UX-DR20/22): below the view,
+// inside the scroll region, whenever the read's own fact says the
+// check-in resident is showing — the question verbatim, three battery
+// marks, the ✕. A tap on any mark answers the day (one write, the
+// strip gone for the day, baja narrowing the next deal only); the ✕
+// dismisses with no write, hidden for the rest of the opening. The
+// strip inherits the short-surface floor — it grows and scrolls at
+// 200%, nothing truncated, every target at or above 48dp — and after
+// it leaves, nothing on this surface displays the level: the narrower
+// deal is the display (AD-4, UX-DR41).
 import 'dart:async';
 
+import 'package:core/energy/energy.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -86,6 +98,7 @@ import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
+import 'ambient_strip.dart';
 import 'duration_chip.dart';
 import 'task_card.dart';
 
@@ -397,23 +410,140 @@ class _DispenserScreenState extends State<DispenserScreen>
   Widget _viewContent(BuildContext context, DispenserView? view) =>
       switch (view) {
         null => const SizedBox.shrink(),
-        DispenserDealt dealt => _withCompletionAck(
+        DispenserDealt dealt => _withAmbientStrip(
           context,
-          TaskCard(
-            card: dealt.card,
-            onDone: () => _onDone(dealt),
-            onSkip: () => _onSkip(dealt),
+          view,
+          _withCompletionAck(
+            context,
+            TaskCard(
+              card: dealt.card,
+              onDone: () => _onDone(dealt),
+              onSkip: () => _onSkip(dealt),
+            ),
           ),
         ),
-        DispenserRestOffer() => _withCompletionAck(
+        DispenserRestOffer() => _withAmbientStrip(
           context,
-          _restOffer(context),
+          view,
+          _withCompletionAck(context, _restOffer(context)),
         ),
-        DispenserClosed(:final continueOffered) => _withCompletionAck(
+        DispenserClosed(:final continueOffered) => _withAmbientStrip(
           context,
-          continueOffered ? _closeWithContinue(context) : _closeText(context),
+          view,
+          _withCompletionAck(
+            context,
+            continueOffered ? _closeWithContinue(context) : _closeText(context),
+          ),
         ),
       };
+
+  /// The view with the ambient strip below it (Story 2.5, UX-DR22):
+  /// inside the frame's scroll region, beneath whatever the read
+  /// committed — the strip's own fact on the view decides, never the
+  /// surface's memory. Nothing else moves: the card's air, the ack
+  /// line and the pinned chrome keep their geometry, and the strip
+  /// grows into the same scroll at 200%.
+  Widget _withAmbientStrip(
+    BuildContext context,
+    DispenserView view,
+    Widget content,
+  ) {
+    if (!view.checkInShown) {
+      return content;
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        content,
+        const SizedBox(height: Spacing.cardPadding),
+        AmbientStrip(onEnergy: _onSetEnergy, onDismiss: _onDismissCheckIn),
+      ],
+    );
+  }
+
+  /// One tap on a battery mark (Story 2.5, FR-4): `_onDeclarePocket`'s
+  /// mechanics over the controller's setEnergy path — exactly one
+  /// `energy_set` row, never a bundled deal — and the committed view
+  /// *is* the answer: on baja the next deal narrows to instant-tier
+  /// while a card in progress stays finishable; on media and llena the
+  /// pool is unchanged; either way the strip is gone for the day. No
+  /// haptic, no feedback of any kind — the quieter day is the answer.
+  /// The same in-flight guard keeps the answer from interleaving with
+  /// a `Hecho`, a skip, a declaration, a stop or a continuation at the
+  /// surface; a failed write landed nothing, so the strip still stands
+  /// (the frozen I/O matrix's row): the failure path runs a recovery
+  /// read — the derivation re-resolves the unanswered day and the
+  /// standing surface returns — blanking only if that read fails too.
+  Future<void> _onSetEnergy(EnergyLevel level) async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    // A launch or foreground refresh may still be reading the old log. Its
+    // result must not overwrite this answer after it lands.
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.setEnergy(level);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _view = view);
+      // The old surface remains in the render tree until this refresh's
+      // frame. Keep the shared guard through it so its stale callbacks
+      // cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed and landed nothing: the strip stands and the
+      // day is still unanswered — recover with a fresh read rather
+      // than the family's empty frame, so the standing surface (card,
+      // close or offer, strip included) returns instead of a blank.
+      try {
+        final view = await widget.controller.read();
+        if (mounted) {
+          setState(() => _view = view);
+        }
+      } catch (_) {
+        // The recovery read failed too: the empty frame is the
+        // remaining quiet story, and a real return to the foreground
+        // re-reads.
+        if (mounted) {
+          setState(() => _view = null);
+        }
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The ✕ tap (Story 2.5, FR-4, UX-DR22): skip-for-today, and
+  /// deliberately no write — the dismissal is shell state keyed by the
+  /// opening, so the committed view is simply the same read minus the
+  /// strip. No in-flight guard is this tap's: it owns no write path a
+  /// `Hecho` could interleave with, and a read it races lands behind it
+  /// on the controller's own queue. A failed read is absorbed by the
+  /// empty frame, quietly.
+  Future<void> _onDismissCheckIn() async {
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not resurrect the strip after this dismissal
+    // commits.
+    _readGeneration++;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.dismissCheckIn();
+      if (mounted) {
+        setState(() => _view = view);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    }
+  }
 
   /// The standing declared pocket the trigger chip carries: the
   /// committed view's own fact — the open session's pocket, absent when

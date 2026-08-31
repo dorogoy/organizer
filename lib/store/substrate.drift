@@ -17,6 +17,11 @@
 -- ALTER TABLE path, so a v2 install upgrades in place with its rows
 -- unchanged.
 --
+-- Schema v4 (Story 2.5) adds the one nullable `energy_set` payload column
+-- `energy_level` — the tapped level's stable wire int — the same
+-- additive-only ALTER TABLE path, so a v3 install upgrades in place with
+-- its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -42,7 +47,8 @@ CREATE TABLE log_entries (
   stack TEXT NULL,
   setting_key TEXT NULL,
   setting_value INTEGER NULL,
-  pocket_minutes INTEGER NULL
+  pocket_minutes INTEGER NULL,
+  energy_level INTEGER NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

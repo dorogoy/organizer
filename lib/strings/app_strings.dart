@@ -401,6 +401,30 @@ abstract class AppStrings {
   /// **'¿Cuánta energía tienes hoy?'**
   String get energyCheckInQuestion;
 
+  /// Energy check-in — the first battery mark's label (🟢, the standing default). Spoken by semantics; never rendered as text beside the mark.
+  ///
+  /// In es, this message translates to:
+  /// **'Llena'**
+  String get energyLevelFull;
+
+  /// Energy check-in — the second battery mark's label (🟡). Spoken by semantics; never rendered as text beside the mark. Filters nothing.
+  ///
+  /// In es, this message translates to:
+  /// **'Media'**
+  String get energyLevelMedium;
+
+  /// Energy check-in — the third battery mark's label (🔴). Spoken by semantics; never rendered as text beside the mark. Narrows the next deal to instant-tier only.
+  ///
+  /// In es, this message translates to:
+  /// **'Baja'**
+  String get energyLevelLow;
+
+  /// Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. A dismissal is skip-for-today: never re-shown that day, never styled as anything owed.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar'**
+  String get ambientStripDismiss;
+
   /// End label of the Sunday self-report's 1–5 numeric scale — zero ambiguity.
   ///
   /// In es, this message translates to:
