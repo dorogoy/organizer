@@ -1,5 +1,6 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/checkpoint.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
@@ -40,20 +41,41 @@ final class DispenserDealt extends DispenserView {
 /// error (FR-3) — the same close for a spent or elapsed pocket as for
 /// pool exhaustion. Carries the standing declared pocket exactly as the
 /// dealt variant does: the chip stands on the closed surface too.
+/// Since Story 2.4 it also carries whether the close is the offer — the
+/// checkpoint's silent `Quiero seguir` secondary, offered only while one
+/// more interval could truthfully reach beyond the read and a deal
+/// would exist if the pocket had room (the core's probe, UJ-1); a
+/// pool-exhausted or long-elapsed close carries nothing.
 final class DispenserClosed extends DispenserView {
-  const DispenserClosed({this.pocketMinutes});
+  const DispenserClosed({this.pocketMinutes, this.continueOffered = false});
+
+  final int? pocketMinutes;
+
+  final bool continueOffered;
+}
+
+/// The permission-to-rest offer (Story 2.4, FR-10): the checkpoint
+/// derivation's surface, preempting the card the read would otherwise
+/// present — a standing card dealt at-or-after the pending crossing, or
+/// the deal that would now resolve. Carries the standing declared
+/// pocket for the chip, exactly as the other variants do. Nothing here
+/// counts anything: the surface is two actions, never a question,
+/// never a number that would have been higher (UJ-1, UX-DR44).
+final class DispenserRestOffer extends DispenserView {
+  const DispenserRestOffer({this.pocketMinutes});
 
   final int? pocketMinutes;
 }
 
-/// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.3): the
+/// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.4): the
 /// app's home surface derives its card and standing pocket from one log snapshot,
 /// and answers it through the two core answer commands, each appending its
 /// answer and the bundled next deal itself (AD-3): `cardDone` (Story 1.9)
 /// and `cardSkipped` (Story 1.10, FR-3), each with the Time Bag derived once
 /// per operation and threaded in (2.1); `declarePocket` (Story 2.2) and
 /// `pause` (Story 2.3, FR-9) round the surface — a declaration and the
-/// quiet one-row stop.
+/// quiet one-row stop — and `extend` (Story 2.4, FR-10) is the
+/// checkpoint's silent continue, the one-row extension.
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -85,14 +107,23 @@ class DispenserController {
   /// Reads the card to display (AD-3: a pure computation, never a write).
   /// It runs in the shared log queue, so the pocket and card come from one
   /// post-write snapshot and the clock is read only when that snapshot is
-  /// safe to derive.
+  /// safe to derive. The frozen precedence (Story 2.4, FR-10, UJ-1) maps
+  /// the checkpoint derivation over the surfaces: a standing close wins
+  /// over a due offer — an elapsed pocket is never due, and the close
+  /// carries the continue action only while one more interval could
+  /// truthfully reach beyond the read AND the pool probe says a deal
+  /// would exist with room — and a due offer preempts every deal-shaped
+  /// surface: the standing card dealt at-or-after the pending crossing,
+  /// or the deal that would now resolve. A card in flight at the
+  /// crossing stays visible and finishable; every later deal hides
+  /// behind the offer and returns with one silent tap, never re-dealt.
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();
     // The standing declared pocket (Story 2.2) derives from the log the
     // same read resolves against — log-derived, never held in memory as
     // truth (AD-19). An out-of-range pocket row derives as absent here,
-    // exactly as in the walk.
+    // exactly as in the walk; a sitting's extensions lift it (2.4).
     final log = logEntriesOf(await store.readLogEntries());
     final facts = walkLog(log, catalogue: catalogue);
     final pocket = facts.openSessionPocketMinutes;
@@ -114,9 +145,44 @@ class DispenserController {
             itemId: unanswered.itemId,
             origin: unanswered.itemOrigin,
           );
-    return card == null
-        ? DispenserClosed(pocketMinutes: pocket)
-        : DispenserDealt(card, pocketMinutes: pocket);
+    if (card == null) {
+      // The standing close always wins (UJ-1): a due offer never
+      // replaces it. The close is the offer — the silent continue
+      // beneath the warm string — only while one more interval could
+      // truthfully reach beyond this read (the derivation's window:
+      // long-elapsed pockets carry nothing, the chip is the way back
+      // in) AND the pool probe finds a deal the lifted pocket would
+      // let resolve — a pool-exhausted close carries nothing either.
+      return DispenserClosed(
+        pocketMinutes: pocket,
+        continueOffered:
+            closeContinueReachable(
+              facts: facts,
+              instantUtcMicros: now.microsecondsSinceEpoch,
+            ) &&
+            dealExistsIgnoringPocket(
+              catalogue: catalogue,
+              log: log,
+              instantUtcMicros: now.microsecondsSinceEpoch,
+              offsetSeconds: now.timeZoneOffset.inSeconds,
+              bagMinutes: deriveTimeBagMinutes(log),
+              energy: deriveLivePoolEnergy(
+                now.microsecondsSinceEpoch,
+                now.timeZoneOffset.inSeconds,
+              ),
+            ),
+      );
+    }
+    final checkpoint = deriveCheckpoint(
+      entries: log,
+      instantUtcMicros: now.microsecondsSinceEpoch,
+      offsetSeconds: now.timeZoneOffset.inSeconds,
+    );
+    if (checkpoint.offerDue &&
+        (unanswered == null || checkpoint.offerPreemptsStandingDeal)) {
+      return DispenserRestOffer(pocketMinutes: pocket);
+    }
+    return DispenserDealt(card, pocketMinutes: pocket);
   });
 
   /// Answers the dealt card (Story 1.9's one write path, FR-2): runs the
@@ -264,6 +330,47 @@ class DispenserController {
     final write = _enqueueWrite(() async {
       final log = logEntriesOf(await store.readLogEntries());
       final contents = sessionEnd(log: log);
+      for (final content in contents) {
+        await store.appendLogEntry((
+          id: idMinter.v7(),
+          kind: content.kind.name,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          itemId: content.itemId,
+          itemOrigin: content.itemOrigin,
+          stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
+        ));
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Extends the sitting (Story 2.4, FR-10, AD-19): the checkpoint's
+  /// silent continue, in [pause]'s shape minus the catalogue —
+  /// `sessionExtend` reads only the log, so no catalogue load exists on
+  /// this path. Exactly one `session_extended` row appends when a
+  /// session is open — one minted instant, a v7 id, and
+  /// `checkpointIntervalMinutes` added minutes as the row's whole
+  /// payload — through the core's single sanctioned minter; a tap with
+  /// nothing open appends nothing at all: the accepted quiet no-op, the
+  /// pause's own precedent. The walk lifts the sitting's declared
+  /// pocket by the added minutes (deadline and ceiling; the sum may
+  /// pass the declarable 1–60 range, which bounds starts only), while
+  /// the start row keeps FR-23's original pocket. The instant is minted
+  /// at entry, before any await, so the row describes the tap. A
+  /// failing append rethrows to the caller while the chain recovers.
+  /// The fresh view — the card returned to the surface, or the close
+  /// still standing — is read back from the log the extension made
+  /// true, and the standing card is never re-dealt: the extension
+  /// touches no `card_*` row.
+  Future<DispenserView> extend() {
+    final now = nowOf();
+    final write = _enqueueWrite(() async {
+      final log = logEntriesOf(await store.readLogEntries());
+      final contents = sessionExtend(log: log);
       for (final content in contents) {
         await store.appendLogEntry((
           id: idMinter.v7(),

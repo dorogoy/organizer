@@ -81,10 +81,16 @@ final class LogFacts {
   final ({String itemId, Origin itemOrigin})? dealtUnanswered;
 
   /// The open session's declared pocket in minutes — the start row's
-  /// own payload, in the minted range; absent when the session is
-  /// unbounded, none is open, or the row's value derives as absent
-  /// (an imported out-of-range pocket reads as no pocket at all,
-  /// never a repair write — AD-23).
+  /// own payload plus the sum of the extensions that sitting has
+  /// accepted (Story 2.4, AD-19): the deadline and the ceiling lift
+  /// with the sum, which may pass the declarable 1–60 range (it bounds
+  /// starts only). Absent when the session is unbounded, none is open,
+  /// or the start row's value derives as absent (an imported
+  /// out-of-range pocket reads as no pocket at all, never a repair
+  /// write — AD-23); an unbounded sitting stays unbounded, for an
+  /// extension cannot bound what no start declared. The original
+  /// pocket stays readable on the start row itself (FR-23's input);
+  /// this fact is the sitting's lifted declaration.
   final int? openSessionPocketMinutes;
 
   /// The open session's answered estimate, in seconds: the per-size
@@ -136,6 +142,18 @@ Day _chargedDayOf(
 /// across the boundary, and its later `card_done` charges the new
 /// session. Any other `session_started` clears the standing card, as
 /// ever.
+///
+/// The extensions (Story 2.4, FR-10, AD-19): a `session_extended` row
+/// inside the open session sums its minutes into the sitting's declared
+/// pocket — the deadline and ceiling lift, and the sum may pass the
+/// declarable 1–60 range, which bounds starts only. A session's close
+/// resets the sum with the rest of the sitting's facts, so a superseded
+/// sitting's extensions die with it; the start's own 1–60 guard is
+/// untouched. The command boundary keeps the kind out of a supersede
+/// pair's interior (nothing is open at such an instant to extend), so
+/// the pair adjacency here is unchanged. An extension outside any
+/// session, or one whose minutes are not a positive count, sums
+/// nothing — tolerance, never repair (AD-23).
 LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
   const calendar = Calendar();
   final sizeByItemId = <String, Size>{};
@@ -220,6 +238,20 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
           openSessionStart = null;
           openSessionPocketMinutes = null;
           openSessionAnsweredSeconds = 0;
+        }
+      case SessionExtendEntry(:final pocketMinutes):
+        // The sitting's extensions sum into its declared pocket
+        // (Story 2.4, AD-19): the deadline and ceiling lift, the sum
+        // may pass the declarable 1–60 range (it bounds starts only),
+        // and the original pocket stays on the start row for FR-23. An
+        // unbounded sitting stays unbounded — an extension cannot
+        // retroactively bound what no start declared — and a value
+        // that is not a positive minute count sums nothing (AD-23's
+        // tolerance, the start row's out-of-range precedent).
+        if (openSessionStart != null &&
+            openSessionPocketMinutes != null &&
+            pocketMinutes > 0) {
+          openSessionPocketMinutes += pocketMinutes;
         }
       case ItemActEntry(:final kind, :final itemId, :final itemOrigin):
         if (kind == LogKind.cardDealt) {

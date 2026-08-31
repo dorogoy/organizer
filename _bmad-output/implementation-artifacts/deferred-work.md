@@ -131,3 +131,9 @@
 
 - Separate a successful write from a failed read-back: `_onPause` and the established write handlers collapse both failures into the empty frame, so a persisted `session_ended` is not represented until a subsequent foreground refresh. This is a pre-existing, shared recovery-contract decision.
 - Recover the Dispenser write guard from a permanently pending dependency: every write handler awaits lifecycle settlement, persistence, and read-back without a timeout or cancellation policy. This is a pre-existing, shared recovery-contract decision.
+
+## Deferred from: code review of 2-4-the-anti-marathon-checkpoint-as-permission-to-stop.md (2026-08-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/2-4-the-anti-marathon-checkpoint-as-permission-to-stop.md`
+  summary: Share one log fold per Dispenser read — `read()` now walks the full log at least three times (its own `walkLog`, `deriveCheckpoint`'s walk, the probe's `_resolveDay`) plus the bag and energy passes, with no snapshot shared across them.
+  evidence: Each surface read re-folds the append-only log O(n) per pass and the log only grows; the cold-start ≤2 s contract (UX-DR43) and every future read path pay the multiplier. Pre-existing pattern (the facade already walked twice before 2.4) amplified by this story's added derivations.

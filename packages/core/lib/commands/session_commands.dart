@@ -33,10 +33,21 @@
 /// `sessionEnd` unchanged — one row, no payload, no new LogKind — and
 /// `nextDeal` itself now holds the sitting line (no open session, no
 /// deal), so the post-pause read model is the standing warm close.
+///
+/// Story 2.4 adds the checkpoint's silent continue (FR-10, AD-19):
+/// `sessionExtend` is the kind's single sanctioned minter — exactly one
+/// `session_extended` row carrying `checkpointIntervalMinutes` added
+/// minutes when a session is open. The walk sums a sitting's
+/// extensions into its declared pocket (the deadline and ceiling
+/// lift; the sum may pass the declarable 1–60 range, which bounds
+/// starts only), while the start row keeps FR-23's original pocket.
+/// There is no fourth closing cause: `sessionExtend` never appends
+/// `session_ended` and never re-opens a closed sitting.
 
 library;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/derive/checkpoint.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -203,6 +214,36 @@ List<LogEntryContent> sessionEnd({required List<LogEntry> log}) {
     return const [];
   }
   return [_moment(LogKind.sessionEnded)];
+}
+
+/// The checkpoint's silent continue (Story 2.4, FR-10, AD-19): the
+/// single sanctioned minter of `session_extended` — a row exists only
+/// because this returned it, so no second extension writer can appear
+/// silently. Exactly one row when a session is open, carrying
+/// [checkpointIntervalMinutes] added minutes and nothing else; a tap
+/// with nothing open returns no content and appends nothing — the
+/// accepted quiet no-op, `sessionEnd`'s own `{log}`-only shape (the
+/// `PocketTriggerChip` no-op precedent). The row never closes and
+/// never re-opens: `session_ended` stays exactly AD-19's three causes.
+/// The shell mints the row's instant at the commit of the act; the
+/// command itself reads only the log, whose order the open-session
+/// guard trusts.
+List<LogEntryContent> sessionExtend({required List<LogEntry> log}) {
+  final facts = walkLog(log);
+  if (facts.openSessionStart == null) {
+    return const [];
+  }
+  return [
+    (
+      kind: LogKind.sessionExtended,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      pocketMinutes: checkpointIntervalMinutes,
+    ),
+  ];
 }
 
 /// The declare tap (Story 2.2, FR-8, AD-19): declares a pocket, ending

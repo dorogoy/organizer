@@ -22,11 +22,18 @@ import 'zone_marker.dart';
 /// with an `ink-primary` label, `{rounded.DEFAULT}`, minimum height
 /// `{spacing.touch-target-min}`. One tap, no confirmation (Story 1.9):
 /// [onTap] is the screen's completion path; absent, the tap stays an
-/// accepted no-op (the 1.8 anatomy harness).
+/// accepted no-op (the 1.8 anatomy harness). [label] overrides the
+/// card's own string for the one other surface this register carries —
+/// the checkpoint's `Nada más por el momento` (Story 2.4), the
+/// permission to stop in the Done button's register and nowhere else.
 class HechoButton extends StatelessWidget {
-  const HechoButton({super.key, this.onTap});
+  const HechoButton({super.key, this.onTap, this.label});
 
   final VoidCallback? onTap;
+
+  /// The string this action carries, in the accessor the resolved
+  /// context provides; absent, the card's own completion string.
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +56,7 @@ class HechoButton extends StatelessWidget {
             child: Center(
               // bodyLarge is the wired action-primary role (theme.dart).
               child: Text(
-                AppStrings.of(context).actionDone,
+                label ?? AppStrings.of(context).actionDone,
                 style: theme.textTheme.bodyLarge,
               ),
             ),

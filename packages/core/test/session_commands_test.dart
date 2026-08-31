@@ -1,7 +1,9 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/checkpoint.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 import 'package:core/settings/settings.dart';
 import 'package:test/test.dart';
@@ -235,6 +237,64 @@ void main() {
     );
     expect(sessionEnd(log: open), isNotEmpty);
     expect(sessionEnd(log: _exhaustedDay(finalHabitOpen: false)), isEmpty);
+  });
+
+  group('the sessionExtend matrix (Story 2.4, FR-10, AD-19)', () {
+    test('an open session yields exactly one session_extended row '
+        'carrying the interval minutes — the single sanctioned '
+        'minter, no catalogue on the path', () {
+      final open = [
+        _started(utcMicros(2026, 8, 28, 10), pocketMinutes: 45),
+        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+      ];
+      final contents = sessionExtend(log: open);
+      expect(contents, hasLength(1));
+      final row = contents.single;
+      expect(row.kind, LogKind.sessionExtended);
+      expect(row.pocketMinutes, checkpointIntervalMinutes);
+      expect(row.itemId, isNull);
+      expect(row.itemOrigin, isNull);
+      expect(row.stack, isNull);
+      expect(row.settingKey, isNull);
+      expect(row.settingValue, isNull);
+      // The row never closes and never re-opens: no session_ended
+      // rides the extension, and no fourth closing cause exists.
+      expect(
+        contents.map((content) => content.kind),
+        isNot(contains(LogKind.sessionEnded)),
+      );
+    });
+
+    test('no open session appends nothing — the accepted quiet '
+        'no-op, the sessionEnd guard\'s own shape', () {
+      expect(sessionExtend(log: const []), isEmpty);
+      expect(
+        sessionExtend(log: _exhaustedDay(finalHabitOpen: false)),
+        isEmpty,
+        reason:
+            'the session is closed: nothing appends, nothing '
+            're-opens',
+      );
+    });
+
+    test('the minter feeds the walk\'s lift: extend twice and the '
+        'declared pocket is the start plus both intervals', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      var log = <LogEntry>[_started(start, pocketMinutes: 45)];
+      for (final minute in [16, 31]) {
+        final contents = sessionExtend(log: log);
+        log = [
+          ...log,
+          SessionExtendEntry(
+            id: 'x-$minute',
+            instantUtcMicros: utcMicros(2026, 8, 28, 10, minute),
+            offsetSeconds: 0,
+            pocketMinutes: contents.single.pocketMinutes!,
+          ),
+        ];
+      }
+      expect(walkLog(log).openSessionPocketMinutes, 75);
+    });
   });
 
   group('the answer path derives the bag for its bundled next deal '

@@ -15,6 +15,8 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/derive/checkpoint.dart';
+import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/services.dart';
@@ -1487,6 +1489,333 @@ void main() {
       expect(ended.kind, 'session_ended');
       expect(ended.instantUtcMicros, entryMint);
       expect(ended.offsetSeconds, 0);
+    });
+  });
+
+  group('the checkpoint extension (Story 2.4, FR-10, AD-19, UJ-1)', () {
+    /// A seeded pocketed session start, as a declaration or a process
+    /// death would have left it — the start instant injectable so a
+    /// pocket sits elapsed or unelapsed at the fixed 12:00 clock.
+    void seedPocketedStart(
+      _RecordingStore store,
+      int pocketMinutes, {
+      DateTime? at,
+    }) {
+      store.entries.add((
+        id: 'seed-pocket',
+        kind: 'session_started',
+        instantUtcMicros:
+            (at ?? DateTime.utc(2026, 8, 29, 11)).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: pocketMinutes,
+      ));
+    }
+
+    test('read maps the mid-pocket multiple to the rest offer: a '
+        '45-pocket 40 minutes in, unelapsed, preempts the deal that '
+        'would resolve', () async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserRestOffer>());
+      expect((view as DispenserRestOffer).pocketMinutes, 45);
+      // Reading wrote nothing: the derivation is a read (AD-3).
+      expect(store.entries, hasLength(1));
+    });
+
+    test('a card in flight at the crossing stays visible; a card dealt '
+        'into the pending offer is preempted', () async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      // Dealt at cumulative 13 (11:33): before the 15 crossing.
+      store.entries.add((
+        id: 'seed-deal-early',
+        kind: 'card_dealt',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          33,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: chunkSeedId,
+        itemOrigin: Origin.shipped,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+      ));
+      expect(await buildFor(store).read(), isA<DispenserDealt>());
+
+      // Re-dealt at cumulative 17 (11:37): the offer takes the surface.
+      final store2 = _RecordingStore();
+      seedPocketedStart(store2, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      store2.entries.add((
+        id: 'seed-deal-late',
+        kind: 'card_dealt',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          37,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: chunkSeedId,
+        itemOrigin: Origin.shipped,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+      ));
+      expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
+    });
+
+    test('extend appends exactly one session_extended{15} — one minted '
+        'instant, a v7 id — and the read-back returns the card with '
+        'the lifted pocket (chip reads 60)', () async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      final controller = buildFor(store);
+      expect(await controller.read(), isA<DispenserRestOffer>());
+
+      final view = await controller.extend();
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'session_extended',
+      ]);
+      final extended = store.entries.last;
+      expect(extended.pocketMinutes, checkpointIntervalMinutes);
+      expect(extended.itemId, isNull);
+      expect(extended.id, matches(v7));
+      expect(extended.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+
+      // The offer is answered and the card returns — never re-dealt,
+      // a fresh deal — carrying the lifted pocket for the chip.
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).pocketMinutes, 60);
+    });
+
+    test('extend with nothing open appends nothing at all — the '
+        'accepted quiet no-op, the pause\'s own precedent', () async {
+      final store = _RecordingStore();
+      final controller = buildFor(store);
+      final view = await controller.extend();
+      expect(store.entries, isEmpty);
+      expect(view, isA<DispenserClosed>());
+
+      // And again after a real session closed: exactly one extension
+      // row ever, never a re-open.
+      seedPocketedStart(store, 20, at: DateTime.utc(2026, 8, 29, 11, 50));
+      await controller.pause();
+      expect(await controller.extend(), isA<DispenserClosed>());
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_extended'),
+        isEmpty,
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+    });
+
+    test('the coincidence (UJ-1): an elapsed pocket closes the surface '
+        'and the close is the offer — Quiero seguir offered while the '
+        'pool could deal', () async {
+      final store = _RecordingStore();
+      // Seeded 11:45 with 15 minutes: elapsed exactly at the fixed
+      // 12:00 clock — the close and the checkpoint coincide.
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserClosed>());
+      expect(
+        (view as DispenserClosed).continueOffered,
+        isTrue,
+        reason:
+            'the shipped pool holds candidates: the close carries '
+            'the silent continue',
+      );
+
+      // A pool-exhausted close carries nothing: with an empty
+      // catalogue the probe finds no deal the lifted pocket could
+      // resolve.
+      final bare = _RecordingStore();
+      seedPocketedStart(bare, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
+      final bareView = await DispenserController(
+        store: bare,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: '{"version":1,"entries":[]}'}),
+        nowOf: _fixedClock,
+      ).read();
+      expect(bareView, isA<DispenserClosed>());
+      expect((bareView as DispenserClosed).continueOffered, isFalse);
+    });
+
+    test('extend at the close: one session_extended{15} lifts the '
+        'pocket 15→30 and the read after deals — the same silent '
+        'action, no second mechanism', () async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 45));
+      final controller = buildFor(store);
+      expect(
+        (await controller.read() as DispenserClosed).continueOffered,
+        isTrue,
+      );
+
+      final view = await controller.extend();
+
+      expect(store.entries.last.kind, 'session_extended');
+      expect(store.entries.last.pocketMinutes, 15);
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).pocketMinutes, 30);
+    });
+
+    test('a failing extend append rethrows to the caller and lands '
+        'nothing; the recovered chain lands the retried extension', () async {
+      final inner = _RecordingStore();
+      seedPocketedStart(inner, 45, at: DateTime.utc(2026, 8, 29, 11, 20));
+      final failing = _FailNextAppendStore(inner);
+      final controller = buildFor(failing);
+      final before = inner.entries.length;
+
+      failing.failNextAppend = true;
+      await expectLater(controller.extend(), throwsA(isA<StateError>()));
+      expect(inner.entries, hasLength(before));
+      expect(
+        inner.entries.where((entry) => entry.kind == 'session_extended'),
+        isEmpty,
+        reason: 'nothing landed on the failed write',
+      );
+
+      // The chain recovered: the retried extension lands its one row.
+      final view = await controller.extend();
+      expect(inner.entries.skip(before).map((entry) => entry.kind).toList(), [
+        'session_extended',
+      ]);
+      expect(inner.entries.last.pocketMinutes, 15);
+      expect(view, isA<DispenserDealt>());
+    });
+
+    test('read maps the offer on an unbounded sitting too — the '
+        'auto-open shape, no declared pocket: the offer carries no '
+        'pocket fact and the chip falls back to its default', () async {
+      final store = _RecordingStore();
+      // A pocket-less open sitting 16 minutes in at the fixed clock.
+      store.entries.add(
+        _moment('session_started', DateTime.utc(2026, 8, 29, 11, 44), 'seed'),
+      );
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserRestOffer>());
+      expect((view as DispenserRestOffer).pocketMinutes, isNull);
+      // Reading wrote nothing: the derivation is a read (AD-3).
+      expect(store.entries, hasLength(1));
+    });
+
+    test('a pool-exhausted close with an unelapsed pocket swallows the '
+        'due offer — the standing close wins, no continue is offered, '
+        'and the multiple stands for the next sitting', () async {
+      final store = _RecordingStore();
+      seedPocketedStart(store, 45, at: DateTime.utc(2026, 8, 29, 11, 50));
+      // The sitting's first deal, as the launch lifecycle would have
+      // left it: without a recorded card_dealt no answer can land
+      // (AD-3 — the read proposes, only commands write).
+      store.entries.add(
+        _act(
+          'card_dealt',
+          DateTime.utc(2026, 8, 29, 11, 50, 1),
+          'seed-deal',
+          chunkSeedId,
+        ),
+      );
+      // A mutable clock: the day exhausts under fifteen minutes of
+      // sitting time (no multiple crosses while the work lasts), then
+      // time moves forty minutes in — the pocket still unelapsed to
+      // 12:35, the second multiple crossed, the pool spent.
+      var now = DateTime.utc(2026, 8, 29, 11, 50);
+      final controller = buildFor(store, nowOf: () => now);
+
+      var view = await controller.read();
+      var completions = 0;
+      while (view is DispenserDealt) {
+        await controller.complete(view);
+        completions++;
+        now = DateTime.utc(2026, 8, 29, 11, 50 + completions);
+        view = await controller.read();
+      }
+      expect(completions, 9, reason: 'the canonical day ran to exhaustion');
+      expect(view, isA<DispenserClosed>());
+
+      now = DateTime.utc(2026, 8, 29, 12, 30);
+      final close = await controller.read();
+      expect(close, isA<DispenserClosed>());
+      expect(
+        (close as DispenserClosed).continueOffered,
+        isFalse,
+        reason:
+            'the pool holds nothing: the standing close wins over '
+            'the due multiple and carries no continue action',
+      );
+
+      // The multiple stood through the close: after the sitting ends,
+      // the next same-day sitting's derivation owes the offer once
+      // more (FR-10's extends-only rule — only an acceptance consumes).
+      await controller.pause();
+      view = await controller.declarePocket(15);
+      expect(
+        view,
+        isA<DispenserClosed>(),
+        reason: 'the spent day deals nothing',
+      );
+      final state = deriveCheckpoint(
+        entries: logEntriesOf(store.entries),
+        instantUtcMicros: now.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+      );
+      expect(
+        state.offerDue,
+        isTrue,
+        reason:
+            'crossed 2 against answered 0 inside the fresh sitting: '
+            'the close swallowed the offer, never the multiple',
+      );
+    });
+
+    test('a long-elapsed close carries no continue even over a full '
+        'pool — one interval cannot reach, and the chip is the way '
+        'back in (FR-10\'s dead-action rule)', () async {
+      final store = _RecordingStore();
+      // A 15-pocket started 11:05: elapsed at 11:20, forty minutes
+      // past at the fixed clock — one +15 acceptance could lift the
+      // deadline only to 11:35, long gone.
+      seedPocketedStart(store, 15, at: DateTime.utc(2026, 8, 29, 11, 5));
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserClosed>());
+      final close = view as DispenserClosed;
+      expect(
+        close.continueOffered,
+        isFalse,
+        reason:
+            'the pool could deal, but the tap would visibly change '
+            'nothing — a dead action the offer\'s grammar forbids',
+      );
+      expect(
+        close.pocketMinutes,
+        15,
+        reason:
+            'the chip keeps the declared pocket: the ladder, never '
+            'a dead action, is the way back in',
+      );
     });
   });
 }

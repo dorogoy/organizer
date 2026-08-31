@@ -4,13 +4,15 @@
 /// This file holds Story 1.3's slice of the vocabulary: the seven kinds the
 /// epic names, plus the unknown-kind carrier every forward-only reader must
 /// tolerate (AD-23) — and, additively since Story 2.1, the eighth kind
-/// `setting_changed`. A new kind is a new kind, never a flag on an old one.
+/// `setting_changed`, and since Story 2.4 the ninth kind `session_extended`
+/// (FR-10, AD-19). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
 /// store port returns become domain entries only after their shape checks
 /// out — itemId/itemOrigin travel as a pair, `stack` rides only on
-/// `crash_recorded`, `setting_changed` carries its key and value, and a
+/// `crash_recorded`, `setting_changed` carries its key and value,
+/// `session_started` and `session_extended` carry their minutes, and a
 /// known kind's payload must match the kind.
 
 library;
@@ -36,6 +38,7 @@ final class LogKind {
   static const cardSkipped = LogKind._('card_skipped', known: true);
   static const sessionStarted = LogKind._('session_started', known: true);
   static const sessionEnded = LogKind._('session_ended', known: true);
+  static const sessionExtended = LogKind._('session_extended', known: true);
   static const appOpened = LogKind._('app_opened', known: true);
   static const crashRecorded = LogKind._('crash_recorded', known: true);
   static const settingChanged = LogKind._('setting_changed', known: true);
@@ -47,6 +50,7 @@ final class LogKind {
     'card_skipped': cardSkipped,
     'session_started': sessionStarted,
     'session_ended': sessionEnded,
+    'session_extended': sessionExtended,
     'app_opened': appOpened,
     'crash_recorded': crashRecorded,
     'setting_changed': settingChanged,
@@ -137,10 +141,12 @@ final class MomentEntry extends LogEntry {
 /// pocket the user declared for this sitting, or absent when the
 /// session opened on its own (the auto-open) — an unbounded sitting.
 /// The type offers no other field: the pocket is the row's whole
-/// payload, extensions are 2.4's `session_extended`, and no close
-/// cause may ever ride a `session_ended` by passing through here. A
-/// value outside the minted range stays in the log and derives as
-/// absent — tolerance, never repair (AD-23).
+/// payload, the extensions a sitting accepted live on their own
+/// `session_extended` rows below (Story 2.4 — the walk sums them into
+/// the declared pocket, so this row stays the FR-23 original), and no
+/// close cause may ever ride a `session_ended` by passing through
+/// here. A value outside the minted range stays in the log and derives
+/// as absent — tolerance, never repair (AD-23).
 final class SessionStartEntry extends LogEntry {
   const SessionStartEntry({
     required super.id,
@@ -156,6 +162,33 @@ final class SessionStartEntry extends LogEntry {
   /// The declared pocket, in minutes — `pocketLeastMinutes`–
   /// `pocketMostMinutes` as minted, absent for an unbounded sitting.
   final int? pocketMinutes;
+}
+
+/// A `session_extended` row (Story 2.4, FR-10, AD-19): the minutes the
+/// user added to the open sitting's declared pocket by answering the
+/// checkpoint's silent secondary. The payload reuses the `pocketMinutes`
+/// fact `session_started` already carries — one fact, one column, no
+/// schema change (AD-23's additive-only payloads) — and the type offers
+/// no other field: no close cause, no question, no count rides an
+/// extension. The walk sums a sitting's extensions into its declared
+/// pocket; this row keeps its own added minutes so the original start
+/// row stays readable beside them.
+final class SessionExtendEntry extends LogEntry {
+  const SessionExtendEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.pocketMinutes,
+  });
+
+  @override
+  final LogKind kind = LogKind.sessionExtended;
+
+  /// The minutes added to the sitting's declared pocket, as minted —
+  /// `checkpointIntervalMinutes` per accepted offer. A value outside
+  /// the minted shape stays in the log and derives nothing: tolerance,
+  /// never repair (AD-23).
+  final int pocketMinutes;
 }
 
 /// A `crash_recorded` system event (AD-12): the stack and the timestamp —
@@ -253,10 +286,17 @@ enum LogRecordFlaw {
   /// A setting key or value on a kind that is not `setting_changed`.
   settingOnNonSettingKind,
 
-  /// A pocket payload on a kind that is not `session_started`
-  /// (Story 2.2) — `session_ended` and `app_opened` are moments and
-  /// must carry none, mirroring the setting rule.
-  pocketOnNonSessionStartKind,
+  /// A pocket payload on a kind that carries none — every kind except
+  /// the two minutes-carrying session kinds `session_started` (Story
+  /// 2.2) and `session_extended` (Story 2.4): `session_ended` and
+  /// `app_opened` are moments and must carry none, mirroring the
+  /// setting rule.
+  pocketOnNonPocketKind,
+
+  /// A `session_extended` row without its added minutes (Story 2.4) —
+  /// the minutes are the row's whole payload; without them it asserts
+  /// nothing.
+  extendMinutesAbsent,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -281,7 +321,10 @@ bool _isMoment(LogKind kind) =>
 /// value and nothing else (AD-1), `session_started` its optional pocket
 /// and nothing else (Story 2.2 — the row's whole payload, read
 /// structurally as null-or-int; an out-of-range value converts and
-/// derives as absent, never a repair write). An empty string is not a
+/// derives as absent, never a repair write), `session_extended` its
+/// added minutes and nothing else (Story 2.4 — absent minutes exclude
+/// the row; an out-of-range value converts and derives as absent). An
+/// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known
 /// kind this boundary does not classify is excluded with
@@ -324,7 +367,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
       return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
     if (carriesPocket) {
-      return (entry: null, flaw: LogRecordFlaw.pocketOnNonSessionStartKind);
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
     return (
       entry: ItemActEntry(
@@ -350,7 +393,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
       return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
     if (carriesPocket) {
-      return (entry: null, flaw: LogRecordFlaw.pocketOnNonSessionStartKind);
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
     return (
       entry: CrashEntry(
@@ -377,7 +420,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
       return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
     }
     if (carriesPocket) {
-      return (entry: null, flaw: LogRecordFlaw.pocketOnNonSessionStartKind);
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
     return (
       entry: SettingEntry(
@@ -413,6 +456,30 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     );
   }
 
+  if (kind == LogKind.sessionExtended) {
+    if (record.pocketMinutes == null) {
+      return (entry: null, flaw: LogRecordFlaw.extendMinutesAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    return (
+      entry: SessionExtendEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        pocketMinutes: record.pocketMinutes!,
+      ),
+      flaw: null,
+    );
+  }
+
   if (_isMoment(kind)) {
     if (record.itemId != null || record.itemOrigin != null) {
       return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
@@ -424,7 +491,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
       return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
     }
     if (carriesPocket) {
-      return (entry: null, flaw: LogRecordFlaw.pocketOnNonSessionStartKind);
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
     return (
       entry: MomentEntry(

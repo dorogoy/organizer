@@ -62,6 +62,19 @@
 // quiet no-op. The footer band wraps (never truncates) at 200%, and on
 // a body too short to hold the pinned chrome the chip and band join the
 // scroll region together: the accessibility floor outranks UX-DR45's pin.
+//
+// The checkpoint offer (Story 2.4, FR-10, UX-DR44/51): when the
+// controller's read resolves the permission-to-rest surface, the
+// content arm is the checkpoint's two actions and nothing else —
+// `Nada más por el momento` as the primary permission to stop in the
+// Done button's register, running the same one-tap pause write, and
+// `Quiero seguir` as a `SecondaryTextAction` — silent, never filled,
+// never emphasized, never animated, no haptic — running the extension.
+// No continuation question exists anywhere, and nothing on the offer
+// counts anything (UJ-1). The same silent secondary stands beneath the
+// warm close while the close is the offer — an elapsed pocket whose
+// pool could still deal — so the close and the offer are one grammar
+// with no second surface.
 import 'dart:async';
 
 import 'package:core/settings/settings.dart';
@@ -392,17 +405,27 @@ class _DispenserScreenState extends State<DispenserScreen>
             onSkip: () => _onSkip(dealt),
           ),
         ),
-        DispenserClosed() => _withCompletionAck(context, _closeText(context)),
+        DispenserRestOffer() => _withCompletionAck(
+          context,
+          _restOffer(context),
+        ),
+        DispenserClosed(:final continueOffered) => _withCompletionAck(
+          context,
+          continueOffered ? _closeWithContinue(context) : _closeText(context),
+        ),
       };
 
   /// The standing declared pocket the trigger chip carries: the
   /// committed view's own fact — the open session's pocket, absent when
   /// the sitting is unbounded — defaulted to 15 (FR-8, Story 2.2). A
   /// spent or elapsed pocket keeps reading as declared: the chip states
-  /// the declaration, never a remainder.
+  /// the declaration, never a remainder. The offer view carries it
+  /// exactly as the dealt and closed views do — lifted extensions and
+  /// all (Story 2.4).
   int get _standingPocketMinutes =>
       switch (_view) {
         DispenserDealt(:final pocketMinutes) => pocketMinutes,
+        DispenserRestOffer(:final pocketMinutes) => pocketMinutes,
         DispenserClosed(:final pocketMinutes) => pocketMinutes,
         null => null,
       } ??
@@ -561,6 +584,54 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
+  /// One tap, no confirmation, and deliberately no feedback of any kind
+  /// (Story 2.4, FR-10): `_onPause`'s mechanics verbatim over the
+  /// controller's extend path — exactly one `session_extended` row, or
+  /// nothing at all when no session is open (the accepted quiet no-op)
+  /// — and the committed view *is* the answer: the card returns to the
+  /// surface, never re-dealt, or the close stands as it did. The
+  /// extension is the checkpoint's silent secondary: never highlighted,
+  /// never animated, no haptic, nothing celebration-shaped. The same
+  /// in-flight guard as an answer keeps the continue from interleaving
+  /// with a `Hecho`, a skip, a declaration or a stop at the surface; a
+  /// launch or foreground read still reading the old log cannot
+  /// overwrite this extension after it lands (the generation bump). A
+  /// failed write is absorbed by the empty frame, quietly, and no
+  /// completion-ack state is this write's to touch.
+  Future<void> _onExtend() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    // A launch or foreground refresh may still be reading the old log. Its
+    // result must not overwrite this extension after it lands.
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.extend();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _view = view);
+      // The old surface remains in the render tree until this refresh's
+      // frame. Keep the shared guard through it so its stale callbacks
+      // cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed: quiet and deliberate — the empty frame stands,
+      // nothing surfaced, and a real return to the foreground re-reads.
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
   /// The footer band's two prose controls (Stories 2.1, 2.3, UX-DR25,
   /// UX-DR43): `Quiero parar` beside `Nuevo proyecto`, both through the
   /// `action-secondary` grammar — ink-secondary text, 48dp opaque
@@ -641,6 +712,52 @@ class _DispenserScreenState extends State<DispenserScreen>
       // bodyMedium is the wired action-secondary role (theme.dart).
       style: Theme.of(context).textTheme.bodyMedium,
       textAlign: TextAlign.center,
+    );
+  }
+
+  /// The permission-to-rest offer (Story 2.4, FR-10, UX-DR44/51): the
+  /// checkpoint's two actions and nothing else. `Nada más por el
+  /// momento` is the primary permission to stop, in the Done button's
+  /// register, running the same one-tap pause write; `Quiero seguir` is
+  /// the silent secondary — plain prose in the unsplit secondary
+  /// grammar, never filled, never emphasized, never animated, no
+  /// haptic. No continuation question exists anywhere, and nothing here
+  /// counts anything: no number that would have been higher if the user
+  /// had kept going (UJ-1).
+  Widget _restOffer(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        HechoButton(label: strings.checkpointStop, onTap: _onPause),
+        const SizedBox(height: Spacing.actionGap),
+        SecondaryTextAction(
+          label: strings.checkpointContinue,
+          onTap: _onExtend,
+        ),
+      ],
+    );
+  }
+
+  /// The close as the offer (Story 2.4, UJ-1): the same warm close
+  /// string with the checkpoint's silent secondary beneath it — offered
+  /// only while one more interval could truthfully reach beyond the
+  /// read and the pool could deal if the pocket had room (the core's
+  /// window and probe decide). A pool-exhausted or long-elapsed close
+  /// carries nothing — the chip is the way back in, never a dead
+  /// action. The same `Quiero seguir`, the same extension, no second
+  /// surface and no manufactured state between them.
+  Widget _closeWithContinue(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _closeText(context),
+        const SizedBox(height: Spacing.actionGap),
+        SecondaryTextAction(
+          label: AppStrings.of(context).checkpointContinue,
+          onTap: _onExtend,
+        ),
+      ],
     );
   }
 
