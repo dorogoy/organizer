@@ -5,8 +5,9 @@
 /// epic names, plus the unknown-kind carrier every forward-only reader must
 /// tolerate (AD-23) — and, additively since Story 2.1, the eighth kind
 /// `setting_changed`, since Story 2.4 the ninth kind `session_extended`
-/// (FR-10, AD-19), and since Story 2.5 the tenth kind `energy_set`
-/// (FR-4, AD-4). A new kind is a new kind, never a flag on an old one.
+/// (FR-10, AD-19), since Story 2.5 the tenth kind `energy_set`
+/// (FR-4, AD-4), and since Story 2.6 the eleventh kind `report_answered`
+/// (SM-2, AD-21). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -14,7 +15,8 @@
 /// out — itemId/itemOrigin travel as a pair, `stack` rides only on
 /// `crash_recorded`, `setting_changed` carries its key and value,
 /// `session_started` and `session_extended` carry their minutes,
-/// `energy_set` carries its level, and a known kind's payload must match
+/// `energy_set` carries its level, `report_answered` carries its answer
+/// and the week it answers, and a known kind's payload must match
 /// the kind.
 
 library;
@@ -46,6 +48,7 @@ final class LogKind {
   static const crashRecorded = LogKind._('crash_recorded', known: true);
   static const settingChanged = LogKind._('setting_changed', known: true);
   static const energySet = LogKind._('energy_set', known: true);
+  static const reportAnswered = LogKind._('report_answered', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -59,6 +62,7 @@ final class LogKind {
     'crash_recorded': crashRecorded,
     'setting_changed': settingChanged,
     'energy_set': energySet,
+    'report_answered': reportAnswered,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -269,6 +273,60 @@ final class EnergySetEntry extends LogEntry {
   final EnergyLevel level;
 }
 
+/// The weekly self-report's answer scale (Story 2.6, SM-2): the five
+/// numerals 1–5 are their own wire encoding — no enum, because five
+/// numerals name nothing semantic an enum's members would name better
+/// (energy needed one; this does not). The range check these bounds
+/// express is the whole ceremony, and it runs at exactly two sites by
+/// design: the read boundary below, and the minter
+/// (`core/commands/report_commands.dart`) — the `settingValue` guard's
+/// terms, one source of truth beside the entry it guards.
+const int reportScaleLeast = 1;
+const int reportScaleMost = 5;
+
+/// A `report_answered` user act (Story 2.6, SM-2, AD-21): the weekly
+/// self-report's tapped 1–5 answer and the week it answers — and
+/// nothing else. One row per answer through the single sanctioned
+/// minter (`core/commands/report_commands.dart`), so no second report
+/// writer can appear silently. The week is the answered week's
+/// `Week.weekOrdinal` — the Calendar's one week identity (AD-4 forbids
+/// a second week counter beside it) — carried explicitly because the
+/// report persists until answered (SM-2's override of the Sunday-only
+/// reading), so an answer may fall outside the week it reports on and
+/// the instant alone cannot attribute it: without the target week,
+/// SM-2's week-4-versus-week-1 trend cannot be built at all. The type
+/// offers no other field, so no question text, no dismissal state and
+/// no notification fact can ride along (FR-24's path never exists). A
+/// value outside [reportScaleLeast]–[reportScaleMost] excludes the row
+/// at the read boundary — quiet tolerance, never a repair write
+/// (AD-23) — and nothing consumes the kind yet: parts 2–3 derive
+/// eligibility and the slot handoff over exactly these rows.
+final class ReportAnsweredEntry extends LogEntry {
+  const ReportAnsweredEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.value,
+    required this.week,
+  });
+
+  @override
+  final LogKind kind = LogKind.reportAnswered;
+
+  /// The tapped answer — the wire int [reportScaleLeast]–
+  /// [reportScaleMost], as minted. Five numerals are their own
+  /// encoding; a stored value outside the scale excludes the row at
+  /// the read boundary (AD-23's quiet tolerance).
+  final int value;
+
+  /// The answered week's `Week.weekOrdinal` (calendar.dart: whole days
+  /// from the epoch Monday 2000-01-03 over 7, consecutive weeks
+  /// differing by exactly 1) — the week the answer reports on, never
+  /// the answer's own instant re-derived: persistence lets the two
+  /// diverge, and the divergence is this field's whole reason.
+  final int week;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -342,6 +400,26 @@ enum LogRecordFlaw {
   /// the setting and pocket rules: every payload column rides its own
   /// kind and no other.
   energyOnNonEnergyKind,
+
+  /// A `report_answered` row without an answer this build can read
+  /// (Story 2.6): the column is absent, or its int is outside the
+  /// 1–5 scale — either way the row asserts nothing about any week's
+  /// overwhelm and the week simply has no data point (SM-2's own
+  /// reading of an unanswered week). Quiet tolerance, never a repair
+  /// write (AD-23).
+  reportValueAbsent,
+
+  /// A `report_answered` row without its week (Story 2.6): the week is
+  /// the answer's whole attribution — persistence lets an answer fall
+  /// outside the week it reports on (SM-2, AD-4), so the instant alone
+  /// cannot attribute it — and a row that names no week asserts
+  /// nothing. Quiet tolerance, never a repair write (AD-23).
+  reportWeekAbsent,
+
+  /// Report fields on a kind that is not `report_answered` — mirroring
+  /// the setting, pocket and energy rules: every payload column rides
+  /// its own kind and no other.
+  reportOnNonReportKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -370,7 +448,9 @@ bool _isMoment(LogKind kind) =>
 /// added minutes and nothing else (Story 2.4 — absent minutes exclude
 /// the row; an out-of-range value converts and derives as absent),
 /// `energy_set` its level and nothing else (Story 2.5 — an absent or
-/// out-of-range level excludes the row). An
+/// out-of-range level excludes the row), `report_answered` its 1–5
+/// answer and its week and nothing else (Story 2.6 — an absent or
+/// out-of-range value, or an absent week, excludes the row). An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known
@@ -400,6 +480,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final carriesSetting = !settingKeyIsAbsent || record.settingValue != null;
   final carriesPocket = record.pocketMinutes != null;
   final carriesEnergy = record.energyLevel != null;
+  final carriesReport = record.reportValue != null || record.reportWeek != null;
 
   if (_isItemAct(kind)) {
     if (itemIdIsAbsent && record.itemOrigin == null) {
@@ -419,6 +500,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
     return (
       entry: ItemActEntry(
@@ -448,6 +532,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
     return (
       entry: CrashEntry(
@@ -479,6 +566,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -503,6 +593,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
     return (
       entry: SessionStartEntry(
@@ -532,6 +625,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
@@ -560,12 +656,51 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPocket) {
       return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
     }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
     return (
       entry: EnergySetEntry(
         id: record.id,
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
         level: level,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.reportAnswered) {
+    final value = record.reportValue;
+    if (value == null || value < reportScaleLeast || value > reportScaleMost) {
+      return (entry: null, flaw: LogRecordFlaw.reportValueAbsent);
+    }
+    final week = record.reportWeek;
+    if (week == null) {
+      return (entry: null, flaw: LogRecordFlaw.reportWeekAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    return (
+      entry: ReportAnsweredEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        value: value,
+        week: week,
       ),
       flaw: null,
     );
@@ -586,6 +721,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
     return (
       entry: MomentEntry(

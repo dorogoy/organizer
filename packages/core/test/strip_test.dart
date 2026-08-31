@@ -322,4 +322,61 @@ void main() {
       expect(state?.resident, StripResident.energyCheckIn);
     });
   });
+
+  group('report_answered rows and the strip (Story 2.6)', () {
+    ReportAnsweredEntry answer(int micros, int value, int week) =>
+        ReportAnsweredEntry(
+          id: 'report-$micros-$value-$week',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          value: value,
+          week: week,
+        );
+
+    test('the strip is inert to report rows — nothing reads the kind '
+        'yet (parts 2–3 derive the report\'s own eligibility, never '
+        'this fold)', () {
+      // The setting-row idiom, on the eleventh kind: a well-formed
+      // answer rides the log and moves no resident the precedence
+      // order resolves to — the no-op switch arm is pinned, not
+      // assumed. The rows sit after the day's opening delimiter on
+      // purpose: the first-opening predicate reads the day's earliest
+      // ROW whatever its kind (a pre-open row of any kind betrays a
+      // consumed opening), and that position is not the switch arm
+      // this test exists to pin. The `weeklySelfReport` stub stays
+      // false beside it.
+      final without = [
+        _opened(utcMicros(2026, 8, 29, 9)),
+        _started(utcMicros(2026, 8, 29, 9, 0, 1)),
+      ];
+      final withReport = [
+        ...without,
+        answer(utcMicros(2026, 8, 29, 10), 3, 1394),
+        answer(utcMicros(2026, 8, 29, 11), 5, 1394),
+      ];
+      expect(resolve(withReport), isNotNull);
+      expect(resolve(withReport)?.resident, resolve(without)?.resident);
+      expect(
+        resolve(withReport)?.resident,
+        StripResident.energyCheckIn,
+        reason:
+            'the check-in keeps the slot — an answer neither answers '
+            'the day\'s energy nor makes the report\'s own resident '
+            'eligible',
+      );
+      // An answered day keeps resolving identically too: the report
+      // row still moves nothing beside an energy answer.
+      final answeredDay = [
+        ...withReport,
+        _energy(utcMicros(2026, 8, 29, 10, 30), EnergyLevel.medium),
+      ];
+      expect(
+        resolve(answeredDay)?.resident,
+        resolve([
+          ...without,
+          _energy(utcMicros(2026, 8, 29, 10, 30), EnergyLevel.medium),
+        ])?.resident,
+      );
+    });
+  });
 }

@@ -435,6 +435,8 @@ void main() {
         settingValue: null,
         pocketMinutes: 45,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     final controller = DispenserController(
       store: store,

@@ -702,6 +702,21 @@ final class KitchenSink {
       );
     });
 
+    test('ReportAnsweredEntry', () {
+      // The weekly self-report payload is the tapped 1–5 answer and
+      // the week it answers — the answered week's `Week.weekOrdinal`,
+      // never a second week counter (Story 2.6, SM-2, AD-21) — and
+      // nothing else rides the row: no question text, no dismissal
+      // state, no notification fact. The week is a statement about
+      // what was answered, never an obligation a week owes.
+      // `kind` extracts after the constructor parameters because it is
+      // an initialized override.
+      expect(
+        _classOwnFields('ReportAnsweredEntry', 'log/log_entry.dart'),
+        equals(['value', 'week', 'kind']),
+      );
+    });
+
     test('LogFacts', () {
       // The derived session states facts the log makes true — no
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
@@ -823,7 +838,8 @@ final class KitchenSink {
       // the schema's exact columns, no more (AD-1, AD-5). The two
       // nullable setting columns are schema v2's additive pair (2.1);
       // the nullable pocket column is schema v3's (2.2); the nullable
-      // energy level column is schema v4's (2.5).
+      // energy level column is schema v4's (2.5); the two nullable
+      // report columns are schema v5's additive pair (2.6).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -838,6 +854,8 @@ final class KitchenSink {
           'settingValue',
           'pocketMinutes',
           'energyLevel',
+          'reportValue',
+          'reportWeek',
         ]),
       );
     });
@@ -846,7 +864,8 @@ final class KitchenSink {
       // The one write shape: a kind and its payload — nothing else may
       // be appended, by anyone (AD-3, AD-21). The setting fields grew
       // the shape additively (2.1); the pocket field grows it again
-      // (2.2); the energy level field grows it once more (2.5).
+      // (2.2); the energy level field grows it once more (2.5); the
+      // two report fields grow it a last time (2.6).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -858,6 +877,8 @@ final class KitchenSink {
           'settingValue',
           'pocketMinutes',
           'energyLevel',
+          'reportValue',
+          'reportWeek',
         ]),
       );
     });
@@ -910,8 +931,8 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-six
-    // declarations above (twenty-one classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-seven
+    // declarations above (twenty-two classes, five record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -922,6 +943,7 @@ final class KitchenSink {
       'log/log_entry.dart:CrashEntry',
       'log/log_entry.dart:SettingEntry',
       'log/log_entry.dart:EnergySetEntry',
+      'log/log_entry.dart:ReportAnsweredEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1360,6 +1382,93 @@ final class KitchenSink {
     expect(commandMints, commandRefs);
     expect(
       RegExp(r'==\s*LogKind\.energySet\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('report_answered is minted in exactly one file and read nowhere in '
+      'core — parts 2–3 derive over the rows, never the kind constant '
+      '(Story 2.6, SM-2, AD-21, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary) and the one command
+    // file that mints the kind. No derivation reads the kind yet —
+    // part 2's eligibility reads the ReportAnsweredEntry *type* on the
+    // energy seam's pattern — so a LogKind.reportAnswered reference
+    // anywhere else in core lib is a finding.
+    const allowed = {'log/log_entry.dart', 'commands/report_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\breportAnswered\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the reportAnswered identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'report_answered' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]report_answered['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'report_answered' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the ReportAnsweredEntry override.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]report_answered['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only report_answered wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\breportAnswered\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only reportAnswered identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.reportAnswered\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified reportAnswered readers in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(_source('commands/report_commands.dart'));
+    final commandRefs = RegExp(r'LogKind\.reportAnswered\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.reportAnswered\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.reportAnswered\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
     );

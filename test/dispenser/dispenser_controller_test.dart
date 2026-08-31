@@ -265,6 +265,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   settingValue: null,
   pocketMinutes: null,
   energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -279,6 +281,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   settingValue: null,
   pocketMinutes: null,
   energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -950,6 +954,8 @@ void main() {
       settingValue: 5,
       pocketMinutes: null,
       energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1078,6 +1084,8 @@ void main() {
           settingValue: null,
           pocketMinutes: 1,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1519,6 +1527,8 @@ void main() {
         settingValue: null,
         pocketMinutes: pocketMinutes,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     }
 
@@ -1558,6 +1568,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1582,6 +1594,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1602,6 +1616,8 @@ void main() {
           settingValue: null,
           pocketMinutes: 10,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1615,6 +1631,8 @@ void main() {
           settingValue: null,
           pocketMinutes: null,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ));
       }
 
@@ -1657,6 +1675,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       final view = await buildFor(
         store,
@@ -2215,6 +2235,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: 2,
+        reportValue: null,
+        reportWeek: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2231,6 +2253,8 @@ void main() {
         settingValue: null,
         pocketMinutes: 60,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have

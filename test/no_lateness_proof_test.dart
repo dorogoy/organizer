@@ -191,7 +191,7 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, nine wire names wide: every user-act and
+    // The absolute ban, ten wire names wide: every user-act and
     // moment kind exists in the shell only inside the core's own
     // constants — a quoted wire name in lib/ is a minter that
     // bypasses the vocabulary. (crash_recorded is not banned here:
@@ -206,6 +206,7 @@ void main() {
       'app_opened',
       'setting_changed',
       'energy_set',
+      'report_answered',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {

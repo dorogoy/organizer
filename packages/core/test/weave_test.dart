@@ -2172,4 +2172,49 @@ void main() {
       expect(threaded.instantHabits, hasLength(5));
     });
   });
+
+  group('report_answered rows and the weave (Story 2.6)', () {
+    ReportAnsweredEntry answer(int micros, int value, int week) =>
+        ReportAnsweredEntry(
+          id: 'report-$micros-$value-$week',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          value: value,
+          week: week,
+        );
+
+    test('the walk is inert to report rows — nothing reads the kind yet '
+        '(parts 2–3 derive over the rows, never the walk)', () {
+      // The setting-row idiom, on the eleventh kind: a well-formed
+      // answer rides the log and moves no fact the walk makes — the
+      // no-op switch arm is pinned, not assumed.
+      final withReport = walkLog([
+        answer(_day(0, 8), 3, 1394),
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+        answer(_day(0, 10), 5, 1394),
+      ], catalogue: _catalogue);
+      final without = walkLog([
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+      ], catalogue: _catalogue);
+      expect(
+        withReport.lastDealtInstantByItemId,
+        without.lastDealtInstantByItemId,
+      );
+      expect(withReport.focusSlotClosedDays, without.focusSlotClosedDays);
+      expect(withReport.dealtCountsByDay, without.dealtCountsByDay);
+      expect(withReport.answeredItemIds, without.answeredItemIds);
+      expect(withReport.openSessionStart, without.openSessionStart);
+      expect(withReport.dealtUnanswered, without.dealtUnanswered);
+      expect(
+        withReport.openSessionPocketMinutes,
+        without.openSessionPocketMinutes,
+      );
+      expect(
+        withReport.openSessionAnsweredSeconds,
+        without.openSessionAnsweredSeconds,
+      );
+    });
+  });
 }

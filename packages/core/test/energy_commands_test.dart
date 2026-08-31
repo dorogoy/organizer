@@ -54,6 +54,8 @@ void main() {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
         expect(conversion.flaw, isNull);
         expect((conversion.entry as EnergySetEntry).level, level);

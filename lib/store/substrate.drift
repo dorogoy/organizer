@@ -18,8 +18,14 @@
 -- unchanged.
 --
 -- Schema v4 (Story 2.5) adds the one nullable `energy_set` payload column
--- `energy_level` — the tapped level's stable wire int — the same
--- additive-only ALTER TABLE path, so a v3 install upgrades in place with
+-- `energy_level` — the tapped level's stable wire int — the same additive-only
+-- ALTER TABLE path, so a v3 install upgrades in place with its rows
+-- unchanged.
+--
+-- Schema v5 (Story 2.6) adds the two nullable `report_answered` payload
+-- columns `report_value`/`report_week` — the weekly self-report's tapped
+-- 1–5 answer and the answered week's `Week.weekOrdinal` — the same
+-- additive-only ALTER TABLE path, so a v4 install upgrades in place with
 -- its rows unchanged.
 --
 -- There are deliberately no FK or CHECK constraints: schema-level
@@ -48,7 +54,9 @@ CREATE TABLE log_entries (
   setting_key TEXT NULL,
   setting_value INTEGER NULL,
   pocket_minutes INTEGER NULL,
-  energy_level INTEGER NULL
+  energy_level INTEGER NULL,
+  report_value INTEGER NULL,
+  report_week INTEGER NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

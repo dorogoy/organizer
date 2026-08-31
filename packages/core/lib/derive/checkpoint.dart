@@ -138,6 +138,7 @@ CheckpointState deriveCheckpoint({
       case CrashEntry():
       case SettingEntry():
       case EnergySetEntry():
+      case ReportAnsweredEntry():
       case UnknownEntry():
         break;
     }

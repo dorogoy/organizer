@@ -144,6 +144,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   settingValue: null,
   pocketMinutes: null,
   energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -158,6 +160,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   settingValue: null,
   pocketMinutes: null,
   energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -532,6 +536,8 @@ void main() {
           settingValue: null,
           pocketMinutes: 15,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ),
         _act(
           'card_dealt',
@@ -590,6 +596,8 @@ void main() {
           settingValue: null,
           pocketMinutes: 45,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ),
       ]);
     await buildController(within).handleAppOpen();

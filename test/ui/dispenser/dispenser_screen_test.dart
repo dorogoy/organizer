@@ -970,6 +970,8 @@ void main() {
             settingValue: null,
             pocketMinutes: null,
             energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
           ),
           (
             id: 'seed-deal',
@@ -990,6 +992,8 @@ void main() {
             settingValue: null,
             pocketMinutes: null,
             energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2043,6 +2047,8 @@ void main() {
       settingValue: null,
       pocketMinutes: null,
       energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2293,6 +2299,8 @@ void main() {
             settingValue: minutes,
             pocketMinutes: null,
             energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
           ));
         }
         await SessionController(
@@ -2366,6 +2374,8 @@ void main() {
         settingValue: null,
         pocketMinutes: pocketMinutes,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     }
 
@@ -2678,6 +2688,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       await SessionController(
         store: store,
@@ -2805,6 +2817,8 @@ void main() {
         settingValue: null,
         pocketMinutes: pocketMinutes,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     }
 
@@ -3329,6 +3343,8 @@ void main() {
         settingValue: null,
         pocketMinutes: pocketMinutes,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     }
 
@@ -3470,6 +3486,8 @@ void main() {
         settingValue: null,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));

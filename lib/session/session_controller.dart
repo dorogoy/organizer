@@ -196,6 +196,8 @@ class SessionController with WidgetsBindingObserver {
         settingValue: content.settingValue,
         pocketMinutes: content.pocketMinutes,
         energyLevel: content.energyLevel,
+        reportValue: content.reportValue,
+        reportWeek: content.reportWeek,
       ));
     }
   }

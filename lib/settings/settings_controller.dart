@@ -71,6 +71,8 @@ class SettingsController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });

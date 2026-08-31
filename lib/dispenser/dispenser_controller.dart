@@ -292,6 +292,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -338,6 +340,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -380,6 +384,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -415,6 +421,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -466,6 +474,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -502,6 +512,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
