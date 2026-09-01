@@ -5,6 +5,7 @@ import 'package:core/commands/session_commands.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/derive/checkpoint.dart';
 import 'package:core/derive/strip.dart';
+import 'package:core/derive/warm_return.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
@@ -32,8 +33,18 @@ import '../strings/app_strings.dart';
 /// [DispenserController.dismissCheckIn]), skip-for-this-opening for the
 /// report (see [DispenserController.dismissReport]) — and an answer is
 /// a row, with the derivation hiding the resident on its own.
+///
+/// Since Story 2.7 every variant also carries the Warm Return fact
+/// (FR-6, AD-24): whether this opening arrives 48 h or more after the
+/// latest contact that preceded it, derived in the same read and
+/// rendered as the fixed greeting above the committed view — for the
+/// whole opening, never dismissed, never timed, no state anywhere.
 sealed class DispenserView {
-  const DispenserView({this.stripResident, this.reportWeekOrdinal});
+  const DispenserView({
+    this.stripResident,
+    this.reportWeekOrdinal,
+    this.warmReturnDue = false,
+  });
 
   /// The ambient strip's resident on this read — the precedence
   /// derivation's winner among the residents the log makes eligible,
@@ -48,6 +59,16 @@ sealed class DispenserView {
   /// needs: the row answers the week the user was asked, never a week
   /// re-derived at tap time.
   final int? reportWeekOrdinal;
+
+  /// The Warm Return fact (Story 2.7, FR-6, AD-24): this opening
+  /// arrives 48 h or more after the latest contact (`app_opened` rows
+  /// and user acts) that preceded it, derived in the same read as the
+  /// card — never held in memory as truth, never dismissed, never
+  /// timed. The greeting's whole lifecycle is this flag: it stands for
+  /// the opening on every variant (mid-opening acts sit after the last
+  /// `app_opened` and cannot move the anchor), and the next opening
+  /// inside 48 h derives it false with no state anywhere.
+  final bool warmReturnDue;
 }
 
 /// The dealt-unanswered card of the open session — the launch deal on a
@@ -62,6 +83,7 @@ final class DispenserDealt extends DispenserView {
     this.pocketMinutes,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.warmReturnDue,
   });
 
   final Card card;
@@ -84,6 +106,7 @@ final class DispenserClosed extends DispenserView {
     this.continueOffered = false,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.warmReturnDue,
   });
 
   final int? pocketMinutes;
@@ -103,6 +126,7 @@ final class DispenserRestOffer extends DispenserView {
     this.pocketMinutes,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.warmReturnDue,
   });
 
   final int? pocketMinutes;
@@ -246,6 +270,15 @@ class DispenserController {
       offsetSeconds: now.timeZoneOffset.inSeconds,
       excludeResidents: excludeResidents,
     );
+    // The Warm Return fact (Story 2.7, FR-6, AD-24): the sibling
+    // predicate over the same queue-consistent log, beside the strip —
+    // 48 h of wall clock from the latest contact before this opening,
+    // no offset and no day count. It rides every variant of the view;
+    // the greeting's lifecycle is this derivation alone.
+    final warm = warmReturnDue(
+      entries: log,
+      instantUtcMicros: now.microsecondsSinceEpoch,
+    );
     // The asked week rides the read: the report's answer mints the
     // week the user was shown, never one re-derived at tap time. Any
     // other read clears it — nothing else was asked.
@@ -299,6 +332,7 @@ class DispenserController {
             ),
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
+        warmReturnDue: warm,
       );
     }
     final checkpoint = deriveCheckpoint(
@@ -312,6 +346,7 @@ class DispenserController {
         pocketMinutes: pocket,
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
+        warmReturnDue: warm,
       );
     }
     return DispenserDealt(
@@ -319,6 +354,7 @@ class DispenserController {
       pocketMinutes: pocket,
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
+      warmReturnDue: warm,
     );
   });
 

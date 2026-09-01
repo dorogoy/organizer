@@ -92,6 +92,16 @@
 // it grows and scrolls at 200%, nothing truncated, every target at or
 // above 48dp — and after it leaves, nothing on this surface displays
 // the level: the narrower deal is the display (AD-4, UX-DR41).
+//
+// The warm return (Story 2.7, FR-6, AD-24): when the read's own fact
+// says the opening arrives 48 h or more after the latest contact that
+// preceded it, the fixed greeting «Siempre a tu disposición» stands
+// above the committed view — the ack's register, no glyph, no fill, no
+// motion — for the whole opening, on every variant. No timer, no
+// dismissal, no stored state: the derivation alone, so the greeting
+// persists through the session and is gone at the next opening inside
+// 48 h, and nothing on the surface counts the days away (they are not
+// representable).
 import 'dart:async';
 
 import 'package:core/derive/strip.dart';
@@ -414,35 +424,40 @@ class _DispenserScreenState extends State<DispenserScreen>
     );
   }
 
-  Widget _viewContent(BuildContext context, DispenserView? view) =>
-      switch (view) {
-        null => const SizedBox.shrink(),
-        DispenserDealt dealt => _withAmbientStrip(
+  Widget _viewContent(BuildContext context, DispenserView? view) {
+    final content = switch (view) {
+      null => const SizedBox.shrink(),
+      DispenserDealt dealt => _withAmbientStrip(
+        context,
+        view,
+        _withCompletionAck(
           context,
-          view,
-          _withCompletionAck(
-            context,
-            TaskCard(
-              card: dealt.card,
-              onDone: () => _onDone(dealt),
-              onSkip: () => _onSkip(dealt),
-            ),
+          TaskCard(
+            card: dealt.card,
+            onDone: () => _onDone(dealt),
+            onSkip: () => _onSkip(dealt),
           ),
         ),
-        DispenserRestOffer() => _withAmbientStrip(
+      ),
+      DispenserRestOffer() => _withAmbientStrip(
+        context,
+        view,
+        _withCompletionAck(context, _restOffer(context)),
+      ),
+      DispenserClosed(:final continueOffered) => _withAmbientStrip(
+        context,
+        view,
+        _withCompletionAck(
           context,
-          view,
-          _withCompletionAck(context, _restOffer(context)),
+          continueOffered ? _closeWithContinue(context) : _closeText(context),
         ),
-        DispenserClosed(:final continueOffered) => _withAmbientStrip(
-          context,
-          view,
-          _withCompletionAck(
-            context,
-            continueOffered ? _closeWithContinue(context) : _closeText(context),
-          ),
-        ),
-      };
+      ),
+    };
+    if (view == null || !view.warmReturnDue) {
+      return content;
+    }
+    return _withWarmReturnGreeting(context, content);
+  }
 
   /// The view with the ambient strip below it (Stories 2.5–2.6,
   /// UX-DR22): inside the frame's scroll region, beneath whatever the
@@ -963,6 +978,32 @@ class _DispenserScreenState extends State<DispenserScreen>
       children: [
         Text(
           AppStrings.of(context).completionAcknowledgement,
+          // bodySmall is the wired support role (theme.dart).
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: Spacing.actionGap),
+        view,
+      ],
+    );
+  }
+
+  /// The Warm Return greeting (Story 2.7, FR-6, AD-24): the fixed
+  /// string in the completion ack's register — centered, `bodySmall`,
+  /// one `Spacing.actionGap` above the committed view — standing for
+  /// the whole opening on every variant. No glyph, no fill, no motion
+  /// and no dismissal control; no timer owns it (the 2-s
+  /// `_withCompletionAck` window is not this), and no state exists
+  /// anywhere: the read's own `warmReturnDue` fact decides, so the
+  /// greeting persists through the session by derivation and is gone
+  /// at the next opening inside 48 h. Nothing here counts the days
+  /// away — they are not representable.
+  Widget _withWarmReturnGreeting(BuildContext context, Widget view) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          AppStrings.of(context).warmReturnGreeting,
           // bodySmall is the wired support role (theme.dart).
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,

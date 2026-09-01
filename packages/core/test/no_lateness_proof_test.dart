@@ -1479,24 +1479,27 @@ final class KitchenSink {
     );
   });
 
-  test('the session kinds are minted in exactly one file and read in '
-      'exactly one — no second session writer can appear silently '
+  test('the session kinds are minted in exactly one file and read only '
+      'in the stated set — no second session writer can appear silently '
       '(Story 2.2, AD-3, AD-19)', () {
-    // The four homes the vocabulary allows: the definition (which also
+    // The five homes the vocabulary allows: the definition (which also
     // classifies the payload at the read boundary), the one walk that
     // reads the kinds, the one command file that mints them —
     // `app_opened`, `session_started` and `session_ended` exist nowhere
     // else in core lib, as identifiers or as wire-name literals — and,
-    // for `app_opened` alone, the ambient strip's first-opening
-    // predicate (Story 2.5): the check-in's eligibility reads the
-    // opening delimiters, the stated-reader pattern `warmReturnDue`
-    // set. The shell's own census (test/no_lateness_proof_test.dart)
-    // carries the same line over lib/.
+    // for `app_opened` alone, the stated-reader set: the ambient
+    // strip's first-opening predicate (Story 2.5 — the check-in's
+    // eligibility reads the opening delimiters) and the warm-return
+    // predicate (Story 2.7 — AD-24's greeting measures 48 h from the
+    // latest contact before the current opening). The shell's own
+    // census (test/no_lateness_proof_test.dart) carries the same line
+    // over lib/.
     const allowed = {
       'log/log_entry.dart',
       'weave/session.dart',
       'commands/session_commands.dart',
       'derive/strip.dart',
+      'derive/warm_return.dart',
     };
     final files = _coreLibFiles();
     final identifierOffenders = [
