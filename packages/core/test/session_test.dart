@@ -689,4 +689,144 @@ void main() {
       expect(unbounded.openSessionStart, isNotNull);
     });
   });
+
+  group('pool facts size the walk\'s charges (Story 3.3)', () {
+    PoolFact fact(
+      String id,
+      Size size,
+      int micros, {
+      String line = 'Llamar al dentista',
+    }) => PoolFact(
+      id: id,
+      origin: Origin.manual,
+      size: size,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      originContext: line,
+    );
+
+    ItemActEntry manualAct(LogKind kind, int micros, String itemId) =>
+        ItemActEntry(
+          id: 'manual-$micros-$itemId',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          kind: kind,
+          itemId: itemId,
+          itemOrigin: Origin.manual,
+        );
+
+    test('a dealt manual id charges its taxonomy size to the charged '
+        'day, and its charged day lands per id', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog(
+        [_started(start), manualAct(LogKind.cardDealt, start + 1, 'cap-man')],
+        catalogue: _catalogue,
+        poolFacts: [
+          fact('cap-man', Size.maintenance, utcMicros(2026, 8, 28, 8)),
+        ],
+      );
+      const calendar = Calendar();
+      final day = calendar.dayOf(start, 0);
+      expect(facts.dealtCountsByDay[day]?[Size.maintenance], 1);
+      expect(facts.dealtDaysByItemId['cap-man'], {day});
+    });
+
+    test('a manual focus done closes the day\'s chunk slot and charges '
+        'the sitting its estimate, exactly like a shipped id', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog(
+        [
+          _started(start),
+          manualAct(LogKind.cardDealt, start + 1, 'cap-focus'),
+          manualAct(LogKind.cardDone, start + 2, 'cap-focus'),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [fact('cap-focus', Size.focus, utcMicros(2026, 8, 28, 8))],
+      );
+      const calendar = Calendar();
+      final day = calendar.dayOf(start, 0);
+      expect(facts.focusSlotClosedDays, {day});
+      expect(facts.openSessionAnsweredSeconds, focusEstimateSeconds);
+    });
+
+    test('without the facts the manual id carries no size — the '
+        'charges read facts, never the rows', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start),
+        manualAct(LogKind.cardDealt, start + 1, 'cap-man'),
+        manualAct(LogKind.cardDone, start + 2, 'cap-man'),
+      ], catalogue: _catalogue);
+      expect(facts.dealtCountsByDay, isEmpty);
+      expect(facts.focusSlotClosedDays, isEmpty);
+      expect(facts.openSessionAnsweredSeconds, 0);
+      // The charged day is unconditional in the id, sized or not.
+      const calendar = Calendar();
+      expect(facts.dealtDaysByItemId['cap-man'], {calendar.dayOf(start, 0)});
+    });
+
+    test('an id no source sizes charges no count yet still records its '
+        'charged day', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start),
+        _act(LogKind.cardDealt, start + 1, 'mystery-id'),
+      ], catalogue: _catalogue);
+      expect(facts.dealtCountsByDay, isEmpty);
+      const calendar = Calendar();
+      expect(facts.dealtDaysByItemId['mystery-id'], {calendar.dayOf(start, 0)});
+    });
+
+    test('same-day re-deals stay one charged day while the count '
+        'accumulates', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog(
+        [
+          _started(start),
+          manualAct(LogKind.cardDealt, start + 1, 'cap-man'),
+          manualAct(LogKind.cardSkipped, start + 2, 'cap-man'),
+          manualAct(LogKind.cardDealt, start + 3, 'cap-man'),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [
+          fact('cap-man', Size.maintenance, utcMicros(2026, 8, 28, 8)),
+        ],
+      );
+      const calendar = Calendar();
+      final day = calendar.dayOf(start, 0);
+      expect(facts.dealtCountsByDay[day]?[Size.maintenance], 2);
+      expect(facts.dealtDaysByItemId['cap-man'], hasLength(1));
+    });
+
+    test('the catalogue wins an id collision and a duplicate fact id '
+        'keeps the snapshot\'s first — fill-only-absent, never a '
+        'last-wins size', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog(
+        [
+          _started(start),
+          _act(LogKind.cardDealt, start + 1, 'man-a'),
+          _act(LogKind.cardDone, start + 2, 'man-a'),
+          manualAct(LogKind.cardDealt, start + 3, 'dup'),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [
+          // A fact claiming the catalogue's own id at another size:
+          // the catalogue's maintenance stands, so the done neither
+          // closes a chunk slot nor charges a focus estimate.
+          fact('man-a', Size.focus, utcMicros(2026, 8, 28, 7)),
+          // Two facts sharing an id: the snapshot's first
+          // (maintenance) sizes the deal, never the later one's.
+          fact('dup', Size.maintenance, utcMicros(2026, 8, 28, 8)),
+          fact('dup', Size.instant, utcMicros(2026, 8, 28, 9)),
+        ],
+      );
+      const calendar = Calendar();
+      final day = calendar.dayOf(start, 0);
+      expect(facts.dealtCountsByDay[day]?[Size.maintenance], 2);
+      expect(facts.dealtCountsByDay[day]?[Size.instant], isNull);
+      expect(facts.focusSlotClosedDays, isEmpty);
+      expect(facts.openSessionAnsweredSeconds, maintenanceEstimateSeconds);
+    });
+  });
 }

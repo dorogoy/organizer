@@ -101,13 +101,17 @@ class SessionController with WidgetsBindingObserver {
   /// derived from the log, never scheduled (Story 2.2, AD-19). The
   /// event's instant is minted at entry, before any await, so the
   /// recorded rows — and near 04:00 the charged domestic day — describe
-  /// the event, not the reads that followed it.
+  /// the event, not the reads that followed it. The open also reads the
+  /// pool-fact snapshot inside this one queued operation (Story 3.3):
+  /// the launch deal sees manual captures, so a standing capture can
+  /// be the session's very first card.
   Future<void> handleAppOpen() {
     final now = nowOf();
     _leftForegroundSinceOpen = false;
     return _enqueue(() async {
       final catalogue = await _loadCatalogue();
       final log = await _readLog();
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
       // The bag derives once for the whole operation (2.1) and threads
       // into the command, so the launch deal composes against the Time
       // Bag the log holds — never a default the user never chose.
@@ -117,6 +121,7 @@ class SessionController with WidgetsBindingObserver {
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
+        poolFacts: poolFacts,
       );
       await _appendAll(contents, now);
     });

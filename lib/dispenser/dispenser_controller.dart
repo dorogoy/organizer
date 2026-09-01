@@ -242,7 +242,12 @@ class DispenserController {
     // truth (AD-19). An out-of-range pocket row derives as absent here,
     // exactly as in the walk; a sitting's extensions lift it (2.4).
     final log = logEntriesOf(await store.readLogEntries());
-    final facts = walkLog(log, catalogue: catalogue);
+    // The pool-fact snapshot (Story 3.3) reads inside the same queued
+    // operation as the log: the card this read resolves or
+    // re-materializes sees manual captures exactly as the write paths
+    // do — inert data handed to the core, never truth held here.
+    final poolFacts = poolFactsOf(await store.readPoolFacts());
+    final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
     final pocket = facts.openSessionPocketMinutes;
     // The strip's fact (Stories 2.5–2.6): the resident derivation over
     // the same queue-consistent log, both dismissals composed as
@@ -297,11 +302,13 @@ class DispenserController {
               now.microsecondsSinceEpoch,
               now.timeZoneOffset.inSeconds,
             ),
+            poolFacts: poolFacts,
           )
         : cardForItem(
             catalogue: catalogue,
             itemId: unanswered.itemId,
             origin: unanswered.itemOrigin,
+            poolFacts: poolFacts,
           );
     if (card == null) {
       // The standing close always wins (UJ-1): a due offer never
@@ -329,6 +336,7 @@ class DispenserController {
                 now.microsecondsSinceEpoch,
                 now.timeZoneOffset.inSeconds,
               ),
+              poolFacts: poolFacts,
             ),
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
@@ -372,6 +380,7 @@ class DispenserController {
     return _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
       // The bag derives once per operation (2.1) and threads into the
       // command — no shell-reachable path relies on the default.
       final contents = cardDone(
@@ -382,6 +391,7 @@ class DispenserController {
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
+        poolFacts: poolFacts,
       );
       for (final content in contents) {
         await store.appendLogEntry((
@@ -422,6 +432,7 @@ class DispenserController {
     return _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
       final contents = cardSkipped(
         itemId: dealt.card.id,
         origin: dealt.card.origin,
@@ -430,6 +441,7 @@ class DispenserController {
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
+        poolFacts: poolFacts,
       );
       for (final content in contents) {
         await store.appendLogEntry((
@@ -467,6 +479,7 @@ class DispenserController {
     final write = _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
       final contents = sessionDeclare(
         catalogue: catalogue,
         log: log,
@@ -474,6 +487,7 @@ class DispenserController {
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
+        poolFacts: poolFacts,
       );
       for (final content in contents) {
         await store.appendLogEntry((
@@ -558,12 +572,14 @@ class DispenserController {
     final write = _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
       final contents = sessionExtend(
         catalogue: catalogue,
         log: log,
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
+        poolFacts: poolFacts,
       );
       for (final content in contents) {
         await store.appendLogEntry((

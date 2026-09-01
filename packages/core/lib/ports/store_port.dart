@@ -62,6 +62,25 @@ typedef LogEntryRecord = ({
   int? reportWeek,
 });
 
+/// The pool-fact snapshot's domain objects, in snapshot order — the
+/// records' one-to-one mapping into facts, the pool's own
+/// `logEntriesOf` inverted to live here (`pool_fact.dart` cannot host
+/// it: the fact would have to import its own record, a cycle through
+/// this port). Nothing is validated: the record is field-identical to
+/// the fact (AD-5), and a row this build could not parse never reached
+/// the snapshot (the adapter excluded it at the read).
+List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
+  for (final record in records)
+    PoolFact(
+      id: record.id,
+      origin: record.origin,
+      size: record.size,
+      instantUtcMicros: record.instantUtcMicros,
+      offsetSeconds: record.offsetSeconds,
+      originContext: record.originContext,
+    ),
+];
+
 abstract interface class StorePort {
   /// Appends one pool fact. Failing to append rejects the caller's act.
   Future<void> appendPoolFact(PoolFactRecord fact);

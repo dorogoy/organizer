@@ -31,9 +31,14 @@ import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 
 /// The recording store (the session suite's own contract): appends land
-/// in order and every read replays them.
+/// in order and every read replays them. Since Story 3.3 it also carries
+/// a seeded pool-fact snapshot, so the write paths read captures beside
+/// the log exactly as the real store would.
 class _RecordingStore implements StorePort {
+  _RecordingStore([this.facts = const []]);
+
   final List<LogEntryRecord> entries = [];
+  final List<PoolFactRecord> facts;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
@@ -42,7 +47,8 @@ class _RecordingStore implements StorePort {
   Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -3078,6 +3084,202 @@ void main() {
       final offer = await buildFor(offerStore).read();
       expect(offer, isA<DispenserRestOffer>());
       expect(offer.warmReturnDue, isTrue);
+    });
+  });
+
+  group('the capture comes back as an ordinary card (Story 3.3)', () {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    PoolFactRecord captureFact(
+      Size size,
+      DateTime at, {
+      String line = 'Llamar al dentista',
+    }) => (
+      id: captureId,
+      origin: Origin.manual,
+      size: size,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: line,
+    );
+
+    test('read deals the standing capture by its own line — the '
+        'launch bundle sees the facts', () async {
+      final store = _RecordingStore([
+        captureFact(Size.focus, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      final dealt = await openSessionAndReadFirstDeal(store);
+      expect(dealt.card.id, captureId);
+      expect(dealt.card.name, 'Llamar al dentista');
+      expect(dealt.card.size, Size.focus);
+      expect(dealt.card.origin, Origin.manual);
+      expect(dealt.card.zone, isNull);
+      // The launch bundle minted the capture's deal itself.
+      expect(
+        store.entries
+            .where((entry) => entry.kind == 'card_dealt')
+            .single
+            .itemId,
+        captureId,
+      );
+    });
+
+    test('completing a focus capture closes the day\'s chunk slot — no '
+        'second large item composes after it', () async {
+      final store = _RecordingStore([
+        captureFact(Size.focus, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.complete(dealt);
+      // The answer closed the slot through the fact's own size, so the
+      // read leaves the focus tier entirely.
+      final view = await controller.read();
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.size, isNot(Size.focus));
+      expect(view.card.id, isNot(captureId));
+    });
+
+    test('skipping the capture re-bundles it — the same card returns, '
+        'its FIFO place kept', () async {
+      final store = _RecordingStore([
+        captureFact(Size.focus, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.skip(dealt);
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      expect(kinds, [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'card_skipped',
+        'card_dealt',
+      ]);
+      expect(store.entries[3].itemId, captureId);
+      expect(store.entries[4].itemId, captureId);
+      final view = await controller.read();
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, captureId);
+      expect(view.card.name, 'Llamar al dentista');
+    });
+
+    test('a maintenance capture leads the day\'s upkeep draws once the '
+        'chunk is answered', () async {
+      final store = _RecordingStore([
+        captureFact(Size.maintenance, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      // Open and answer the shipped chunk first: the capture waits in
+      // the 3-draw behind it.
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      var view = await controller.read();
+      final chunk = view as DispenserDealt;
+      expect(chunk.card.size, Size.focus);
+      expect(chunk.card.origin, Origin.shipped);
+      await controller.complete(chunk);
+      view = await controller.read();
+      final upkeep = view as DispenserDealt;
+      expect(upkeep.card.id, captureId);
+      expect(upkeep.card.size, Size.maintenance);
+      expect(upkeep.card.name, 'Llamar al dentista');
+    });
+
+    /// A seeded pocketed sitting row — the extend path's shape.
+    LogEntryRecord pocketedStart(DateTime at, int minutes) => (
+      id: 'pocket-${at.microsecondsSinceEpoch}',
+      kind: 'session_started',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      pocketMinutes: minutes,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+    );
+
+    test('declarePocket mints the capture as the fresh sitting\'s '
+        'first card — the controller-level facts threading', () async {
+      final store = _RecordingStore([
+        captureFact(Size.focus, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final view = await controller.declarePocket(15);
+      // Nothing was open, so the declaration is exactly the fresh
+      // pocketed start plus its first deal — and the deal names the
+      // capture, never the shipped chunk the empty-facts path mints.
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(
+        store.entries.singleWhere((e) => e.kind == 'card_dealt').itemId,
+        captureId,
+      );
+      expect(
+        store.entries
+            .singleWhere((e) => e.kind == 'session_started')
+            .pocketMinutes,
+        15,
+      );
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, captureId);
+    });
+
+    test('extend mints the capture as the lifted sitting\'s bundled '
+        'continue deal — the controller-level facts threading', () async {
+      final store = _RecordingStore([
+        captureFact(Size.focus, DateTime.utc(2026, 8, 29, 10)),
+      ]);
+      // An open pocketed sitting, nothing standing, room once the
+      // interval lifts the ceiling: the extension's bundled deal is
+      // the capture.
+      store.entries.add(pocketedStart(DateTime.utc(2026, 8, 29, 11, 55), 20));
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final view = await controller.extend();
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'session_started',
+        'session_extended',
+        'card_dealt',
+      ]);
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(store.entries.last.itemId, captureId);
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, captureId);
+      expect(view.card.name, 'Llamar al dentista');
     });
   });
 }

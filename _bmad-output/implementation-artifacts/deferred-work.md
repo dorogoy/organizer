@@ -189,3 +189,9 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a.md`
   summary: Multi-append batches (a capture's pool fact + `capture_created` entry, like every bundled dispenser write) are not atomic: death or store failure between appends leaves an orphan fact, and a retry after an entry-append failure mints a second fact while the first stands.
   evidence: `lib/capture/capture_controller.dart` `save()` (two sequential port appends; StorePort offers no transaction API by design); same shape as `DispenserController.complete`/`skip`. Pre-existing architecture property this story extends, not introduces; fixing it is a store-wide decision (batch port call or drift transaction) owned upstream.
+
+## Deferred from: code review of 3-3-the-capture-comes-back-as-an-ordinary-card (2026-09-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/3-3-the-capture-comes-back-as-an-ordinary-card.md`
+  summary: `eligibleDay`/`captureDealWindowConsumedDays` are quadratic in the log (`_sizeNotExcludedAtStart` rescans all entries per candidate session start; the fold re-runs the predicate per charged day), which FR-26's per-capture instrumentation will inherit at scale.
+  evidence: `packages/core/lib/derive/eligible_day.dart` (`_sizeNotExcludedAtStart` inner scan at each start; `captureDealWindowConsumedDays` loop). Negligible at validation-build log sizes and the derivation has no production consumer yet; pre-indexing energy rows by domestic day in one pass belongs to the story that first adopts the window (FR-5 counter / FR-26 series).

@@ -3,7 +3,9 @@
 /// over the log — which session is open, the domestic day every card act
 /// is charged to, the days whose Focus Chunk slot a `card_done` closed,
 /// the items a `card_done` answered all-time, the least-recently-dealt
-/// index, and the open session's dealt-but-unanswered card.
+/// index, the domestic days each item's deals were charged to (Story
+/// 3.3's deal-window input), and the open session's dealt-but-unanswered
+/// card.
 ///
 /// Nothing here is stored (AD-1): the walk is a pure function of the
 /// entries, replayed whenever a derivation needs it. Entries arrive in
@@ -43,6 +45,7 @@ final class LogFacts {
     required this.lastDealtInstantByItemId,
     required this.focusSlotClosedDays,
     required this.dealtCountsByDay,
+    required this.dealtDaysByItemId,
     required this.answeredItemIds,
     required this.openSessionStart,
     required this.dealtUnanswered,
@@ -63,6 +66,14 @@ final class LogFacts {
   /// Per domestic day, how many `card_dealt` rows were charged to it by
   /// the dealt item's taxonomy size — the day's draw counts.
   final Map<Day, Map<Size, int>> dealtCountsByDay;
+
+  /// Per item id, the domestic days a `card_dealt` was charged to —
+  /// the capture's deal-window consumption input (Story 3.3, AD-24),
+  /// unconditional in the item's id: a day lands here whether or not
+  /// any source could size the item, and the window fold reads these
+  /// days without re-deriving attribution (AD-19's session-day rule,
+  /// the same rule [dealtCountsByDay] charges by).
+  final Map<String, Set<Day>> dealtDaysByItemId;
 
   /// Every item id with a recorded `card_done`, all-time: an answered
   /// deal, the only thing that consumes (AD-20 — FR-31's floor counts
@@ -130,9 +141,18 @@ Day _chargedDayOf(
 /// policy. The [catalogue] resolves a referenced
 /// item's taxonomy size — the shipped catalogue is 1.6's only item
 /// source; an id it does not know carries no size yet and closes
-/// nothing, and later sources extend exactly here. Its ids must be
-/// unique ([parseCatalogue] enforces this on the asset path); a
-/// hand-built duplicate fails the walk fast rather than reading a
+/// nothing, and later sources extend exactly here. The [poolFacts]
+/// (Story 3.3) are the second sizing source at that same seam,
+/// fill-only-absent: a manual fact's id carries its own taxonomy
+/// size, so its deals charge the day's draw counts, its focus done
+/// closes chunk slots and its answers charge the sitting's estimate
+/// exactly like a shipped id's — while the walk stays inert to
+/// `capture_created` rows themselves (candidacy reads facts, never
+/// the kind). A fact id the catalogue already sizes keeps the
+/// catalogue's, and a duplicate fact id keeps the snapshot's first.
+/// Catalogue ids
+/// must be unique ([parseCatalogue] enforces this on the asset path);
+/// a hand-built duplicate fails the walk fast rather than reading a
 /// last-wins size (AD-23).
 ///
 /// The supersede pair (Story 2.2, AD-19): a `session_started` that
@@ -154,7 +174,11 @@ Day _chargedDayOf(
 /// the pair adjacency here is unchanged. An extension outside any
 /// session, or one whose minutes are not a positive count, sums
 /// nothing — tolerance, never repair (AD-23).
-LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
+LogFacts walkLog(
+  List<LogEntry> entries, {
+  Catalogue? catalogue,
+  List<PoolFact> poolFacts = const [],
+}) {
   const calendar = Calendar();
   final sizeByItemId = <String, Size>{};
   if (catalogue != null) {
@@ -169,10 +193,19 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
       sizeByItemId[entry.id] = entry.size;
     }
   }
+  for (final fact in poolFacts) {
+    // Fill-only-absent, never overwrite: the catalogue wins an id
+    // collision (the same precedence `cardForItem` resolves by —
+    // catalogue first, facts behind), and a duplicate fact id keeps
+    // the snapshot's first, replay order being the one order the
+    // store guarantees (AD-3).
+    sizeByItemId.putIfAbsent(fact.id, () => fact.size);
+  }
 
   final lastDealtInstantByItemId = <String, int>{};
   final focusSlotClosedDays = <Day>{};
   final dealtCountsByDay = <Day, Map<Size, int>>{};
+  final dealtDaysByItemId = <String, Set<Day>>{};
   final answeredItemIds = <String>{};
   ({int instantUtcMicros, int offsetSeconds})? openSessionStart;
   ({String itemId, Origin itemOrigin})? dealtUnanswered;
@@ -256,7 +289,9 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
       case ItemActEntry(:final kind, :final itemId, :final itemOrigin):
         if (kind == LogKind.cardDealt) {
           lastDealtInstantByItemId[itemId] = entry.instantUtcMicros;
-          chargeDealToDay(dayOfOpenOrOwnSession(entry), sizeByItemId[itemId]);
+          final chargedDay = dayOfOpenOrOwnSession(entry);
+          chargeDealToDay(chargedDay, sizeByItemId[itemId]);
+          dealtDaysByItemId.putIfAbsent(itemId, () => {}).add(chargedDay);
           if (openSessionStart != null) {
             dealtUnanswered = (itemId: itemId, itemOrigin: itemOrigin);
           }
@@ -293,6 +328,7 @@ LogFacts walkLog(List<LogEntry> entries, {Catalogue? catalogue}) {
     lastDealtInstantByItemId: lastDealtInstantByItemId,
     focusSlotClosedDays: focusSlotClosedDays,
     dealtCountsByDay: dealtCountsByDay,
+    dealtDaysByItemId: dealtDaysByItemId,
     answeredItemIds: answeredItemIds,
     openSessionStart: openSessionStart,
     dealtUnanswered: dealtUnanswered,

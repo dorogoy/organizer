@@ -14,9 +14,12 @@ import 'test_util.dart';
 /// A stand-in store holding inert records, proving the facade reads only
 /// through the port and writes never (AD-3, AD-6).
 class _FakeStore implements StorePort {
-  _FakeStore([List<LogEntryRecord>? seeded]) : _records = [...?seeded];
+  _FakeStore([List<LogEntryRecord>? seeded, List<PoolFactRecord>? facts])
+    : _records = [...?seeded],
+      _facts = [...?facts];
 
   final List<LogEntryRecord> _records;
+  final List<PoolFactRecord> _facts;
   int appends = 0;
 
   @override
@@ -26,7 +29,8 @@ class _FakeStore implements StorePort {
   Future<void> appendLogEntry(LogEntryRecord entry) async => appends++;
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(_facts);
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -666,5 +670,119 @@ void main() {
       isNot(contains('=> List')),
       reason: 'no function here hands out a collection of any kind',
     );
+  });
+
+  group('the pool-fact snapshot threads through the read (Story 3.3)', () {
+    PoolFactRecord captureFact(
+      String id,
+      Size size,
+      int micros, {
+      String line = 'Llamar al dentista',
+    }) => (
+      id: id,
+      origin: Origin.manual,
+      size: size,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      originContext: line,
+    );
+
+    test('a standing capture precedes same-size catalogue work — the '
+        'session\'s first deal is the capture, by its own line', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final card = await nextCard(
+        _FakeStore(
+          [_record(LogKind.sessionStarted.name, start, id: 'open')],
+          [captureFact('cap-focus', Size.focus, start - 60 * 1000 * 1000)],
+        ),
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(card!.id, 'cap-focus');
+      expect(card.name, 'Llamar al dentista');
+      expect(card.size, Size.focus);
+      expect(card.origin, Origin.manual);
+      expect(card.zone, isNull);
+      expect(card.estimateSeconds, focusEstimateSeconds);
+    });
+
+    test('a dealt-but-unanswered capture renders again as its own card '
+        '— the standing-card path never depends on candidacy', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final store = _FakeStore(
+        [
+          _record(LogKind.sessionStarted.name, start, id: 'open'),
+          _record(
+            LogKind.cardDealt.name,
+            start + 1,
+            itemId: 'cap-man',
+            itemOrigin: Origin.manual,
+          ),
+        ],
+        [captureFact('cap-man', Size.maintenance, start - 60 * 1000 * 1000)],
+      );
+      final first = await nextCard(
+        store,
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      final second = await nextCard(
+        store,
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(first!.id, 'cap-man');
+      expect(first.name, 'Llamar al dentista');
+      expect(first.zone, isNull);
+      expect(second, first);
+      expect(store.appends, 0, reason: 'nextCard writes nothing');
+    });
+
+    test('a store with no facts reads exactly as before — the empty '
+        'snapshot is the old behavior', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final card = await nextCard(
+        _FakeStore([_record(LogKind.sessionStarted.name, start, id: 'open')]),
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(card!.id, 'zona-a');
+    });
+
+    test('FIFO through the record seam: snapshot order opposing the '
+        'creation instants still deals the older capture — '
+        'poolFactsOf\'s instant mapping is the FIFO key', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      // The snapshot lists the younger fact first, and its id sorts
+      // first too; only the recorded creation instants order the pair.
+      final card = await nextCard(
+        _FakeStore(
+          [_record(LogKind.sessionStarted.name, start, id: 'open')],
+          [
+            captureFact(
+              'cap-a',
+              Size.focus,
+              start - 30 * 60 * 1000 * 1000,
+              line: 'Línea nueva',
+            ),
+            captureFact(
+              'cap-z',
+              Size.focus,
+              start - 90 * 60 * 1000 * 1000,
+              line: 'Línea vieja',
+            ),
+          ],
+        ),
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+      );
+      expect(card!.id, 'cap-z');
+      expect(card.name, 'Línea vieja');
+    });
   });
 }

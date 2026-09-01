@@ -50,6 +50,14 @@
 /// standing card stays unanswered and the deal is suppressed. There
 /// is no fourth closing cause: `sessionExtend` never appends
 /// `session_ended` and never re-opens a closed sitting.
+///
+/// Story 3.3 threads the pool-fact snapshot through every command
+/// that resolves or mints a deal (FR-27): the facts arrive as
+/// defaulted inert data — the shell reads them once per queued
+/// operation beside the log — so a bundled `card_dealt` sees manual
+/// captures exactly as the fresh-read paths do, and a capture can be
+/// the session's first card, the bundled next card, or the standing
+/// card a supersede pair carries.
 
 library;
 
@@ -153,8 +161,9 @@ List<LogEntryContent> sessionStart({
   required int offsetSeconds,
   int? bagMinutes,
   int? pocketMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
+  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   if (facts.openSessionStart != null) {
     return const [];
   }
@@ -175,6 +184,7 @@ List<LogEntryContent> sessionStart({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(startLog),
     energy: deriveLivePoolEnergy(startLog, instantUtcMicros, offsetSeconds),
+    poolFacts: poolFacts,
   );
   return [_start(pocketMinutes: pocketMinutes), if (deal != null) _deal(deal)];
 }
@@ -193,6 +203,7 @@ List<LogEntryContent> cardDone({
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
   return _answered(
     kind: LogKind.cardDone,
@@ -203,6 +214,7 @@ List<LogEntryContent> cardDone({
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes,
+    poolFacts: poolFacts,
   );
 }
 
@@ -219,6 +231,7 @@ List<LogEntryContent> cardSkipped({
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
   return _answered(
     kind: LogKind.cardSkipped,
@@ -229,6 +242,7 @@ List<LogEntryContent> cardSkipped({
     instantUtcMicros: instantUtcMicros,
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes,
+    poolFacts: poolFacts,
   );
 }
 
@@ -272,8 +286,9 @@ List<LogEntryContent> sessionExtend({
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
+  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   if (facts.openSessionStart == null) {
     return const [];
   }
@@ -293,6 +308,7 @@ List<LogEntryContent> sessionExtend({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(extendLog),
     energy: deriveLivePoolEnergy(extendLog, instantUtcMicros, offsetSeconds),
+    poolFacts: poolFacts,
   );
   return [_extend(), if (deal != null) _deal(deal)];
 }
@@ -315,6 +331,7 @@ List<LogEntryContent> sessionDeclare({
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
   if (pocketMinutes < pocketLeastMinutes || pocketMinutes > pocketMostMinutes) {
     return const [];
@@ -340,6 +357,7 @@ List<LogEntryContent> sessionDeclare({
       offsetSeconds: offsetSeconds,
       bagMinutes: bagMinutes,
       pocketMinutes: pocketMinutes,
+      poolFacts: poolFacts,
     ),
   ];
 }
@@ -360,8 +378,9 @@ List<LogEntryContent> appOpen({
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
+  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final open = facts.openSessionStart;
   final pocket = facts.openSessionPocketMinutes;
   final pocketElapsed =
@@ -390,6 +409,7 @@ List<LogEntryContent> appOpen({
       instantUtcMicros: instantUtcMicros,
       offsetSeconds: offsetSeconds,
       bagMinutes: bagMinutes,
+      poolFacts: poolFacts,
     ),
   ];
 }
@@ -403,8 +423,9 @@ List<LogEntryContent> _answered({
   required int instantUtcMicros,
   required int offsetSeconds,
   required int? bagMinutes,
+  List<PoolFact> poolFacts = const [],
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
+  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final unanswered = facts.dealtUnanswered;
   if (facts.openSessionStart == null ||
       unanswered == null ||
@@ -441,6 +462,7 @@ List<LogEntryContent> _answered({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(answeredLog),
     energy: deriveLivePoolEnergy(answeredLog, instantUtcMicros, offsetSeconds),
+    poolFacts: poolFacts,
   );
   return [
     (
