@@ -2533,6 +2533,35 @@ void main() {
       expect(composition.maintenance.first.id, 'man-a');
     });
 
+    test('a bag below ten minutes drops the focus capture from the '
+        'chunk — the existing gate still holds', () {
+      final fact = _captureFact('cap-focus', Size.focus, _day(0, 8));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 9,
+        poolFacts: [fact],
+      );
+      expect(composition.focus, isNull);
+      expect(
+        composition.instantHabits.map((card) => card.id),
+        isNot(contains('cap-focus')),
+      );
+
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: [_sessionStarted(_day(0, 9))],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 9,
+        poolFacts: [fact],
+      );
+      expect(deal!.id, isNot('cap-focus'));
+      expect(deal.size, isNot(Size.focus));
+    });
+
     test('a 🔴 day: focus and maintenance captures reach no draw, an '
         'instant capture deals with the habits (the existing ceiling)', () {
       final focus = _captureFact('cap-focus', Size.focus, _day(0, 8));

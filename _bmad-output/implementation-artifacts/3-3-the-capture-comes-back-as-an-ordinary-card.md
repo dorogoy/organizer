@@ -90,6 +90,12 @@ context:
 - Given the window derivation over any log, when it is evaluated, then it counts exactly the capture's eligible dealt days (answered or skipped), freezes across 🔴-excluded and absent days, resumes with no expiry, and no second eligibility definition exists anywhere.
 - Given any screen or the read facade, when audited, then nothing lists, counts, filters or browses captures, and a dealt capture's origin never reaches the Dispenser.
 
+### Review Findings
+
+- [x] [Review][Patch] Focus capture is untested against the bag half of the chunk gate [`packages/core/lib/weave/weave.dart:479`]
+- [x] [Review][Patch] Launch path does not pin pool-fact threading [`test/session/session_controller_test.dart:34`]
+- [x] [Review][Patch] Read-facade header still says derive holds two residents [`packages/core/lib/facade/read_facade.dart:6`]
+
 ## Spec Change Log
 
 ## Design Notes

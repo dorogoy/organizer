@@ -22,7 +22,10 @@ import 'package:organizer/strings/app_strings_es.dart';
 /// — the same contract the drift adapter offers over (instant, append
 /// sequence), faithful here because the minted instants never decrease.
 class _RecordingStore implements StorePort {
+  _RecordingStore([this.facts = const []]);
+
   final List<LogEntryRecord> entries = [];
+  final List<PoolFactRecord> facts;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
@@ -31,7 +34,8 @@ class _RecordingStore implements StorePort {
   Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -226,6 +230,31 @@ void main() {
       );
     },
   );
+
+  test('app open with a standing focus capture deals the capture, not '
+      'a catalogue chunk', () async {
+    final store = _RecordingStore([
+      (
+        id: 'cap-focus',
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros:
+            _fixedClock().microsecondsSinceEpoch - 60 * 1000 * 1000,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+      ),
+    ]);
+    await buildController(store).handleAppOpen();
+
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ]);
+    final dealt = store.entries[2];
+    expect(dealt.itemId, 'cap-focus');
+    expect(dealt.itemOrigin, Origin.manual);
+  });
 
   test('opening again with no backgrounding in between appends only '
       'app_opened — no second session_started, no second card_dealt', () async {
