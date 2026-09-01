@@ -6,8 +6,9 @@
 /// tolerate (AD-23) — and, additively since Story 2.1, the eighth kind
 /// `setting_changed`, since Story 2.4 the ninth kind `session_extended`
 /// (FR-10, AD-19), since Story 2.5 the tenth kind `energy_set`
-/// (FR-4, AD-4), and since Story 2.6 the eleventh kind `report_answered`
-/// (SM-2, AD-21). A new kind is a new kind, never a flag on an old one.
+/// (FR-4, AD-4), since Story 2.6 the eleventh kind `report_answered`
+/// (SM-2, AD-21), and since Story 3.2 the twelfth kind `capture_created`
+/// (FR-27, AD-14). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -49,6 +50,7 @@ final class LogKind {
   static const settingChanged = LogKind._('setting_changed', known: true);
   static const energySet = LogKind._('energy_set', known: true);
   static const reportAnswered = LogKind._('report_answered', known: true);
+  static const captureCreated = LogKind._('capture_created', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -63,6 +65,7 @@ final class LogKind {
     'setting_changed': settingChanged,
     'energy_set': energySet,
     'report_answered': reportAnswered,
+    'capture_created': captureCreated,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -107,8 +110,10 @@ sealed class LogEntry {
   final int offsetSeconds;
 }
 
-/// A user act on a pool item (`card_dealt`, `card_done`, `card_skipped`):
-/// the kind, the instant, and the referenced item's id and origin (AD-14).
+/// A user act on a pool item (`card_dealt`, `card_done`, `card_skipped`,
+/// and — since Story 3.2, FR-27, AD-14 — `capture_created`, the manual
+/// capture's genesis row): the kind, the instant, and the referenced
+/// item's id and origin (AD-14).
 final class ItemActEntry extends LogEntry {
   const ItemActEntry({
     required super.id,
@@ -430,7 +435,8 @@ typedef LogEntryConversion = ({LogEntry? entry, LogRecordFlaw? flaw});
 bool _isItemAct(LogKind kind) =>
     kind == LogKind.cardDealt ||
     kind == LogKind.cardDone ||
-    kind == LogKind.cardSkipped;
+    kind == LogKind.cardSkipped ||
+    kind == LogKind.captureCreated;
 
 bool _isMoment(LogKind kind) =>
     kind == LogKind.sessionEnded || kind == LogKind.appOpened;
@@ -450,7 +456,10 @@ bool _isMoment(LogKind kind) =>
 /// `energy_set` its level and nothing else (Story 2.5 — an absent or
 /// out-of-range level excludes the row), `report_answered` its 1–5
 /// answer and its week and nothing else (Story 2.6 — an absent or
-/// out-of-range value, or an absent week, excludes the row). An
+/// out-of-range value, or an absent week, excludes the row), and
+/// `capture_created` its full item pair and nothing else (Story 3.2 —
+/// the item-act family's own shape, the pair naming the pool fact the
+/// same tap appended). An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known

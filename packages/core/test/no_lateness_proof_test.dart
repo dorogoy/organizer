@@ -600,10 +600,19 @@ final class KitchenSink {
   group('the frozen shapes (NFR9 — no field may express lateness)', () {
     test('PoolFact', () {
       // The pool fact carries no owner, no date-only value and no
-      // assignment to a future day (AD-1, AD-14).
+      // assignment to a future day (AD-1, AD-14) — and, since Story
+      // 3.2, the nullable Origin Context: a manual capture's own
+      // single line, never a deadline any derivation could read.
       expect(
         _classOwnFields('PoolFact', 'pool/pool_fact.dart'),
-        equals(['id', 'origin', 'size', 'instantUtcMicros', 'offsetSeconds']),
+        equals([
+          'id',
+          'origin',
+          'size',
+          'instantUtcMicros',
+          'offsetSeconds',
+          'originContext',
+        ]),
       );
     });
 
@@ -826,10 +835,18 @@ final class KitchenSink {
 
     test('PoolFactRecord', () {
       // The persisted pool DTO is field-identical to the domain fact —
-      // the schema's exact columns, no more (AD-1, AD-5).
+      // the schema's exact columns, no more (AD-1, AD-5). The nullable
+      // Origin Context column is schema v6's additive change (3.2).
       expect(
         _recordFields('ports/store_port.dart', 'PoolFactRecord'),
-        equals(['id', 'origin', 'size', 'instantUtcMicros', 'offsetSeconds']),
+        equals([
+          'id',
+          'origin',
+          'size',
+          'instantUtcMicros',
+          'offsetSeconds',
+          'originContext',
+        ]),
       );
     });
 
@@ -936,8 +953,8 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-seven
-    // declarations above (twenty-two classes, five record typedefs).
+    // The frozen census, keyed by (path, name): the twenty-nine
+    // declarations above (twenty-two classes, seven record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -962,6 +979,8 @@ final class KitchenSink {
       'ports/store_port.dart:PoolFactRecord',
       'ports/store_port.dart:LogEntryRecord',
       'commands/session_commands.dart:LogEntryContent',
+      'commands/capture_commands.dart:CaptureFactContent',
+      'commands/capture_commands.dart:CaptureContent',
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',
       'derive/checkpoint.dart:CheckpointState',
@@ -1474,6 +1493,98 @@ final class KitchenSink {
     expect(commandMints, commandRefs);
     expect(
       RegExp(r'==\s*LogKind\.reportAnswered\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('capture_created is minted in exactly one file and read nowhere in '
+      'core — 3.3\'s derivation will read the rows, never the kind '
+      'constant (Story 3.2, FR-27, AD-14, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary, through the item-act
+    // family the kind joins) and the one command file that mints it.
+    // No derivation reads the kind yet — 3.3's candidacy derivation
+    // will read the pool facts and the ItemActEntry *type* — so a
+    // LogKind.captureCreated reference anywhere else in core lib is a
+    // finding.
+    const allowed = {'log/log_entry.dart', 'commands/capture_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bcaptureCreated\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the captureCreated identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'capture_created' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]capture_created['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'capture_created' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry
+    // and the item-act classifier — the kind has no subtype of its own
+    // (ItemActEntry's kind is a constructor parameter, never an
+    // initialized override).
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]capture_created['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only capture_created wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\bcaptureCreated\b').allMatches(definitionHome),
+      hasLength(3),
+      reason:
+          'the definition, registry and item-act classifier are '
+          'the only captureCreated identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.captureCreated\b').allMatches(definitionHome),
+      hasLength(1),
+      reason:
+          'the item-act classifier is the only qualified captureCreated '
+          'reader in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(
+      _source('commands/capture_commands.dart'),
+    );
+    final commandRefs = RegExp(r'LogKind\.captureCreated\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.captureCreated\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.captureCreated\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
     );

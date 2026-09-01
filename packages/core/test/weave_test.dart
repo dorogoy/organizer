@@ -2217,4 +2217,50 @@ void main() {
       );
     });
   });
+
+  group('capture_created rows and the weave (Story 3.2)', () {
+    ItemActEntry capture(int micros, String itemId) => ItemActEntry(
+      id: 'capture-$micros-$itemId',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.captureCreated,
+      itemId: itemId,
+      itemOrigin: Origin.manual,
+    );
+
+    test('the walk is inert to capture rows — a capture is not a '
+        'candidate yet (3.3 derives candidacy, never the walk)', () {
+      // The report-row idiom, on the twelfth kind: a well-formed
+      // capture rides the log and moves no fact the walk makes — the
+      // row's itemId names a fact the walk never deals, so the no-op
+      // arm is pinned, not assumed.
+      final withCapture = walkLog([
+        capture(_day(0, 8), 'man-cap-a'),
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+        capture(_day(0, 10), 'man-cap-b'),
+      ], catalogue: _catalogue);
+      final without = walkLog([
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _dealt(_day(0, 9), 'zona-z1-a'),
+      ], catalogue: _catalogue);
+      expect(
+        withCapture.lastDealtInstantByItemId,
+        without.lastDealtInstantByItemId,
+      );
+      expect(withCapture.focusSlotClosedDays, without.focusSlotClosedDays);
+      expect(withCapture.dealtCountsByDay, without.dealtCountsByDay);
+      expect(withCapture.answeredItemIds, without.answeredItemIds);
+      expect(withCapture.openSessionStart, without.openSessionStart);
+      expect(withCapture.dealtUnanswered, without.dealtUnanswered);
+      expect(
+        withCapture.openSessionPocketMinutes,
+        without.openSessionPocketMinutes,
+      );
+      expect(
+        withCapture.openSessionAnsweredSeconds,
+        without.openSessionAnsweredSeconds,
+      );
+    });
+  });
 }

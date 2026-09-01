@@ -60,6 +60,9 @@ class AppStringsEs extends AppStrings {
   }
 
   @override
+  String get durationFocusRange => '10–15 min';
+
+  @override
   String get destinationKeep => 'Quedármelo';
 
   @override

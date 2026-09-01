@@ -102,6 +102,13 @@
 // persists through the session and is gone at the next opening inside
 // 48 h, and nothing on the surface counts the days away (they are not
 // representable).
+//
+// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance
+// joins the top chrome band top-right — the utility glyph inside a 48dp
+// target, beside the centred chip it never displaces, in both chrome
+// branches (pinned and in-frame). One tap, guarded like every push this
+// surface owns, opens the capture surface; nothing here lists, counts
+// or remembers captures — the entry is a way in, never a way back.
 import 'dart:async';
 
 import 'package:core/derive/strip.dart';
@@ -110,9 +117,12 @@ import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../capture/capture_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
+import '../capture/capture_screen.dart';
+import '../glyphs/pencil_glyph.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
 import 'ambient_strip.dart';
@@ -150,6 +160,7 @@ class DispenserScreen extends StatefulWidget {
     required this.controller,
     this.sessionSettled,
     this.settings,
+    this.capture,
   });
 
   final DispenserController controller;
@@ -161,6 +172,13 @@ class DispenserScreen extends StatefulWidget {
   /// test seam), the footer renders and opens the carrier with no
   /// controller behind it.
   final SettingsController? settings;
+
+  /// The Manual Capture seam (Story 3.2): main constructs it over the
+  /// same store and the shared write queue, and the Lápiz entry hands
+  /// it to the capture surface. Absent (the test seam), the entry still
+  /// opens the surface with no controller behind it — the write goes
+  /// nowhere and the route stays.
+  final CaptureController? capture;
 
   @override
   State<DispenserScreen> createState() => _DispenserScreenState();
@@ -714,11 +732,14 @@ class _DispenserScreenState extends State<DispenserScreen>
       } ??
       defaultPocketMinutes;
 
-  /// The pocket trigger (Story 2.2, FR-8, UX-DR18): the duration-chip
-  /// pill top-centred above the card — and standing on the warm close
-  /// too, because a spent pocket is declared until superseded. The
-  /// carried minutes are log-derived data, never session state held in
-  /// memory as truth.
+  /// The top chrome band (Stories 2.2 and 3.2): the pocket trigger pill
+  /// top-centred above the card — and standing on the warm close too,
+  /// because a spent pocket is declared until superseded — with the
+  /// Lápiz entry top-right in the same band, overlaid so the chip keeps
+  /// the exact layout it owned alone: full-band wrap width and the
+  /// screen's x-axis centre, in both chrome branches (pinned and
+  /// in-frame). The carried minutes are log-derived data, never session
+  /// state held in memory as truth.
   Widget _pocketTrigger(BuildContext context, {bool inFrame = false}) {
     return SafeArea(
       bottom: false,
@@ -728,15 +749,63 @@ class _DispenserScreenState extends State<DispenserScreen>
           padding: EdgeInsets.symmetric(
             horizontal: inFrame ? 0 : Spacing.screenMargin,
           ),
-          child: Center(
-            child: PocketTriggerChip(
-              minutes: _standingPocketMinutes,
-              onTap: _openPocketLadder,
-            ),
+          child: Stack(
+            children: [
+              Center(
+                // On a wide ground, symmetric inner bounds — one glyph
+                // zone wide plus the action gap — keep the chip exactly
+                // screen-centred while it wraps clear of the Lápiz
+                // target: the band reads as two controls, never one
+                // pastel passing beneath a glyph. On a short ground the
+                // accessibility floor outranks the clearance (Story
+                // 2.3's own precedent): the chip keeps the full-band
+                // wrap it owned alone and the glyph overlays the band's
+                // edge, because starving the wrap there would grow the
+                // band past the floor.
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final clearOfGlyph = constraints.maxWidth >= _cardMaxWidth;
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: clearOfGlyph
+                            ? Spacing.touchTargetMin + Spacing.actionGap
+                            : 0,
+                      ),
+                      child: PocketTriggerChip(
+                        minutes: _standingPocketMinutes,
+                        onTap: _openPocketLadder,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Positioned.directional(
+                textDirection: Directionality.of(context),
+                end: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(child: _LapizEntry(onTap: _openCapture)),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// One tap on the Lápiz entry (Story 3.2, FR-27): Manual Capture, one
+  /// hop from the Dispenser. The same rapid-tap guard as every push
+  /// this surface owns — a push while another route transitions in
+  /// would stack a second route — and no confirmation, no writes: the
+  /// surface below stands exactly as it is until the route pops back.
+  void _openCapture() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CaptureScreen(controller: widget.capture),
+        ),
+      );
+    }
   }
 
   /// The quiet stepped ladder (Story 2.2): a titleless modal bottom
@@ -1100,6 +1169,36 @@ class _DispenserScreenState extends State<DispenserScreen>
               child: content,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance —
+/// the utility glyph in its neutral mass inside a 48dp opaque target,
+/// declared to readers as a button (the battery mark's own grammar).
+/// One tap opens the capture surface; no label, no fill, no badge,
+/// nothing animated, and nothing about it counts or lists captures —
+/// prose departs and mass works, and this mass is work's front door.
+class _LapizEntry extends StatelessWidget {
+  const _LapizEntry({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        // Absent, the tap stays an accepted no-op — a null onTap would
+        // render a disabled control instead.
+        onTap: onTap ?? () {},
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: Spacing.touchTargetMin,
+          height: Spacing.touchTargetMin,
+          child: Center(child: PencilGlyph(Spacing.glyphZoneMarker)),
         ),
       ),
     );

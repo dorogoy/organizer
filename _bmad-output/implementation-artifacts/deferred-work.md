@@ -183,3 +183,12 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/3-1-on-device-recognition-availability-verified-on-the-handsets.md`
   summary: Epic-3 context still says probe "each of the three validation handsets"; regenerate that line (and the three-handset ritual notes in epics.md) against the PRD two-managed + field-only fact. Architecture still owes AD-18 a cable-free update/export path for the field-only handset.
   evidence: `epic-3-context.md:48` (planning wording kept on purpose until regeneration); PRD §8 + changelog 2026-09-01; `ARCHITECTURE-SPINE.md` AD-18 line 163. Story 3-1's builder decision already matches the PRD; this is the downstream doc debt.
+
+## Deferred from: code review of 3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a (2026-09-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a.md`
+  summary: Multi-append batches (a capture's pool fact + `capture_created` entry, like every bundled dispenser write) are not atomic: death or store failure between appends leaves an orphan fact, and a retry after an entry-append failure mints a second fact while the first stands.
+  evidence: `lib/capture/capture_controller.dart` `save()` (two sequential port appends; StorePort offers no transaction API by design); same shape as `DispenserController.complete`/`skip`. Pre-existing architecture property this story extends, not introduces; fixing it is a store-wide decision (batch port call or drift transaction) owned upstream.
+- source_spec: `_bmad-output/implementation-artifacts/3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a.md`
+  summary: The Dispenser's Lápiz glyph-only button reaches screen readers unlabeled (TalkBack announces a nameless button); wiring a `Semantics` label needs copy that is not in the authorized string table.
+  evidence: `lib/ui/dispenser/dispenser_screen.dart` `_LapizEntry` (Semantics button, no label — the app's first glyph-only control); the mockup's HTML title "Lápiz — anotar" (`dispenser-canonical-1.html`) names it but no ARB string exists and the spec's Always tier bars new copy without human authorization.

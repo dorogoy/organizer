@@ -18,13 +18,17 @@ import 'package:core/pool/pool_fact.dart';
 
 /// An inert pool-fact DTO: a shell-minted UUIDv7 id, the origin set at
 /// genesis, the taxonomy size, and the creation instant plus the local
-/// offset in force (AD-4, AD-14). No owner, no date-only value.
+/// offset in force (AD-4, AD-14) — and, additively since schema v6
+/// (Story 3.2), the nullable Origin Context: a manual capture's own
+/// single line, null for origins whose context lives elsewhere. No
+/// owner, no date-only value.
 typedef PoolFactRecord = ({
   String id,
   Origin origin,
   Size size,
   int instantUtcMicros,
   int offsetSeconds,
+  String? originContext,
 });
 
 /// An inert log-entry DTO: id, kind (as its wire name — unknown kinds are

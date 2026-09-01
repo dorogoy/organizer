@@ -28,6 +28,11 @@
 -- additive-only ALTER TABLE path, so a v4 install upgrades in place with
 -- its rows unchanged.
 --
+-- Schema v6 (Story 3.2) adds the one nullable pool-fact column
+-- `origin_context` — a manual capture's Origin Context, its own single
+-- line (AD-14) — the same additive-only ALTER TABLE path, so a v5
+-- install upgrades in place with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -40,7 +45,8 @@ CREATE TABLE pool_facts (
   origin TEXT NOT NULL,
   size TEXT NOT NULL,
   instant_utc_micros INTEGER NOT NULL,
-  offset_seconds INTEGER NOT NULL
+  offset_seconds INTEGER NOT NULL,
+  origin_context TEXT NULL
 );
 
 CREATE TABLE log_entries (

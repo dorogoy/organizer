@@ -11,12 +11,13 @@ import 'package:organizer/store/substrate.dart';
 
 SubstrateDatabase _open() => SubstrateDatabase(NativeDatabase.memory());
 
-PoolFactRecord _fact({String? id}) => (
+PoolFactRecord _fact({String? id, String? originContext}) => (
   id: id ?? const Uuid().v7(),
   origin: Origin.manual,
   size: Size.maintenance,
   instantUtcMicros: 1758900000123456,
   offsetSeconds: 7200,
+  originContext: originContext,
 );
 
 LogEntryRecord _entry({
@@ -92,6 +93,7 @@ void main() {
     expect(factRow.size, 'maintenance');
     expect(factRow.instantUtcMicros, 1758900000123456);
     expect(factRow.offsetSeconds, 7200);
+    expect(factRow.originContext, isNull);
 
     final entryRow = await (db.select(
       db.logEntries,
@@ -363,6 +365,7 @@ void main() {
           size: Size.maintenance,
           instantUtcMicros: 500,
           offsetSeconds: 7200,
+          originContext: null,
         ));
 
         await fact('zz-fact-appended-first');
@@ -484,6 +487,7 @@ void main() {
         size: Size.maintenance,
         instantUtcMicros: micros,
         offsetSeconds: 7200,
+        originContext: null,
       ));
 
       await fact('late', 300);
@@ -504,6 +508,7 @@ void main() {
         size: Size.maintenance,
         instantUtcMicros: 100,
         offsetSeconds: 0,
+        originContext: null,
       ));
       await db.customInsert(
         'INSERT INTO pool_facts '
@@ -524,13 +529,16 @@ void main() {
               rows.map((row) => row.read<String>('name')).toList()..sort(),
         );
 
-    test('pool_facts holds exactly its five declared columns', () async {
+    test('pool_facts holds exactly its six declared columns — the five '
+        'originals plus the nullable Origin Context column schema v6 '
+        'adds (Story 3.2, AD-14, AD-23)', () async {
       await store.appendPoolFact(_fact());
       expect(await columns('pool_facts'), [
         'id',
         'instant_utc_micros',
         'offset_seconds',
         'origin',
+        'origin_context',
         'size',
       ]);
     });
@@ -557,6 +565,26 @@ void main() {
         'setting_value',
         'stack',
       ]);
+    });
+
+    test('a capture-shaped fact round-trips through the adapter '
+        '(Story 3.2) — the Origin Context rides the fact verbatim, '
+        'trimmed line and nothing more', () async {
+      final id = const Uuid().v7();
+      await store.appendPoolFact(
+        _fact(id: id, originContext: 'llamar al dentista'),
+      );
+
+      final factRow = await (db.select(
+        db.poolFacts,
+      )..where((row) => row.id.equals(id))).getSingle();
+      expect(factRow.originContext, 'llamar al dentista');
+
+      final snapshot = await store.readPoolFacts();
+      expect(snapshot, hasLength(1));
+      expect(snapshot.single.originContext, 'llamar al dentista');
+      expect(snapshot.single.origin, Origin.manual);
+      expect(snapshot.single.size, Size.maintenance);
     });
 
     test('a setting-shaped log entry round-trips through the adapter '
@@ -734,7 +762,7 @@ void main() {
     });
   });
 
-  group('the v1→v5 upgrade (Stories 2.1–2.6, AD-23 — additive, ALTER-only)', () {
+  group('the v1→v6 upgrade (Stories 2.1–2.6, 3.2, AD-23 — additive, ALTER-only)', () {
     /// Takes over the group's database slot with one opened over a memory
     /// executor pre-seeded with the exact v1 schema (two tables, four
     /// triggers, `user_version` 1) — the state a v1 install presents. The
@@ -791,7 +819,7 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 5);
+      expect(db.schemaVersion, 6);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -833,7 +861,12 @@ void main() {
       expect(snapshot.single.energyLevel, isNull);
       expect(snapshot.single.reportValue, isNull);
       expect(snapshot.single.reportWeek, isNull);
-      expect(await store.readPoolFacts(), hasLength(1));
+      final oldFacts = await store.readPoolFacts();
+      expect(oldFacts, hasLength(1));
+      // The v1 fact rides the v6 step unchanged: its Origin Context is
+      // null, deriving exactly as before the column existed.
+      expect(oldFacts.single.id, 'old-fact');
+      expect(oldFacts.single.originContext, isNull);
 
       // Insert-only survives the migration on both tables.
       await expectLater(
@@ -920,8 +953,9 @@ void main() {
     });
 
     test('a fresh create carries the setting, pocket, energy and report '
-        'columns from the start', () async {
-      expect(db.schemaVersion, 5);
+        'columns from the start, and the pool\'s Origin Context column '
+        'with them (Story 3.2)', () async {
+      expect(db.schemaVersion, 6);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -933,6 +967,12 @@ void main() {
       expect(columns, contains('energy_level'));
       expect(columns, contains('report_value'));
       expect(columns, contains('report_week'));
+      final factColumns =
+          (await db.customSelect('PRAGMA table_info(pool_facts)').get())
+              .map((row) => row.read<String>('name'))
+              .toList()
+            ..sort();
+      expect(factColumns, contains('origin_context'));
     });
   });
 
@@ -997,7 +1037,7 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 5);
+        expect(db.schemaVersion, 6);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1153,7 +1193,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 5);
+      expect(db.schemaVersion, 6);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1314,7 +1354,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 5);
+      expect(db.schemaVersion, 6);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1409,6 +1449,136 @@ void main() {
       expect(after.last.reportValue, 3);
       expect(after.last.reportWeek, 1394);
       expect(after.last.energyLevel, isNull);
+    });
+  });
+
+  group('the v5→v6 upgrade (Story 3.2, AD-23 — additive, ALTER-only)', () {
+    /// The v5 schema exactly as a v5 install presents it: the v4 shape
+    /// plus the two report columns and the five-column pool table,
+    /// `user_version` 5 — seeded over a memory executor so drift's
+    /// runner sees version 5 and upgrades.
+    Future<void> takeOverWithV5() async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              "INSERT INTO pool_facts VALUES ('v5-fact', 'manual', "
+                  "'maintenance', 100, 3600)",
+              "INSERT INTO log_entries VALUES ('v5-report', "
+                  "'report_answered', 200, 3600, NULL, NULL, NULL, NULL, "
+                  "NULL, NULL, NULL, 3, 1394)",
+              'PRAGMA user_version = 5',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v5 database upgrades in place: one ALTER adds the '
+        'pool\'s Origin Context column, the v5 rows — report answers '
+        'intact, facts context-less — read back unchanged, and a '
+        'capture-shaped fact appends beside them', () async {
+      await takeOverWithV5();
+
+      expect(db.schemaVersion, 6);
+      expect(
+        (await db.customSelect('PRAGMA table_info(pool_facts)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'id',
+          'instant_utc_micros',
+          'offset_seconds',
+          'origin',
+          'origin_context',
+          'size',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v5 rows ride the migration untouched: the report answer
+      // keeps its payload and the old fact reads context-less — its
+      // origin deriving exactly as before the column existed.
+      final before = await store.readPoolFacts();
+      expect(before, hasLength(1));
+      expect(before.single.id, 'v5-fact');
+      expect(before.single.originContext, isNull);
+      final logBefore = await store.readLogEntries();
+      expect(logBefore, hasLength(1));
+      expect(logBefore.single.kind, 'report_answered');
+      expect(logBefore.single.reportValue, 3);
+      expect(logBefore.single.reportWeek, 1394);
+
+      // Insert-only survives this migration too, on the grown table.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE pool_facts SET origin = 'cloud' WHERE id = 'v5-fact'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a capture-shaped fact — Origin
+      // Context and all — beside the old rows, and it round-trips.
+      await store.appendPoolFact(
+        _fact(id: 'v6-capture', originContext: 'Vaciar la caja de la entrada'),
+      );
+      final after = await store.readPoolFacts();
+      expect(after, hasLength(2));
+      expect(after.first.id, 'v5-fact');
+      expect(after.first.originContext, isNull);
+      expect(after.last.id, 'v6-capture');
+      expect(after.last.originContext, 'Vaciar la caja de la entrada');
+      expect(after.last.origin, Origin.manual);
+      expect(after.last.size, Size.maintenance);
     });
   });
 }

@@ -33,5 +33,20 @@ void main() {
     expect(fact.size, Size.maintenance);
     expect(fact.instantUtcMicros, 1700000000123456);
     expect(fact.offsetSeconds, 7200);
+    // Origins whose context lives elsewhere carry none (AD-14).
+    expect(fact.originContext, isNull);
+  });
+
+  test('a manual capture\'s fact carries its own single line as the '
+      'Origin Context (Story 3.2, AD-14)', () {
+    const fact = PoolFact(
+      id: '0190bbbb-0000-7000-8000-000000000002',
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: 1700000000654321,
+      offsetSeconds: 3600,
+      originContext: 'llamar al dentista',
+    );
+    expect(fact.originContext, 'llamar al dentista');
   });
 }

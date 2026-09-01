@@ -33,7 +33,7 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s eleven kinds', () {
+    test('holds exactly the build\'s twelve kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -46,9 +46,11 @@ void main() {
         LogKind.settingChanged,
         LogKind.energySet,
         LogKind.reportAnswered,
+        LogKind.captureCreated,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
+        'capture_created',
         'card_dealt',
         'card_done',
         'card_skipped',
@@ -60,7 +62,7 @@ void main() {
         'session_started',
         'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(11));
+      expect(LogKind.knownByName, hasLength(12));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -908,6 +910,98 @@ void main() {
         expect(first.week, 1390);
         expect(second.value, 4);
         expect(second.week, 1394);
+      });
+    });
+
+    group('the capture payload path (Story 3.2, FR-27, AD-14, AD-23)', () {
+      test('a well-shaped capture_created converts with its pair intact — '
+          'the ItemActEntry family\'s own shape', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'capture_created',
+            itemId: 'man-cap-1',
+            itemOrigin: Origin.manual,
+          ),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<ItemActEntry>());
+        expect(entry!.kind, LogKind.captureCreated);
+        expect((entry as ItemActEntry).itemId, 'man-cap-1');
+        expect(entry.itemOrigin, Origin.manual);
+      });
+
+      test('a capture_created without its pair at all is excluded — '
+          'itemPairAbsent, the family\'s own flaw', () {
+        final conversion = convertLogEntryRecord(_record('capture_created'));
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.itemPairAbsent);
+      });
+
+      test('a half capture pair is excluded, distinctly — halfItemPair', () {
+        final conversion = convertLogEntryRecord(
+          _record('capture_created', itemId: 'man-cap-2'),
+        );
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.halfItemPair);
+      });
+
+      test('an item pair, a stack, setting fields, a pocket, energy or '
+          'report fields on capture_created are excluded — the row rides '
+          'its pair and nothing else', () {
+        final offenders = <LogRecordFlaw, LogEntryRecord>{
+          LogRecordFlaw.stackOffCrashKind: _record(
+            'capture_created',
+            itemId: 'man-cap-3',
+            itemOrigin: Origin.manual,
+            stack: '#0      build',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind: _record(
+            'capture_created',
+            itemId: 'man-cap-3',
+            itemOrigin: Origin.manual,
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind: _record(
+            'capture_created',
+            itemId: 'man-cap-3',
+            itemOrigin: Origin.manual,
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind: _record(
+            'capture_created',
+            itemId: 'man-cap-3',
+            itemOrigin: Origin.manual,
+            energyLevel: 2,
+          ),
+          LogRecordFlaw.reportOnNonReportKind: _record(
+            'capture_created',
+            itemId: 'man-cap-3',
+            itemOrigin: Origin.manual,
+            reportValue: 3,
+          ),
+        };
+        offenders.forEach((flaw, record) {
+          final conversion = convertLogEntryRecord(record);
+          expect(conversion.entry, isNull, reason: '$flaw');
+          expect(conversion.flaw, flaw);
+        });
+      });
+
+      test('a capture row survives the boundary in reading order beside '
+          'the card acts — one family, no flag', () {
+        final entries = logEntriesOf([
+          _record('card_dealt', itemId: 'shp-a', itemOrigin: Origin.shipped),
+          _record(
+            'capture_created',
+            itemId: 'man-cap-4',
+            itemOrigin: Origin.manual,
+          ),
+          _record('card_done', itemId: 'shp-a', itemOrigin: Origin.shipped),
+        ]);
+        expect(entries, hasLength(3));
+        expect(entries[1].kind, LogKind.captureCreated);
+        expect((entries[1] as ItemActEntry).itemId, 'man-cap-4');
       });
     });
 

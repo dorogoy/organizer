@@ -57,6 +57,17 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
+  static const VerificationMeta _originContextMeta = const VerificationMeta(
+    'originContext',
+  );
+  late final GeneratedColumn<String> originContext = GeneratedColumn<String>(
+    'origin_context',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -64,6 +75,7 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     size,
     instantUtcMicros,
     offsetSeconds,
+    originContext,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -120,6 +132,15 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     } else if (isInserting) {
       context.missing(_offsetSecondsMeta);
     }
+    if (data.containsKey('origin_context')) {
+      context.handle(
+        _originContextMeta,
+        originContext.isAcceptableOrUnknown(
+          data['origin_context']!,
+          _originContextMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -149,6 +170,10 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         DriftSqlType.int,
         data['${effectivePrefix}offset_seconds'],
       )!,
+      originContext: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_context'],
+      ),
     );
   }
 
@@ -167,12 +192,14 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
   final String size;
   final int instantUtcMicros;
   final int offsetSeconds;
+  final String? originContext;
   const PoolFact({
     required this.id,
     required this.origin,
     required this.size,
     required this.instantUtcMicros,
     required this.offsetSeconds,
+    this.originContext,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -182,6 +209,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     map['size'] = Variable<String>(size);
     map['instant_utc_micros'] = Variable<int>(instantUtcMicros);
     map['offset_seconds'] = Variable<int>(offsetSeconds);
+    if (!nullToAbsent || originContext != null) {
+      map['origin_context'] = Variable<String>(originContext);
+    }
     return map;
   }
 
@@ -192,6 +222,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       size: Value(size),
       instantUtcMicros: Value(instantUtcMicros),
       offsetSeconds: Value(offsetSeconds),
+      originContext: originContext == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originContext),
     );
   }
 
@@ -206,6 +239,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       size: serializer.fromJson<String>(json['size']),
       instantUtcMicros: serializer.fromJson<int>(json['instant_utc_micros']),
       offsetSeconds: serializer.fromJson<int>(json['offset_seconds']),
+      originContext: serializer.fromJson<String?>(json['origin_context']),
     );
   }
   @override
@@ -217,6 +251,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       'size': serializer.toJson<String>(size),
       'instant_utc_micros': serializer.toJson<int>(instantUtcMicros),
       'offset_seconds': serializer.toJson<int>(offsetSeconds),
+      'origin_context': serializer.toJson<String?>(originContext),
     };
   }
 
@@ -226,12 +261,16 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     String? size,
     int? instantUtcMicros,
     int? offsetSeconds,
+    Value<String?> originContext = const Value.absent(),
   }) => PoolFact(
     id: id ?? this.id,
     origin: origin ?? this.origin,
     size: size ?? this.size,
     instantUtcMicros: instantUtcMicros ?? this.instantUtcMicros,
     offsetSeconds: offsetSeconds ?? this.offsetSeconds,
+    originContext: originContext.present
+        ? originContext.value
+        : this.originContext,
   );
   PoolFact copyWithCompanion(PoolFactsCompanion data) {
     return PoolFact(
@@ -244,6 +283,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       offsetSeconds: data.offsetSeconds.present
           ? data.offsetSeconds.value
           : this.offsetSeconds,
+      originContext: data.originContext.present
+          ? data.originContext.value
+          : this.originContext,
     );
   }
 
@@ -254,14 +296,21 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           ..write('origin: $origin, ')
           ..write('size: $size, ')
           ..write('instantUtcMicros: $instantUtcMicros, ')
-          ..write('offsetSeconds: $offsetSeconds')
+          ..write('offsetSeconds: $offsetSeconds, ')
+          ..write('originContext: $originContext')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, origin, size, instantUtcMicros, offsetSeconds);
+  int get hashCode => Object.hash(
+    id,
+    origin,
+    size,
+    instantUtcMicros,
+    offsetSeconds,
+    originContext,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -270,7 +319,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           other.origin == this.origin &&
           other.size == this.size &&
           other.instantUtcMicros == this.instantUtcMicros &&
-          other.offsetSeconds == this.offsetSeconds);
+          other.offsetSeconds == this.offsetSeconds &&
+          other.originContext == this.originContext);
 }
 
 class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
@@ -279,6 +329,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
   final Value<String> size;
   final Value<int> instantUtcMicros;
   final Value<int> offsetSeconds;
+  final Value<String?> originContext;
   final Value<int> rowid;
   const PoolFactsCompanion({
     this.id = const Value.absent(),
@@ -286,6 +337,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     this.size = const Value.absent(),
     this.instantUtcMicros = const Value.absent(),
     this.offsetSeconds = const Value.absent(),
+    this.originContext = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PoolFactsCompanion.insert({
@@ -294,6 +346,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     required String size,
     required int instantUtcMicros,
     required int offsetSeconds,
+    this.originContext = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        origin = Value(origin),
@@ -306,6 +359,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Expression<String>? size,
     Expression<int>? instantUtcMicros,
     Expression<int>? offsetSeconds,
+    Expression<String>? originContext,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -314,6 +368,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       if (size != null) 'size': size,
       if (instantUtcMicros != null) 'instant_utc_micros': instantUtcMicros,
       if (offsetSeconds != null) 'offset_seconds': offsetSeconds,
+      if (originContext != null) 'origin_context': originContext,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -324,6 +379,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Value<String>? size,
     Value<int>? instantUtcMicros,
     Value<int>? offsetSeconds,
+    Value<String?>? originContext,
     Value<int>? rowid,
   }) {
     return PoolFactsCompanion(
@@ -332,6 +388,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       size: size ?? this.size,
       instantUtcMicros: instantUtcMicros ?? this.instantUtcMicros,
       offsetSeconds: offsetSeconds ?? this.offsetSeconds,
+      originContext: originContext ?? this.originContext,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -354,6 +411,9 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     if (offsetSeconds.present) {
       map['offset_seconds'] = Variable<int>(offsetSeconds.value);
     }
+    if (originContext.present) {
+      map['origin_context'] = Variable<String>(originContext.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -368,6 +428,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
           ..write('size: $size, ')
           ..write('instantUtcMicros: $instantUtcMicros, ')
           ..write('offsetSeconds: $offsetSeconds, ')
+          ..write('originContext: $originContext, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1241,6 +1302,7 @@ typedef $PoolFactsCreateCompanionBuilder = PoolFactsCompanion Function({
   required String size,
   required int instantUtcMicros,
   required int offsetSeconds,
+  Value<String?> originContext,
   Value<int> rowid,
 });
 typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
@@ -1249,6 +1311,7 @@ typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
   Value<String> size,
   Value<int> instantUtcMicros,
   Value<int> offsetSeconds,
+  Value<String?> originContext,
   Value<int> rowid,
 });
 
@@ -1283,6 +1346,11 @@ class $PoolFactsFilterComposer
 
   ColumnFilters<int> get offsetSeconds => $composableBuilder(
     column: $table.offsetSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originContext => $composableBuilder(
+    column: $table.originContext,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1320,6 +1388,11 @@ class $PoolFactsOrderingComposer
     column: $table.offsetSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get originContext => $composableBuilder(
+    column: $table.originContext,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $PoolFactsAnnotationComposer
@@ -1347,6 +1420,11 @@ class $PoolFactsAnnotationComposer
 
   GeneratedColumn<int> get offsetSeconds => $composableBuilder(
     column: $table.offsetSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originContext => $composableBuilder(
+    column: $table.originContext,
     builder: (column) => column,
   );
 }
@@ -1384,6 +1462,7 @@ class $PoolFactsTableManager
                 Value<String> size = const Value.absent(),
                 Value<int> instantUtcMicros = const Value.absent(),
                 Value<int> offsetSeconds = const Value.absent(),
+                Value<String?> originContext = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion(
                 id: id,
@@ -1391,6 +1470,7 @@ class $PoolFactsTableManager
                 size: size,
                 instantUtcMicros: instantUtcMicros,
                 offsetSeconds: offsetSeconds,
+                originContext: originContext,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1400,6 +1480,7 @@ class $PoolFactsTableManager
                 required String size,
                 required int instantUtcMicros,
                 required int offsetSeconds,
+                Value<String?> originContext = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion.insert(
                 id: id,
@@ -1407,6 +1488,7 @@ class $PoolFactsTableManager
                 size: size,
                 instantUtcMicros: instantUtcMicros,
                 offsetSeconds: offsetSeconds,
+                originContext: originContext,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
