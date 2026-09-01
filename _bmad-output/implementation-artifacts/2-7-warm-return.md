@@ -157,3 +157,49 @@ context: []
 
 - The `screenKey` reuse warning — the double-pump pitfall, documented at the source
   [`dispenser_screen_test.dart:539`](../../test/ui/dispenser/dispenser_screen_test.dart#L539)
+
+## Review Findings
+
+Three context-free reviewers (blind hunter, edge-case hunter, verification-gap) over the full diff; 16 findings → triaged 5 patches + 11 rejects, **0 loopbacks** (no intent gaps, no spec defects). Patches applied and reverified:
+
+- [Patch] `_isUserAct`'s moment branch inverted to the whitelist `kind == LogKind.sessionEnded` — an unclassified future moment kind now defaults to not-contact, mirroring `UnknownEntry` (behavior-identical today) [`packages/core/lib/derive/warm_return.dart:59`]
+- [Patch] Parameterized pin: every payload-carrying act kind (`card_done`, `card_skipped`, `session_extended`, `setting_changed`, `energy_set`, `report_answered`) moves the anchor [`packages/core/test/warm_return_test.dart:202`]
+- [Patch] Consecutive-warm pin: a second consecutive ≥48 h gap is due again — the greeting legitimately repeats [`packages/core/test/warm_return_test.dart:297`]
+- [Patch] Widget pin: the greeting renders above the warm close — the fact rides every variant, geometrically pinned [`test/ui/dispenser/dispenser_screen_test.dart:2306`]
+- [Patch] `_harness`'s `screenKey` parameter now documents the double-pump element-reuse pitfall it fixed [`test/ui/dispenser/dispenser_screen_test.dart:539`]
+
+Notable rejects (with evidence): "unused import" and "shell census mirror" (contradicted by the green gate), "greeting outside the scroll" (false — `_frame` owns the scroll; the 200% test's scroll assertions prove it), census regex/format concerns (verified against `_censusOf`'s actual `Name xN` output), clock-rollback defaults (the derivations' recorded convention), `required` on the view field (the spec's own default-false decision, the `stripResident` pattern). The verification-gap reviewer found no gaps: all gates executed, no skipped or filtered tests.
+
+## Manual Verification (Android emulator, 2026-09-01)
+
+**Environment:** AVD `organizer36` (Pixel 6, API 36 `google_apis` x86_64, KVM), debug `app-debug.apk` @ `2515908`, driven over adb; every greeting observation was cross-checked against the app's **actual drift log** (pulled from the guest DB), not screenshots alone. Device clock shifted via `adb root` + `date -s` to synthesize absences.
+
+**Launch-by-launch derivation check** (device-local CEST; "anchor" = latest contact before the current opening; "gap" = read − anchor):
+
+| Read | Scenario | Anchor | Gap | Observed |
+|------|----------|--------|-----|----------|
+| Sep 1 14:20 | first-ever open (control) | — | — | no greeting ✓ |
+| Sep 3 15:24 | **M1** cold start, +49 h | act Sep 1 14:23 | 49 h 01 m | **greeting ✓** |
+| Sep 3 15:26 | **M2** `Hecho` re-read, same opening | same anchor | 49 h 03 m | **greeting persists ✓** |
+| Sep 3 15:28 | **M2** background→resume | act Sep 3 15:26 | 2 m | no greeting ✓ |
+| Sep 3 15:32 | reopening | act Sep 3 15:26 | 6 m | no greeting ✓ |
+| Sep 4 15:29 | **M4** lurker peek 1 | open Sep 3 15:32 | 24 h | no greeting ✓ |
+| Sep 5 15:29 | **M4** lurker peek 2 | open Sep 4 15:29 | 24 h | no greeting ✓ |
+| Sep 7 16:29 | **M4** after 49 h absence | open Sep 5 15:29 | 49 h 00 m | **greeting returns ✓** |
+| Sep 7 16:31 | reopen | open Sep 7 16:29 | 2 m | no greeting ✓ |
+| Sep 5 16:33 | clock rolled back | open Sep 5 15:29 | 1 h | no greeting ✓ |
+| Sep 7 17:39 | reopen | open Sep 7 16:31 | 1 h | no greeting ✓ |
+| Sep 9 18:41 | **M6** +49 h, font 200 % | Sep 7 17:39 batch | 49 h | **greeting at 200 % ✓** |
+| Sep 11 19:42 | **M7** +49 h, dark mode | Sep 9 batch | 49 h | **greeting in dark ✓** |
+
+**13/13 reads match the derivation exactly** — including the two initial manual mispredictions, which were planner arithmetic errors (forgotten lurker rows moving the anchor), disproven by the log and confirmed by the code.
+
+**Surface checks:**
+- **M1/M5** — the only element the warm opening adds is the one greeting line (no count, no backlog, no days-away copy anywhere); card dealt from the standing composition, chip/chrome unchanged
+- **M6 (200 %)** — greeting complete on one line, centered above the card, nothing truncated or clipped; harsher narrow-viewport scroll case covered by the widget test
+- **M7 (dark)** — greeting legible (ink-secondary on the dark surface), no contrast or rendering failures
+- Incidental validations on the same log: the Story 2.4 checkpoint fired off a 49 h dangling session with the greeting riding the rest offer (variant propagation in real UI), and the 2.5/2.6 process-death first-opening edge behaved exactly as its code-doc records
+
+**Not verifiable here (deferred to a real handset):**
+- TalkBack reading (the `google_apis` image ships no reliable TalkBack)
+- NFR5's ≤2 s cold start (debug+JIT under emulation measured 4.3 s process start — meaningless for the release-on-hardware property); the structural claim — no splash, no loader, card-first, the greeting adding no await — held on every launch
