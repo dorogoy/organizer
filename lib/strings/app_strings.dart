@@ -419,7 +419,7 @@ abstract class AppStrings {
   /// **'Baja'**
   String get energyLevelLow;
 
-  /// Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. A dismissal is skip-for-today: never re-shown that day, never styled as anything owed.
+  /// Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. Its scope belongs to the resident: the check-in stays hidden for the day, while the weekly report stays hidden for the current opening.
   ///
   /// In es, this message translates to:
   /// **'Cerrar'**

@@ -91,6 +91,9 @@ context: ['SM-2', 'FR-4', 'FR-24', 'AD-15', 'AD-21', 'UX-DR22']
 - [x] [Review][Defer] `_appOpensOn` re-implements the core's opening-census convention across the shell boundary — deferred, core read-only this story [lib/dispenser/dispenser_controller.dart]
 - [x] [Review][Reject] Asked-week capture vs interleaved stale reads, dismissal not clearing the ask, double-answer idempotence — the spec's frozen field shape (sanctioned at the register), surface-guarded windows, refusal-as-silence semantics
 - [x] [Review][Reject] Check-in-✕→report handoff direction (unreachable: the report outranks and holds the slot while eligible), future-resident fallthrough assert, dismissal failure-path asymmetry (2-5's verbatim shape), bare-numeral semantics grouping (self-labeled text, ladder-pill precedent), test-literal/seed style points (the file's established conventions), reflow label↔digit correspondence (direction preserved), report-below-offer/close pin (mounting shared and pinned), clock-rollback census drift (the derivation's own recorded convention)
+- [x] [Review][Patch] Weekly-report propagation and rendering through `DispenserClosed` and `DispenserRestOffer` are verified [test/dispenser/dispenser_controller_test.dart:2440]
+- [x] [Review][Patch] Tap-time capture before `sessionSettled` is pinned across the 04:00 boundary for report answer and dismissal [test/ui/dispenser/ambient_strip_test.dart:802]
+- [x] [Review][Patch] The shared dismissal metadata and widget documentation now distinguish day-scoped check-in dismissal from opening-scoped report dismissal [lib/l10n/app_es.arb:303]
 
 ## Spec Change Log
 

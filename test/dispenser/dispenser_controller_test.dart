@@ -2437,6 +2437,61 @@ void main() {
       );
     });
 
+    test('the report and its asked week survive the closed and rest-offer '
+        'view variants', () async {
+      final closedStore = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 29, 22), 'sat-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 22, 0, 1),
+            'sat-start',
+          ),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, 29, 22, 30),
+            'sat-end',
+          ),
+        ]);
+      final closed = await buildFor(
+        closedStore,
+        nowOf: () => DateTime.utc(2026, 8, 30, 5),
+      ).read();
+      expect(closed, isA<DispenserClosed>());
+      expect(closed.stripResident, StripResident.weeklySelfReport);
+      expect(closed.reportWeekOrdinal, weekOfAug24);
+
+      final offerStore = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 30, 11, 19), 'sun-open'),
+          (
+            id: 'sun-pocket',
+            kind: 'session_started',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              30,
+              11,
+              20,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: null,
+            itemOrigin: null,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            pocketMinutes: 45,
+            energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
+          ),
+        ]);
+      final offer = await buildFor(offerStore, nowOf: sundayClock).read();
+      expect(offer, isA<DispenserRestOffer>());
+      expect(offer.stripResident, StripResident.weeklySelfReport);
+      expect(offer.reportWeekOrdinal, weekOfAug24);
+    });
+
     test('a digit tap mid-opening lands exactly one report_answered row '
         'carrying the asked week, and the same opening\'s read hands the '
         'slot to the check-in (matrix: answer lands)', () async {

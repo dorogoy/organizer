@@ -168,6 +168,36 @@ class _QueuedAnswerReportController extends _QueuedReadController {
       answer.future;
 }
 
+/// A report surface that records the instants the screen hands to its two
+/// actions. The lifecycle gate can then cross 04:00 without changing either
+/// tap's identity.
+class _CapturingReportActionController extends DispenserController {
+  _CapturingReportActionController(DateTime Function() nowOf)
+    : super(store: _RecordingStore(), strings: AppStringsEs(), nowOf: nowOf);
+
+  DateTime? answeredAt;
+  DateTime? dismissedAt;
+
+  @override
+  Future<DispenserView> read() async => const DispenserDealt(
+    _testCard,
+    stripResident: StripResident.weeklySelfReport,
+    reportWeekOrdinal: 1390,
+  );
+
+  @override
+  Future<DispenserView> answerReport(int value, {DateTime? tappedAt}) async {
+    answeredAt = tappedAt;
+    return const DispenserDealt(_testCard);
+  }
+
+  @override
+  Future<DispenserView> dismissReport({DateTime? tapTime}) async {
+    dismissedAt = tapTime;
+    return const DispenserDealt(_testCard);
+  }
+}
+
 Widget _harness(
   DispenserController controller, {
   Future<void> Function()? sessionSettled,
@@ -767,6 +797,91 @@ void main() {
       expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
       expect(find.byType(BatteryGlyph), findsNWidgets(3));
       expect(find.text('Hecho'), findsOneWidget);
+    });
+
+    testWidgets('answer and dismissal capture the tap before lifecycle '
+        'settlement crosses 04:00', (tester) async {
+      final beforeBoundary = DateTime.utc(2026, 8, 30, 3, 59);
+      final afterBoundary = DateTime.utc(2026, 8, 30, 4, 1);
+
+      Future<
+        ({
+          _CapturingReportActionController controller,
+          Completer<void> settlement,
+          void Function() advanceClock,
+        })
+      >
+      pumpGatedReport() async {
+        var now = beforeBoundary;
+        final controller = _CapturingReportActionController(() => now);
+        final settlement = Completer<void>();
+        var gateActions = false;
+        await tester.pumpWidget(
+          _harness(
+            controller,
+            sessionSettled: () =>
+                gateActions ? settlement.future : Future<void>.value(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        gateActions = true;
+        addTearDown(() {
+          if (!settlement.isCompleted) {
+            settlement.complete();
+          }
+        });
+        return (
+          controller: controller,
+          settlement: settlement,
+          advanceClock: () => now = afterBoundary,
+        );
+      }
+
+      final answering = await pumpGatedReport();
+      final third = find.text(AppStringsEs().selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pump();
+      answering.advanceClock();
+      answering.settlement.complete();
+      await tester.pumpAndSettle();
+      expect(answering.controller.answeredAt, beforeBoundary);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      final dismissing = await pumpGatedReport();
+      await tester.tap(
+        find.bySemanticsLabel(AppStringsEs().ambientStripDismiss),
+      );
+      await tester.pump();
+      dismissing.advanceClock();
+      dismissing.settlement.complete();
+      await tester.pumpAndSettle();
+      expect(dismissing.controller.dismissedAt, beforeBoundary);
+    });
+
+    testWidgets('the report renders beneath closed and rest-offer views', (
+      tester,
+    ) async {
+      for (final view in <DispenserView>[
+        const DispenserClosed(
+          stripResident: StripResident.weeklySelfReport,
+          reportWeekOrdinal: 1390,
+        ),
+        const DispenserRestOffer(
+          stripResident: StripResident.weeklySelfReport,
+          reportWeekOrdinal: 1390,
+        ),
+      ]) {
+        final read = Completer<DispenserView>()..complete(view);
+        await tester.pumpWidget(_harness(_QueuedReadController([read])));
+        await tester.pumpAndSettle();
+        expect(find.byType(SelfReportStrip), findsOneWidget);
+        expect(
+          find.text(AppStringsEs().weeklySelfReportQuestion),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
     });
 
     testWidgets('a failed report append restores the standing card and '
