@@ -122,6 +122,49 @@ ItemActEntry _skipped(int micros, String itemId) => ItemActEntry(
   itemOrigin: Origin.shipped,
 );
 
+/// A manual capture's pool fact (Story 3.3) — origin `manual`, its own
+/// single line as the Origin Context.
+PoolFact _captureFact(
+  String id,
+  Size size,
+  int micros, {
+  String line = 'Llamar al dentista',
+}) => PoolFact(
+  id: id,
+  origin: Origin.manual,
+  size: size,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  originContext: line,
+);
+
+ItemActEntry _captureDealt(int micros, String itemId) => ItemActEntry(
+  id: 'capture-dealt-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardDealt,
+  itemId: itemId,
+  itemOrigin: Origin.manual,
+);
+
+ItemActEntry _captureDone(int micros, String itemId) => ItemActEntry(
+  id: 'capture-done-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardDone,
+  itemId: itemId,
+  itemOrigin: Origin.manual,
+);
+
+ItemActEntry _captureSkipped(int micros, String itemId) => ItemActEntry(
+  id: 'capture-skipped-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardSkipped,
+  itemId: itemId,
+  itemOrigin: Origin.manual,
+);
+
 const int _microsPerDay = 24 * 60 * 60 * 1000 * 1000;
 
 /// Noon on the [days]-th day of the fixture's rotation run — day 0 is
@@ -2250,6 +2293,7 @@ void main() {
       );
       expect(withCapture.focusSlotClosedDays, without.focusSlotClosedDays);
       expect(withCapture.dealtCountsByDay, without.dealtCountsByDay);
+      expect(withCapture.dealtDaysByItemId, without.dealtDaysByItemId);
       expect(withCapture.answeredItemIds, without.answeredItemIds);
       expect(withCapture.openSessionStart, without.openSessionStart);
       expect(withCapture.dealtUnanswered, without.dealtUnanswered);
@@ -2261,6 +2305,478 @@ void main() {
         withCapture.openSessionAnsweredSeconds,
         without.openSessionAnsweredSeconds,
       );
+    });
+  });
+
+  group('manual capture candidacy (Story 3.3)', () {
+    test('a standing focus capture is the session\'s first deal — its '
+        'own line as the name, no zone, its size\'s estimate', () {
+      final fact = _captureFact('cap-focus', Size.focus, _day(0, 8));
+      final log = [_sessionStarted(_day(0, 9))];
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(deal!.id, 'cap-focus');
+      expect(deal.name, 'Llamar al dentista');
+      expect(deal.size, Size.focus);
+      expect(deal.origin, Origin.manual);
+      expect(deal.zone, isNull);
+      expect(deal.estimateSeconds, focusEstimateSeconds);
+    });
+
+    test('a dealt capture charges its size\'s daily count exactly like '
+        'a catalogue deal, and its charged day lands per id', () {
+      final fact = _captureFact('cap-man', Size.maintenance, _day(0, 8));
+      final charged = walkLog(
+        [
+          _sessionStarted(_day(0, 9)),
+          _captureDealt(utcMicros(2026, 8, 24, 9, 0, 1), 'cap-man'),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [fact],
+      );
+      const calendar = Calendar();
+      final day = calendar.dayOf(_day(0, 9), 0);
+      expect(charged.dealtCountsByDay[day]?[Size.maintenance], 1);
+      expect(charged.dealtDaysByItemId['cap-man'], {day});
+    });
+
+    test('captures take precedence over same-size catalogue candidates '
+        'in the draws', () {
+      final fact = _captureFact('cap-man', Size.maintenance, _day(0, 8));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(composition.maintenance.first.id, 'cap-man');
+      expect(composition.maintenance[1].id, 'man-a');
+      // An instant capture leads its tier the same way.
+      final habit = _captureFact('cap-i', Size.instant, _day(0, 8));
+      final habits = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [habit],
+      );
+      expect(habits.instantHabits.first.id, 'cap-i');
+      expect(habits.instantHabits[1].id, 'hab-a');
+    });
+
+    test('same-size captures order oldest-first by fact instants, '
+        'never id bit patterns — and never input order', () {
+      final older = _captureFact('cap-z', Size.instant, _day(0, 7));
+      final newer = _captureFact('cap-a', Size.instant, _day(0, 8));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [newer, older],
+      );
+      expect(
+        composition.instantHabits.take(2).map((card) => card.id).toList(),
+        ['cap-z', 'cap-a'],
+        reason: 'the older fact leads whatever its id sorts as',
+      );
+    });
+
+    test('a skip keeps the capture\'s FIFO place — the same capture '
+        're-offers, unlike the catalogue\'s re-ranking', () {
+      final older = _captureFact('cap-old', Size.maintenance, _day(0, 7));
+      final newer = _captureFact('cap-new', Size.maintenance, _day(0, 8));
+      final log = [
+        _sessionStarted(_day(0, 9)),
+        _dealt(utcMicros(2026, 8, 24, 9, 0, 1), 'zona-z1-a'),
+        _done(utcMicros(2026, 8, 24, 9, 0, 2), 'zona-z1-a'),
+        _captureDealt(utcMicros(2026, 8, 24, 9, 0, 3), 'cap-old'),
+        _captureSkipped(utcMicros(2026, 8, 24, 9, 0, 4), 'cap-old'),
+      ];
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [newer, older],
+      );
+      expect(deal!.id, 'cap-old');
+      expect(deal.size, Size.maintenance);
+    });
+
+    test('a not-yet-answered focus capture is the chunk tier — ahead '
+        'of the zone tier, and composing with no active zone at all', () {
+      final fact = _captureFact('cap-focus', Size.focus, _day(0, 8));
+      final zoned = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(zoned.focus!.id, 'cap-focus');
+
+      // FR-11's empty ring still holds the capture.
+      final ringEmpty = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        activeClusters: const {},
+        poolFacts: [fact],
+      );
+      expect(ringEmpty.focus!.id, 'cap-focus');
+      expect(ringEmpty.focus!.zone, isNull);
+      // And the day holds no second large item beside it: with the
+      // ring empty the draws are sized 3 and 5, and under the active
+      // zone they hold no focus card either.
+      expect(ringEmpty.maintenance, isEmpty);
+      expect(
+        zoned.maintenance.every((card) => card.size == Size.maintenance),
+        isTrue,
+      );
+      expect(zoned.maintenance, hasLength(maintenanceDrawsPerDay));
+    });
+
+    test('a focus capture\'s Hecho closes the day\'s chunk slot — the '
+        'day composes no second large item after it', () {
+      final fact = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 28, 8),
+      );
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 9)),
+        _captureDealt(utcMicros(2026, 8, 28, 9, 0, 1), 'cap-focus'),
+        _captureDone(utcMicros(2026, 8, 28, 9, 0, 2), 'cap-focus'),
+        _sessionEnded(utcMicros(2026, 8, 28, 9, 0, 3)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(composition.focus, isNull);
+      expect(composition.maintenance.first.id, 'man-a');
+    });
+
+    test('done-once retirement: an answered capture never deals again, '
+        'at the chunk or in any draw', () {
+      final retired = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 9),
+      );
+      final standing = _captureFact(
+        'cap-new',
+        Size.focus,
+        utcMicros(2026, 8, 27, 10),
+      );
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 9)),
+        _captureDealt(utcMicros(2026, 8, 28, 9, 0, 1), 'cap-focus'),
+        _captureDone(utcMicros(2026, 8, 28, 9, 0, 2), 'cap-focus'),
+        _sessionEnded(utcMicros(2026, 8, 28, 9, 0, 3)),
+      ];
+      // The same day: the Hecho closed the chunk slot, so nothing
+      // focus-sized composes at all.
+      final sameDay = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [retired, standing],
+      );
+      expect(sameDay.focus, isNull);
+      expect(sameDay.maintenance.first.id, 'man-a');
+      // The next day — Saturday 2026-08-29, its slot open: the retired
+      // capture is gone from the offering and the younger capture is
+      // the chunk. Had retirement failed, the oldest fact (`cap-focus`)
+      // would lead the tier again.
+      final nextDay = nextDeal(
+        catalogue: _catalogue,
+        log: [...log, _sessionStarted(utcMicros(2026, 8, 29, 11))],
+        instantUtcMicros: utcMicros(2026, 8, 29, 12),
+        offsetSeconds: 0,
+        poolFacts: [retired, standing],
+      );
+      expect(nextDay!.id, 'cap-new');
+
+      // A maintenance capture answers and leaves its tier to the
+      // catalogue behind it.
+      final upkeep = _captureFact(
+        'cap-man',
+        Size.maintenance,
+        utcMicros(2026, 8, 28, 8),
+      );
+      final answered = [
+        _sessionStarted(utcMicros(2026, 8, 28, 9)),
+        _captureDealt(utcMicros(2026, 8, 28, 9, 0, 1), 'cap-man'),
+        _captureDone(utcMicros(2026, 8, 28, 9, 0, 2), 'cap-man'),
+        _sessionEnded(utcMicros(2026, 8, 28, 9, 0, 3)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: answered,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [upkeep],
+      );
+      expect(composition.maintenance.first.id, 'man-a');
+    });
+
+    test('a bag below ten minutes drops the focus capture from the '
+        'chunk — the existing gate still holds', () {
+      final fact = _captureFact('cap-focus', Size.focus, _day(0, 8));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 9,
+        poolFacts: [fact],
+      );
+      expect(composition.focus, isNull);
+      expect(
+        composition.instantHabits.map((card) => card.id),
+        isNot(contains('cap-focus')),
+      );
+
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: [_sessionStarted(_day(0, 9))],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 9,
+        poolFacts: [fact],
+      );
+      expect(deal!.id, isNot('cap-focus'));
+      expect(deal.size, isNot(Size.focus));
+    });
+
+    test('a 🔴 day: focus and maintenance captures reach no draw, an '
+        'instant capture deals with the habits (the existing ceiling)', () {
+      final focus = _captureFact('cap-focus', Size.focus, _day(0, 8));
+      final log = [_sessionStarted(_day(0, 9))];
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+        poolFacts: [focus],
+      );
+      expect(deal!.size, Size.instant);
+      expect(deal.id, isNot('cap-focus'));
+
+      final maintenance = _captureFact('cap-man', Size.maintenance, _day(0, 8));
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+        poolFacts: [maintenance],
+      );
+      expect(
+        composition.maintenance.map((card) => card.id),
+        isNot(contains('cap-man')),
+      );
+
+      final instant = _captureFact('cap-i', Size.instant, _day(0, 8));
+      final habits = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+        poolFacts: [instant],
+      );
+      expect(habits!.id, 'cap-i');
+    });
+
+    test('a dealt-but-unanswered capture re-materializes through '
+        'cardForItem — the standing-card path never depends on '
+        'candidacy', () {
+      final fact = _captureFact('cap-man', Size.maintenance, _day(0, 8));
+      final card = cardForItem(
+        catalogue: _catalogue,
+        itemId: 'cap-man',
+        origin: Origin.manual,
+        poolFacts: [fact],
+      );
+      expect(card!.id, 'cap-man');
+      expect(card.name, 'Llamar al dentista');
+      expect(card.size, Size.maintenance);
+      expect(card.zone, isNull);
+      expect(card.origin, Origin.manual);
+      expect(card.estimateSeconds, maintenanceEstimateSeconds);
+
+      // The catalogue still answers first for its own ids, and an id
+      // no source knows resolves absent.
+      expect(
+        cardForItem(
+          catalogue: _catalogue,
+          itemId: 'man-a',
+          origin: Origin.shipped,
+          poolFacts: [fact],
+        )!.name,
+        'Tarea de man-a',
+      );
+      expect(
+        cardForItem(
+          catalogue: _catalogue,
+          itemId: 'no-such-id',
+          origin: Origin.manual,
+          poolFacts: [fact],
+        ),
+        isNull,
+      );
+    });
+
+    test('a FIFO tie between same-size captures with equal creation '
+        'instants breaks by stable id — never arbitrarily, never input '
+        'order', () {
+      final tie = utcMicros(2026, 8, 28, 7);
+      final a = _captureFact('cap-a', Size.instant, tie);
+      final z = _captureFact('cap-z', Size.instant, tie);
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [z, a],
+      );
+      expect(
+        composition.instantHabits.take(2).map((card) => card.id).toList(),
+        ['cap-a', 'cap-z'],
+      );
+    });
+
+    test('duplicate fact ids offer once — the snapshot\'s first is '
+        'the candidate, and two facts sharing an id cannot fill two '
+        'draw slots', () {
+      final first = _captureFact(
+        'cap-dup',
+        Size.instant,
+        utcMicros(2026, 8, 28, 7),
+        line: 'Primera línea',
+      );
+      final second = _captureFact(
+        'cap-dup',
+        Size.instant,
+        utcMicros(2026, 8, 28, 8),
+        line: 'Segunda línea',
+      );
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [first, second],
+      );
+      expect(
+        composition.instantHabits.where((card) => card.id == 'cap-dup'),
+        hasLength(1),
+      );
+      expect(composition.instantHabits.first.name, 'Primera línea');
+      // The five-slot tier holds one capture and four habits — the
+      // duplicate never displaced a second habit.
+      expect(
+        composition.instantHabits.where(
+          (card) => card.origin == Origin.shipped,
+        ),
+        hasLength(4),
+      );
+    });
+
+    test('the close-continue probe sees captures: a pool whose only '
+        'remaining work is a capture answers true, and false with no '
+        'facts (Story 2.4\'s seam over 3.3\'s source)', () {
+      // The honest "only remaining work is a capture": the empty
+      // cluster set offers no catalogue candidate at all, while the
+      // capture tier composes regardless of the ring (a capture
+      // charges its size's daily count like anyone, so a spent day\'s
+      // exhausted counts admit nobody — captures included).
+      final fact = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 28, 8),
+      );
+      final log = [_sessionStarted(utcMicros(2026, 8, 28, 9))];
+      expect(
+        dealExistsIgnoringPocket(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: now,
+          offsetSeconds: 0,
+          activeClusters: const {},
+          poolFacts: [fact],
+        ),
+        isTrue,
+      );
+      expect(
+        dealExistsIgnoringPocket(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: now,
+          offsetSeconds: 0,
+          activeClusters: const {},
+        ),
+        isFalse,
+      );
+    });
+
+    test('a declared pocket refuses a focus capture\'s 15-minute '
+        'estimate — the ladder falls through to upkeep — and the '
+        'capture\'s estimate charges the sitting\'s ceiling once '
+        'answered', () {
+      final fact = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 28, 8),
+      );
+      final start = utcMicros(2026, 8, 28, 9);
+
+      // A 10-minute pocket cannot hold the capture's 900 s estimate:
+      // the chunk offer falls through and upkeep leads the day.
+      final refusal = nextDeal(
+        catalogue: _catalogue,
+        log: [_sessionStarted(start, pocketMinutes: 10)],
+        instantUtcMicros: start + 1,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(refusal!.size, Size.maintenance);
+      expect(refusal.id, isNot('cap-focus'));
+
+      // Answered inside a 10-minute pocket (a carried card, say — the
+      // filter never withdraws work in progress), the capture's own
+      // estimate charges the sitting via the fact's size: 900 s
+      // against the 600 s ceiling, and nothing more fits.
+      final charged = [
+        _sessionStarted(start, pocketMinutes: 10),
+        _captureDealt(start + 1, 'cap-focus'),
+        _captureDone(start + 2, 'cap-focus'),
+      ];
+      final facts = walkLog(charged, catalogue: _catalogue, poolFacts: [fact]);
+      expect(facts.openSessionAnsweredSeconds, focusEstimateSeconds);
+      final after = nextDeal(
+        catalogue: _catalogue,
+        log: charged,
+        instantUtcMicros: start + 3,
+        offsetSeconds: 0,
+        poolFacts: [fact],
+      );
+      expect(after, isNull, reason: 'the blown ceiling admits nothing');
     });
   });
 }

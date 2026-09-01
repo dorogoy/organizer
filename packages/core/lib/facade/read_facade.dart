@@ -3,12 +3,9 @@
 /// (AD-3), and no function in this library returns a collection of work
 /// items. Derived signals, when they arrive, are named as facts and live
 /// in `core/derive` — inputs to the weave, not outputs to the shell.
-/// That home holds two residents now: `core/derive/checkpoint.dart`
-/// (Story 2.4) derives the FR-10 checkpoint and `core/derive/strip.dart`
-/// (Story 2.5) the ambient strip's resident, each as a state fact the
-/// shell renders as a non-work surface — AD-6's stated crossing for
-/// derived state, on the `warmReturnDue` precedent — while every work
-/// signal this facade exposes stays `nextCard` alone.
+/// That home holds `checkpoint`, `strip`, `warm_return` and (Story 3.3)
+/// `eligible_day` — derived facts, never work collections — while every
+/// work signal this facade exposes stays `nextCard` alone.
 
 library;
 
@@ -34,6 +31,13 @@ import 'package:core/weave/weave.dart';
 /// read's own log too (2.1, AD-1): an explicit [bagMinutes] overrides
 /// it for a caller that derived once for a whole operation, and no
 /// shell-reachable path relies on the default once a setting exists.
+/// Since Story 3.3 the same read also takes the store's pool-fact
+/// snapshot — read once beside the log, in this one operation — so
+/// the card the surface renders sees manual captures exactly as the
+/// deal-resolving paths do: a dealt-but-unanswered capture
+/// re-materializes as its own card (its line, its fact's size, no
+/// zone), and a standing capture precedes same-size catalogue work
+/// in the resolver's choice.
 Future<Card?> nextCard(
   StorePort store, {
   required Catalogue catalogue,
@@ -42,13 +46,15 @@ Future<Card?> nextCard(
   int? bagMinutes,
 }) async {
   final entries = logEntriesOf(await store.readLogEntries());
-  final facts = walkLog(entries, catalogue: catalogue);
+  final poolFacts = poolFactsOf(await store.readPoolFacts());
+  final facts = walkLog(entries, catalogue: catalogue, poolFacts: poolFacts);
   final unanswered = facts.dealtUnanswered;
   if (unanswered != null) {
     return cardForItem(
       catalogue: catalogue,
       itemId: unanswered.itemId,
       origin: unanswered.itemOrigin,
+      poolFacts: poolFacts,
     );
   }
   return nextDeal(
@@ -58,5 +64,6 @@ Future<Card?> nextCard(
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(entries),
     energy: deriveLivePoolEnergy(entries, instantUtcMicros, offsetSeconds),
+    poolFacts: poolFacts,
   );
 }

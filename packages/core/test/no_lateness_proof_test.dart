@@ -731,13 +731,17 @@ final class KitchenSink {
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
       // The two pocket facts (Story 2.2) are statements about what was
       // declared and answered inside the sitting, never about what is
-      // owed: a spent pocket reads as a warm close, nothing else.
+      // owed: a spent pocket reads as a warm close, nothing else. The
+      // charged dealt days (Story 3.3) are the deal window's only
+      // input — statements about where deals charged, never about a
+      // window's remainder.
       expect(
         _classOwnFields('LogFacts', 'weave/session.dart'),
         equals([
           'lastDealtInstantByItemId',
           'focusSlotClosedDays',
           'dealtCountsByDay',
+          'dealtDaysByItemId',
           'answeredItemIds',
           'openSessionStart',
           'dealtUnanswered',
@@ -766,11 +770,22 @@ final class KitchenSink {
     });
 
     test('Candidate', () {
-      // A work source's offering: identity, size, origin, zone and
-      // precedence — no field may name a rescheduling role (AD-20).
+      // A work source's offering: identity, size, origin, zone,
+      // precedence and — since Story 3.3 — the source's own creation
+      // instant, the capture FIFO key. No field may name a
+      // rescheduling role (AD-20), and the instant is a recorded
+      // birth, never a target.
       expect(
         _classOwnFields('Candidate', 'weave/weave.dart'),
-        equals(['itemId', 'size', 'name', 'origin', 'zone', 'precedence']),
+        equals([
+          'itemId',
+          'size',
+          'name',
+          'origin',
+          'zone',
+          'precedence',
+          'createdInstantUtcMicros',
+        ]),
       );
     });
 

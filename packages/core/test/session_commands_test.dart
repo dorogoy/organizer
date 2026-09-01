@@ -1,5 +1,6 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/day/calendar.dart';
 import 'package:core/derive/checkpoint.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -700,6 +701,273 @@ void main() {
       expect(contents.map((content) => content.kind).toList(), [
         LogKind.appOpened,
       ]);
+    });
+  });
+
+  group('bundled deals see captures (Story 3.3)', () {
+    PoolFact fact(
+      String id,
+      Size size,
+      int micros, {
+      String line = 'Llamar al dentista',
+    }) => PoolFact(
+      id: id,
+      origin: Origin.manual,
+      size: size,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      originContext: line,
+    );
+
+    ItemActEntry manual(LogKind kind, int micros, String itemId) =>
+        ItemActEntry(
+          id: 'manual-$micros-$itemId',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          kind: kind,
+          itemId: itemId,
+          itemOrigin: Origin.manual,
+        );
+
+    test('sessionStart deals the standing capture as the session\'s '
+        'first card — the chunk tier ahead of the zone tier', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = sessionStart(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: start,
+        offsetSeconds: 0,
+        poolFacts: [fact('cap-focus', Size.focus, start - 60 * 1000 * 1000)],
+      );
+      expect(contents, hasLength(2));
+      expect(contents[0].kind, LogKind.sessionStarted);
+      expect(contents[1].kind, LogKind.cardDealt);
+      expect(contents[1].itemId, 'cap-focus');
+      expect(contents[1].itemOrigin, Origin.manual);
+    });
+
+    test('answering a shipped card bundles the waiting capture as the '
+        'next deal — precedence over same-size Evergreen material', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [_started(start), _dealt(start + 1000, 'zona-a')];
+      final contents = cardDone(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 2000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-man', Size.maintenance, start - 60 * 60 * 1000 * 1000),
+          fact('cap-newer', Size.maintenance, start - 30 * 60 * 1000 * 1000),
+        ],
+      );
+      expect(contents, hasLength(2));
+      expect(contents[1].kind, LogKind.cardDealt);
+      // The older capture leads — FIFO by fact instants.
+      expect(contents[1].itemId, 'cap-man');
+      expect(contents[1].itemOrigin, Origin.manual);
+    });
+
+    test('a skipped capture re-bundles itself — its FIFO place kept, '
+        'the day consumed never extended', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _started(start),
+        _dealt(start + 1000, 'zona-a'),
+        _done(start + 2000, 'zona-a'),
+        // The standing card is the older capture, dealt and unanswered.
+        manual(LogKind.cardDealt, start + 3000, 'cap-old'),
+      ];
+      final contents = cardSkipped(
+        itemId: 'cap-old',
+        origin: Origin.manual,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 4000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-new', Size.maintenance, start - 30 * 60 * 1000 * 1000),
+          fact('cap-old', Size.maintenance, start - 60 * 60 * 1000 * 1000),
+        ],
+      );
+      expect(contents, hasLength(2));
+      expect(contents[0].kind, LogKind.cardSkipped);
+      expect(contents[0].itemId, 'cap-old');
+      expect(contents[1].kind, LogKind.cardDealt);
+      // The bundled deal is the SAME capture: its FIFO place is its
+      // birth instant, so the skip re-offers it ahead of the younger
+      // capture — deal history never re-orders captures.
+      expect(contents[1].itemId, 'cap-old');
+      expect(contents[1].itemOrigin, Origin.manual);
+    });
+
+    test('answering a dealt capture retires it — the bundled deal names '
+        'the next candidate, never the answered capture', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _started(start),
+        _dealt(start + 1000, 'zona-a'),
+        _done(start + 2000, 'zona-a'),
+        manual(LogKind.cardDealt, start + 3000, 'cap-focus'),
+      ];
+      final contents = cardDone(
+        itemId: 'cap-focus',
+        origin: Origin.manual,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 4000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-focus', Size.focus, start - 60 * 60 * 1000 * 1000),
+          fact('cap-after', Size.focus, start - 30 * 60 * 1000 * 1000),
+        ],
+      );
+      expect(contents, hasLength(2));
+      expect(contents[0].kind, LogKind.cardDone);
+      // The Hecho closed the day's chunk slot through the fact's own
+      // size, so the bundled deal leaves the focus tier entirely.
+      expect(contents[1].kind, LogKind.cardDealt);
+      expect(contents[1].itemId, isNot('cap-focus'));
+      expect(contents[1].itemId, isNot('cap-after'));
+      expect(contents[1].itemOrigin, Origin.shipped);
+    });
+
+    test('sessionDeclare\'s supersede start deals the capture — the '
+        'pair\'s second half threads the facts', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [_started(start), _dealt(start + 1000, 'zona-a')];
+      final contents = sessionDeclare(
+        catalogue: _catalogue,
+        log: log,
+        pocketMinutes: 15,
+        instantUtcMicros: start + 2000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-focus', Size.focus, start - 60 * 60 * 1000 * 1000),
+        ],
+      );
+      // The pair carries the in-progress card, so no deal bundles here.
+      expect(contents.map((content) => content.kind).toList(), [
+        LogKind.sessionEnded,
+        LogKind.sessionStarted,
+      ]);
+      // With nothing standing and nothing open, the declare deals the
+      // capture — no end row exists to append.
+      final bare = sessionDeclare(
+        catalogue: _catalogue,
+        log: [_started(start), _ended(start + 1000)],
+        pocketMinutes: 15,
+        instantUtcMicros: start + 2000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-focus', Size.focus, start - 60 * 60 * 1000 * 1000),
+        ],
+      );
+      expect(bare.map((content) => content.kind).toList(), [
+        LogKind.sessionStarted,
+        LogKind.cardDealt,
+      ]);
+      expect(bare.last.itemId, 'cap-focus');
+    });
+
+    test('sessionExtend\'s bundled continue deal sees the capture', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = sessionExtend(
+        catalogue: _catalogue,
+        log: [_started(start, pocketMinutes: 15)],
+        instantUtcMicros: start + 16 * 60 * 1000 * 1000,
+        offsetSeconds: 0,
+        poolFacts: [
+          fact('cap-focus', Size.focus, start - 60 * 60 * 1000 * 1000),
+        ],
+      );
+      expect(contents.map((content) => content.kind).toList(), [
+        LogKind.sessionExtended,
+        LogKind.cardDealt,
+      ]);
+      expect(contents.last.itemId, 'cap-focus');
+    });
+
+    test('appOpen\'s fresh start deals the capture — the launch deal '
+        'sees the same facts', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = appOpen(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: start,
+        offsetSeconds: 0,
+        poolFacts: [fact('cap-focus', Size.focus, start - 60 * 1000 * 1000)],
+      );
+      expect(contents.map((content) => content.kind).toList(), [
+        LogKind.appOpened,
+        LogKind.sessionStarted,
+        LogKind.cardDealt,
+      ]);
+      expect(contents.last.itemId, 'cap-focus');
+    });
+
+    test('sessionDeclare\'s supersede pair carries a standing capture — '
+        'the pair suppresses the bundled deal, and its later Hecho '
+        'answers under the new sitting via the fact\'s size', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = [
+        fact('cap-focus', Size.focus, start - 60 * 60 * 1000 * 1000),
+      ];
+      final log = [
+        _started(start),
+        // The open sitting holds the dealt-but-unanswered capture.
+        manual(LogKind.cardDealt, start + 1000, 'cap-focus'),
+      ];
+      final declared = sessionDeclare(
+        catalogue: _catalogue,
+        log: log,
+        pocketMinutes: 15,
+        instantUtcMicros: start + 2000,
+        offsetSeconds: 0,
+        poolFacts: facts,
+      );
+      // The pair carries the card: no bundled deal exists to append.
+      expect(declared.map((content) => content.kind).toList(), [
+        LogKind.sessionEnded,
+        LogKind.sessionStarted,
+      ]);
+      expect(declared.last.pocketMinutes, 15);
+
+      // The Hecho names the (captureId, Origin.manual) pair the walk
+      // carried across, and the answer charges the new sitting through
+      // the fact's own size: the capture's 900 s estimate fills the
+      // 15-minute pocket's whole ceiling, so the answer row stands
+      // alone — no bundled deal fits behind it.
+      final carried = [
+        ...log,
+        _ended(start + 2000),
+        _started(start + 2000, pocketMinutes: 15),
+      ];
+      final done = cardDone(
+        itemId: 'cap-focus',
+        origin: Origin.manual,
+        catalogue: _catalogue,
+        log: carried,
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+        poolFacts: facts,
+      );
+      expect(done, hasLength(1));
+      expect(done.single.kind, LogKind.cardDone);
+      expect(done.single.itemId, 'cap-focus');
+      expect(done.single.itemOrigin, Origin.manual);
+      // And the fact-sized Hecho shows in the walk: the day's chunk
+      // slot closed (had the sizing failed, no slot would close) and
+      // the sitting's ledger holds the focus estimate (FR-8).
+      final walked = walkLog(
+        [...carried, manual(LogKind.cardDone, start + 3000, 'cap-focus')],
+        catalogue: _catalogue,
+        poolFacts: facts,
+      );
+      const calendar = Calendar();
+      expect(walked.focusSlotClosedDays, {calendar.dayOf(start + 2000, 0)});
+      expect(walked.openSessionAnsweredSeconds, focusEstimateSeconds);
     });
   });
 }

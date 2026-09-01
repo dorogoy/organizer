@@ -5,12 +5,14 @@
 /// whenever a deal needs it.
 ///
 /// `core/weave` is the only code that may emit a deal (AD-20): every
-/// work source — today only the shipped catalogue, later captures,
-/// rescue and purge — offers candidates with precedence, and the resolver
-/// below is the single place that turns them into a card. The module
-/// stays deterministic (AD-3): no `Random`, no wall clock, no
-/// `dart:io`, and ties break by least-recently-dealt then stable id,
-/// never id bit patterns.
+/// work source — the shipped catalogue and, since Story 3.3, manual
+/// capture pool facts; later rescue steps and purge injection —
+/// offers candidates with precedence, and the resolver below is the
+/// single place that turns them into a card. The module stays
+/// deterministic (AD-3): no `Random`, no wall clock, no `dart:io`,
+/// ties break by least-recently-dealt then stable id for catalogue
+/// work and by the fact's recorded creation instant (FIFO) for
+/// captures — never id bit patterns.
 ///
 /// The Focus Chunk slot resolves through ordered tiers (AD-20): the
 /// week's active zone first, then `fondo`, then the least-recently-dealt
@@ -125,11 +127,16 @@ final class Card {
       '${zone?.name ?? '-'}, ${estimateSeconds}s)';
 }
 
-/// Where a candidate stands in AD-20's arbitration. One member today —
-/// the shipped catalogue is 1.6's only candidate source; later sources
-/// (capture precedence, rescue steps, purge injection) join as members,
-/// never as flags on this one.
+/// Where a candidate stands in AD-20's arbitration. Two members since
+/// Story 3.3 — a manual capture's pool fact ahead of the shipped
+/// catalogue (same-size captures take precedence over Evergreen
+/// material); later sources (rescue steps, purge injection) join as
+/// members, never as flags on these.
 enum CandidatePrecedence {
+  /// A manual capture's pool fact (Story 3.3, FR-27) — ahead of the
+  /// catalogue: the index is the arbitration.
+  capture,
+
   /// A shipped Evergreen catalogue entry.
   catalogue,
 }
@@ -145,6 +152,7 @@ final class Candidate {
     required this.origin,
     required this.zone,
     required this.precedence,
+    this.createdInstantUtcMicros,
   });
 
   final String itemId;
@@ -158,6 +166,14 @@ final class Candidate {
   final Zone? zone;
 
   final CandidatePrecedence precedence;
+
+  /// The source's own creation instant — a manual capture's pool-fact
+  /// creation, the FIFO key: same-size captures order oldest-first by
+  /// it (AD-3: recorded act instants, never id bit patterns, and a
+  /// skip keeps the place because deal history never re-orders
+  /// captures). Absent for sources with no recorded genesis — the
+  /// shipped catalogue, whose ordering reads deals, never births.
+  final int? createdInstantUtcMicros;
 }
 
 /// The shipped catalogue as a candidate source (AD-16, AD-20): entries
@@ -184,6 +200,42 @@ List<Candidate> shippedCandidates(
           origin: Origin.shipped,
           zone: entry.zone,
           precedence: CandidatePrecedence.catalogue,
+        ),
+  ];
+}
+
+/// The manual pool facts as a candidate source (Story 3.3, FR-27,
+/// AD-20, AD-25): origin-`manual` facts become `Origin.manual` items —
+/// id the fact's own id, name the fact's Origin Context (its own
+/// single line), no zone — offered ahead of the catalogue by
+/// [CandidatePrecedence.capture]. Done-once retirement lives here, at
+/// the source (AD-25): a fact whose id the handed-in log answers
+/// (`card_done`, all-time) is not offered at all, while a skipped
+/// capture stays a candidate with its FIFO place — a skip consumes
+/// nothing. No cap and no expiry: an unanswered capture is absent
+/// rows, never a deleted fact, and the three capture sizes ARE the
+/// 1-3-5 taxonomy — the fact's [Size] rides straight through, no
+/// conversion. A duplicate fact id offers once — the snapshot's
+/// first, replay order being the one order the store guarantees
+/// (AD-3) — so two facts sharing an id cannot fill two draw slots.
+List<Candidate> captureCandidates(
+  List<PoolFact> poolFacts,
+  Set<String> answeredItemIds,
+) {
+  final offered = <String>{};
+  return [
+    for (final fact in poolFacts)
+      if (fact.origin == Origin.manual &&
+          !answeredItemIds.contains(fact.id) &&
+          offered.add(fact.id))
+        Candidate(
+          itemId: fact.id,
+          size: fact.size,
+          name: fact.originContext ?? '',
+          origin: fact.origin,
+          zone: null,
+          precedence: CandidatePrecedence.capture,
+          createdInstantUtcMicros: fact.instantUtcMicros,
         ),
   ];
 }
@@ -228,8 +280,12 @@ final class DayComposition {
 }
 
 /// The single resolver's candidate order (AD-3, AD-20): precedence
-/// first, then least-recently-dealt — recorded `card_dealt` instants,
-/// never-dealt first — then stable id order. Never id bit patterns.
+/// first, then — for catalogue work — least-recently-dealt (recorded
+/// `card_dealt` instants, never-dealt first) then stable id order.
+/// Same-precedence captures order instead by their source's recorded
+/// creation instant, oldest-first (FIFO, Story 3.3): deal history
+/// never re-orders them, which is exactly why a skip keeps a
+/// capture's place. Never id bit patterns, on either branch.
 int _resolverOrder(
   Candidate a,
   Candidate b,
@@ -238,6 +294,18 @@ int _resolverOrder(
   final byPrecedence = a.precedence.index.compareTo(b.precedence.index);
   if (byPrecedence != 0) {
     return byPrecedence;
+  }
+  if (a.precedence == CandidatePrecedence.capture) {
+    // Same-size captures, oldest fact first — the FIFO key is the
+    // fact's recorded creation instant, tie stable id. A capture
+    // absent its instant (no source mints one) still orders totally.
+    final byCreation = (a.createdInstantUtcMicros ?? 0).compareTo(
+      b.createdInstantUtcMicros ?? 0,
+    );
+    if (byCreation != 0) {
+      return byCreation;
+    }
+    return a.itemId.compareTo(b.itemId);
   }
   final aDealt = lastDealtInstantByItemId[a.itemId];
   final bDealt = lastDealtInstantByItemId[b.itemId];
@@ -278,18 +346,39 @@ List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
   return [for (final candidate in ordered.take(count)) _cardOf(candidate)];
 }
 
-/// The chunk slot's candidate (AD-20's tiers, in order): the active
-/// zone's focus entries never **answered** (`card_done`) all-time, then
-/// `fondo` (seasonal focus) never answered, then the least-recently-dealt
-/// eligible focus entry regardless of zone — repetition accepted, never
-/// an empty day while any eligible entry exists. Ties within a tier
-/// break by least-recently-dealt then stable id (AD-3). With no active
-/// zone (FR-11's ring empty) the tiers are empty — this returns absent.
+/// The chunk slot's candidate (AD-20's tiers, in order): a manual
+/// capture of chunk size first (Story 3.3 — not-yet-answered by the
+/// source's own retirement, ahead of every zone tier and composing
+/// with no active zone at all, so FR-11's empty ring still holds the
+/// capture; the day never holds a second large item beside it, for
+/// the tiers below never run while a capture stands), then the active
+/// zone's focus entries never **answered** (`card_done`) all-time,
+/// then `fondo` (seasonal focus) never answered, then the
+/// least-recently-dealt eligible focus entry regardless of zone —
+/// repetition accepted, never an empty day while any eligible entry
+/// exists. Ties within a tier break by the resolver's own order
+/// (AD-3 — FIFO by fact instant inside the capture tier,
+/// least-recently-dealt then stable id in the others). With no active
+/// zone (FR-11's ring empty) the zone tiers are empty — this returns
+/// absent once no capture stands.
 Candidate? _chunkCandidateOf(
   List<Candidate> focusCandidates,
   LogFacts facts,
   Zone? activeZone,
 ) {
+  // The capture tier (Story 3.3): no not-yet-answered conjunct —
+  // retirement already lived at the source, `captureCandidates`'s own
+  // fold, so every capture standing here is unanswered by
+  // construction.
+  final captureTier = _orderedByResolver(
+    focusCandidates.where(
+      (candidate) => candidate.precedence == CandidatePrecedence.capture,
+    ),
+    facts,
+  );
+  if (captureTier.isNotEmpty) {
+    return captureTier.first;
+  }
   if (activeZone == null) {
     return null;
   }
@@ -352,9 +441,10 @@ _DayPolicy _resolveDay({
   required int bagMinutes,
   required EnergyLevel energy,
   required Set<CurationCluster>? activeClusters,
+  List<PoolFact> poolFacts = const [],
   bool liftedPocket = false,
 }) {
-  final facts = walkLog(log, catalogue: catalogue);
+  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
   final clusters = activeClusters ?? allCurationClusters;
   // The 🔴 day's admission (FR-4, Story 2.5): while the derived energy
@@ -369,15 +459,20 @@ _DayPolicy _resolveDay({
   // and today's sizes coincide at the instant tier — and transient
   // steps that carry their own estimates (FR-5's rescue, Epic 6's
   // purge, each ≤ 60 s) meet the same ceiling when their sources
-  // arrive.
+  // arrive. Captures meet it like anyone (Story 3.3): a focus or
+  // maintenance capture reaches no draw on a 🔴 day, an instant
+  // capture (30 s) stands with the habits.
   bool lowEnergyAdmits(Size size) =>
       energy != EnergyLevel.low ||
       estimateSecondsOf(size) <= lowEnergyMaxEstimateSeconds;
   final candidates = [
-    for (final candidate in shippedCandidates(
-      catalogue,
-      activeClusters: clusters,
-    ))
+    for (final candidate in [
+      // The candidate sources in precedence order (AD-20): manual
+      // captures first (Story 3.3 — done-once retirement already
+      // applied at the source), the shipped catalogue behind them.
+      ...captureCandidates(poolFacts, facts.answeredItemIds),
+      ...shippedCandidates(catalogue, activeClusters: clusters),
+    ])
       if (lowEnergyAdmits(candidate.size)) candidate,
   ];
   Card? chunk;
@@ -457,6 +552,11 @@ _DayPolicy _resolveDay({
 /// holds a dealt-but-unanswered card — an unanswered card never produces
 /// a second card (AD-3), the shared pipeline's line now, not just the
 /// deal-level one. Upkeep and habits are never charged to the bag (FR-7).
+/// The [poolFacts] (Story 3.3) join the catalogue as the second
+/// candidate source — origin-manual facts offered ahead of same-size
+/// Evergreen material, FIFO by the fact's recorded creation instant,
+/// a not-yet-answered focus capture the chunk tier ahead of every
+/// zone tier, composing even with no active zone.
 DayComposition composeDay({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -465,6 +565,7 @@ DayComposition composeDay({
   int bagMinutes = defaultTimeBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
+  List<PoolFact> poolFacts = const [],
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -474,6 +575,7 @@ DayComposition composeDay({
     bagMinutes: bagMinutes,
     energy: energy,
     activeClusters: activeClusters,
+    poolFacts: poolFacts,
   );
   return DayComposition(
     focus: policy.chunk,
@@ -506,7 +608,10 @@ DayComposition composeDay({
 /// warm close. No eager `session_ended` exists here or anywhere: the
 /// close row lands at backgrounding, the declare tap, the reveal, or
 /// the pause tap — AD-19's three closing causes at their four emission
-/// sites.
+/// sites. The [poolFacts] (Story 3.3) join the catalogue as the
+/// second candidate source — a manual capture deals before any
+/// same-size catalogue candidate, and a dealt capture charges its
+/// size's daily count exactly like a catalogue deal.
 Card? nextDeal({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -515,6 +620,7 @@ Card? nextDeal({
   int bagMinutes = defaultTimeBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
+  List<PoolFact> poolFacts = const [],
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -524,6 +630,7 @@ Card? nextDeal({
     bagMinutes: bagMinutes,
     energy: energy,
     activeClusters: activeClusters,
+    poolFacts: poolFacts,
   );
   return _guardedTierDealOf(policy, policy.pocketAllows);
 }
@@ -585,6 +692,8 @@ Card? _guardedTierDealOf(_DayPolicy policy, bool Function(Card card) allows) {
 /// dealt-but-unanswered card standing, and no deal would exist either
 /// way — the close carries nothing to continue with. A read, never a
 /// write: the probe appends nothing and deals nothing (AD-3, AD-20).
+/// The [poolFacts] (Story 3.3) join the catalogue as the second
+/// candidate source, exactly as `nextDeal` reads them.
 bool dealExistsIgnoringPocket({
   required Catalogue catalogue,
   required List<LogEntry> log,
@@ -593,6 +702,7 @@ bool dealExistsIgnoringPocket({
   int bagMinutes = defaultTimeBagMinutes,
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
+  List<PoolFact> poolFacts = const [],
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -602,6 +712,7 @@ bool dealExistsIgnoringPocket({
     bagMinutes: bagMinutes,
     energy: energy,
     activeClusters: activeClusters,
+    poolFacts: poolFacts,
     liftedPocket: true,
   );
   // The lifted pocket's filter admits every card, so the ladder reads
@@ -609,13 +720,19 @@ bool dealExistsIgnoringPocket({
   return _guardedTierDealOf(policy, policy.pocketAllows) != null;
 }
 
-/// The card for a referenced catalogue item, or absent when the catalogue
-/// holds no such id (a future origin's items carry their own names when
-/// their sources arrive).
+/// The card for a referenced item — the catalogue first, then (since
+/// Story 3.3) the handed-in pool facts: a manual fact renders through
+/// its own Origin Context as the name, its own taxonomy size as the
+/// size and no zone, so a dealt-but-unanswered capture survives reads
+/// exactly as a catalogue card does — the standing-card path never
+/// depends on candidacy. Absent when no source knows the id. The
+/// [origin] param stays the row's own carried origin — the answer
+/// commands match on the (itemId, origin) pair the log holds.
 Card? cardForItem({
   required Catalogue catalogue,
   required String itemId,
   required Origin origin,
+  List<PoolFact> poolFacts = const [],
 }) {
   for (final entry in catalogue.entries) {
     if (entry.id == itemId) {
@@ -626,6 +743,18 @@ Card? cardForItem({
         origin: origin,
         zone: entry.zone,
         estimateSeconds: estimateSecondsOf(entry.size),
+      );
+    }
+  }
+  for (final fact in poolFacts) {
+    if (fact.id == itemId) {
+      return Card(
+        id: fact.id,
+        size: fact.size,
+        name: fact.originContext ?? '',
+        origin: origin,
+        zone: null,
+        estimateSeconds: estimateSecondsOf(fact.size),
       );
     }
   }
