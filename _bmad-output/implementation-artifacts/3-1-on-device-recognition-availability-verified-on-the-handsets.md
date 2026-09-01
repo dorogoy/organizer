@@ -2,8 +2,8 @@
 title: 'On-device recognition availability, verified on the handsets'
 type: 'chore'
 created: '2026-09-01'
-status: 'in-progress'
-review_loop_iteration: 0
+status: 'in-review'
+review_loop_iteration: 1
 baseline_commit: '7b69158da97373839b7c747ea3ab741801900bf5'
 context: []
 ---
@@ -67,9 +67,9 @@ context: []
 - [x] `android/app/build.gradle.kts` -- add `testInstrumentationRunner` and androidx.test deps (runner, ext.junit) if the template lacks them -- temporary; deleted with the probe.
 - [x] Emulator protocol proof (in-session): boot `organizer36` per AGENTS.md, run `cd android && ./gradlew :app:connectedDebugAndroidTest` inside `devbox shell` with `tool/env.sh` sourced -- proves the probe end-to-end and the evidence format; result recorded as emulator (not a handset; an UNAVAILABLE here is expected, not an escalation).
 - [x] Commit and push the branch so the home computer can run the probe.
-- [ ] Handset evidence (human leg, home computer, two phones): written copy-paste protocol -- pull branch, `devbox shell`, `. ./tool/env.sh`, connect phone, `cd android && ./gradlew :app:connectedDebugAndroidTest`, paste output per phone -- both records land in this spec's Verification.
-- [ ] This spec -- record per-device results, verdicts, the §7 accessibility-floor reading, and the probe's final source verbatim.
-- [ ] Delete the probe -- remove the androidTest dir + gradle edits; `git status` clean of probe traces; `devbox run -- make gate` -- green.
+- [x] Handset evidence (human leg, home computer, two phones): written copy-paste protocol -- pull branch, `devbox shell`, `. ./tool/env.sh`, connect phone, `cd android && ./gradlew :app:connectedDebugAndroidTest`, paste output per phone -- both records land in this spec's Verification.
+- [x] This spec -- record per-device results, verdicts, the §7 accessibility-floor reading, and the probe's final source verbatim.
+- [x] Delete the probe -- remove the androidTest dir + gradle edits; `git status` clean of probe traces; `devbox run -- make gate` -- green.
 
 **Acceptance Criteria:**
 - Given the probe on any device, when it runs, then one complete record exists per device (identity, static gate, support lists or error), with no hang and no permission prompt.
@@ -159,19 +159,39 @@ cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain
 
 Interpretation is not the runner's to do: paste the verbatim `RecognitionProbe` lines per phone below; the builder applies the one rule and the §7 reading. If any VERDICT line reads UNAVAILABLE or INDETERMINATE (error/timeout), re-run once; if it persists, stop and report (Ask-First).
 
-**Phone 1 of 2 (pending):**
+**Phone 1 of 2 (2026-09-01, Pixel 9):**
 
 ```
-<paste record here>
+DEVICE manufacturer=Google model=Pixel 9 device=tokay androidId=a98a411622ce5f63 apiLevel=37
+STATIC_GATE isOnDeviceRecognitionAvailable=true
+SUPPORT_CHECK outcome=result
+INSTALLED_ON_DEVICE tags=en-US,es-ES
+PENDING_ON_DEVICE tags=
+SUPPORTED_ON_DEVICE tags=cmn-Hant-TW,de-AT,de-BE,de-CH,de-DE,en-AU,en-CA,en-GB,en-IE,en-IN,en-SG,es-US,fr-BE,fr-CA,fr-CH,fr-FR,hi-IN,it-CH,it-IT,ja-JP,pt-BR,zh-Hant-TW,zh-TW,cmn-Hans-CN,id-ID,ko-KR,pl-PL,ru-RU,th-TH,tr-TR,vi-VN,da-DK,nb-NO,nl-NL,sv-SE
+ONLINE tags=
+ES_INSTALLED tags=es-ES
+VERDICT AVAILABLE rule=service present AND es in installedOnDeviceLanguages serviceUp=true
 ```
 
-**Phone 2 of 2 (pending):**
+**Phone 2 of 2 (2026-09-01, motorola edge 50 fusion):**
 
 ```
-<paste record here>
+DEVICE manufacturer=motorola model=motorola edge 50 fusion device=cuscoi androidId=4cd6e5feb7e35a9a apiLevel=35
+STATIC_GATE isOnDeviceRecognitionAvailable=true
+SUPPORT_CHECK outcome=result
+INSTALLED_ON_DEVICE tags=es-ES,en-GB
+PENDING_ON_DEVICE tags=
+SUPPORTED_ON_DEVICE tags=en-US,de-DE,fr-FR,it-IT,en-AU,en-IE,en-SG,ja-JP,de-AT,de-BE,de-CH,en-CA,en-IN,es-US,fr-BE,fr-CA,fr-CH,hi-IN,id-ID,it-CH,ko-KR,pt-BR,th-TH,cmn-Hans-CN,cmn-Hant-TW,pl-PL,ru-RU,tr-TR,vi-VN
+ONLINE tags=
+ES_INSTALLED tags=es-ES
+VERDICT AVAILABLE rule=service present AND es in installedOnDeviceLanguages serviceUp=true
 ```
 
-**§7 accessibility-floor reading (filled once both handset records land):** pending.
+**§7 accessibility-floor reading:** Pixel 9 (API 37) and motorola edge 50 fusion (API 35) both returned `AVAILABLE`: the on-device service was present and `es-ES` was installed on each. The wordless-route accessibility-floor claim is therefore verified on both validation handsets, and 3.4 is unblocked. The third handset remains field-use only and has no probe evidence.
+
+### Matrix coverage (2026-09-01, motorola edge 50 fusion)
+
+`cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain` completed successfully with `Starting 7 tests on motorola edge 50 fusion - 15 / Finished 7 tests`. `probeConnectedDevice` re-ran the real available path; the six matrix tests ran on the handset against the temporary evaluator: `availableMatrixRow`, `serviceAbsentMatrixRow`, `modelMissingMatrixRow`, `spanishUnsupportedMatrixRow`, `supportErrorMatrixRow`, and `silentCallbackMatrixRow`. The silent-callback test awaits an uncounted latch and verifies the timeout verdict; the other simulated paths assert their matrix verdicts. The service-absent path records the support error and resolves `UNAVAILABLE`, as required by the matrix.
 
 ### Probe final source (verbatim, preserved before deletion)
 
@@ -200,32 +220,93 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RecognitionAvailabilityProbeTest {
 
-    private val tag = "RecognitionProbe"
-    private val timeoutSeconds = 15L
-
     @Test
-    fun probeOnDeviceSpanishRecognition() {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val context = instrumentation.targetContext
-        val lines = mutableListOf<String>()
-        fun record(line: String) {
-            lines += line
-            Log.i(tag, line)
-        }
-
-        val androidId = try {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-        } catch (t: Throwable) {
-            "unreadable:${t.javaClass.simpleName}"
-        }
-        record(
+    fun probeConnectedDevice() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val serviceUp = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        val outcome = checkSupport(context, serviceUp)
+        val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        val lines = listOf(
             "DEVICE manufacturer=${Build.MANUFACTURER} model=${Build.MODEL} device=${Build.DEVICE} " +
                 "androidId=$androidId apiLevel=${Build.VERSION.SDK_INT}",
+        ) + recordFor(serviceUp, outcome)
+        lines.forEach { Log.i(tag, it) }
+        check(outcome.completed) { "checkRecognitionSupport timed out after $timeoutSeconds seconds" }
+    }
+
+    @Test
+    fun availableMatrixRow() = assertVerdict(
+        serviceUp = true,
+        outcome = SupportOutcome(
+            completed = true,
+            support = Languages(installed = listOf("es-ES")),
+        ),
+        expected = "AVAILABLE",
+    )
+
+    @Test
+    fun serviceAbsentMatrixRow() = assertVerdict(
+        serviceUp = false,
+        outcome = SupportOutcome(completed = true, errorCode = SpeechRecognizer.ERROR_CLIENT),
+        expected = "UNAVAILABLE",
+    )
+
+    @Test
+    fun modelMissingMatrixRow() = assertVerdict(
+        serviceUp = true,
+        outcome = SupportOutcome(
+            completed = true,
+            support = Languages(
+                installed = listOf("en-US"),
+                pending = listOf("es-ES"),
+                supported = listOf("es-US"),
+            ),
+        ),
+        expected = "UNAVAILABLE",
+    )
+
+    @Test
+    fun spanishUnsupportedMatrixRow() = assertVerdict(
+        serviceUp = true,
+        outcome = SupportOutcome(
+            completed = true,
+            support = Languages(
+                installed = listOf("en-US"),
+                supported = listOf("fr-FR"),
+            ),
+        ),
+        expected = "UNAVAILABLE",
+    )
+
+    @Test
+    fun supportErrorMatrixRow() = assertVerdict(
+        serviceUp = true,
+        outcome = SupportOutcome(completed = true, errorCode = SpeechRecognizer.ERROR_CLIENT),
+        expected = "INDETERMINATE",
+    )
+
+    @Test
+    fun silentCallbackMatrixRow() {
+        val completed = CountDownLatch(1).await(1, TimeUnit.MILLISECONDS)
+        check(!completed) { "test callback unexpectedly completed" }
+        assertVerdict(
+            serviceUp = true,
+            outcome = SupportOutcome(completed = completed),
+            expected = "INDETERMINATE",
         )
+    }
 
-        val serviceUp = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        record("STATIC_GATE isOnDeviceRecognitionAvailable=$serviceUp")
+    private fun assertVerdict(
+        serviceUp: Boolean,
+        outcome: SupportOutcome,
+        expected: String,
+    ) {
+        val lines = recordFor(serviceUp, outcome)
+        check(lines.first() == "STATIC_GATE isOnDeviceRecognitionAvailable=$serviceUp")
+        check(lines.last().startsWith("VERDICT $expected ")) { lines.joinToString("\n") }
+    }
 
+    private fun checkSupport(context: android.content.Context, serviceUp: Boolean): SupportOutcome {
         var support: RecognitionSupport? = null
         var errorCode: Int? = null
         var failure: String? = null
@@ -233,7 +314,7 @@ class RecognitionAvailabilityProbeTest {
         val executor = Executors.newSingleThreadExecutor()
         var recognizer: SpeechRecognizer? = null
 
-        instrumentation.runOnMainSync {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
             try {
                 recognizer =
                     if (serviceUp) {
@@ -265,68 +346,79 @@ class RecognitionAvailabilityProbeTest {
         }
 
         val completed = latch.await(timeoutSeconds, TimeUnit.SECONDS)
-        val outcomeSupport = support
-        val outcomeError = errorCode
-        val outcomeFailure = failure
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { recognizer?.destroy() }
+        executor.shutdown()
+        return SupportOutcome(
+            completed = completed,
+            support = support?.let {
+                Languages(
+                    installed = it.installedOnDeviceLanguages.orEmpty(),
+                    pending = it.pendingOnDeviceLanguages.orEmpty(),
+                    supported = it.supportedOnDeviceLanguages.orEmpty(),
+                    online = it.onlineLanguages.orEmpty(),
+                )
+            },
+            errorCode = errorCode,
+            failure = failure,
+        )
+    }
 
+    private fun recordFor(serviceUp: Boolean, outcome: SupportOutcome): List<String> {
+        val lines = mutableListOf("STATIC_GATE isOnDeviceRecognitionAvailable=$serviceUp")
         val verdict = when {
-            !completed -> {
-                record("SUPPORT_CHECK outcome=timeout seconds=$timeoutSeconds")
-                "INDETERMINATE (no callback within ${timeoutSeconds}s — silent service)"
+            !outcome.completed -> {
+                lines += "SUPPORT_CHECK outcome=timeout seconds=$timeoutSeconds"
+                "INDETERMINATE"
             }
-            outcomeFailure != null -> {
-                record("SUPPORT_CHECK outcome=exception detail=$outcomeFailure")
-                "INDETERMINATE (checkRecognitionSupport threw)"
+            outcome.failure != null -> {
+                lines += "SUPPORT_CHECK outcome=exception detail=${outcome.failure}"
+                if (serviceUp) "INDETERMINATE" else "UNAVAILABLE"
             }
-            outcomeError != null -> {
-                record("SUPPORT_CHECK outcome=error code=$outcomeError name=${errorName(outcomeError)}")
-                "INDETERMINATE (onError $outcomeError ${errorName(outcomeError)})"
+            outcome.errorCode != null -> {
+                lines += "SUPPORT_CHECK outcome=error code=${outcome.errorCode}"
+                if (serviceUp) "INDETERMINATE" else "UNAVAILABLE"
             }
-            outcomeSupport != null -> {
-                val installed = outcomeSupport.installedOnDeviceLanguages.orEmpty()
-                val pending = outcomeSupport.pendingOnDeviceLanguages.orEmpty()
-                val supported = outcomeSupport.supportedOnDeviceLanguages.orEmpty()
-                val online = outcomeSupport.onlineLanguages.orEmpty()
-                record("SUPPORT_CHECK outcome=result")
-                record("INSTALLED_ON_DEVICE tags=${installed.joinToString(",")}")
-                record("PENDING_ON_DEVICE tags=${pending.joinToString(",")}")
-                record("SUPPORTED_ON_DEVICE tags=${supported.joinToString(",")}")
-                record("ONLINE tags=${online.joinToString(",")}")
-                val esInstalled = installed.filter { esSubtag(it) }
-                record("ES_INSTALLED tags=${esInstalled.joinToString(",")}")
+            outcome.support != null -> {
+                val support = outcome.support
+                lines += "SUPPORT_CHECK outcome=result"
+                lines += "INSTALLED_ON_DEVICE tags=${support.installed.joinToString(",")}"
+                lines += "PENDING_ON_DEVICE tags=${support.pending.joinToString(",")}"
+                lines += "SUPPORTED_ON_DEVICE tags=${support.supported.joinToString(",")}"
+                lines += "ONLINE tags=${support.online.joinToString(",")}"
+                val esInstalled = support.installed.filter(::isSpanish)
+                lines += "ES_INSTALLED tags=${esInstalled.joinToString(",")}"
                 if (serviceUp && esInstalled.isNotEmpty()) "AVAILABLE" else "UNAVAILABLE"
             }
             else -> {
-                record("SUPPORT_CHECK outcome=none")
-                "INDETERMINATE (latch released without an outcome)"
+                lines += "SUPPORT_CHECK outcome=none"
+                "INDETERMINATE"
             }
         }
-        record(
-            "VERDICT $verdict " +
-                "rule=service present AND es in installedOnDeviceLanguages serviceUp=$serviceUp",
-        )
-
-        instrumentation.runOnMainSync { recognizer?.destroy() }
-        executor.shutdown()
-
-        val banner = buildString {
-            appendLine("=== 3-1 recognition availability probe BEGIN ===")
-            for (line in lines) appendLine(line)
-            append("=== 3-1 recognition availability probe END ===")
-        }
-        println(banner)
-        check(completed) { "checkRecognitionSupport timed out after ${timeoutSeconds}s\n$banner" }
+        lines += "VERDICT $verdict rule=service present AND es in installedOnDeviceLanguages serviceUp=$serviceUp"
+        return lines
     }
 
-    private fun esSubtag(languageTag: String): Boolean =
+    private fun isSpanish(languageTag: String): Boolean =
         Locale.forLanguageTag(languageTag.trim().replace('_', '-')).language == "es"
 
-    private fun errorName(code: Int): String =
-        SpeechRecognizer::class.java.fields
-            .filter { it.name.startsWith("ERROR_") }
-            .firstOrNull { runCatching { it.getInt(null) }.getOrNull() == code }
-            ?.name
-            ?: "UNKNOWN"
+    private data class Languages(
+        val installed: List<String> = emptyList(),
+        val pending: List<String> = emptyList(),
+        val supported: List<String> = emptyList(),
+        val online: List<String> = emptyList(),
+    )
+
+    private data class SupportOutcome(
+        val completed: Boolean,
+        val support: Languages? = null,
+        val errorCode: Int? = null,
+        val failure: String? = null,
+    )
+
+    private companion object {
+        const val tag = "RecognitionProbe"
+        const val timeoutSeconds = 15L
+    }
 }
 ```
 
