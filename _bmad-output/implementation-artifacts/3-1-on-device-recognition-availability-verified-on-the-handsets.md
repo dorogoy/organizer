@@ -79,40 +79,35 @@ context: []
 - Given the story's end state, when the tree is inspected, then no probe code, androidTest dep, manifest or permission change remains — only evidence in this spec.
 - Given the third handset, when availability is discussed, then it is field-use only (builder decision 2026-09-01) and carries no probe evidence.
 
+### Review Findings
+
+- [x] [Review][Patch] Record post-run uninstall of debug + androidTest APKs (AD-18) [spec:143]
+- [x] [Review][Patch] Preserved "final" probe is not the git tree source [spec:205]
+- [x] [Review][Patch] Spec Change Log wrongly claims evidence-record format unchanged [spec:85]
+- [x] [Review][Patch] PRD states the cable-free field-handset mechanism as a present fact [prd.md:560]
+- [x] [Review][Patch] Epic "three validation handsets" probe wording not logged in deferred-work [epic-3-context.md:48]
+- [x] [Review][Patch] Deletion evidence claims `git status` showed only this spec [spec:440]
+- [x] [Review][Patch] Design Notes still describe the 1-test stdout skeleton [spec:91]
+
 ## Spec Change Log
 
 - 2026-09-01 (in-session, builder): discovered that in an Orca worktree `tool/env.sh` exports `ANDROID_HOME` through the gitignored `.toolchain` **symlink**, and the flutter tool bakes that symlinked path into `android/local.properties` `sdk.dir`. AGP 9.1 then silently compiles plugin subprojects without `android.jar` (`package android.app does not exist` in `:jni_flutter:compileDebugJavaWithJavac`) while the app module still builds. Fix, verified in-session: resolve the realpath (`TC=$(readlink -f .toolchain)`) for both `ANDROID_HOME` and `sdk.dir`/`flutter.sdk` before any gradle invocation. The handset-leg protocol below bakes this in. On the home computer's main checkout (`.toolchain` a real directory) this cannot occur.
-- 2026-09-01 (home session): the probe was refactored mid-story — it gained six matrix-row tests (synthetic `SupportOutcome` evaluator) so every I/O-matrix row ran on a real handset, and the stdout channel was dropped after gradle's console and JUnit XML `system-out` proved not to carry the record (logcat only; see Matrix coverage). Task 1's original wording ("one test … stdout and logcat") described the first in-session version. KEEP: the frozen block entire; the evidence-record format (`DEVICE`/`STATIC_GATE`/`SUPPORT_CHECK`/lists/`VERDICT`) is unchanged between versions.
+- 2026-09-01 (home session): the probe was refactored mid-story — it gained six matrix-row tests (synthetic `SupportOutcome` evaluator) so every I/O-matrix row ran on a real handset, and the stdout channel was dropped after gradle's console and JUnit XML `system-out` proved not to carry the record (logcat only; see Matrix coverage). Task 1's original wording ("one test … stdout and logcat") described the first in-session version. KEEP: the frozen block entire. The record *keys* (`DEVICE`/`STATIC_GATE`/`SUPPORT_CHECK`/lists/`VERDICT`) stayed; the committed 1-test file mapped every `onError`/exception to `INDETERMINATE` (parenthetical verdict text, `errorName(...)`); the 7-test evaluator maps service-absent errors to `UNAVAILABLE` and emits a bare `INDETERMINATE`. No real device hit those branches (`outcome=result` on emulator + both handsets).
+- 2026-09-01 (code review loop 2): git never held the seven-test listing (see Probe final source); AD-18 uninstall after each handset run recorded; deletion-evidence `git status` sentence scoped to `160c990`.
 
 ## Design Notes
 
-Probe skeleton (final source preserved in Verification before deletion):
-
-```kotlin
-@Test fun probeOnDeviceSpanishRecognition() {
-    val cx = InstrumentationRegistry.getInstrumentation().targetContext
-    val serviceUp = SpeechRecognizer.isOnDeviceRecognitionAvailable(cx) // static, API 31
-    val recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(cx)
-    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es")
-    val latch = CountDownLatch(1)
-    recognizer.checkRecognitionSupport(intent, executor, callback(latch)) // API 33
-    check(latch.await(15, TimeUnit.SECONDS)) { "checkRecognitionSupport timed out" }
-    // record to stdout + Log.i: Build.MANUFACTURER / MODEL / VERSION.SDK_INT,
-    //   serviceUp, installed/pending/supported/online lists or error code,
-    //   "es installed: <tags>" verdict line
-}
-```
+Contract (listings live under Verification — do not treat this block as source): static gate + `checkRecognitionSupport` for `es`, latch ≤ 15 s, record `DEVICE` / `STATIC_GATE` / `SUPPORT_CHECK` + four lists + `VERDICT` to logcat tag `RecognitionProbe`. Gradle console and JUnit XML `system-out` do not carry the record.
 
 - Instrumentation over a Dart screen: zero shipped-surface contact, per-device gradle output, no permission, one-command deletion. Gradle runs the test once per connected device, so both phones may be connected together.
 - `es` matching is on the language subtag (`es`, `es-ES`, `es-US`, …); exact tags are always recorded.
-- Exact callback-interface and builder symbols are verified against compileSdk 36 at compile time; the skeleton above is the contract, not the literal API.
+- Exact callback-interface and builder symbols are verified against compileSdk 36 at compile time.
 
 ## Verification
 
 **Commands:**
 - `devbox run -- make gate` -- expected: green, run after probe deletion (format/analyze/test never see androidTest).
-- Emulator proof: boot per AGENTS.md, then `cd android && ./gradlew :app:connectedDebugAndroidTest` in `devbox shell` -- expected: one complete probe record in the instrumentation output.
+- Emulator proof: boot per AGENTS.md, then `cd android && ./gradlew :app:connectedDebugAndroidTest` in `devbox shell` -- expected: `RecognitionProbe` record in logcat (gradle console does not print it).
 
 **Manual checks (handset leg, human on home computer):**
 - Per phone (2): connect via USB, run the same gradle command, paste the record back; both records land in this spec with verdicts and the §7 reading. The story does not advance to review without them.
@@ -158,9 +153,15 @@ cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain
 # device"): run `adb devices`, then add `-s <serial>` to the logcat command.
 # Fallback if the logcat buffer rolled:
 # cat ../build/app/outputs/androidTest-results/connected/debug/*/logcat-dev.dorogoy.organizer.RecognitionAvailabilityProbeTest-*.txt
+# AD-18: connectedDebugAndroidTest installs the debug app + androidTest APK.
+# Uninstall both after the record is captured (add -s <serial> if two devices):
+"$ANDROID_HOME/platform-tools/adb" uninstall dev.dorogoy.organizer
+"$ANDROID_HOME/platform-tools/adb" uninstall dev.dorogoy.organizer.test
 ```
 
 Interpretation is not the runner's to do: paste the verbatim `RecognitionProbe` lines per phone below; the builder applies the one rule and the §7 reading. If any VERDICT line reads UNAVAILABLE or INDETERMINATE (error/timeout), re-run once; if it persists, stop and report (Ask-First).
+
+**AD-18:** after each of the two handset runs the debug app (`dev.dorogoy.organizer`) and the androidTest APK (`dev.dorogoy.organizer.test`) were uninstalled. The debug variant was not left on a validation handset.
 
 **Redaction note:** the `androidId=` values in the three records below were redacted after capture. `ANDROID_ID` is a persistent device identifier, the frozen identity contract names only manufacturer/model/API level, and the remaining fields already disambiguate every record. The redaction is declared here, not done silently; the language lists are untouched.
 
@@ -204,7 +205,7 @@ VERDICT AVAILABLE rule=service present AND es in installedOnDeviceLanguages serv
 
 ### Probe final source (verbatim, preserved before deletion)
 
-Deleted at story end; this is the exact tree state it ran with:
+Git never held the seven-test file. `602a332` added the 150-line one-test `probeOnDeviceSpanishRecognition`; `160c990` deleted that same 150-line file. The emulator ran that committed form (`Starting 1 tests`). Motorola ran the uncommitted local listing below (`Starting 7 tests`). Pixel 9's 1-test vs 7-test version was not captured. The listing is the instrument Motorola executed, not the tree at those hashes.
 
 ```kotlin
 package dev.dorogoy.organizer
@@ -437,7 +438,7 @@ class RecognitionAvailabilityProbeTest {
 
 **Run (2026-09-01, this session, after `160c990`):** green — `flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze` ("No issues found"), exit 0.
 
-**Deletion evidence (verified in-session, this session):** the probe and its gradle edits were added in `602a332` (150-line test file, +6 lines `android/app/build.gradle.kts`) and deleted in `160c990` (`delete mode 100644 android/app/src/androidTest/kotlin/dev/dorogoy/organizer/RecognitionAvailabilityProbeTest.kt`, `android/app/build.gradle.kts` −6); `android/app/src/androidTest` no longer exists; `git status` shows only this spec as modified. No manifest, permission, or `lib/`/`packages/` change exists anywhere in the story's diff.
+**Deletion evidence (verified in-session, this session):** the probe and its gradle edits were added in `602a332` (150-line test file, +6 lines `android/app/build.gradle.kts`) and deleted in `160c990` (`delete mode 100644 android/app/src/androidTest/kotlin/dev/dorogoy/organizer/RecognitionAvailabilityProbeTest.kt`, `android/app/build.gradle.kts` −6); `android/app/src/androidTest` no longer exists. At `160c990` the working tree still had this spec (and sprint-status) dirty; later commits added PRD / memlog / epic-3-context / deferred-work. The net story diff vs `baseline_commit` is those docs only — no probe, androidTest dep, manifest, permission, or `lib/`/`packages/` leftover.
 
 **No-permission evidence:** the merged test-APK manifest carries only androidx.test's internal `REORDER_TASKS` (dumped via `aapt2` on the emulator build; manifests are device-independent), and all three real runs completed without a blocking system dialog — a permission prompt would have hung the instrumentation run.
 
@@ -481,5 +482,5 @@ class RecognitionAvailabilityProbeTest {
 - Epic-3 context carries the two-probed builder note for regeneration
   [`epic-3-context.md:51`](epic-3-context.md#L51)
 
-- Sprint status: story in review, epic-3 in-progress
+- Sprint status: story done, epic-3 in-progress
   [`sprint-status.yaml:63`](sprint-status.yaml#L63)
