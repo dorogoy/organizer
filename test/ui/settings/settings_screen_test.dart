@@ -365,6 +365,8 @@ void main() {
         settingValue: 25,
         pocketMinutes: null,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     await launch(tester, store);
 
@@ -397,6 +399,8 @@ void main() {
           settingValue: 10,
           pocketMinutes: null,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ),
         (
           id: 'seed-invalid',
@@ -415,6 +419,8 @@ void main() {
           settingValue: 45,
           pocketMinutes: null,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ),
       ]);
     await launch(tester, store);
@@ -526,6 +532,8 @@ void main() {
           settingValue: 17,
           pocketMinutes: null,
           energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
         ));
       await launch(tester, store);
       await openSettings(tester);

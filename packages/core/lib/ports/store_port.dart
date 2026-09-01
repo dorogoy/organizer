@@ -38,7 +38,10 @@ typedef PoolFactRecord = ({
 /// `session_started`, additively since schema v3 (Story 2.2, AD-19).
 /// [energyLevel] is the tapped level's stable wire int (0/1/2) and is
 /// set only on `energy_set`, additively since schema v4 (Story 2.5,
-/// AD-4).
+/// AD-4). [reportValue]/[reportWeek] are the weekly self-report's
+/// payload — the tapped answer on SM-2's 1–5 scale and the answered
+/// week's `Week.weekOrdinal` — and are set only on `report_answered`,
+/// additively since schema v5 (Story 2.6, AD-21, AD-23).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -51,6 +54,8 @@ typedef LogEntryRecord = ({
   int? settingValue,
   int? pocketMinutes,
   int? energyLevel,
+  int? reportValue,
+  int? reportWeek,
 });
 
 abstract interface class StorePort {

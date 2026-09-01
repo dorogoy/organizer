@@ -1,17 +1,23 @@
-// The ambient strip's contract (Story 2.5, FR-4, UX-DR20/22): the
-// check-in resident renders below the card at the day's first opening —
-// the question verbatim, three battery marks as direct tap targets with
-// llena pre-marked, the ✕ dismissal — a tap on any mark lands exactly
-// one `energy_set` row, clears the strip for the day and (on baja)
-// narrows the next deal to instant-tier while the standing card stays
-// finishable; the ✕ writes nothing and hides the strip for the rest of
-// the opening; at 200% the strip grows and scrolls with every target
-// at or above 48dp.
+// The ambient strip's contract (Stories 2.5–2.6, FR-4, UX-DR20/22):
+// the check-in resident renders below the card at the day's first
+// opening — the question verbatim, three battery marks as direct tap
+// targets with llena pre-marked, the ✕ dismissal — a tap on any mark
+// lands exactly one `energy_set` row, clears the strip for the day and
+// (on baja) narrows the next deal to instant-tier while the standing
+// card stays finishable; the ✕ writes nothing and hides the strip for
+// the rest of the opening; at 200% the strip grows and scrolls with
+// every target at or above 48dp. Story 2.6 adds the weekly
+// self-report's resident beside it — hairlined, the question verbatim,
+// the 1–5 numerals as 48dp tap targets, the end labels, the ✕ — and
+// pins the deterministic handoff: a digit tap or the ✕ hands the slot
+// to the check-in in the same opening, and a dismissal hides the
+// report for that opening alone, never for the week.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/derive/strip.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/weave.dart';
 import 'package:core/ports/store_port.dart';
@@ -30,6 +36,7 @@ import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/glyphs/battery_glyph.dart';
 import 'package:organizer/ui/theme.dart';
+import 'package:organizer/ui/tokens.dart';
 
 /// The recording store (the session suite's own contract): appends land
 /// in order and every read replays them.
@@ -138,6 +145,59 @@ class _QueuedDismissController extends _QueuedReadController {
   Future<DispenserView> dismissCheckIn({DateTime? tapTime}) => dismissal.future;
 }
 
+/// The queued-read shape with a controllable report dismissal: the
+/// report ✕'s own path resolves when the test says so.
+class _QueuedDismissReportController extends _QueuedReadController {
+  _QueuedDismissReportController(super._reads);
+
+  final dismissal = Completer<DispenserView>();
+
+  @override
+  Future<DispenserView> dismissReport({DateTime? tapTime}) => dismissal.future;
+}
+
+/// The queued-read shape with a controllable report answer: a digit
+/// tap's own path resolves when the test says so.
+class _QueuedAnswerReportController extends _QueuedReadController {
+  _QueuedAnswerReportController(super._reads);
+
+  final answer = Completer<DispenserView>();
+
+  @override
+  Future<DispenserView> answerReport(int value, {DateTime? tappedAt}) =>
+      answer.future;
+}
+
+/// A report surface that records the instants the screen hands to its two
+/// actions. The lifecycle gate can then cross 04:00 without changing either
+/// tap's identity.
+class _CapturingReportActionController extends DispenserController {
+  _CapturingReportActionController(DateTime Function() nowOf)
+    : super(store: _RecordingStore(), strings: AppStringsEs(), nowOf: nowOf);
+
+  DateTime? answeredAt;
+  DateTime? dismissedAt;
+
+  @override
+  Future<DispenserView> read() async => const DispenserDealt(
+    _testCard,
+    stripResident: StripResident.weeklySelfReport,
+    reportWeekOrdinal: 1390,
+  );
+
+  @override
+  Future<DispenserView> answerReport(int value, {DateTime? tappedAt}) async {
+    answeredAt = tappedAt;
+    return const DispenserDealt(_testCard);
+  }
+
+  @override
+  Future<DispenserView> dismissReport({DateTime? tapTime}) async {
+    dismissedAt = tapTime;
+    return const DispenserDealt(_testCard);
+  }
+}
+
 Widget _harness(
   DispenserController controller, {
   Future<void> Function()? sessionSettled,
@@ -157,9 +217,27 @@ void main() {
   /// unawaited while the screen's first read waits on its `settled`
   /// chain, so the committed frame is always the post-session read —
   /// the dealt card with the strip below it, never the pre-session
-  /// close.
+  /// close. The store seeds week 1389's report answered — the week a
+  /// Saturday read judges due — so the check-in's own suite pins the
+  /// check-in exactly as 2.5 shipped it, the mechanical translation
+  /// part 3 records.
   Future<DispenserController> launchAndCommit(WidgetTester tester) async {
-    final store = _RecordingStore();
+    final store = _RecordingStore()
+      ..entries.add((
+        id: 'seed-week-answered',
+        kind: 'report_answered',
+        instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: 3,
+        reportWeek: 1389,
+      ));
     final session = SessionController(
       store: store,
       strings: AppStringsEs(),
@@ -418,6 +496,21 @@ void main() {
       '(Story 2.5 beside 2.4, UX-DR22)', (tester) async {
     final store = _RecordingStore()
       ..entries.add((
+        id: 'seed-week-answered',
+        kind: 'report_answered',
+        instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: 3,
+        reportWeek: 1389,
+      ))
+      ..entries.add((
         id: 'seed-offer',
         kind: 'session_started',
         instantUtcMicros: DateTime.utc(
@@ -435,6 +528,8 @@ void main() {
         settingValue: null,
         pocketMinutes: 45,
         energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
       ));
     final controller = DispenserController(
       store: store,
@@ -474,7 +569,12 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
 
-    second.complete(const DispenserDealt(_testCard, checkInShown: true));
+    second.complete(
+      const DispenserDealt(
+        _testCard,
+        stripResident: StripResident.energyCheckIn,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('¿Cuánta energía tienes hoy?'), findsOneWidget);
 
@@ -490,7 +590,12 @@ void main() {
 
     // The stale launch read completes last, carrying the strip — its
     // generation no longer matches, so it must not commit.
-    first.complete(const DispenserDealt(_testCard, checkInShown: true));
+    first.complete(
+      const DispenserDealt(
+        _testCard,
+        stripResident: StripResident.energyCheckIn,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(
       find.text('¿Cuánta energía tienes hoy?'),
@@ -547,5 +652,490 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(scrollable.position.pixels, greaterThan(0));
     expect(find.text('¿Cuánta energía tienes hoy?'), findsOneWidget);
+  });
+
+  group('the weekly self-report resident (Story 2.6, SM-2, FR-4, UX-DR22)', () {
+    DateTime sundayClock() => DateTime.utc(2026, 8, 30, 12);
+
+    /// The Sunday launch — the report's own matrix clock: the running
+    /// week 1390 closes today, and its unanswered report holds the
+    /// strip's slot at the first opening.
+    Future<DispenserController> launchSundayAndCommit(
+      WidgetTester tester,
+    ) async {
+      final store = _RecordingStore();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: sundayClock,
+      );
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: sundayClock,
+      );
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    testWidgets('Sunday\'s first opening holds the hairlined report: the '
+        'question verbatim, the five numerals as buttons, the end labels '
+        'fixing the direction, the ✕ — and the check-in displaced below '
+        'nothing (SM-2, UX-DR22)', (tester) async {
+      final controller = await launchSundayAndCommit(tester);
+      final strings = AppStringsEs();
+
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(SelfReportStrip), findsOneWidget);
+      expect(
+        find.text(strings.weeklySelfReportQuestion),
+        findsOneWidget,
+        reason: 'the SM-2 instrument, verbatim',
+      );
+      // Below the card, geometrically.
+      expect(
+        tester.getTopLeft(find.byType(SelfReportStrip)).dy,
+        greaterThan(tester.getTopLeft(find.byType(TaskCard)).dy),
+      );
+
+      // The five numerals are buttons whose spoken label is the
+      // numeral the mark's own text already carries — no selection
+      // state exists anywhere on the scale.
+      for (var value = 1; value <= 5; value++) {
+        final digitText = find.text(strings.selfReportScaleValue(value));
+        expect(digitText, findsOneWidget);
+        final mark = find
+            .ancestor(of: digitText, matching: find.byType(Semantics))
+            .first;
+        final semantics = tester.widget<Semantics>(mark);
+        expect(semantics.properties.button, isTrue);
+        expect(semantics.properties.selected, isNull);
+        expect(
+          semantics.properties.label,
+          isNull,
+          reason: 'the numeral itself is the spoken label',
+        );
+      }
+
+      // The end labels render visibly, Nada under the 1 and Muchísimo
+      // under the 5 — the scale's direction reads without explanation.
+      final low = find.text(strings.selfReportScaleLow);
+      final high = find.text(strings.selfReportScaleHigh);
+      expect(low, findsOneWidget);
+      expect(high, findsOneWidget);
+      expect(
+        tester.getTopLeft(low).dx,
+        lessThan(tester.getTopLeft(high).dx),
+        reason: 'Nada sits under the 1, Muchísimo under the 5',
+      );
+
+      // The ✕ carries its own label; the check-in is displaced —
+      // nothing energy-shaped renders anywhere.
+      expect(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+        findsOneWidget,
+      );
+      expect(find.text(strings.energyCheckInQuestion), findsNothing);
+      expect(find.byType(BatteryGlyph), findsNothing);
+      expect(
+        storeOf(controller).entries
+            .where((entry) => entry.kind == 'report_answered')
+            .toList(),
+        isEmpty,
+        reason: 'reading wrote nothing',
+      );
+
+      // The hairline: the resident's own wrapper carries the 1px
+      // outline edge with the default radius — the task card's exact
+      // precedent, never the container's.
+      final theme = OrganizerTheme.light();
+      final wrapper = find.descendant(
+        of: find.byType(SelfReportStrip),
+        matching: find.byType(Container),
+      );
+      final decoration =
+          tester.widget<Container>(wrapper).decoration! as BoxDecoration;
+      expect(decoration.border!.top.width, 1);
+      expect(decoration.border!.top.color, theme.colorScheme.outline);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(Radii.radiusDefault),
+      );
+    });
+
+    testWidgets('a digit tap lands exactly one report_answered row '
+        'carrying the asked week, and the same opening hands the slot to '
+        'the check-in (FR-4\'s deterministic handoff)', (tester) async {
+      final controller = await launchSundayAndCommit(tester);
+      final store = storeOf(controller);
+      final strings = AppStringsEs();
+
+      final third = find.text(strings.selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.pumpAndSettle();
+      await tester.tap(third);
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'report_answered')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.reportValue, 3);
+      expect(rows.single.reportWeek, 1390);
+      expect(rows.single.itemId, isNull);
+
+      // The handoff: the same opening's committed view holds the
+      // check-in — displaced, not consumed — while the report leaves.
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.byType(BatteryGlyph), findsNWidgets(3));
+      expect(find.text('Hecho'), findsOneWidget);
+    });
+
+    testWidgets('answer and dismissal capture the tap before lifecycle '
+        'settlement crosses 04:00', (tester) async {
+      final beforeBoundary = DateTime.utc(2026, 8, 30, 3, 59);
+      final afterBoundary = DateTime.utc(2026, 8, 30, 4, 1);
+
+      Future<
+        ({
+          _CapturingReportActionController controller,
+          Completer<void> settlement,
+          void Function() advanceClock,
+        })
+      >
+      pumpGatedReport() async {
+        var now = beforeBoundary;
+        final controller = _CapturingReportActionController(() => now);
+        final settlement = Completer<void>();
+        var gateActions = false;
+        await tester.pumpWidget(
+          _harness(
+            controller,
+            sessionSettled: () =>
+                gateActions ? settlement.future : Future<void>.value(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        gateActions = true;
+        addTearDown(() {
+          if (!settlement.isCompleted) {
+            settlement.complete();
+          }
+        });
+        return (
+          controller: controller,
+          settlement: settlement,
+          advanceClock: () => now = afterBoundary,
+        );
+      }
+
+      final answering = await pumpGatedReport();
+      final third = find.text(AppStringsEs().selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pump();
+      answering.advanceClock();
+      answering.settlement.complete();
+      await tester.pumpAndSettle();
+      expect(answering.controller.answeredAt, beforeBoundary);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      final dismissing = await pumpGatedReport();
+      await tester.tap(
+        find.bySemanticsLabel(AppStringsEs().ambientStripDismiss),
+      );
+      await tester.pump();
+      dismissing.advanceClock();
+      dismissing.settlement.complete();
+      await tester.pumpAndSettle();
+      expect(dismissing.controller.dismissedAt, beforeBoundary);
+    });
+
+    testWidgets('the report renders beneath closed and rest-offer views', (
+      tester,
+    ) async {
+      for (final view in <DispenserView>[
+        const DispenserClosed(
+          stripResident: StripResident.weeklySelfReport,
+          reportWeekOrdinal: 1390,
+        ),
+        const DispenserRestOffer(
+          stripResident: StripResident.weeklySelfReport,
+          reportWeekOrdinal: 1390,
+        ),
+      ]) {
+        final read = Completer<DispenserView>()..complete(view);
+        await tester.pumpWidget(_harness(_QueuedReadController([read])));
+        await tester.pumpAndSettle();
+        expect(find.byType(SelfReportStrip), findsOneWidget);
+        expect(
+          find.text(AppStringsEs().weeklySelfReportQuestion),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    });
+
+    testWidgets('a failed report append restores the standing card and '
+        'report — the retry is the same tap (matrix: failed append)', (
+      tester,
+    ) async {
+      final controller = await launchSundayAndCommit(tester);
+      final store = storeOf(controller)..failNextAppend = true;
+      final strings = AppStringsEs();
+
+      final third = find.text(strings.selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pumpAndSettle();
+
+      // Nothing landed on the failed write: the week stays unanswered
+      // and the recovery read re-resolves the report — the question
+      // and the card return, nothing celebration-shaped anywhere.
+      expect(
+        store.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+      );
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+      expect(find.byType(SelfReportStrip), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('the report\'s ✕ writes nothing and frees the slot for '
+        'that opening alone — the check-in takes it in the same opening '
+        '(SM-2, UX-DR22)', (tester) async {
+      final controller = await launchSundayAndCommit(tester);
+      final store = storeOf(controller);
+      final strings = AppStringsEs();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      await tester.ensureVisible(find.bySemanticsLabel('Cerrar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'a dismissal appends nothing at all',
+      );
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.byType(BatteryGlyph), findsNWidgets(3));
+    });
+
+    testWidgets('a pending report dismissal blocks a stale digit tap', (
+      tester,
+    ) async {
+      final controller = await launchSundayAndCommit(tester);
+      final store = storeOf(controller);
+      final strings = AppStringsEs();
+      final settlement = Completer<void>();
+      var settleActions = false;
+
+      await tester.pumpWidget(
+        _harness(
+          controller,
+          sessionSettled: () =>
+              settleActions ? settlement.future : Future<void>.value(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      settleActions = true;
+
+      // The ✕ parks behind the gated settlement; the report still
+      // renders, so the stale digit tap is physically available —
+      // and refused by the shared in-flight guard.
+      await tester.ensureVisible(find.bySemanticsLabel('Cerrar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await tester.pump();
+      final third = find.text(strings.selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pump();
+      settlement.complete();
+      await tester.pumpAndSettle();
+
+      // The dismissal committed and wrote nothing; the refused digit
+      // minted no row either — the week stays unanswered.
+      expect(
+        store.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+        reason: 'a write already in flight owns the surface',
+      );
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a stale read in flight when the report\'s ✕ lands '
+        'cannot resurrect it — the dismissal\'s generation bump holds', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedDismissReportController([first, second]);
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      // A foreground return queues a second read (the newer
+      // generation); the launch read stays hanging as the stale one.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      second.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.weeklySelfReport,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppStringsEs().weeklySelfReportQuestion),
+        findsOneWidget,
+      );
+
+      // The ✕: its handler bumps the generation and resolves through
+      // the controllable dismissal.
+      await tester.ensureVisible(find.bySemanticsLabel('Cerrar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Cerrar'));
+      await tester.pump();
+      controller.dismissal.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().weeklySelfReportQuestion), findsNothing);
+
+      // The stale launch read completes last, carrying the report —
+      // its generation no longer matches, so it must not commit.
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.weeklySelfReport,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppStringsEs().weeklySelfReportQuestion),
+        findsNothing,
+        reason:
+            'a read from before the dismissal cannot resurrect the '
+            'report — the generation bump refuses its commit',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a stale read in flight when the answer lands cannot '
+        'resurrect the report — the answer\'s generation bump holds', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedAnswerReportController([first, second]);
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      // A foreground return queues a second read (the newer
+      // generation); the launch read stays hanging as the stale one.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      second.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.weeklySelfReport,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppStringsEs().weeklySelfReportQuestion),
+        findsOneWidget,
+      );
+
+      // The digit tap: its handler bumps the generation and resolves
+      // through the controllable answer.
+      final third = find.text(AppStringsEs().selfReportScaleValue(3));
+      await tester.ensureVisible(third);
+      await tester.pumpAndSettle();
+      await tester.tap(third);
+      await tester.pump();
+      controller.answer.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().weeklySelfReportQuestion), findsNothing);
+
+      // The stale launch read completes last, carrying the report —
+      // its generation no longer matches, so it must not commit:
+      // neither a resurrection nor a re-armed answer can ride it.
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.weeklySelfReport,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppStringsEs().weeklySelfReportQuestion),
+        findsNothing,
+        reason:
+            'a read from before the answer cannot resurrect the '
+            'report — the generation bump refuses its commit',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('200% font scale: the hairlined resident grows and '
+        'scrolls over the 5×48dp row, the labels wrap, nothing truncates '
+        '(UX-DR45, NFR6)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await launchSundayAndCommit(tester);
+      final strings = AppStringsEs();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+      expect(find.text(strings.selfReportScaleLow), findsOneWidget);
+      expect(find.text(strings.selfReportScaleHigh), findsOneWidget);
+
+      // Every digit keeps the 48dp floor, whatever row the Wrap gave
+      // it — five targets, none shrunk to fit.
+      for (var value = 1; value <= 5; value++) {
+        final target = find
+            .ancestor(
+              of: find.text(strings.selfReportScaleValue(value)),
+              matching: find.byType(GestureDetector),
+            )
+            .first;
+        final box = tester.renderObject<RenderBox>(target);
+        expect(box.size.width, greaterThanOrEqualTo(48));
+        expect(box.size.height, greaterThanOrEqualTo(48));
+      }
+
+      // The resident joins the card's scroll region: the grown content
+      // really scrolls, nothing clips.
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -60),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(scrollable.position.pixels, greaterThan(0));
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+    });
   });
 }

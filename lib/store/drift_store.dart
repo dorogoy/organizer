@@ -54,6 +54,8 @@ class DriftStore implements StorePort {
             settingValue: Value(entry.settingValue),
             pocketMinutes: Value(entry.pocketMinutes),
             energyLevel: Value(entry.energyLevel),
+            reportValue: Value(entry.reportValue),
+            reportWeek: Value(entry.reportWeek),
           ),
         );
   }
@@ -106,6 +108,8 @@ class DriftStore implements StorePort {
           settingValue: row.settingValue,
           pocketMinutes: row.pocketMinutes,
           energyLevel: row.energyLevel,
+          reportValue: row.reportValue,
+          reportWeek: row.reportWeek,
         ),
     ];
   }

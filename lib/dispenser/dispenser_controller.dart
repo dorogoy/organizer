@@ -1,5 +1,6 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/energy_commands.dart';
+import 'package:core/commands/report_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/derive/checkpoint.dart';
@@ -23,20 +24,30 @@ import '../strings/app_strings.dart';
 /// screen's own (an empty `surfaceBase` frame, never a loader), so it
 /// lives there and not here.
 ///
-/// Every variant also carries the ambient strip's fact (Story 2.5,
-/// UX-DR22): whether the check-in resident is showing below the card —
-/// derived in the same queue-consistent read as the card itself, never
-/// held in memory as truth. A dismissal is shell state keyed by the
-/// domestic day — skip-for-today (see
-/// [DispenserController.dismissCheckIn]); an answer is a row, and the
-/// derivation hides the strip for the day on its own.
+/// Every variant also carries the ambient strip's fact (Stories 2.5
+/// and 2.6, UX-DR22): which resident — if any — the strip holds below
+/// the card, derived in the same queue-consistent read as the card
+/// itself, never held in memory as truth. Dismissals are shell state
+/// keyed by scope — skip-for-today for the check-in (see
+/// [DispenserController.dismissCheckIn]), skip-for-this-opening for the
+/// report (see [DispenserController.dismissReport]) — and an answer is
+/// a row, with the derivation hiding the resident on its own.
 sealed class DispenserView {
-  const DispenserView({this.checkInShown = false});
+  const DispenserView({this.stripResident, this.reportWeekOrdinal});
 
-  /// Whether the ambient strip holds the energy check-in on this read
-  /// — the precedence derivation's resident, suppressed by a dismissal
-  /// of the current opening and by nothing else in the shell.
-  final bool checkInShown;
+  /// The ambient strip's resident on this read — the precedence
+  /// derivation's winner among the residents the log makes eligible,
+  /// suppressed only by a dismissal of the matching scope and by
+  /// nothing else in the shell. Null when the strip holds nothing.
+  final StripResident? stripResident;
+
+  /// The due week the report asks about, as a `Week.weekOrdinal` —
+  /// non-null exactly when [stripResident] is
+  /// [StripResident.weeklySelfReport], null for every other resident
+  /// (the derivation's own invariant). The fact the answer's minter
+  /// needs: the row answers the week the user was asked, never a week
+  /// re-derived at tap time.
+  final int? reportWeekOrdinal;
 }
 
 /// The dealt-unanswered card of the open session — the launch deal on a
@@ -46,7 +57,12 @@ sealed class DispenserView {
 /// own pocket fact, absent when the sitting is unbounded — the trigger
 /// chip's data, never session state held as truth (AD-19).
 final class DispenserDealt extends DispenserView {
-  const DispenserDealt(this.card, {this.pocketMinutes, super.checkInShown});
+  const DispenserDealt(
+    this.card, {
+    this.pocketMinutes,
+    super.stripResident,
+    super.reportWeekOrdinal,
+  });
 
   final Card card;
 
@@ -66,7 +82,8 @@ final class DispenserClosed extends DispenserView {
   const DispenserClosed({
     this.pocketMinutes,
     this.continueOffered = false,
-    super.checkInShown,
+    super.stripResident,
+    super.reportWeekOrdinal,
   });
 
   final int? pocketMinutes;
@@ -82,7 +99,11 @@ final class DispenserClosed extends DispenserView {
 /// counts anything: the surface is two actions, never a question,
 /// never a number that would have been higher (UJ-1, UX-DR44).
 final class DispenserRestOffer extends DispenserView {
-  const DispenserRestOffer({this.pocketMinutes, super.checkInShown});
+  const DispenserRestOffer({
+    this.pocketMinutes,
+    super.stripResident,
+    super.reportWeekOrdinal,
+  });
 
   final int? pocketMinutes;
 }
@@ -100,7 +121,12 @@ final class DispenserRestOffer extends DispenserView {
 /// unanswered card (AD-3). `setEnergy` and `dismissCheckIn`
 /// (Story 2.5, FR-4) carry the ambient strip below the card: the
 /// check-in's one-row answer and its write-free dismissal, the
-/// resident's fact riding every read.
+/// resident's fact riding every read. `answerReport` and
+/// `dismissReport` (Story 2.6, SM-2, FR-4) complete the strip: the
+/// report's one-row answer — carrying the week the user was asked —
+/// and its write-free opening-scoped dismissal, whose exclusion hands
+/// the slot to the check-in in the same opening (the derivation's
+/// `excludeResidents` seam).
 /// The injectables follow `SessionController`'s: `store`, `strings`,
 /// `bundle`, `idMinter` and `nowOf` — the shell may read the clock and
 /// mint ids, the core never does, and no `ClockPort` exists to implement.
@@ -142,6 +168,25 @@ class DispenserController {
   /// derivation decides the new day on its own rows.
   Day? _checkInDismissMarker;
 
+  /// The report dismissal's opening scope (Story 2.6, FR-4, SM-2):
+  /// shell state, never a row — the tap's own domestic day beside that
+  /// day's `app_opened` census at the dismissal. A read hides the
+  /// report while its own day and census match BOTH, and the exclusion
+  /// re-arms by construction when a new opening lands (the census
+  /// grows) or the day turns (a different `Day`) — skip-for-this-
+  /// opening, never skip-for-the-week: SM-2's report is offered again
+  /// at the next opening the derivation judges first.
+  ({Day day, int opens})? _reportDismissMarker;
+
+  /// The week the last queue read's report was asking, as a
+  /// `Week.weekOrdinal` (Story 2.6, AD-21): `report_answered` carries
+  /// the week it answers — the week the user was asked — so the read
+  /// hands the write its target rather than re-deriving at tap time,
+  /// where a boundary crossed since the view committed would answer a
+  /// different week entirely. Null whenever the last read showed no
+  /// report; a null here mints nothing.
+  int? _askedReportWeek;
+
   /// Reads the card to display (AD-3: a pure computation, never a write).
   /// It runs in the shared log queue, so the pocket and card come from one
   /// post-write snapshot and the clock is read only when that snapshot is
@@ -156,13 +201,15 @@ class DispenserController {
   /// crossing stays visible and finishable; every later deal hides
   /// behind the offer and returns with one silent tap, never re-dealt.
   ///
-  /// Story 2.5 adds the ambient strip's fact to the same snapshot: the
-  /// strip derivation resolves the check-in resident — due at the day's
-  /// first opening while the day holds no `energy_set` row — and the
-  /// shell suppresses it only for the day the user dismissed
-  /// (skip-for-today); an answered day hides on its own, a later
-  /// opening hides by the derivation, and nothing else in the shell
-  /// touches it.
+  /// Story 2.5 adds the ambient strip's fact to the same snapshot, and
+  /// Story 2.6 completes it: the strip derivation resolves which
+  /// resident — the report while its due week stands unanswered, else
+  /// the check-in while the day holds no `energy_set` row — with both
+  /// dismissals composed as read-scoped exclusions, so the precedence
+  /// walk itself hands the slot to the next resident in the same
+  /// opening the moment a dismissal frees it (FR-4's deterministic
+  /// handoff, strip.dart's seam). Suppression never writes and never
+  /// stores: the same log without the markers resolves identically.
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();
@@ -173,19 +220,37 @@ class DispenserController {
     final log = logEntriesOf(await store.readLogEntries());
     final facts = walkLog(log, catalogue: catalogue);
     final pocket = facts.openSessionPocketMinutes;
-    // The strip's fact (Story 2.5): the resident derivation over the
-    // same queue-consistent log, suppressed by a dismissal of this
-    // DAY alone — skip-for-today, never skip-for-this-opening, so no
-    // later app_opened of the same day can resurrect a dismissed
-    // strip. A new day is a different `Day`, and the derivation
-    // decides it on its own rows.
+    // The strip's fact (Stories 2.5–2.6): the resident derivation over
+    // the same queue-consistent log, both dismissals composed as
+    // exclusions — the check-in's skip-for-TODAY day marker and the
+    // report's skip-for-THIS-OPENING (day, opens) marker. The
+    // derivation's own walk falls through an excluded resident to the
+    // next eligible one, which is what makes the handoff deterministic;
+    // no later app_opened of the same day can resurrect a dismissed
+    // check-in (the day marker), and a new day is a different `Day` by
+    // construction, decided by the derivation on its own rows.
     final today = _dayOf(now);
+    final excludeResidents = <StripResident>{
+      if (_checkInDismissMarker == today) StripResident.energyCheckIn,
+    };
+    final reportMarker = _reportDismissMarker;
+    if (reportMarker != null &&
+        reportMarker.day == today &&
+        reportMarker.opens ==
+            _appOpensOn(log, today, now.microsecondsSinceEpoch)) {
+      excludeResidents.add(StripResident.weeklySelfReport);
+    }
     final strip = deriveStrip(
       entries: log,
       instantUtcMicros: now.microsecondsSinceEpoch,
       offsetSeconds: now.timeZoneOffset.inSeconds,
+      excludeResidents: excludeResidents,
     );
-    final checkInShown = strip != null && _checkInDismissMarker != today;
+    // The asked week rides the read: the report's answer mints the
+    // week the user was shown, never one re-derived at tap time. Any
+    // other read clears it — nothing else was asked.
+    final reportShowing = strip?.resident == StripResident.weeklySelfReport;
+    _askedReportWeek = reportShowing ? strip!.reportWeekOrdinal : null;
     final unanswered = facts.dealtUnanswered;
     final card = unanswered == null
         ? nextDeal(
@@ -232,7 +297,8 @@ class DispenserController {
                 now.timeZoneOffset.inSeconds,
               ),
             ),
-        checkInShown: checkInShown,
+        stripResident: strip?.resident,
+        reportWeekOrdinal: strip?.reportWeekOrdinal,
       );
     }
     final checkpoint = deriveCheckpoint(
@@ -244,13 +310,15 @@ class DispenserController {
         (unanswered == null || checkpoint.offerPreemptsStandingDeal)) {
       return DispenserRestOffer(
         pocketMinutes: pocket,
-        checkInShown: checkInShown,
+        stripResident: strip?.resident,
+        reportWeekOrdinal: strip?.reportWeekOrdinal,
       );
     }
     return DispenserDealt(
       card,
       pocketMinutes: pocket,
-      checkInShown: checkInShown,
+      stripResident: strip?.resident,
+      reportWeekOrdinal: strip?.reportWeekOrdinal,
     );
   });
 
@@ -292,6 +360,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -338,6 +408,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -380,6 +452,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -415,6 +489,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -466,6 +542,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -502,6 +580,8 @@ class DispenserController {
           settingValue: content.settingValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
         ));
       }
     });
@@ -524,6 +604,82 @@ class DispenserController {
     return read();
   }
 
+  /// Answers the weekly self-report (Story 2.6, SM-2, FR-4, AD-21):
+  /// exactly one `report_answered` row through the core's single
+  /// sanctioned minter, in [setEnergy]'s write-then-read shape minus
+  /// the log read — `reportAnswered` is pure over its input, so the
+  /// write path reads nothing and never bundles a deal. The instant is
+  /// minted at entry, before any await, so the row describes the tap.
+  /// The week is the asked week the last queue read carried — the week
+  /// the user was shown, not one re-derived at tap time (persistence
+  /// lets a boundary cross between the view and the tap, and the
+  /// instant alone cannot attribute the answer to a week). A null
+  /// asked week mints nothing — refusal-as-silence, never an error,
+  /// the minter's own 1–5 bounds refusing anything else the surface
+  /// cannot offer — and the fresh read simply returns. A failing
+  /// append rethrows to the caller while the chain recovers: nothing
+  /// landed, the report stands, and the retry is the same tap.
+  Future<DispenserView> answerReport(int value, {DateTime? tappedAt}) {
+    final now = tappedAt ?? nowOf();
+    // Minted at entry, beside the instant: the asked week travels
+    // with the tap, immune to any read the queue interleaves.
+    final askedWeek = _askedReportWeek;
+    final write = _enqueueWrite(() async {
+      if (askedWeek == null) {
+        // No read ever showed the report — nothing was asked, so
+        // nothing is answered. The path stays a write and a read,
+        // minting nothing.
+        return;
+      }
+      final contents = reportAnswered(value: value, week: askedWeek);
+      for (final content in contents) {
+        await store.appendLogEntry((
+          id: idMinter.v7(),
+          kind: content.kind.name,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          itemId: content.itemId,
+          itemOrigin: content.itemOrigin,
+          stack: content.stack,
+          settingKey: content.settingKey,
+          settingValue: content.settingValue,
+          pocketMinutes: content.pocketMinutes,
+          energyLevel: content.energyLevel,
+          reportValue: content.reportValue,
+          reportWeek: content.reportWeek,
+        ));
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Dismisses the weekly self-report (Story 2.6, FR-4, SM-2,
+  /// UX-DR22): skip-for-THIS-OPENING, and deliberately NOT a write —
+  /// AD-21's vocabulary has no dismissal kind, and the report is never
+  /// dismissed for the week (SM-2: it returns at the next opening the
+  /// derivation judges first). The marker is the tap's own domestic
+  /// day beside that day's `app_opened` census, both taken inside the
+  /// queue; every read of the same day-and-opening hides the report
+  /// through the derivation's `excludeResidents` seam — the check-in
+  /// takes the freed slot in that same opening — and the exclusion
+  /// re-arms by itself when a new opening lands or the day turns. No
+  /// stored state exists anywhere (AD-21).
+  Future<DispenserView> dismissReport({DateTime? tapTime}) {
+    // The day is minted at entry, from the tap's own instant; the
+    // census reads the log inside the queue, where the dismissal and
+    // its read-back share one serialization.
+    final at = tapTime ?? nowOf();
+    final write = _enqueueWrite(() async {
+      final log = logEntriesOf(await store.readLogEntries());
+      final day = _dayOf(at);
+      _reportDismissMarker = (
+        day: day,
+        opens: _appOpensOn(log, day, at.microsecondsSinceEpoch),
+      );
+    });
+    return write.then((_) => read());
+  }
+
   Future<void> _enqueueWrite(Future<void> Function() step) {
     return writeQueue.enqueue(step);
   }
@@ -534,6 +690,28 @@ class DispenserController {
     now.microsecondsSinceEpoch,
     now.timeZoneOffset.inSeconds,
   );
+
+  /// The `app_opened` census of [day] at [instantUtcMicros] — the
+  /// report dismissal marker's re-arm key: each row scoped in its own
+  /// stored offset (AD-4), rows after the census instant excluded,
+  /// exactly the derivation's own convention. A dismissal matches only
+  /// the opening it was taken in; the next `app_opened` grows the
+  /// census and the exclusion lifts.
+  int _appOpensOn(List<LogEntry> entries, Day day, int instantUtcMicros) {
+    const calendar = Calendar();
+    var opens = 0;
+    for (final entry in entries) {
+      if (entry.instantUtcMicros > instantUtcMicros) {
+        continue;
+      }
+      if (entry is MomentEntry &&
+          entry.kind == LogKind.appOpened &&
+          calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds) == day) {
+        opens++;
+      }
+    }
+    return opens;
+  }
 
   /// The catalogue loads once per controller lifetime. A failed load is
   /// not memoized — the memo clears on error so the next read retries

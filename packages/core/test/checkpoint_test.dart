@@ -865,4 +865,56 @@ void main() {
       ]);
     });
   });
+
+  group('report_answered rows and the checkpoint (Story 2.6)', () {
+    ReportAnsweredEntry answer(int micros, int value, int week) =>
+        ReportAnsweredEntry(
+          id: 'report-$micros-$value-$week',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          value: value,
+          week: week,
+        );
+
+    test('the checkpoint is inert to report rows — nothing reads the '
+        'kind yet (parts 2–3 derive over the rows, never the '
+        'checkpoint)', () {
+      // The setting-row idiom, on the eleventh kind: a well-formed
+      // answer rides the log and moves no fact the checkpoint makes —
+      // the no-op switch arm is pinned, not assumed.
+      final start = utcMicros(2026, 8, 28, 10);
+      final without = [
+        _started(start, pocketMinutes: 45),
+        _dealt(start + 1, 'zona-a'),
+      ];
+      final withReport = [
+        answer(start - 1, 3, 1394),
+        ...without,
+        answer(start + 10 * microsPerMinute, 5, 1394),
+      ];
+      for (final at in [
+        start,
+        start + 10 * microsPerMinute,
+        start + 15 * microsPerMinute,
+        start + 45 * microsPerMinute,
+      ]) {
+        final bare = deriveCheckpoint(
+          entries: without,
+          instantUtcMicros: at,
+          offsetSeconds: 0,
+        );
+        final answered = deriveCheckpoint(
+          entries: withReport,
+          instantUtcMicros: at,
+          offsetSeconds: 0,
+        );
+        expect(answered.offerDue, bare.offerDue, reason: 'at ${at - start}');
+        expect(
+          answered.offerPreemptsStandingDeal,
+          bare.offerPreemptsStandingDeal,
+          reason: 'at ${at - start}',
+        );
+      }
+    });
+  });
 }

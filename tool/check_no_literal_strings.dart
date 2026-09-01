@@ -38,8 +38,9 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// the store module's file references and SQL identifiers (schema include,
 /// pragma, the reads' append-sequence column, schema v2's ALTER-only
 /// upgrade statements — Story 2.1's additive columns — schema v3's
-/// pocket column, Story 2.2, and schema v4's energy level column,
-/// Story 2.5), and the catalogue loader's two diagnostics
+/// pocket column, Story 2.2, schema v4's energy level column,
+/// Story 2.5, and schema v5's two report columns, Story 2.6), and the
+/// catalogue loader's two diagnostics
 /// templates (crash-path context naming the asset path and the
 /// stale-codegen remedy — a named decision on the store module's terms).
 const Map<String, Set<String>> namedConstantAllowance = {
@@ -51,6 +52,8 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'logEntriesSettingValueUpgrade',
     'logEntriesPocketMinutesUpgrade',
     'logEntriesEnergyLevelUpgrade',
+    'logEntriesReportValueUpgrade',
+    'logEntriesReportWeekUpgrade',
   },
   'lib/store/connection.dart': {'substrateFileName'},
   'lib/store/drift_store.dart': {'rowIdColumnName'},

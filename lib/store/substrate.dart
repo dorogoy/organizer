@@ -45,17 +45,30 @@ const String logEntriesPocketMinutesUpgrade =
 const String logEntriesEnergyLevelUpgrade =
     'ALTER TABLE log_entries ADD COLUMN energy_level INTEGER NULL';
 
+/// Schema v5's additive upgrade of `log_entries` (Story 2.6, AD-23): the
+/// two nullable `report_answered` payload columns — the weekly
+/// self-report's tapped 1–5 answer and the answered week's
+/// `Week.weekOrdinal` — added by ALTER TABLE only, on the v3→v4
+/// pattern: no table rebuild, no data migration, refusal triggers
+/// untouched. Named infrastructure identifiers on the store module's
+/// terms (AD-15's ban is on literals reaching a widget).
+const String logEntriesReportValueUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN report_value INTEGER NULL';
+
+const String logEntriesReportWeekUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN report_week INTEGER NULL';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 4 (Story 2.5): the only change from 3
-/// is the nullable energy level column above, and every later change is
+/// migration (AD-2). schemaVersion 5 (Story 2.6): the only change from 4
+/// is the two nullable report columns above, and every later change is
 /// additive-only (AD-23).
 @DriftDatabase(include: {substrateSchemaFile})
 class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// The initial migration creates everything: both tables and the four
   /// `.drift`-declared triggers. The v1→v2 step adds the setting columns
@@ -66,7 +79,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// pocket, deriving as unbounded sessions. The v3→v4 step adds the
   /// energy level column the same way, so a v3 install upgrades with its
   /// rows unchanged too — old rows with a null level, deriving as
-  /// unanswered days. The mechanism is drift's; the
+  /// unanswered days. The v4→v5 step adds the two report columns the
+  /// same way, so a v4 install upgrades with its rows unchanged too —
+  /// old rows with null report fields, no week gaining or losing a
+  /// data point. The mechanism is drift's; the
   /// outcomes — triggers present after first open on a fresh install, old
   /// rows intact after upgrade — are pinned by `test/store/substrate_test.dart`.
   @override
@@ -82,6 +98,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 4) {
         await customStatement(logEntriesEnergyLevelUpgrade);
+      }
+      if (from < 5) {
+        await customStatement(logEntriesReportValueUpgrade);
+        await customStatement(logEntriesReportWeekUpgrade);
       }
     },
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

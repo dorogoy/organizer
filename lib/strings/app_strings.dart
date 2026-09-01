@@ -419,7 +419,7 @@ abstract class AppStrings {
   /// **'Baja'**
   String get energyLevelLow;
 
-  /// Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. A dismissal is skip-for-today: never re-shown that day, never styled as anything owed.
+  /// Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. Its scope belongs to the resident: the check-in stays hidden for the day, while the weekly report stays hidden for the current opening.
   ///
   /// In es, this message translates to:
   /// **'Cerrar'**
@@ -436,6 +436,12 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Muchísimo'**
   String get selfReportScaleHigh;
+
+  /// Sunday self-report — one 1–5 scale numeral, rendered as its own 48dp tap target in the figure role. The digits are not string literals (AD-15, the mockup's own rule): each passes through this one int placeholder, the duration format's atomic-numeral precedent. Spoken by the digit target's semantics; never composed with any other string.
+  ///
+  /// In es, this message translates to:
+  /// **'{value}'**
+  String selfReportScaleValue(int value);
 
   /// Manual Capture — title, names a place (the spatial frame, rule 1).
   ///

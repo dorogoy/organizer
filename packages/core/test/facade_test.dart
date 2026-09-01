@@ -44,6 +44,8 @@ LogEntryRecord _record(
   int? settingValue,
   int? pocketMinutes,
   int? energyLevel,
+  int? reportValue,
+  int? reportWeek,
 }) => (
   id: '$id-$micros-$kind',
   kind: kind,
@@ -56,6 +58,8 @@ LogEntryRecord _record(
   settingValue: settingValue,
   pocketMinutes: pocketMinutes,
   energyLevel: energyLevel,
+  reportValue: reportValue,
+  reportWeek: reportWeek,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,

@@ -492,6 +492,28 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _reportValueMeta = const VerificationMeta(
+    'reportValue',
+  );
+  late final GeneratedColumn<int> reportValue = GeneratedColumn<int>(
+    'report_value',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
+  static const VerificationMeta _reportWeekMeta = const VerificationMeta(
+    'reportWeek',
+  );
+  late final GeneratedColumn<int> reportWeek = GeneratedColumn<int>(
+    'report_week',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -505,6 +527,8 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     settingValue,
     pocketMinutes,
     energyLevel,
+    reportValue,
+    reportWeek,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -604,6 +628,21 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         ),
       );
     }
+    if (data.containsKey('report_value')) {
+      context.handle(
+        _reportValueMeta,
+        reportValue.isAcceptableOrUnknown(
+          data['report_value']!,
+          _reportValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('report_week')) {
+      context.handle(
+        _reportWeekMeta,
+        reportWeek.isAcceptableOrUnknown(data['report_week']!, _reportWeekMeta),
+      );
+    }
     return context;
   }
 
@@ -657,6 +696,14 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}energy_level'],
       ),
+      reportValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}report_value'],
+      ),
+      reportWeek: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}report_week'],
+      ),
     );
   }
 
@@ -681,6 +728,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final int? settingValue;
   final int? pocketMinutes;
   final int? energyLevel;
+  final int? reportValue;
+  final int? reportWeek;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -693,6 +742,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.settingValue,
     this.pocketMinutes,
     this.energyLevel,
+    this.reportValue,
+    this.reportWeek,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -721,6 +772,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || energyLevel != null) {
       map['energy_level'] = Variable<int>(energyLevel);
+    }
+    if (!nullToAbsent || reportValue != null) {
+      map['report_value'] = Variable<int>(reportValue);
+    }
+    if (!nullToAbsent || reportWeek != null) {
+      map['report_week'] = Variable<int>(reportWeek);
     }
     return map;
   }
@@ -752,6 +809,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       energyLevel: energyLevel == null && nullToAbsent
           ? const Value.absent()
           : Value(energyLevel),
+      reportValue: reportValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reportValue),
+      reportWeek: reportWeek == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reportWeek),
     );
   }
 
@@ -772,6 +835,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       settingValue: serializer.fromJson<int?>(json['setting_value']),
       pocketMinutes: serializer.fromJson<int?>(json['pocket_minutes']),
       energyLevel: serializer.fromJson<int?>(json['energy_level']),
+      reportValue: serializer.fromJson<int?>(json['report_value']),
+      reportWeek: serializer.fromJson<int?>(json['report_week']),
     );
   }
   @override
@@ -789,6 +854,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'setting_value': serializer.toJson<int?>(settingValue),
       'pocket_minutes': serializer.toJson<int?>(pocketMinutes),
       'energy_level': serializer.toJson<int?>(energyLevel),
+      'report_value': serializer.toJson<int?>(reportValue),
+      'report_week': serializer.toJson<int?>(reportWeek),
     };
   }
 
@@ -804,6 +871,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<int?> settingValue = const Value.absent(),
     Value<int?> pocketMinutes = const Value.absent(),
     Value<int?> energyLevel = const Value.absent(),
+    Value<int?> reportValue = const Value.absent(),
+    Value<int?> reportWeek = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -818,6 +887,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
         ? pocketMinutes.value
         : this.pocketMinutes,
     energyLevel: energyLevel.present ? energyLevel.value : this.energyLevel,
+    reportValue: reportValue.present ? reportValue.value : this.reportValue,
+    reportWeek: reportWeek.present ? reportWeek.value : this.reportWeek,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -846,6 +917,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       energyLevel: data.energyLevel.present
           ? data.energyLevel.value
           : this.energyLevel,
+      reportValue: data.reportValue.present
+          ? data.reportValue.value
+          : this.reportValue,
+      reportWeek: data.reportWeek.present
+          ? data.reportWeek.value
+          : this.reportWeek,
     );
   }
 
@@ -862,7 +939,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('settingKey: $settingKey, ')
           ..write('settingValue: $settingValue, ')
           ..write('pocketMinutes: $pocketMinutes, ')
-          ..write('energyLevel: $energyLevel')
+          ..write('energyLevel: $energyLevel, ')
+          ..write('reportValue: $reportValue, ')
+          ..write('reportWeek: $reportWeek')
           ..write(')'))
         .toString();
   }
@@ -880,6 +959,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     settingValue,
     pocketMinutes,
     energyLevel,
+    reportValue,
+    reportWeek,
   );
   @override
   bool operator ==(Object other) =>
@@ -895,7 +976,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.settingKey == this.settingKey &&
           other.settingValue == this.settingValue &&
           other.pocketMinutes == this.pocketMinutes &&
-          other.energyLevel == this.energyLevel);
+          other.energyLevel == this.energyLevel &&
+          other.reportValue == this.reportValue &&
+          other.reportWeek == this.reportWeek);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -910,6 +993,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<int?> settingValue;
   final Value<int?> pocketMinutes;
   final Value<int?> energyLevel;
+  final Value<int?> reportValue;
+  final Value<int?> reportWeek;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -923,6 +1008,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.settingValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
     this.energyLevel = const Value.absent(),
+    this.reportValue = const Value.absent(),
+    this.reportWeek = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -937,6 +1024,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.settingValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
     this.energyLevel = const Value.absent(),
+    this.reportValue = const Value.absent(),
+    this.reportWeek = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -954,6 +1043,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<int>? settingValue,
     Expression<int>? pocketMinutes,
     Expression<int>? energyLevel,
+    Expression<int>? reportValue,
+    Expression<int>? reportWeek,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -968,6 +1059,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (settingValue != null) 'setting_value': settingValue,
       if (pocketMinutes != null) 'pocket_minutes': pocketMinutes,
       if (energyLevel != null) 'energy_level': energyLevel,
+      if (reportValue != null) 'report_value': reportValue,
+      if (reportWeek != null) 'report_week': reportWeek,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -984,6 +1077,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<int?>? settingValue,
     Value<int?>? pocketMinutes,
     Value<int?>? energyLevel,
+    Value<int?>? reportValue,
+    Value<int?>? reportWeek,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -998,6 +1093,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       settingValue: settingValue ?? this.settingValue,
       pocketMinutes: pocketMinutes ?? this.pocketMinutes,
       energyLevel: energyLevel ?? this.energyLevel,
+      reportValue: reportValue ?? this.reportValue,
+      reportWeek: reportWeek ?? this.reportWeek,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1038,6 +1135,12 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (energyLevel.present) {
       map['energy_level'] = Variable<int>(energyLevel.value);
     }
+    if (reportValue.present) {
+      map['report_value'] = Variable<int>(reportValue.value);
+    }
+    if (reportWeek.present) {
+      map['report_week'] = Variable<int>(reportWeek.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1058,6 +1161,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('settingValue: $settingValue, ')
           ..write('pocketMinutes: $pocketMinutes, ')
           ..write('energyLevel: $energyLevel, ')
+          ..write('reportValue: $reportValue, ')
+          ..write('reportWeek: $reportWeek, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1338,6 +1443,8 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> settingValue,
   Value<int?> pocketMinutes,
   Value<int?> energyLevel,
+  Value<int?> reportValue,
+  Value<int?> reportWeek,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -1352,6 +1459,8 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> settingValue,
   Value<int?> pocketMinutes,
   Value<int?> energyLevel,
+  Value<int?> reportValue,
+  Value<int?> reportWeek,
   Value<int> rowid,
 });
 
@@ -1416,6 +1525,16 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<int> get energyLevel => $composableBuilder(
     column: $table.energyLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reportValue => $composableBuilder(
+    column: $table.reportValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reportWeek => $composableBuilder(
+    column: $table.reportWeek,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1483,6 +1602,16 @@ class $LogEntriesOrderingComposer
     column: $table.energyLevel,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get reportValue => $composableBuilder(
+    column: $table.reportValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reportWeek => $composableBuilder(
+    column: $table.reportWeek,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -1540,6 +1669,16 @@ class $LogEntriesAnnotationComposer
     column: $table.energyLevel,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get reportValue => $composableBuilder(
+    column: $table.reportValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reportWeek => $composableBuilder(
+    column: $table.reportWeek,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -1581,6 +1720,8 @@ class $LogEntriesTableManager
                 Value<int?> settingValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
                 Value<int?> energyLevel = const Value.absent(),
+                Value<int?> reportValue = const Value.absent(),
+                Value<int?> reportWeek = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -1594,6 +1735,8 @@ class $LogEntriesTableManager
                 settingValue: settingValue,
                 pocketMinutes: pocketMinutes,
                 energyLevel: energyLevel,
+                reportValue: reportValue,
+                reportWeek: reportWeek,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1609,6 +1752,8 @@ class $LogEntriesTableManager
                 Value<int?> settingValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
                 Value<int?> energyLevel = const Value.absent(),
+                Value<int?> reportValue = const Value.absent(),
+                Value<int?> reportWeek = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -1622,6 +1767,8 @@ class $LogEntriesTableManager
                 settingValue: settingValue,
                 pocketMinutes: pocketMinutes,
                 energyLevel: energyLevel,
+                reportValue: reportValue,
+                reportWeek: reportWeek,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

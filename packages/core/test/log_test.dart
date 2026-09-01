@@ -13,6 +13,8 @@ LogEntryRecord _record(
   int? settingValue,
   int? pocketMinutes,
   int? energyLevel,
+  int? reportValue,
+  int? reportWeek,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -25,11 +27,13 @@ LogEntryRecord _record(
   settingValue: settingValue,
   pocketMinutes: pocketMinutes,
   energyLevel: energyLevel,
+  reportValue: reportValue,
+  reportWeek: reportWeek,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s ten kinds', () {
+    test('holds exactly the build\'s eleven kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -41,6 +45,7 @@ void main() {
         LogKind.crashRecorded,
         LogKind.settingChanged,
         LogKind.energySet,
+        LogKind.reportAnswered,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -49,12 +54,13 @@ void main() {
         'card_skipped',
         'crash_recorded',
         'energy_set',
+        'report_answered',
         'session_ended',
         'session_extended',
         'session_started',
         'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(10));
+      expect(LogKind.knownByName, hasLength(11));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -718,6 +724,190 @@ void main() {
         ]);
         expect(entries, hasLength(1));
         expect(entries.single, isA<EnergySetEntry>());
+      });
+    });
+
+    group('the report payload path (Story 2.6, SM-2, AD-21, AD-23)', () {
+      test('a well-shaped report row converts carrying both ints — the '
+          'value and the week it answers, never a re-derived instant', () {
+        for (final value in [1, 3, 5]) {
+          final conversion = convertLogEntryRecord(
+            _record('report_answered', reportValue: value, reportWeek: 1394),
+          );
+          final entry = conversion.entry;
+          expect(conversion.flaw, isNull);
+          expect(entry, isA<ReportAnsweredEntry>());
+          expect(entry!.kind, LogKind.reportAnswered);
+          expect((entry as ReportAnsweredEntry).value, value);
+          expect(entry.week, 1394);
+        }
+      });
+
+      test('the 1–5 scale is pinned: outside it or absent, the row is '
+          'excluded quietly — the week simply has no data point', () {
+        expect(reportScaleLeast, 1);
+        expect(reportScaleMost, 5);
+
+        final absent = convertLogEntryRecord(
+          _record('report_answered', reportWeek: 1394),
+        );
+        expect(absent.entry, isNull);
+        expect(absent.flaw, LogRecordFlaw.reportValueAbsent);
+
+        for (final outside in [0, 6, -1, 99]) {
+          final outOfRange = convertLogEntryRecord(
+            _record('report_answered', reportValue: outside, reportWeek: 1394),
+          );
+          expect(
+            outOfRange.entry,
+            isNull,
+            reason: 'an out-of-scale answer excludes the row, quietly',
+          );
+          expect(outOfRange.flaw, LogRecordFlaw.reportValueAbsent);
+        }
+      });
+
+      test('a report row without its week is excluded, distinctly — the '
+          'week is the answer\'s whole attribution, and persistence can '
+          'move the answer outside it', () {
+        final conversion = convertLogEntryRecord(
+          _record('report_answered', reportValue: 3),
+        );
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.reportWeekAbsent);
+      });
+
+      test('an item pair, a stack, setting fields, a pocket or an energy '
+          'level on report_answered are excluded', () {
+        final withItem = convertLogEntryRecord(
+          _record(
+            'report_answered',
+            reportValue: 3,
+            reportWeek: 1394,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+        );
+        expect(withItem.entry, isNull);
+        expect(withItem.flaw, LogRecordFlaw.itemOnNonItemKind);
+
+        final withStack = convertLogEntryRecord(
+          _record(
+            'report_answered',
+            reportValue: 3,
+            reportWeek: 1394,
+            stack: '#0      b',
+          ),
+        );
+        expect(withStack.entry, isNull);
+        expect(withStack.flaw, LogRecordFlaw.stackOffCrashKind);
+
+        final withSetting = convertLogEntryRecord(
+          _record(
+            'report_answered',
+            reportValue: 3,
+            reportWeek: 1394,
+            settingKey: 'time_bag',
+            settingValue: 15,
+          ),
+        );
+        expect(withSetting.entry, isNull);
+        expect(withSetting.flaw, LogRecordFlaw.settingOnNonSettingKind);
+
+        final withPocket = convertLogEntryRecord(
+          _record(
+            'report_answered',
+            reportValue: 3,
+            reportWeek: 1394,
+            pocketMinutes: 15,
+          ),
+        );
+        expect(withPocket.entry, isNull);
+        expect(withPocket.flaw, LogRecordFlaw.pocketOnNonPocketKind);
+
+        final withEnergy = convertLogEntryRecord(
+          _record(
+            'report_answered',
+            reportValue: 3,
+            reportWeek: 1394,
+            energyLevel: 1,
+          ),
+        );
+        expect(withEnergy.entry, isNull);
+        expect(withEnergy.flaw, LogRecordFlaw.energyOnNonEnergyKind);
+      });
+
+      test('report fields on any other kind are excluded — the payload '
+          'rides its own kind and no other', () {
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_done',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            reportValue: 3,
+          ),
+        );
+        expect(onAct.entry, isNull);
+        expect(onAct.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onMoment = convertLogEntryRecord(
+          _record('app_opened', reportValue: 3),
+        );
+        expect(onMoment.entry, isNull);
+        expect(onMoment.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onSetting = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            reportValue: 3,
+          ),
+        );
+        expect(onSetting.entry, isNull);
+        expect(onSetting.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onEnergy = convertLogEntryRecord(
+          _record('energy_set', energyLevel: 2, reportWeek: 1394),
+        );
+        expect(onEnergy.entry, isNull);
+        expect(onEnergy.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onStart = convertLogEntryRecord(
+          _record('session_started', pocketMinutes: 15, reportValue: 3),
+        );
+        expect(onStart.entry, isNull);
+        expect(onStart.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onCrash = convertLogEntryRecord(
+          _record('crash_recorded', stack: '#0      build', reportValue: 3),
+        );
+        expect(onCrash.entry, isNull);
+        expect(onCrash.flaw, LogRecordFlaw.reportOnNonReportKind);
+
+        final onExtend = convertLogEntryRecord(
+          _record('session_extended', pocketMinutes: 15, reportWeek: 1394),
+        );
+        expect(onExtend.entry, isNull);
+        expect(onExtend.flaw, LogRecordFlaw.reportOnNonReportKind);
+      });
+
+      test('a corrupt report row never becomes an entry, and a good one '
+          'survives the boundary in reading order — the week it names '
+          'keeps its data point downstream', () {
+        final entries = logEntriesOf([
+          _record('report_answered', reportWeek: 1394),
+          _record('report_answered', reportValue: 6, reportWeek: 1394),
+          _record('report_answered', reportValue: 2, reportWeek: 1390),
+          _record('report_answered', reportValue: 4, reportWeek: 1394),
+        ]);
+        expect(entries, hasLength(2));
+        final first = entries[0] as ReportAnsweredEntry;
+        final second = entries[1] as ReportAnsweredEntry;
+        expect(first.value, 2);
+        expect(first.week, 1390);
+        expect(second.value, 4);
+        expect(second.week, 1394);
       });
     });
 
