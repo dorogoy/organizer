@@ -171,3 +171,9 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/2-6-the-weekly-self-report-and-the-deterministic-slot-handoff-part-3.md`
   summary: The shell's `_appOpensOn` census (dispenser_controller.dart) re-implements the core's opening-count convention that `_firstOpeningUnderway` owns (post-instant exclusion, per-row stored-offset day scoping) — a core-owned census helper (or a cross-boundary convention pin) should single-source it, since the report dismissal's re-arm key must track the derivation's own first-opening judgment.
   evidence: Review of 2-6 part 3 (blind-hunter + verification-gap, both): the two implementations agree today and the crossing scenario is pinned, but they are kept in sync only by a comment; the core was read-only this story, so the helper/pin is a core-side decision for a later pass.
+
+## Deferred from: review of 3-1-on-device-recognition-availability-verified-on-the-handsets (2026-09-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/3-1-on-device-recognition-availability-verified-on-the-handsets.md`
+  summary: The deleted probe's latch-await pattern has a late-callback race (a callback firing after `await` times out writes `support`/`errorCode` on the executor thread with no happens-before guard against the post-await read) — guard against reusing the idiom unguarded in story 3.4's `dictate` channel.
+  evidence: Preserved probe source (spec → `RecognitionAvailabilityProbeTest.checkSupport`): plain vars written from the `RecognitionSupportCallback` on a single-thread executor, read after `latch.await` returns false; unreachable harm for the throwaway probe (only the timeout path races, and the test then fails anyway), but 3.4's dictation channel is expected to reuse the same latch idiom against a live recognizer.

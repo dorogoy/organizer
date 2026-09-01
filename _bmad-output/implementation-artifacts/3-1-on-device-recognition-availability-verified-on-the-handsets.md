@@ -2,7 +2,7 @@
 title: 'On-device recognition availability, verified on the handsets'
 type: 'chore'
 created: '2026-09-01'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 1
 baseline_commit: '7b69158da97373839b7c747ea3ab741801900bf5'
 context: []
@@ -63,7 +63,7 @@ context: []
 ## Tasks & Acceptance
 
 **Execution:**
-- [x] `android/app/src/androidTest/kotlin/dev/dorogoy/organizer/RecognitionAvailabilityProbeTest.kt` -- create the probe: one test recording identity + both gates + the four lists (or error/timeout) to instrumentation stdout and logcat, callback awaited on a latch with ≤ 15 s timeout -- the story's only instrument.
+- [x] `android/app/src/androidTest/kotlin/dev/dorogoy/organizer/RecognitionAvailabilityProbeTest.kt` -- create the probe (final form: seven tests -- the real-device probe plus six matrix-row tests against a synthetic evaluator, recording identity + both gates + the four lists to logcat, callback awaited on a latch with ≤ 15 s timeout; see Spec Change Log for the mid-story refactor) -- the story's only instrument.
 - [x] `android/app/build.gradle.kts` -- add `testInstrumentationRunner` and androidx.test deps (runner, ext.junit) if the template lacks them -- temporary; deleted with the probe.
 - [x] Emulator protocol proof (in-session): boot `organizer36` per AGENTS.md, run `cd android && ./gradlew :app:connectedDebugAndroidTest` inside `devbox shell` with `tool/env.sh` sourced -- proves the probe end-to-end and the evidence format; result recorded as emulator (not a handset; an UNAVAILABLE here is expected, not an escalation).
 - [x] Commit and push the branch so the home computer can run the probe.
@@ -82,6 +82,7 @@ context: []
 ## Spec Change Log
 
 - 2026-09-01 (in-session, builder): discovered that in an Orca worktree `tool/env.sh` exports `ANDROID_HOME` through the gitignored `.toolchain` **symlink**, and the flutter tool bakes that symlinked path into `android/local.properties` `sdk.dir`. AGP 9.1 then silently compiles plugin subprojects without `android.jar` (`package android.app does not exist` in `:jni_flutter:compileDebugJavaWithJavac`) while the app module still builds. Fix, verified in-session: resolve the realpath (`TC=$(readlink -f .toolchain)`) for both `ANDROID_HOME` and `sdk.dir`/`flutter.sdk` before any gradle invocation. The handset-leg protocol below bakes this in. On the home computer's main checkout (`.toolchain` a real directory) this cannot occur.
+- 2026-09-01 (home session): the probe was refactored mid-story — it gained six matrix-row tests (synthetic `SupportOutcome` evaluator) so every I/O-matrix row ran on a real handset, and the stdout channel was dropped after gradle's console and JUnit XML `system-out` proved not to carry the record (logcat only; see Matrix coverage). Task 1's original wording ("one test … stdout and logcat") described the first in-session version. KEEP: the frozen block entire; the evidence-record format (`DEVICE`/`STATIC_GATE`/`SUPPORT_CHECK`/lists/`VERDICT`) is unchanged between versions.
 
 ## Design Notes
 
@@ -118,7 +119,7 @@ Probe skeleton (final source preserved in Verification before deletion):
 
 ### Emulator protocol proof (2026-09-01, in-session)
 
-**Environment:** AVD `organizer36` (Pixel 6, API 36 `google_apis` x86_64, KVM), devbox + `tool/env.sh`, `cd android && ./gradlew :app:connectedDebugAndroidTest` — BUILD SUCCESSFUL, `Starting 1 tests on organizer36(AVD) - 16 / Finished 1 tests`, test passed. Gradle's console does **not** print the record (the JUnit XML `system-out` is empty too); two evidence channels were verified to carry it identically:
+**Environment:** AVD `organizer36` (Pixel 6, API 36 `google_apis` x86_64, KVM), devbox + `tool/env.sh` (with the worktree `local.properties` realpath pinning described in the Spec Change Log), `cd android && ./gradlew :app:connectedDebugAndroidTest` — BUILD SUCCESSFUL, `Starting 1 tests on organizer36(AVD) - 16 / Finished 1 tests`, test passed. Gradle's console does **not** print the record (the JUnit XML `system-out` is empty too); two evidence channels were verified to carry it identically:
 
 1. `"$ANDROID_HOME/platform-tools/adb" logcat -d -s RecognitionProbe` run right after the gradle command;
 2. the per-test logcat AGP auto-captures to `build/app/outputs/androidTest-results/connected/debug/<device-dir>/logcat-dev.dorogoy.organizer.RecognitionAvailabilityProbeTest-*.txt` (survives logcat-buffer rollover).
@@ -126,7 +127,7 @@ Probe skeleton (final source preserved in Verification before deletion):
 **Verbatim record (both channels, identical):**
 
 ```
-DEVICE manufacturer=Google model=sdk_gphone64_x86_64 device=emu64xa androidId=2ad73fcf0dba1ab9 apiLevel=36
+DEVICE manufacturer=Google model=sdk_gphone64_x86_64 device=emu64xa androidId=<redacted> apiLevel=36
 STATIC_GATE isOnDeviceRecognitionAvailable=true
 SUPPORT_CHECK outcome=result
 INSTALLED_ON_DEVICE tags=en-US
@@ -153,16 +154,20 @@ TC=$(readlink -f .toolchain); printf 'sdk.dir=%s/android-sdk\nflutter.sdk=%s/flu
 cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain
 # Paste the record back:
 "$ANDROID_HOME/platform-tools/adb" logcat -d -s RecognitionProbe
+# If BOTH phones are connected at once, plain `adb logcat` aborts ("more than one
+# device"): run `adb devices`, then add `-s <serial>` to the logcat command.
 # Fallback if the logcat buffer rolled:
 # cat ../build/app/outputs/androidTest-results/connected/debug/*/logcat-dev.dorogoy.organizer.RecognitionAvailabilityProbeTest-*.txt
 ```
 
 Interpretation is not the runner's to do: paste the verbatim `RecognitionProbe` lines per phone below; the builder applies the one rule and the §7 reading. If any VERDICT line reads UNAVAILABLE or INDETERMINATE (error/timeout), re-run once; if it persists, stop and report (Ask-First).
 
-**Phone 1 of 2 (2026-09-01, Pixel 9):**
+**Redaction note:** the `androidId=` values in the three records below were redacted after capture. `ANDROID_ID` is a persistent device identifier, the frozen identity contract names only manufacturer/model/API level, and the remaining fields already disambiguate every record. The redaction is declared here, not done silently; the language lists are untouched.
+
+**Phone 1 of 2 (2026-09-01, Pixel 9):** *(run-level gradle line and probe version — 1-test vs 7-test — were not captured for this phone; the record is preserved as pasted)*
 
 ```
-DEVICE manufacturer=Google model=Pixel 9 device=tokay androidId=a98a411622ce5f63 apiLevel=37
+DEVICE manufacturer=Google model=Pixel 9 device=tokay androidId=<redacted> apiLevel=37
 STATIC_GATE isOnDeviceRecognitionAvailable=true
 SUPPORT_CHECK outcome=result
 INSTALLED_ON_DEVICE tags=en-US,es-ES
@@ -176,7 +181,7 @@ VERDICT AVAILABLE rule=service present AND es in installedOnDeviceLanguages serv
 **Phone 2 of 2 (2026-09-01, motorola edge 50 fusion):**
 
 ```
-DEVICE manufacturer=motorola model=motorola edge 50 fusion device=cuscoi androidId=4cd6e5feb7e35a9a apiLevel=35
+DEVICE manufacturer=motorola model=motorola edge 50 fusion device=cuscoi androidId=<redacted> apiLevel=35
 STATIC_GATE isOnDeviceRecognitionAvailable=true
 SUPPORT_CHECK outcome=result
 INSTALLED_ON_DEVICE tags=es-ES,en-GB
@@ -192,6 +197,10 @@ VERDICT AVAILABLE rule=service present AND es in installedOnDeviceLanguages serv
 ### Matrix coverage (2026-09-01, motorola edge 50 fusion)
 
 `cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain` completed successfully with `Starting 7 tests on motorola edge 50 fusion - 15 / Finished 7 tests`. `probeConnectedDevice` re-ran the real available path; the six matrix tests ran on the handset against the temporary evaluator: `availableMatrixRow`, `serviceAbsentMatrixRow`, `modelMissingMatrixRow`, `spanishUnsupportedMatrixRow`, `supportErrorMatrixRow`, and `silentCallbackMatrixRow`. The silent-callback test awaits an uncounted latch and verifies the timeout verdict; the other simulated paths assert their matrix verdicts. The service-absent path records the support error and resolves `UNAVAILABLE`, as required by the matrix.
+
+**Simulation-verified only:** no real device reported service-absent, model-missing, Spanish-unsupported, an error, or a timeout — every real run (emulator + both handsets) returned `outcome=result`. The five contingency rows are covered by the evaluator tests above, not by device reality.
+
+**Timeout semantics:** a real timeout logs the full INDETERMINATE record first and then **fails the test** (`check(outcome.completed)`), so the protocol's re-run path manifests as a failed gradle run carrying the record — the failure is the escalation signal, not a contradiction of the INDETERMINATE verdict.
 
 ### Probe final source (verbatim, preserved before deletion)
 
@@ -425,3 +434,52 @@ class RecognitionAvailabilityProbeTest {
 ### Gate
 
 `devbox run -- make gate` is the story-end check, run **after** the probe is deleted (format/analyze/test never see androidTest). Dart-side surface untouched this session (only `android/` additions and this spec), so the gate is not expected to move; it still must be shown green at deletion time.
+
+**Run (2026-09-01, this session, after `160c990`):** green — `flutter test`, `dart format --set-exit-if-changed .`, `flutter analyze` ("No issues found"), exit 0.
+
+**Deletion evidence (verified in-session, this session):** the probe and its gradle edits were added in `602a332` (150-line test file, +6 lines `android/app/build.gradle.kts`) and deleted in `160c990` (`delete mode 100644 android/app/src/androidTest/kotlin/dev/dorogoy/organizer/RecognitionAvailabilityProbeTest.kt`, `android/app/build.gradle.kts` −6); `android/app/src/androidTest` no longer exists; `git status` shows only this spec as modified. No manifest, permission, or `lib/`/`packages/` change exists anywhere in the story's diff.
+
+**No-permission evidence:** the merged test-APK manifest carries only androidx.test's internal `REORDER_TASKS` (dumped via `aapt2` on the emulator build; manifests are device-independent), and all three real runs completed without a blocking system dialog — a permission prompt would have hung the instrumentation run.
+
+## Suggested Review Order
+
+**The verdict (entry point)**
+
+- Both handsets AVAILABLE via the one rule; 3.4 unblocked; third handset field-only
+  [`spec:195`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L195)
+
+- Pixel 9 record — service present, `es-ES` installed
+  [`spec:167`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L167)
+
+- motorola edge 50 fusion record — same shape, different vendor/API level
+  [`spec:181`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L181)
+
+**Evidence integrity**
+
+- Matrix rows are simulation-verified only; timeout manifests as a failing run
+  [`spec:201`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L201)
+
+- Emulator protocol proof — expected UNAVAILABLE, never a handset result
+  [`spec:120`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L120)
+
+- Probe deleted with hashes; gate green; no kept trace
+  [`spec:440`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L440)
+
+- Redaction of ANDROID_ID — declared, minimal, post-hoc
+  [`spec:165`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L165)
+
+**The instrument, preserved**
+
+- Full probe source verbatim — seven tests, one record format
+  [`spec:205`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L205)
+
+- Mid-story refactor recorded (matrix tests, stdout dropped)
+  [`spec:85`](3-1-on-device-recognition-availability-verified-on-the-handsets.md#L85)
+
+**Peripherals**
+
+- Epic-3 context carries the two-probed builder note for regeneration
+  [`epic-3-context.md:51`](epic-3-context.md#L51)
+
+- Sprint status: story in review, epic-3 in-progress
+  [`sprint-status.yaml:63`](sprint-status.yaml#L63)

@@ -48,6 +48,7 @@ Let the user put something into the app it could never have known about — a fa
 - Probe both `isOnDeviceRecognitionAvailable()` and `checkRecognitionSupport()` on each of the three validation handsets; record results per device. A handset reporting the service but not the Spanish model counts as unavailable.
 - Availability is binary — no accuracy pass bar exists or is needed: poor accuracy is absorbed silently by the keyboard, which is never removed. Poor availability voids the accessibility floor's wordless-route claim (a promise about who can use the app) and is a finding to escalate, not a detail.
 - The probe is a throwaway check outside the shipped app surfaces: no UI, no permission request at app entry, no dependency the app keeps.
+- **Builder decision, 2026-09-01 (as executed in Story 3.1):** only the two adb-connectable handsets were probed (both returned AVAILABLE with `es-ES` installed); the third handset is field-use only and is never probed. The "three validation handsets" wording above reflects the planning docs (epics.md) as written before that decision — keep this note when regenerating this file.
 
 ## Technical Decisions
 
