@@ -63,6 +63,16 @@ ItemActEntry _skipped(int micros, String itemId, {String id = 'skip'}) =>
       itemOrigin: Origin.shipped,
     );
 
+ItemActEntry _captured(int micros, String itemId, {String id = 'capture'}) =>
+    ItemActEntry(
+      id: id,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.captureCreated,
+      itemId: itemId,
+      itemOrigin: Origin.manual,
+    );
+
 SessionExtendEntry _extended(int micros, {String id = 'extend'}) =>
     SessionExtendEntry(
       id: id,
@@ -213,6 +223,7 @@ void main() {
         _setting(before(const Duration(hours: 47))),
         _energy(before(const Duration(hours: 47))),
         _report(before(const Duration(hours: 47))),
+        _captured(before(const Duration(hours: 47)), 'man-cap-a'),
       ];
       for (final act in acts) {
         expect(

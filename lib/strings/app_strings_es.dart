@@ -60,6 +60,9 @@ class AppStringsEs extends AppStrings {
   }
 
   @override
+  String get durationFocusRange => '10–15 min';
+
+  @override
   String get destinationKeep => 'Quedármelo';
 
   @override
@@ -212,6 +215,9 @@ class AppStringsEs extends AppStrings {
   String selfReportScaleValue(int value) {
     return '$value';
   }
+
+  @override
+  String get lapizEntry => 'Lápiz - anotar';
 
   @override
   String get captureTitle => 'Un rincón de la casa';

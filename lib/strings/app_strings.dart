@@ -167,6 +167,12 @@ abstract class AppStrings {
   /// **'{seconds} s'**
   String durationSeconds(int seconds);
 
+  /// Duration chip, the Focus Chunk's range — {formats.duration}: en dash + non-breaking space + unit. The one label the duration format family lacked (Story 3.2): the size-option pill for the 10–15 min size, never the internal taxonomy name.
+  ///
+  /// In es, this message translates to:
+  /// **'10–15 min'**
+  String get durationFocusRange;
+
   /// 3-Destination Flow, first choice — the box glyph's meaning.
   ///
   /// In es, this message translates to:
@@ -442,6 +448,12 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'{value}'**
   String selfReportScaleValue(int value);
+
+  /// Dispenser Lápiz entry — TalkBack name of the glyph-only Manual Capture affordance (Story 3.2). Not painted; screen readers only.
+  ///
+  /// In es, this message translates to:
+  /// **'Lápiz - anotar'**
+  String get lapizEntry;
 
   /// Manual Capture — title, names a place (the spatial frame, rule 1).
   ///

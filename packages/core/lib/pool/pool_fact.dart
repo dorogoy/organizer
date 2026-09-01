@@ -4,8 +4,9 @@
 ///
 /// Every pool fact carries a shell-minted UUIDv7 id, its origin set at
 /// genesis, a size from the 1-3-5 taxonomy (never free minutes), and its
-/// creation instant plus the local offset in force. No owner, no date-only
-/// value, no assignment to a future day (AD-1).
+/// creation instant plus the local offset in force — and, since Story 3.2,
+/// an optional Origin Context: the manual capture's own single line. No
+/// owner, no date-only value, no assignment to a future day (AD-1).
 
 library;
 
@@ -54,6 +55,7 @@ final class PoolFact {
     required this.size,
     required this.instantUtcMicros,
     required this.offsetSeconds,
+    this.originContext,
   });
 
   /// The shell-minted UUIDv7 id (conventions: ids are minted in the shell,
@@ -72,4 +74,11 @@ final class PoolFact {
   /// east of UTC — a day is later computed from this stored offset, never
   /// from the device's current zone (AD-4).
   final int offsetSeconds;
+
+  /// The Origin Context (AD-14, since Story 3.2): a manual capture's own
+  /// single trimmed line — the whole context the user gave, nothing more,
+  /// later re-sliced by Rescue Mode. Null for origins whose context lives
+  /// elsewhere (the catalogue names shipped tasks; a Slicer output is its
+  /// own fact). Written once at genesis, never updated.
+  final String? originContext;
 }

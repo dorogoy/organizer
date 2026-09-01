@@ -76,6 +76,11 @@
     }
   },
 
+  "durationFocusRange": "10–15\u00A0min",
+  "@durationFocusRange": {
+    "description": "Duration chip, the Focus Chunk's range — {formats.duration}: en dash + non-breaking space + unit. The one label the duration format family lacked (Story 3.2): the size-option pill for the 10–15 min size, never the internal taxonomy name."
+  },
+
   "destinationKeep": "Quedármelo",
   "@destinationKeep": {
     "description": "3-Destination Flow, first choice — the box glyph's meaning."
@@ -321,6 +326,11 @@
         "type": "int"
       }
     }
+  },
+
+  "lapizEntry": "Lápiz - anotar",
+  "@lapizEntry": {
+    "description": "Dispenser Lápiz entry — TalkBack name of the glyph-only Manual Capture affordance (Story 3.2). Not painted; screen readers only."
   },
 
   "captureTitle": "Un rincón de la casa",

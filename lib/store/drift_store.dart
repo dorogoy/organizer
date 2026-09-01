@@ -33,6 +33,7 @@ class DriftStore implements StorePort {
             size: fact.size.name,
             instantUtcMicros: fact.instantUtcMicros,
             offsetSeconds: fact.offsetSeconds,
+            originContext: Value(fact.originContext),
           ),
         );
   }
@@ -79,6 +80,7 @@ class DriftStore implements StorePort {
             size: sizesByName[row.size]!,
             instantUtcMicros: row.instantUtcMicros,
             offsetSeconds: row.offsetSeconds,
+            originContext: row.originContext,
           ),
     ];
   }

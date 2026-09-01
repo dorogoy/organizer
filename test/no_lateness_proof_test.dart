@@ -11,10 +11,11 @@ import '../tool/check_core_purity.dart';
 /// needs re-planning — plus the shell's write-path census: the card and
 /// moment wire names appear nowhere in `lib/`, records over core
 /// `LogEntryContent` are constructed only in the Dispenser's seven
-/// user-act append sites plus the session, settings and crash channels
-/// the census maps enumerate, the adapter's store module owns the only
-/// drift insert companions, and no pool-fact write exists outside the
-/// adapter.
+/// user-act append sites plus the session, settings, capture and crash
+/// channels the census maps enumerate, the adapter's store module owns
+/// the only drift insert companions, and the one pool-fact write the
+/// shell owns is the capture channel's single sanctioned append (the
+/// adapter apart, nothing else calls `appendPoolFact`).
 /// Masking reuses `tool/check_core_purity.dart`'s
 /// `maskCommentsAndStrings` (the `test/tool/` import precedent), so
 /// prose and string contents cannot move the identifier pins — only a
@@ -191,7 +192,7 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, ten wire names wide: every user-act and
+    // The absolute ban, eleven wire names wide: every user-act and
     // moment kind exists in the shell only inside the core's own
     // constants — a quoted wire name in lib/ is a minter that
     // bypasses the vocabulary. (crash_recorded is not banned here:
@@ -207,6 +208,7 @@ void main() {
       'setting_changed',
       'energy_set',
       'report_answered',
+      'capture_created',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -306,6 +308,16 @@ void main() {
           'exactly one core reportAnswered command invocation — the '
           'report answer\'s LogEntryContent path (Story 2.6)',
     );
+    final capture = sources['lib/capture/capture_controller.dart'];
+    expect(capture, isNotNull, reason: 'the capture channel is gone');
+    final captureSource = capture ?? '';
+    expect(
+      RegExp(r'\bcaptureCreate\s*\(').allMatches(captureSource),
+      hasLength(1),
+      reason:
+          'exactly one core captureCreate command invocation — the '
+          'capture channel\'s LogEntryContent path (Story 3.2)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -314,10 +326,10 @@ void main() {
     // answers, the pocket declaration (Story 2.2), the pause
     // (Story 2.3), the checkpoint extension (Story 2.4), the check-in
     // answer (Story 2.5) and the report answer (Story 2.6) — beside
-    // the session and settings channels and AD-12's crash channel,
-    // each mapped below; together, the only paths that can mint
-    // user-act and session kinds. The exact counts pin an unlisted
-    // call site even inside a sanctioned file; tear-offs
+    // the session, settings and capture channels and AD-12's crash
+    // channel, each mapped below; together, the only paths that can
+    // mint user-act and session kinds. The exact counts pin an
+    // unlisted call site even inside a sanctioned file; tear-offs
     // (`.appendLogEntry` without a call) are zero.
     final callCounts = <String, int>{};
     final contentCounts = <String, int>{};
@@ -338,6 +350,7 @@ void main() {
     expect(
       callCounts,
       {
+        'lib/capture/capture_controller.dart': 1,
         'lib/crash.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
@@ -351,6 +364,7 @@ void main() {
     expect(
       contentCounts,
       {
+        'lib/capture/capture_controller.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
@@ -407,13 +421,26 @@ void main() {
           'second store module is a silent writer',
     );
 
-    // No pool-fact write path exists in the shell at all: the only
-    // `appendPoolFact` in lib/ is the adapter's own implementation
-    // (an override declaration, no receiver), and zero call sites or
-    // tear-offs reference it.
+    // No pool-fact write path exists in the shell besides the capture
+    // channel: the only `appendPoolFact` call in lib/ is the capture
+    // controller's single sanctioned append (Story 3.2 — the pool's
+    // first writer, one fact then the entry referencing it), the
+    // adapter's own implementation is an override declaration with no
+    // receiver, and zero other call sites or tear-offs reference it.
     final poolWrites = <String>[];
     for (final file in _dartFilesUnder('lib')) {
       final source = _withoutComments(file.readAsStringSync());
+      if (_key(file) == 'lib/capture/capture_controller.dart') {
+        // The capture channel's own sanctioned call, pinned by count.
+        expect(
+          RegExp(r'\.\s*appendPoolFact\s*\(').allMatches(source),
+          hasLength(1),
+          reason:
+              'the capture channel holds exactly one pool-fact append — '
+              'a second would be a silent writer',
+        );
+        continue;
+      }
       for (final match in RegExp(r'\.\s*appendPoolFact\b').allMatches(source)) {
         poolWrites.add('${_key(file)}:${_lineOf(source, match.start)}');
       }
@@ -421,7 +448,10 @@ void main() {
     expect(
       poolWrites,
       isEmpty,
-      reason: 'no shell code calls or tears off appendPoolFact — pool facts enter the store through the adapter alone',
+      reason:
+          'no shell code outside the capture channel calls or tears off '
+          'appendPoolFact — pool facts enter the store through the adapter '
+          'and the capture channel alone',
     );
     expect(
       RegExp(r'Future\s*<\s*void\s*>\s*appendPoolFact\s*\(')

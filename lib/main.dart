@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'capture/capture_controller.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
 import 'session/session_controller.dart';
@@ -45,6 +46,10 @@ void main() {
         ),
         sessionSettled: () => session.settled,
         settings: SettingsController(store: store),
+        // The Manual Capture seam (Story 3.2): same store, same shared
+        // write queue — a capture's fact and entry serialize against
+        // every other write the shell owns.
+        capture: CaptureController(store: store, writeQueue: logWrites),
       ),
     ),
   );
@@ -62,6 +67,7 @@ class OrganizerApp extends StatelessWidget {
     this.dispenser,
     this.sessionSettled,
     this.settings,
+    this.capture,
   });
 
   final DispenserController? dispenser;
@@ -70,6 +76,10 @@ class OrganizerApp extends StatelessWidget {
   /// The Settings seam (Story 2.1), threaded into the Dispenser's footer
   /// and down the way-out chain — same store, one substrate.
   final SettingsController? settings;
+
+  /// The Manual Capture seam (Story 3.2), threaded into the Dispenser's
+  /// Lápiz entry — same store, same shared write queue.
+  final CaptureController? capture;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +100,7 @@ class OrganizerApp extends StatelessWidget {
               controller: dispenser,
               sessionSettled: sessionSettled,
               settings: settings,
+              capture: capture,
             ),
     );
   }

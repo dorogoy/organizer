@@ -9,6 +9,12 @@
 // pocketed session is open, else the 15 default (UX-DR18's second life
 // for the chip). Never a countdown, never remaining minutes: the chip
 // states what the user declared, nothing more.
+//
+// Story 3.2 adds the size-option label: the same duration format family
+// naming the three 1-3-5 sizes as their durations (`30 s` · `3 min` ·
+// `10–15 min`) — the Manual Capture pills' one label source, never the
+// internal taxonomy names.
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 
@@ -24,6 +30,19 @@ String durationLabel(int seconds, AppStrings strings) {
     return strings.durationMinutes(seconds ~/ 60);
   }
   return strings.durationSeconds(seconds);
+}
+
+/// The size-option pill's label (Story 3.2, FR-27): the taxonomy size as
+/// its duration, never its internal name — `instant` → `30 s`,
+/// `maintenance` → `3 min`, `focus` → `10–15 min`, all through the
+/// duration format family. The three sizes ARE the durations the pills
+/// show; no taxonomy word ever renders.
+String sizeOptionLabel(Size size, AppStrings strings) {
+  return switch (size) {
+    Size.instant => strings.durationSeconds(30),
+    Size.maintenance => strings.durationMinutes(3),
+    Size.focus => strings.durationFocusRange,
+  };
 }
 
 /// The eyebrow pill above the task text. Hugs its content and aligns with
