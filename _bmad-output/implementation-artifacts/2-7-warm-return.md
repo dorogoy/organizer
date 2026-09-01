@@ -80,6 +80,11 @@ context: []
 - Given the seven-day-absence launch, then the appended rows are exactly `['app_opened','session_started','card_dealt']` and the census diff against a control launch is the greeting text alone — no count, no backlog, no days-away copy anywhere
 - Given the completion gate, then `make check`, `make test`, `make codegen-check` (no churn) and `make gate` are green
 
+### Review Findings
+
+- [x] [Review][Decision] El reloj del umbral es el instante de lectura, no el del `app_opened` actual — descartado: Always y el boundary del matrix mandan; «opening-scoped» solo significa que un `true` no se apaga. (elección 2)
+- [x] [Review][Patch] El test de censo de session kinds sigue titulándose «read in exactly one» después de añadir el segundo lector de `app_opened` [packages/core/test/no_lateness_proof_test.dart:1482]
+
 ## Spec Change Log
 
 ## Design Notes

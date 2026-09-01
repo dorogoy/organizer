@@ -1479,8 +1479,8 @@ final class KitchenSink {
     );
   });
 
-  test('the session kinds are minted in exactly one file and read in '
-      'exactly one — no second session writer can appear silently '
+  test('the session kinds are minted in exactly one file and read only '
+      'in the stated set — no second session writer can appear silently '
       '(Story 2.2, AD-3, AD-19)', () {
     // The five homes the vocabulary allows: the definition (which also
     // classifies the payload at the read boundary), the one walk that
