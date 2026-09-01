@@ -59,8 +59,8 @@ development_status:
   2-7-warm-return: done
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-on-device-recognition-availability-verified-on-the-handsets: backlog
+  epic-3: in-progress
+  3-1-on-device-recognition-availability-verified-on-the-handsets: in-progress
   3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a: backlog
   3-3-the-capture-comes-back-as-an-ordinary-card: backlog
   3-4-dictation-into-the-capture-line: backlog
