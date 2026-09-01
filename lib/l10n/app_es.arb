@@ -328,6 +328,11 @@
     }
   },
 
+  "lapizEntry": "Lápiz - anotar",
+  "@lapizEntry": {
+    "description": "Dispenser Lápiz entry — TalkBack name of the glyph-only Manual Capture affordance (Story 3.2). Not painted; screen readers only."
+  },
+
   "captureTitle": "Un rincón de la casa",
   "@captureTitle": {
     "description": "Manual Capture — title, names a place (the spatial frame, rule 1)."

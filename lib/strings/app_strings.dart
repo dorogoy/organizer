@@ -449,6 +449,12 @@ abstract class AppStrings {
   /// **'{value}'**
   String selfReportScaleValue(int value);
 
+  /// Dispenser Lápiz entry — TalkBack name of the glyph-only Manual Capture affordance (Story 3.2). Not painted; screen readers only.
+  ///
+  /// In es, this message translates to:
+  /// **'Lápiz - anotar'**
+  String get lapizEntry;
+
   /// Manual Capture — title, names a place (the spatial frame, rule 1).
   ///
   /// In es, this message translates to:

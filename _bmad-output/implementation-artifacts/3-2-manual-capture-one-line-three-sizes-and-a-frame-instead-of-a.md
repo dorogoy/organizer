@@ -97,6 +97,14 @@ context:
 - Given the store after a completed capture, when read, then exactly one manual pool fact and one `capture_created` entry exist, sharing the batch instant, the entry's item pair naming the fact.
 - Given the user has left the surface by any exit, when they look for the captured line, then no correction or discard path exists anywhere — the only path back to it is being dealt (3.3).
 
+### Review Findings
+
+- [x] [Review][Patch] Lápiz unlabeled for TalkBack — authorized copy `Lápiz - anotar` [lib/ui/dispenser/dispenser_screen.dart:1191]
+- [x] [Review][Patch] Guardar test never pins the batch instant to `nowOf()` [test/ui/capture/capture_screen_test.dart:504]
+- [x] [Review][Patch] Padded non-blank line never asserted on the persist path [test/ui/capture/capture_screen_test.dart:487]
+- [x] [Review][Patch] Persisted size only asserted after tapping the focus pill [test/ui/capture/capture_screen_test.dart:493]
+- [x] [Review][Defer] Two-append capture batch is not atomic [lib/capture/capture_controller.dart:53] — deferred, pre-existing
+
 ## Spec Change Log
 
 ## Design Notes

@@ -1178,9 +1178,9 @@ class _DispenserScreenState extends State<DispenserScreen>
 /// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance —
 /// the utility glyph in its neutral mass inside a 48dp opaque target,
 /// declared to readers as a button (the battery mark's own grammar).
-/// One tap opens the capture surface; no label, no fill, no badge,
-/// nothing animated, and nothing about it counts or lists captures —
-/// prose departs and mass works, and this mass is work's front door.
+/// One tap opens the capture surface; no painted label, no fill, no
+/// badge, nothing animated, and nothing about it counts or lists
+/// captures — mass is the visual, `lapizEntry` is the spoken name.
 class _LapizEntry extends StatelessWidget {
   const _LapizEntry({this.onTap});
 
@@ -1190,6 +1190,7 @@ class _LapizEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      label: AppStrings.of(context).lapizEntry,
       child: GestureDetector(
         // Absent, the tap stays an accepted no-op — a null onTap would
         // render a disabled control instead.

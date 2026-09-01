@@ -263,6 +263,10 @@ void main() {
     expect(target.width, greaterThanOrEqualTo(48));
     expect(target.height, greaterThanOrEqualTo(48));
     expect(
+      tester.widget<Semantics>(entryTarget(lapiz)).properties.label,
+      strings.lapizEntry,
+    );
+    expect(
       chipRect.right,
       lessThan(target.left),
       reason: 'the chip wraps before reaching the glyph zone',
@@ -468,7 +472,7 @@ void main() {
     // A pasted multi-line string is one line by the time the field
     // holds it: the single-line formatter strips the interior newline
     // on entry, so the stored Origin Context can never carry one.
-    const pasted = 'llamar al dentista\ny una idea pegada';
+    const pasted = '  llamar al dentista\ny una idea pegada \t ';
     await tester.enterText(find.byType(TextField), pasted);
     await tester.pump();
     expect(
@@ -486,13 +490,16 @@ void main() {
 
     // Exactly one pool fact: manual origin, the chosen size, the
     // trimmed line as its whole Origin Context — one line, the paste's
-    // newline stripped at the input boundary.
+    // newline stripped at the input boundary, padding trimmed by the
+    // command, both rows stamped with the tap's nowOf().
     expect(store.facts, hasLength(1));
     final fact = store.facts.single;
     expect(fact.origin, Origin.manual);
     expect(fact.size, Size.focus);
     expect(fact.originContext, isNot(contains('\n')));
-    expect(fact.originContext, pasted.replaceAll('\n', ''));
+    expect(fact.originContext, 'llamar al dentistay una idea pegada');
+    expect(fact.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+    expect(fact.offsetSeconds, _fixedClock().timeZoneOffset.inSeconds);
 
     // Exactly one capture_created entry: its item pair names the fact,
     // nothing else rides it, and it shares the fact's batch instant.
@@ -502,6 +509,7 @@ void main() {
     expect(entry.itemId, fact.id);
     expect(entry.itemOrigin, Origin.manual);
     expect(entry.instantUtcMicros, fact.instantUtcMicros);
+    expect(entry.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
     expect(entry.stack, isNull);
     expect(entry.settingKey, isNull);
     expect(entry.pocketMinutes, isNull);
@@ -521,6 +529,7 @@ void main() {
     await openCapture(tester);
 
     await tester.enterText(find.byType(TextField), 'regar las plantas');
+    await tester.tap(find.text(strings.durationSeconds(30)));
     // One frame first: the enabled button must exist in the render tree
     // before the tap — the second tap then lands while the write is in
     // flight, with no settle between.
@@ -533,6 +542,7 @@ void main() {
 
     expect(find.byType(CaptureScreen), findsNothing);
     expect(store.facts, hasLength(1));
+    expect(store.facts.single.size, Size.instant);
     expect(store.entries, hasLength(1));
   });
 
@@ -638,6 +648,7 @@ void main() {
     expect(find.byType(CaptureScreen), findsNothing);
     expect(store.facts, hasLength(1));
     expect(store.facts.single.originContext, 'llamar al dentista');
+    expect(store.facts.single.size, Size.maintenance);
     expect(store.entries, hasLength(1));
   });
 

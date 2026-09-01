@@ -217,6 +217,9 @@ class AppStringsEs extends AppStrings {
   }
 
   @override
+  String get lapizEntry => 'Lápiz - anotar';
+
+  @override
   String get captureTitle => 'Un rincón de la casa';
 
   @override
