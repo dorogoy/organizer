@@ -2906,4 +2906,178 @@ void main() {
       );
     });
   });
+
+  group('the warm return (Story 2.7, FR-6, AD-24)', () {
+    /// A completed day, dealt-and-answered through a closed sitting,
+    /// ending 2026-08-26 09:06 — just under 75 hours before the fixed
+    /// Saturday clock. The screen suite's seven-day seed shape, at the
+    /// shorter gap.
+    void seedContactDay(_RecordingStore store) {
+      store.entries.addAll([
+        _moment('app_opened', DateTime.utc(2026, 8, 26, 9), 'warm-open'),
+        _moment(
+          'session_started',
+          DateTime.utc(2026, 8, 26, 9, 0, 1),
+          'warm-start',
+        ),
+        _act(
+          'card_dealt',
+          DateTime.utc(2026, 8, 26, 9, 0, 2),
+          'warm-deal',
+          chunkSeedId,
+        ),
+        _act(
+          'card_done',
+          DateTime.utc(2026, 8, 26, 9, 5),
+          'warm-done',
+          chunkSeedId,
+        ),
+        _moment('session_ended', DateTime.utc(2026, 8, 26, 9, 6), 'warm-end'),
+      ]);
+    }
+
+    test('a days-long gap since the last contact reads warmReturnDue on '
+        'the dealt view, and the launch appended exactly the normal '
+        'opening rows', () async {
+      final store = _RecordingStore();
+      seedContactDay(store);
+      final seeded = store.entries.length;
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserDealt>());
+      expect(view.warmReturnDue, isTrue);
+      expect(
+        store.entries.skip(seeded).map((entry) => entry.kind).toList(),
+        ['app_opened', 'session_started', 'card_dealt'],
+        reason:
+            'the greeting writes nothing: the warm opening appends '
+            'exactly the rows a normal opening appends',
+      );
+    });
+
+    test("yesterday's contact reads warmReturnDue false — the ordinary "
+        'opening control', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 28, 10), 'y-open'),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 28, 10, 0, 1),
+            'y-start',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 28, 10, 0, 2),
+            'y-deal',
+            chunkSeedId,
+          ),
+          _act(
+            'card_done',
+            DateTime.utc(2026, 8, 28, 10, 5),
+            'y-done',
+            chunkSeedId,
+          ),
+          _moment('session_ended', DateTime.utc(2026, 8, 28, 10, 6), 'y-end'),
+        ]);
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+
+      expect((await buildFor(store).read()).warmReturnDue, isFalse);
+    });
+
+    test('the greeting stands through the same opening\'s writes and is '
+        'gone at the next opening inside 48 h — the derivation alone, no '
+        'state anywhere', () async {
+      var now = _fixedClock();
+      final store = _RecordingStore();
+      seedContactDay(store);
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => now,
+      );
+      final controller = buildFor(store, nowOf: () => now);
+      await session.handleAppOpen();
+      final launch = await controller.read();
+      expect(launch.warmReturnDue, isTrue);
+
+      // A write-then-read inside the same opening: the acts sit after
+      // the last `app_opened` and cannot move the anchor.
+      now = DateTime.utc(2026, 8, 29, 12, 1);
+      await controller.complete(launch as DispenserDealt);
+      expect((await controller.read()).warmReturnDue, isTrue);
+
+      // The next opening, ten minutes past those acts: false — the
+      // derivation alone flipped it, nothing was stored.
+      now = DateTime.utc(2026, 8, 29, 12, 5);
+      await session.handleSessionEnd();
+      now = DateTime.utc(2026, 8, 29, 12, 10);
+      await session.handleAppOpen();
+      expect((await controller.read()).warmReturnDue, isFalse);
+    });
+
+    test('the close and the rest offer carry the greeting fact exactly '
+        'as the dealt view does (variant propagation)', () async {
+      // The close: an empty catalogue over the warm log — no deal
+      // exists, and the greeting rides the close.
+      final closedStore = _RecordingStore();
+      seedContactDay(closedStore);
+      closedStore.entries.add(
+        _moment('app_opened', DateTime.utc(2026, 8, 29, 11), 'closed-open'),
+      );
+      final closed = await DispenserController(
+        store: closedStore,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: '{"version":1,"entries":[]}'}),
+        nowOf: _fixedClock,
+      ).read();
+      expect(closed, isA<DispenserClosed>());
+      expect(closed.warmReturnDue, isTrue);
+
+      // The rest offer: a pocketed sitting 40 minutes in at the fixed
+      // clock, opened on a warm launch — the offer preempts the deal
+      // and the greeting stands above it too.
+      final offerStore = _RecordingStore();
+      seedContactDay(offerStore);
+      offerStore.entries.addAll([
+        _moment('app_opened', DateTime.utc(2026, 8, 29, 11, 19), 'offer-open'),
+        (
+          id: 'offer-pocket',
+          kind: 'session_started',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            11,
+            20,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: 45,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+        ),
+      ]);
+      final offer = await buildFor(offerStore).read();
+      expect(offer, isA<DispenserRestOffer>());
+      expect(offer.warmReturnDue, isTrue);
+    });
+  });
 }

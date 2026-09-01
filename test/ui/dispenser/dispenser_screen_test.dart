@@ -531,11 +531,21 @@ List<MethodCall> _hapticImpacts(List<MethodCall> calls) =>
 Widget _harness(
   DispenserController controller, {
   Future<void> Function()? sessionSettled,
+
+  /// Distinct keys are required whenever two harnesses are pumped in
+  /// one test: a second pump at the same tree position silently
+  /// reuses the first screen's element and committed view (State
+  /// survives, no fresh read runs).
+  Key? screenKey,
 }) => MaterialApp(
   theme: OrganizerTheme.light(),
   localizationsDelegates: AppStrings.localizationsDelegates,
   supportedLocales: AppStrings.supportedLocales,
-  home: DispenserScreen(controller: controller, sessionSettled: sessionSettled),
+  home: DispenserScreen(
+    key: screenKey,
+    controller: controller,
+    sessionSettled: sessionSettled,
+  ),
 );
 
 void main() {
@@ -2010,14 +2020,16 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('a seven-day absence opens like any day: the normal opening '
-      'rows land, a TaskCard deals, the whole visible tree equals a '
-      'no-gap control launch, and rendering writes nothing (FR-6, FR-13, '
-      'FR-14, NFR9)', (tester) async {
+  testWidgets('a seven-day absence opens like any day plus the one '
+      'greeting: the normal opening rows land, a TaskCard deals with '
+      '«Siempre a tu disposición» above it, the census diff against a '
+      'no-gap control is the greeting text alone, and rendering writes '
+      'nothing (FR-6, FR-13, FR-14, NFR9)', (tester) async {
     // The milestone limb of the absence property is vacuous until Epic
     // Projects exist — Story 5.5 tests it for real once buffers land.
     // This pin is the vertical half that exists today: the opening
-    // itself, row by row, widget by widget.
+    // itself, row by row, widget by widget — and, since Story 2.7, the
+    // one deliberate difference a warm opening renders: the greeting.
     final catalogue = await loadEvergreenCatalogue(
       AppStringsEs(),
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
@@ -2077,7 +2089,14 @@ void main() {
       'card_dealt',
     ]);
 
-    await tester.pumpWidget(_harness(buildController(gapStore)));
+    // The two harnesses carry distinct screen keys: a second pump at
+    // the same structural position would otherwise REUSE the gap
+    // screen's element and its committed view (State survives, no new
+    // read runs), and the control's own rendering would never be
+    // witnessed — the greeting made that staleness observable.
+    await tester.pumpWidget(
+      _harness(buildController(gapStore), screenKey: const ValueKey('gap')),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
     // Rendering wrote nothing: the read is pure, so the store holds
@@ -2097,6 +2116,16 @@ void main() {
     // materialised as a list, never lazily tied to the later tree.
     final gapCensus = _censusOf(tester, [gapEntry.name]);
 
+    // The greeting: present on the warm launch, above the committed
+    // view, in the ack's register (Story 2.7, FR-6, AD-24).
+    final greeting = find.text(AppStringsEs().warmReturnGreeting);
+    expect(greeting, findsOneWidget);
+    expect(
+      _rect(tester, greeting).bottom,
+      lessThan(_rect(tester, find.byType(TaskCard)).top),
+      reason: 'the greeting renders above the committed view',
+    );
+
     // The control: the same launch with no gap in the log at all — and
     // its own appended rows are asserted, so the comparison baseline is
     // itself pinned to a normal opening.
@@ -2113,7 +2142,12 @@ void main() {
       'card_dealt',
     ], reason: 'the control appended exactly the normal opening rows');
 
-    await tester.pumpWidget(_harness(buildController(controlStore)));
+    await tester.pumpWidget(
+      _harness(
+        buildController(controlStore),
+        screenKey: const ValueKey('control'),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
     expect(controlStore.entries.map((entry) => entry.kind).toList(), [
@@ -2142,12 +2176,210 @@ void main() {
     expect(gapEntry.size, controlEntry.size);
     expect(gapEntry.size, Size.focus);
 
+    // The control launch renders no greeting: its own opening is its
+    // only `app_opened` — no contact before it, not due.
     expect(
-      _censusOf(tester, [controlEntry.name]),
-      gapCensus,
+      find.text(AppStringsEs().warmReturnGreeting),
+      findsNothing,
+      reason: 'a normal-day launch derives no warm return',
+    );
+
+    // The census diff: the greeting text alone. No count, no backlog,
+    // no days-away copy anywhere — and the only structural delta is the
+    // greeting's own wrap grammar (a Text in a Column with one
+    // actionGap SizedBox), the ack's register exactly.
+    final controlCensus = _censusOf(tester, [controlEntry.name]);
+    final typeLine = RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]* x\d+$');
+    Set<String> stringsOf(List<String> census) => {
+      for (final line in census)
+        if (!typeLine.hasMatch(line)) line,
+    };
+    expect(stringsOf(gapCensus).difference(stringsOf(controlCensus)), {
+      AppStringsEs().warmReturnGreeting,
+    }, reason: 'the greeting text is the only added string');
+    expect(
+      stringsOf(controlCensus).difference(stringsOf(gapCensus)),
+      isEmpty,
+      reason: 'the control renders nothing the warm launch lacks',
+    );
+    Map<String, int> countsOf(List<String> census) => {
+      for (final line in census)
+        if (typeLine.hasMatch(line))
+          line.substring(0, line.lastIndexOf(' x')): int.parse(
+            line.substring(line.lastIndexOf(' x') + 2),
+          ),
+    };
+    final gapCounts = countsOf(gapCensus);
+    final controlCounts = countsOf(controlCensus);
+    final deltas = <String, int>{};
+    for (final name in {...gapCounts.keys, ...controlCounts.keys}) {
+      final delta = (gapCounts[name] ?? 0) - (controlCounts[name] ?? 0);
+      if (delta != 0) {
+        deltas[name] = delta;
+      }
+    }
+    expect(
+      deltas,
+      {'Column': 1, 'SizedBox': 1, 'Text': 1, 'RichText': 1},
       reason:
-          'the absence rendered exactly what a normal day renders — '
-          'no element or string references the days away',
+          'the greeting and its wrap alone changed the tree — no '
+          'count, no backlog, no days-away element anywhere',
+    );
+  });
+
+  testWidgets('200% font scale: the warm-return greeting wraps inside '
+      'the scroll above the grown card — nothing truncated, the screen '
+      'scrolls (FR-6, NFR6, UX-DR14)', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    // One completed day seven days before the fixed clock — the
+    // seven-day launch's own seed shape, on a real shipped id.
+    final absenceDay = DateTime.utc(2026, 8, 22, 12);
+    LogEntryRecord seedRow(String kind, int second, {String? itemId}) => (
+      id: 'seed-$kind',
+      kind: kind,
+      instantUtcMicros: absenceDay.microsecondsSinceEpoch + second * 1000000,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.shipped,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+    );
+    final store = _RecordingStore()
+      ..entries.addAll([
+        seedRow('app_opened', 0),
+        seedRow('session_started', 1),
+        seedRow('card_dealt', 2, itemId: 'pasar-la-aspiradora-a-la-cocina'),
+        seedRow('card_done', 3, itemId: 'pasar-la-aspiradora-a-la-cocina'),
+        seedRow('session_ended', 4),
+      ]);
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    await tester.pumpWidget(_harness(buildController(store)));
+    await tester.pumpAndSettle();
+
+    // Growing and scrolling, never truncating: no layout exception, the
+    // greeting whole inside the scroll column above the grown card.
+    expect(tester.takeException(), isNull);
+    final greeting = find.text(AppStringsEs().warmReturnGreeting);
+    expect(greeting, findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+    final greetingRect = _rect(tester, greeting);
+    expect(greetingRect.left, greaterThanOrEqualTo(0));
+    expect(greetingRect.right, lessThanOrEqualTo(screen.width));
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // The greeting plus the grown card outgrow the viewport — the
+    // screen really scrolls, and the card's controls stay reachable.
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(
+      scrollable.position.maxScrollExtent,
+      greaterThan(0),
+      reason:
+          'the greeting plus the 200% card must outgrow the viewport '
+          'for the scroll pin to be real',
+    );
+    await tester.scrollUntilVisible(
+      find.byType(HechoButton),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(HechoButton), findsOneWidget);
+  });
+
+  testWidgets('a warm launch that lands on the warm close renders the '
+      'greeting above the close string — the fact rides every variant '
+      '(Story 2.7, FR-6, AD-24)', (tester) async {
+    // The controller suite's closed shape: a completed day seven days
+    // before the fixed clock (the seven-day seed's own rows, on a real
+    // shipped id), today's `app_opened` — and a controller over an
+    // empty catalogue, so the read resolves the warm close with the
+    // greeting standing above it.
+    final absenceDay = DateTime.utc(2026, 8, 22, 12);
+    LogEntryRecord seedRow(String kind, int second, {String? itemId}) => (
+      id: 'seed-$kind',
+      kind: kind,
+      instantUtcMicros: absenceDay.microsecondsSinceEpoch + second * 1000000,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.shipped,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+    );
+    final store = _RecordingStore()
+      ..entries.addAll([
+        seedRow('app_opened', 0),
+        seedRow('session_started', 1),
+        seedRow('card_dealt', 2, itemId: 'pasar-la-aspiradora-a-la-cocina'),
+        seedRow('card_done', 3, itemId: 'pasar-la-aspiradora-a-la-cocina'),
+        seedRow('session_ended', 4),
+        (
+          id: 'today-open',
+          kind: 'app_opened',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            11,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+        ),
+      ]);
+
+    await tester.pumpWidget(
+      _harness(
+        buildController(
+          store,
+          bundle: _FakeBundle({
+            catalogueAssetPath: '{"version":1,"entries":[]}',
+          }),
+        ),
+        screenKey: const ValueKey('warm-closed'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsNothing);
+    final close = find.text(AppStringsEs().poolExhaustedClose);
+    expect(close, findsOneWidget);
+    final greeting = find.text(AppStringsEs().warmReturnGreeting);
+    expect(greeting, findsOneWidget);
+    expect(
+      _rect(tester, greeting).bottom,
+      lessThan(_rect(tester, close).top),
+      reason:
+          'the greeting renders above the committed close, exactly as '
+          'above the dealt card',
     );
   });
 
