@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:flutter/material.dart' hide Card;
@@ -19,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/capture/capture_controller.dart';
+import 'package:organizer/capture/dictation_controller.dart';
 import 'package:organizer/catalogue/catalogue_names.g.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
@@ -26,6 +28,7 @@ import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
+import 'package:organizer/ui/glyphs/microphone_glyph.dart';
 import 'package:organizer/ui/glyphs/pencil_glyph.dart';
 import 'package:organizer/ui/theme.dart';
 
@@ -147,6 +150,42 @@ class _ShippedBundle implements AssetBundle {
 
   @override
   void clear() {}
+}
+
+/// The dictation-capable recognizer fake (Story 3.4's seam): probe and
+/// start outcomes the tests steer, outcomes the tests emit, calls the
+/// tests read.
+class _FakeRecognizer implements RecognizerPort {
+  _FakeRecognizer(this.availability, this.startOutcome);
+
+  RecognizerAvailability availability;
+  RecognizerStart startOutcome;
+  final List<int> startedSessions = [];
+  final List<int> cancelledSessions = [];
+  final StreamController<RecognizerOutcome> _outcomes =
+      StreamController<RecognizerOutcome>.broadcast();
+
+  void emit(int sessionId, String? transcript) {
+    _outcomes.add((sessionId: sessionId, transcript: transcript));
+  }
+
+  @override
+  Future<RecognizerAvailability> probe() async => availability;
+
+  @override
+  Future<RecognizerStart> start(int sessionId) async {
+    startedSessions.add(sessionId);
+    return startOutcome;
+  }
+
+  @override
+  Future<void> cancel(int sessionId) async => cancelledSessions.add(sessionId);
+
+  @override
+  Stream<RecognizerOutcome> get outcomes => _outcomes.stream;
+
+  @override
+  Future<void> openAppSettings() async {}
 }
 
 DateTime _fixedClock() => DateTime.utc(2026, 9, 1, 10);
@@ -699,5 +738,498 @@ void main() {
     expect(inner.facts, hasLength(1));
     expect(inner.entries, hasLength(1));
     expect(inner.facts.single.originContext, 'Vaciar la caja');
+  });
+
+  group('the mic capsule and dictation (Story 3.4, FR-32)', () {
+    Widget dictationHarness(StorePort store, DictationController dictation) {
+      return MaterialApp(
+        theme: OrganizerTheme.light(),
+        localizationsDelegates: AppStrings.localizationsDelegates,
+        supportedLocales: AppStrings.supportedLocales,
+        home: DispenserScreen(
+          controller: DispenserController(
+            store: store,
+            strings: strings,
+            bundle: _ShippedBundle(shipped),
+            nowOf: _fixedClock,
+          ),
+          capture: CaptureController(store: store, nowOf: _fixedClock),
+          dictation: dictation,
+        ),
+      );
+    }
+
+    Future<void> launchWithDictation(
+      WidgetTester tester,
+      StorePort store,
+      DictationController dictation,
+    ) async {
+      await tester.pumpWidget(dictationHarness(store, dictation));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the capsule sits at the field\'s end, a 24px glyph inside '
+        'a 48dp target, and a press starts listening — declared only by '
+        'the blue mass and the Escuchando… caption, never by motion '
+        '(FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      final observers = <WidgetsBindingObserver>[];
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: observers.add,
+        ),
+      );
+      await openCapture(tester);
+
+      // The affordance defaults to absent, then lands with the probe.
+      await tester.pumpAndSettle();
+      final mic = find.byType(MicrophoneGlyph);
+      expect(mic, findsOneWidget);
+      final field = find.byType(TextField);
+      expect(
+        tester.getTopLeft(mic).dx,
+        greaterThan(tester.getTopLeft(field).dx),
+        reason: 'the capsule sits at the field\'s end',
+      );
+      final target = tester.getRect(
+        find.ancestor(of: mic, matching: find.byType(Semantics)).first,
+      );
+      expect(target.width, greaterThanOrEqualTo(48));
+      expect(target.height, greaterThanOrEqualTo(48));
+      expect(tester.widget<MicrophoneGlyph>(mic).size, 24);
+      expect(
+        tester
+            .widget<Semantics>(
+              find.ancestor(of: mic, matching: find.byType(Semantics)).first,
+            )
+            .properties
+            .label,
+        strings.microphoneEntry,
+      );
+      // The quiet census before the press: no listening copy renders.
+      expect(find.text(strings.dictationListening), findsNothing);
+      expect(tester.widget<MicrophoneGlyph>(mic).dictating, isFalse);
+
+      // The press: listening, declared by the caption and the mass.
+      await tester.tap(mic);
+      await tester.pumpAndSettle();
+      expect(recognizer.startedSessions, [1]);
+      expect(find.text(strings.dictationListening), findsOneWidget);
+      expect(tester.widget<MicrophoneGlyph>(mic).dictating, isTrue);
+      // The census grows by exactly the caption — nothing else.
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the final transcript replaces the line\'s content, '
+        'Guardar enables through the existing listener, and a keyboard '
+        'correction keeps dictated true — the provenance records who '
+        'authored the line (FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      final observers = <WidgetsBindingObserver>[];
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: observers.add,
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      // A typed line the transcript will replace.
+      await tester.enterText(find.byType(TextField), 'una idea vieja');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(1, 'llamar cinco minutos al dentista');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'llamar cinco minutos al dentista',
+        reason: 'the final transcript replaces the line\'s content',
+      );
+      expect(
+        find.text(strings.dictationListening),
+        findsNothing,
+        reason: 'the capsule returned to rest with the commit',
+      );
+
+      // A keyboard correction lands on the dictated line — the
+      // keyboard was never removed.
+      await tester.enterText(
+        find.byType(TextField),
+        'llamar diez minutos al dentista',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(find.byType(CaptureScreen), findsNothing);
+      expect(store.facts, hasLength(1));
+      final fact = store.facts.single;
+      expect(fact.origin, Origin.manual);
+      expect(fact.originContext, 'llamar diez minutos al dentista');
+      expect(fact.dictated, isTrue);
+      expect(store.entries, hasLength(1));
+      expect(store.entries.single.kind, 'capture_created');
+    });
+
+    testWidgets('interruption mid-utterance: no partial transcript lands, '
+        'the capsule resets to rest, and no error appears (FR-32)', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      final observers = <WidgetsBindingObserver>[];
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: observers.add,
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.dictationListening), findsOneWidget);
+
+      // The app leaves the foreground mid-utterance.
+      (observers.single as DictationController).didChangeAppLifecycleState(
+        AppLifecycleState.paused,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(strings.dictationListening), findsNothing);
+      expect(find.byType(MicrophoneGlyph).hitTestable(), findsOneWidget);
+      expect(recognizer.cancelledSessions, [1]);
+
+      // The recognizer's late terminal event carries a stale session
+      // id: it drops whole — nothing lands on the line.
+      recognizer.emit(1, 'media frase');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(store.facts, isEmpty);
+      expect(store.entries, isEmpty);
+    });
+
+    testWidgets('a blank final result writes nothing — Guardar stays '
+        'disabled through its own guard (FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      final observers = <WidgetsBindingObserver>[];
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: observers.add,
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(1, '  ');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(anyDisabledSemantics(tester), isTrue);
+      expect(store.facts, isEmpty);
+      expect(store.entries, isEmpty);
+    });
+
+    testWidgets('on-device Spanish unavailable: the affordance is simply '
+        'absent — no error, no grey state, no install offer (FR-32, the '
+        '3-1 rule)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.unavailable,
+        RecognizerStart.unavailable,
+      );
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: (_) {},
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MicrophoneGlyph), findsNothing);
+      // The field renders whole and the keyboard capture is unaffected.
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'escrito a mano');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(store.facts.single.dictated, isFalse);
+    });
+
+    testWidgets('a refusal appends exactly one permission_refused row, '
+        'removes the affordance, and leaves keyboard capture unaffected — '
+        'the app never re-asks on its own (FR-32, AD-17)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.askable,
+        RecognizerStart.refused,
+      );
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: (_) {},
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(MicrophoneGlyph), findsOneWidget);
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      expect(find.byType(MicrophoneGlyph), findsNothing);
+      expect(store.entries, hasLength(1));
+      final row = store.entries.single;
+      expect(row.kind, 'permission_refused');
+      expect(row.permission, 'microphone');
+
+      // Keyboard capture is unaffected: a typed capture still saves.
+      await tester.enterText(find.byType(TextField), 'a mano igualmente');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(store.facts, hasLength(1));
+      expect(store.facts.single.originContext, 'a mano igualmente');
+      expect(store.facts.single.dictated, isFalse);
+      expect(store.entries, hasLength(2));
+      expect(store.entries.last.kind, 'capture_created');
+    });
+
+    testWidgets('leaving the surface while dictation is live cancels the '
+        'session — nothing listens outside an explicit press, and a late '
+        'outcome lands nowhere (FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      final controller = DictationController(
+        store: store,
+        recognizer: recognizer,
+        nowOf: _fixedClock,
+        addObserver: (_) {},
+      );
+      await launchWithDictation(tester, store, controller);
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.dictationListening), findsOneWidget);
+
+      // Descartar leaves the surface mid-utterance: every exit path
+      // runs the state's dispose, which ends the session.
+      await tester.ensureVisible(find.text(strings.captureDiscard));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureDiscard));
+      await tester.pumpAndSettle();
+      expect(find.byType(CaptureScreen), findsNothing);
+      expect(recognizer.cancelledSessions, [1]);
+      expect(controller.listening, isFalse);
+
+      // The recognizer's late terminal event lands nowhere: the
+      // surface's callback is gone and the session id is stale.
+      final transcripts = <String>[];
+      controller.onTranscript = transcripts.add;
+      recognizer.emit(1, 'media frase');
+      await tester.pumpAndSettle();
+      expect(transcripts, isEmpty);
+    });
+
+    testWidgets('a transcript landing while Guardar\'s write is in flight '
+        'replaces nothing — the fact and entry were minted from the line '
+        'as it stood (FR-32)', (tester) async {
+      final inner = _RecordingStore();
+      final store = _GatedSaveStore(inner);
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: (_) {},
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'la línea salvada');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureSave));
+      // The write is parked on the gate: the surface is in flight and
+      // nothing has landed yet.
+      await tester.pump();
+      expect(find.byType(CaptureScreen), findsOneWidget);
+
+      // A full utterance resolves while the write stands — its
+      // transcript replaces nothing.
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(1, 'otra cosa dicha tarde');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'la línea salvada',
+        reason: 'the in-flight write owns the line it was minted from',
+      );
+
+      store.factGate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(CaptureScreen), findsNothing);
+      expect(inner.facts.single.originContext, 'la línea salvada');
+      expect(inner.facts.single.dictated, isFalse);
+    });
+
+    testWidgets('a transcript with interior newlines lands as one line — '
+        'the landing commit strips what the formatter strips, nothing '
+        'else (FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: (_) {},
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(1, 'primera\nsegunda\r\ntercera');
+      await tester.pumpAndSettle();
+
+      final landed = tester
+          .widget<TextField>(find.byType(TextField))
+          .controller!
+          .text;
+      expect(landed, isNot(contains('\n')));
+      expect(landed, isNot(contains('\r')));
+      expect(landed, 'primerasegundatercera');
+
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(store.facts.single.originContext, 'primerasegundatercera');
+      expect(store.facts.single.originContext, isNot(contains('\n')));
+      expect(store.facts.single.dictated, isTrue);
+    });
+
+    testWidgets('a blank line has a fresh author: dictate, blank, retype '
+        'saves dictated false — and dictating the fresh line saves true '
+        '(FR-32)', (tester) async {
+      final store = _RecordingStore();
+      final recognizer = _FakeRecognizer(
+        RecognizerAvailability.granted,
+        RecognizerStart.listening,
+      );
+      await launchWithDictation(
+        tester,
+        store,
+        DictationController(
+          store: store,
+          recognizer: recognizer,
+          nowOf: _fixedClock,
+          addObserver: (_) {},
+        ),
+      );
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+
+      // A dictated line, then blanked, then typed afresh: the typed
+      // capture is not dictated.
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(1, 'dicho primero');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'escrito después');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(store.facts.single.originContext, 'escrito después');
+      expect(store.facts.single.dictated, isFalse);
+
+      // A fresh surface, a fresh dictation: dictated true, standing.
+      await openCapture(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(MicrophoneGlyph));
+      await tester.pumpAndSettle();
+      recognizer.emit(recognizer.startedSessions.last, 'dicho segundo');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.captureSave));
+      await tester.pumpAndSettle();
+      expect(store.facts, hasLength(2));
+      expect(store.facts.last.originContext, 'dicho segundo');
+      expect(store.facts.last.dictated, isTrue);
+    });
   });
 }

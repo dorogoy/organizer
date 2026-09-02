@@ -34,6 +34,7 @@ class DriftStore implements StorePort {
             instantUtcMicros: fact.instantUtcMicros,
             offsetSeconds: fact.offsetSeconds,
             originContext: Value(fact.originContext),
+            dictated: Value(fact.dictated),
           ),
         );
   }
@@ -57,6 +58,7 @@ class DriftStore implements StorePort {
             energyLevel: Value(entry.energyLevel),
             reportValue: Value(entry.reportValue),
             reportWeek: Value(entry.reportWeek),
+            permission: Value(entry.permission),
           ),
         );
   }
@@ -81,6 +83,7 @@ class DriftStore implements StorePort {
             instantUtcMicros: row.instantUtcMicros,
             offsetSeconds: row.offsetSeconds,
             originContext: row.originContext,
+            dictated: row.dictated,
           ),
     ];
   }
@@ -112,6 +115,7 @@ class DriftStore implements StorePort {
           energyLevel: row.energyLevel,
           reportValue: row.reportValue,
           reportWeek: row.reportWeek,
+          permission: row.permission,
         ),
     ];
   }

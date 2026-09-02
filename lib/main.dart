@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'capture/capture_controller.dart';
+import 'capture/dictation_controller.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
+import 'platform/dictate/dictate_recognizer.dart';
 import 'session/session_controller.dart';
 import 'session/log_write_queue.dart';
 import 'settings/settings_controller.dart';
@@ -21,6 +23,11 @@ void main() {
   final store = openStore();
   installCrashGuard(store);
   final logWrites = LogWriteQueue();
+  // The `dictate` channel's one adapter (FR-32): the channel's
+  // method-call handler is per-channel, so a single instance is
+  // constructed here and threaded to every consumer — the dictation
+  // seam and the Settings surface's permission reads alike.
+  final recognizer = DictateRecognizer();
   // The session lifecycle wiring (AD-19) sits beside the crash guard:
   // app opens and backgroundings become log facts — `app_opened`, the
   // session's first `card_dealt`, `session_ended`. The launch open runs
@@ -45,11 +52,20 @@ void main() {
           writeQueue: logWrites,
         ),
         sessionSettled: () => session.settled,
-        settings: SettingsController(store: store),
+        settings: SettingsController(store: store, recognizer: recognizer),
         // The Manual Capture seam (Story 3.2): same store, same shared
         // write queue — a capture's fact and entry serialize against
         // every other write the shell owns.
         capture: CaptureController(store: store, writeQueue: logWrites),
+        // The dictation seam (Story 3.4): same store, same shared
+        // write queue — a refusal's `permission_refused` entry
+        // serializes against every other write too, and the capsule's
+        // visibility derives from the probe and the log alone.
+        dictation: DictationController(
+          store: store,
+          recognizer: recognizer,
+          writeQueue: logWrites,
+        ),
       ),
     ),
   );
@@ -68,6 +84,7 @@ class OrganizerApp extends StatelessWidget {
     this.sessionSettled,
     this.settings,
     this.capture,
+    this.dictation,
   });
 
   final DispenserController? dispenser;
@@ -80,6 +97,10 @@ class OrganizerApp extends StatelessWidget {
   /// The Manual Capture seam (Story 3.2), threaded into the Dispenser's
   /// Lápiz entry — same store, same shared write queue.
   final CaptureController? capture;
+
+  /// The dictation seam (Story 3.4), threaded into the capture surface
+  /// beside the capture seam — same store, same shared write queue.
+  final DictationController? dictation;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +122,7 @@ class OrganizerApp extends StatelessWidget {
               sessionSettled: sessionSettled,
               settings: settings,
               capture: capture,
+              dictation: dictation,
             ),
     );
   }

@@ -319,6 +319,7 @@ LogFacts walkLog(
       case SettingEntry():
       case EnergySetEntry():
       case ReportAnsweredEntry():
+      case PermissionRefusedEntry():
       case UnknownEntry():
         break;
     }

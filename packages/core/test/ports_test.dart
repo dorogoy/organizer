@@ -33,7 +33,7 @@ class _ShellStore implements StorePort {
 }
 
 void main() {
-  test('the ports library declares exactly the two Epic-1 ports', () {
+  test('the ports library declares exactly the build\'s ports', () {
     final dir = Directory('lib/ports');
     if (!dir.existsSync()) {
       fail('lib/ports is missing: the ports library must exist (AD-5)');
@@ -45,7 +45,13 @@ void main() {
             .map((file) => file.uri.pathSegments.last)
             .toList()
           ..sort();
-    expect(names, ['clock_port.dart', 'store_port.dart']);
+    // The two Epic-1 ports plus the recognizer port Story 3.4 adds
+    // (FR-32): ClockPort minimalism, one file each.
+    expect(names, [
+      'clock_port.dart',
+      'recognizer_port.dart',
+      'store_port.dart',
+    ]);
   });
 
   test('both ports are implementable by a shell-side adapter (AD-5)', () {

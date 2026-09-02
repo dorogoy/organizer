@@ -56,6 +56,7 @@ void main() {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: null,
         ));
         expect(conversion.flaw, isNull);
         expect((conversion.entry as EnergySetEntry).level, level);

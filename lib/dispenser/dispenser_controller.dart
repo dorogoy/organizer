@@ -408,6 +408,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -458,6 +459,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -504,6 +506,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -541,6 +544,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -596,6 +600,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -634,6 +639,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });
@@ -699,6 +705,7 @@ class DispenserController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });

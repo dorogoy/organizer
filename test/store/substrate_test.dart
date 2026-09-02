@@ -11,13 +11,14 @@ import 'package:organizer/store/substrate.dart';
 
 SubstrateDatabase _open() => SubstrateDatabase(NativeDatabase.memory());
 
-PoolFactRecord _fact({String? id, String? originContext}) => (
+PoolFactRecord _fact({String? id, String? originContext, bool? dictated}) => (
   id: id ?? const Uuid().v7(),
   origin: Origin.manual,
   size: Size.maintenance,
   instantUtcMicros: 1758900000123456,
   offsetSeconds: 7200,
   originContext: originContext,
+  dictated: dictated,
 );
 
 LogEntryRecord _entry({
@@ -40,6 +41,7 @@ LogEntryRecord _entry({
   energyLevel: null,
   reportValue: reportValue,
   reportWeek: reportWeek,
+  permission: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -316,6 +318,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -342,6 +345,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     );
 
     test(
@@ -366,6 +370,7 @@ void main() {
           instantUtcMicros: 500,
           offsetSeconds: 7200,
           originContext: null,
+          dictated: null,
         ));
 
         await fact('zz-fact-appended-first');
@@ -414,6 +419,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -430,6 +436,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -446,6 +453,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -488,6 +496,7 @@ void main() {
         instantUtcMicros: micros,
         offsetSeconds: 7200,
         originContext: null,
+        dictated: null,
       ));
 
       await fact('late', 300);
@@ -509,6 +518,7 @@ void main() {
         instantUtcMicros: 100,
         offsetSeconds: 0,
         originContext: null,
+        dictated: null,
       ));
       await db.customInsert(
         'INSERT INTO pool_facts '
@@ -529,11 +539,13 @@ void main() {
               rows.map((row) => row.read<String>('name')).toList()..sort(),
         );
 
-    test('pool_facts holds exactly its six declared columns — the five '
+    test('pool_facts holds exactly its seven declared columns — the five '
         'originals plus the nullable Origin Context column schema v6 '
-        'adds (Story 3.2, AD-14, AD-23)', () async {
+        'adds (Story 3.2, AD-14, AD-23) and the nullable dictation '
+        'boolean schema v7 adds (Story 3.4, FR-32, AD-26)', () async {
       await store.appendPoolFact(_fact());
       expect(await columns('pool_facts'), [
+        'dictated',
         'id',
         'instant_utc_micros',
         'offset_seconds',
@@ -543,12 +555,13 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its thirteen declared columns — the two '
+    test('log_entries holds exactly its fourteen declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
         '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
         'AD-23), the nullable energy level column is schema v4\'s '
-        '(Story 2.5) and the two nullable report columns are schema '
-        'v5\'s additive pair (Story 2.6)', () async {
+        '(Story 2.5), the two nullable report columns are schema '
+        'v5\'s additive pair (Story 2.6) and the nullable permission '
+        'column is schema v7\'s (Story 3.4, AD-17)', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
         'energy_level',
@@ -558,6 +571,7 @@ void main() {
         'item_origin',
         'kind',
         'offset_seconds',
+        'permission',
         'pocket_minutes',
         'report_value',
         'report_week',
@@ -604,6 +618,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -636,6 +651,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -668,6 +684,7 @@ void main() {
         energyLevel: 2,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // An out-of-range level stays stored verbatim too — the entry
       // stays in the log and the core's read boundary excludes it,
@@ -710,6 +727,7 @@ void main() {
         energyLevel: null,
         reportValue: 9,
         reportWeek: 1394,
+        permission: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -742,6 +760,7 @@ void main() {
         energyLevel: null,
         reportValue: 3,
         reportWeek: 1394,
+        permission: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -762,7 +781,7 @@ void main() {
     });
   });
 
-  group('the v1→v6 upgrade (Stories 2.1–2.6, 3.2, AD-23 — additive, ALTER-only)', () {
+  group('the v1→v7 upgrade (Stories 2.1–2.6, 3.2, 3.4, AD-23 — additive, ALTER-only)', () {
     /// Takes over the group's database slot with one opened over a memory
     /// executor pre-seeded with the exact v1 schema (two tables, four
     /// triggers, `user_version` 1) — the state a v1 install presents. The
@@ -819,7 +838,7 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -833,6 +852,7 @@ void main() {
           'item_origin',
           'kind',
           'offset_seconds',
+          'permission',
           'pocket_minutes',
           'report_value',
           'report_week',
@@ -897,6 +917,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -912,6 +933,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       await store.appendLogEntry((
         id: 'new-energy',
@@ -927,6 +949,7 @@ void main() {
         energyLevel: 1,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       await store.appendLogEntry((
         id: 'new-report',
@@ -942,6 +965,7 @@ void main() {
         energyLevel: null,
         reportValue: 3,
         reportWeek: 1394,
+        permission: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(5));
@@ -955,7 +979,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1037,7 +1061,7 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 6);
+        expect(db.schemaVersion, 7);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1051,6 +1075,7 @@ void main() {
             'item_origin',
             'kind',
             'offset_seconds',
+            'permission',
             'pocket_minutes',
             'report_value',
             'report_week',
@@ -1105,6 +1130,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ));
         // ...and a v5 answer row lands beside them just the same.
         await store.appendLogEntry((
@@ -1121,6 +1147,7 @@ void main() {
           energyLevel: null,
           reportValue: 4,
           reportWeek: 1394,
+          permission: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(4));
@@ -1193,7 +1220,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1207,6 +1234,7 @@ void main() {
           'item_origin',
           'kind',
           'offset_seconds',
+          'permission',
           'pocket_minutes',
           'report_value',
           'report_week',
@@ -1266,6 +1294,7 @@ void main() {
         energyLevel: 2,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // ...and a v5 answer row lands beside them just the same.
       await store.appendLogEntry((
@@ -1282,6 +1311,7 @@ void main() {
         energyLevel: null,
         reportValue: 4,
         reportWeek: 1394,
+        permission: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(4));
@@ -1354,7 +1384,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1368,6 +1398,7 @@ void main() {
           'item_origin',
           'kind',
           'offset_seconds',
+          'permission',
           'pocket_minutes',
           'report_value',
           'report_week',
@@ -1429,6 +1460,7 @@ void main() {
         energyLevel: null,
         reportValue: 3,
         reportWeek: 1394,
+        permission: null,
       ));
       await db.customInsert(
         'INSERT INTO log_entries '
@@ -1516,13 +1548,14 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 6);
+      expect(db.schemaVersion, 7);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'dictated',
           'id',
           'instant_utc_micros',
           'offset_seconds',
@@ -1580,5 +1613,232 @@ void main() {
       expect(after.last.origin, Origin.manual);
       expect(after.last.size, Size.maintenance);
     });
+  });
+
+  group('the v6→v7 upgrade (Story 3.4, AD-23 — additive, ALTER-only)', () {
+    /// The v6 schema exactly as a v6 install presents it: the v5 shape
+    /// plus the pool's Origin Context column, `user_version` 6 —
+    /// seeded over a memory executor so drift's runner sees version 6
+    /// and upgrades.
+    Future<void> takeOverWithV6() async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              "INSERT INTO pool_facts VALUES ('v6-fact', 'manual', "
+                  "'maintenance', 100, 3600, 'Vaciar la caja de la entrada')",
+              "INSERT INTO log_entries VALUES ('v6-capture', "
+                  "'capture_created', 200, 3600, 'v6-fact', 'manual', "
+                  "NULL, NULL, NULL, NULL, NULL, NULL, NULL)",
+              'PRAGMA user_version = 6',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v6 database upgrades in place: two ALTERs add the '
+        'permission column and the dictation boolean, the v6 rows — '
+        'captures intact — read back unchanged with null permission and '
+        'null boolean, and both new shapes append beside them', () async {
+      await takeOverWithV6();
+
+      expect(db.schemaVersion, 7);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'permission',
+          'pocket_minutes',
+          'report_value',
+          'report_week',
+          'setting_key',
+          'setting_value',
+          'stack',
+        ],
+      );
+      expect(
+        (await db.customSelect('PRAGMA table_info(pool_facts)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'dictated',
+          'id',
+          'instant_utc_micros',
+          'offset_seconds',
+          'origin',
+          'origin_context',
+          'size',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v6 rows ride the migration untouched: the capture keeps
+      // its context and reads as not dictated (null), and the log row
+      // reads as no refusal on record (null permission).
+      final factsBefore = await store.readPoolFacts();
+      expect(factsBefore, hasLength(1));
+      expect(factsBefore.single.id, 'v6-fact');
+      expect(factsBefore.single.originContext, 'Vaciar la caja de la entrada');
+      expect(factsBefore.single.dictated, isNull);
+      final logBefore = await store.readLogEntries();
+      expect(logBefore, hasLength(1));
+      expect(logBefore.single.kind, 'capture_created');
+      expect(logBefore.single.permission, isNull);
+
+      // Insert-only survives this migration too, on both grown tables.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE pool_facts SET origin = 'cloud' WHERE id = 'v6-fact'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a dictated capture and a refusal
+      // row beside the old rows, and both round-trip.
+      await store.appendPoolFact(
+        _fact(id: 'v7-dictated', originContext: 'llamar al dentista'),
+      );
+      await db.customInsert(
+        'INSERT INTO pool_facts '
+        '(id, origin, size, instant_utc_micros, offset_seconds, '
+        'origin_context, dictated) '
+        "VALUES ('v7-spoken', 'manual', 'focus', 300, 3600, "
+        "'llamar cinco minutos al dentista', 1)",
+      );
+      await store.appendLogEntry((
+        id: 'v7-refusal',
+        kind: LogKind.permissionRefused.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: 'microphone',
+      ));
+
+      final factsAfter = await store.readPoolFacts();
+      // Replay order is by recorded instant: the raw-seeded 1970 row
+      // leads the appended v7 rows.
+      expect(factsAfter, hasLength(3));
+      expect(factsAfter[1].id, 'v7-spoken');
+      expect(factsAfter[1].dictated, isTrue);
+      expect(factsAfter[1].origin, Origin.manual);
+      expect(factsAfter[2].id, 'v7-dictated');
+      expect(factsAfter[2].dictated, isNull);
+
+      final logAfter = await store.readLogEntries();
+      expect(logAfter, hasLength(2));
+      expect(logAfter.last.id, 'v7-refusal');
+      expect(logAfter.last.kind, 'permission_refused');
+      expect(logAfter.last.permission, 'microphone');
+      // And the row converts through the core's read boundary.
+      final conversion = convertLogEntryRecord(logAfter.last);
+      expect(conversion.flaw, isNull);
+      expect(
+        (conversion.entry as PermissionRefusedEntry).permission,
+        Permission.microphone,
+      );
+    });
+  });
+
+  test('a dictated capture round-trips through the adapter (Story 3.4) — '
+      'the boolean rides the fact verbatim beside the Origin Context, '
+      'and a typed capture carries its false', () async {
+    await store.appendPoolFact((
+      id: 'spoken',
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: 1758900000222333,
+      offsetSeconds: 7200,
+      originContext: 'llamar cinco minutos al dentista',
+      dictated: true,
+    ));
+    await store.appendPoolFact((
+      id: 'typed',
+      origin: Origin.manual,
+      size: Size.maintenance,
+      instantUtcMicros: 1758900000333444,
+      offsetSeconds: 7200,
+      originContext: 'llamar al dentista',
+      dictated: false,
+    ));
+
+    final snapshot = await store.readPoolFacts();
+    expect(snapshot, hasLength(2));
+    expect(snapshot.first.id, 'spoken');
+    expect(snapshot.first.dictated, isTrue);
+    expect(snapshot.first.origin, Origin.manual);
+    expect(snapshot.last.id, 'typed');
+    expect(snapshot.last.dictated, isFalse);
+    // The domain mapping carries it too.
+    final facts = poolFactsOf(snapshot);
+    expect(facts.first.dictated, isTrue);
+    expect(facts.last.dictated, isFalse);
   });
 }

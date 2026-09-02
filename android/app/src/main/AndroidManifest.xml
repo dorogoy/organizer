@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dictation into the capture line (Story 3.4, FR-32, AD-17): one
+         of the three runtime permissions, requested at the moment its
+         feature is first used — never at app entry or first run. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="organizer"
         android:name="${applicationName}"

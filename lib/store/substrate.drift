@@ -33,6 +33,13 @@
 -- line (AD-14) — the same additive-only ALTER TABLE path, so a v5
 -- install upgrades in place with its rows unchanged.
 --
+-- Schema v7 (Story 3.4) adds the one nullable log-entry payload column
+-- `permission` — the refused permission's wire name, riding only
+-- `permission_refused` rows (AD-17, AD-21) — and the one nullable
+-- pool-fact column `dictated` — whether dictation authored the line
+-- (FR-32, AD-26) — the same additive-only ALTER TABLE path, so a v6
+-- install upgrades in place with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -46,7 +53,8 @@ CREATE TABLE pool_facts (
   size TEXT NOT NULL,
   instant_utc_micros INTEGER NOT NULL,
   offset_seconds INTEGER NOT NULL,
-  origin_context TEXT NULL
+  origin_context TEXT NULL,
+  dictated BOOL NULL
 );
 
 CREATE TABLE log_entries (
@@ -62,7 +70,8 @@ CREATE TABLE log_entries (
   pocket_minutes INTEGER NULL,
   energy_level INTEGER NULL,
   report_value INTEGER NULL,
-  report_week INTEGER NULL
+  report_week INTEGER NULL,
+  permission TEXT NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

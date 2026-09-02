@@ -203,6 +203,7 @@ class SessionController with WidgetsBindingObserver {
         energyLevel: content.energyLevel,
         reportValue: content.reportValue,
         reportWeek: content.reportWeek,
+        permission: content.permission?.name,
       ));
     }
   }

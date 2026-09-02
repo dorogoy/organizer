@@ -56,6 +56,7 @@ final class PoolFact {
     required this.instantUtcMicros,
     required this.offsetSeconds,
     this.originContext,
+    this.dictated,
   });
 
   /// The shell-minted UUIDv7 id (conventions: ids are minted in the shell,
@@ -81,4 +82,15 @@ final class PoolFact {
   /// elsewhere (the catalogue names shipped tasks; a Slicer output is its
   /// own fact). Written once at genesis, never updated.
   final String? originContext;
+
+  /// Whether dictation authored the line (FR-32, Story 3.4): a
+  /// provenance fact, outside origin arithmetic — a dictated capture's
+  /// origin is `manual` exactly as a typed one, dictation being an
+  /// input method and not a genesis path. Written once at creation
+  /// and never updated: keyboard correction after dictation keeps it
+  /// `true`, because it records who authored the line, not its final
+  /// wording. Nullable for schema v7's sake alone — old rows read
+  /// `null`, deriving as not-dictated — and readable on the validator
+  /// surface only (AD-26): no card anywhere marks a capture as spoken.
+  final bool? dictated;
 }

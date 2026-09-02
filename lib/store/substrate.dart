@@ -67,17 +67,35 @@ const String logEntriesReportWeekUpgrade =
 const String poolFactsOriginContextUpgrade =
     'ALTER TABLE pool_facts ADD COLUMN origin_context TEXT NULL';
 
+/// Schema v7's additive upgrade of `log_entries` (Story 3.4, AD-23):
+/// the one nullable `permission_refused` payload column — the refused
+/// permission's wire name (AD-17, AD-21) — added by ALTER TABLE only,
+/// on the v2→v6 pattern: no table rebuild, no data migration, refusal
+/// triggers untouched. A named infrastructure identifier on the store
+/// module's terms (AD-15's ban is on literals reaching a widget).
+const String logEntriesPermissionUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN permission TEXT NULL';
+
+/// Schema v7's additive upgrade of `pool_facts` (Story 3.4, AD-23): the
+/// one nullable dictation boolean — whether dictation authored the line
+/// (FR-32, AD-26) — added by ALTER TABLE only, on the same pattern: no
+/// table rebuild, no data migration, refusal triggers untouched. A
+/// named infrastructure identifier on the store module's terms (AD-15's
+/// ban is on literals reaching a widget).
+const String poolFactsDictatedUpgrade =
+    'ALTER TABLE pool_facts ADD COLUMN dictated BOOL NULL';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 6 (Story 3.2): the only change from 5
-/// is the nullable Origin Context column above, and every later change is
+/// migration (AD-2). schemaVersion 7 (Story 3.4): the only changes from 6
+/// are the two nullable columns above, and every later change is
 /// additive-only (AD-23).
 @DriftDatabase(include: {substrateSchemaFile})
 class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// The initial migration creates everything: both tables and the four
   /// `.drift`-declared triggers. The v1→v2 step adds the setting columns
@@ -89,12 +107,17 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// energy level column the same way, so a v3 install upgrades with its
   /// rows unchanged too — old rows with a null level, deriving as
   /// unanswered days. The v4→v5 step adds the two report columns the
-  /// same way, so a v4 install upgrades with its rows unchanged too —
-  /// old rows with null report fields, no week gaining or losing a
+  /// same way, so a v4 install upgrades with its rows unchanged too
+  /// — old rows with null report fields, no week gaining or losing a
   /// data point. The v5→v6 step adds the pool's Origin Context column
   /// the same way, so a v5 install upgrades with its rows unchanged
   /// too — old facts with a null context, their origins deriving
-  /// exactly as before. The mechanism is drift's; the
+  /// exactly as before. The v6→v7 step adds the log's permission
+  /// column and the pool's dictation boolean the same way, so a v6
+  /// install upgrades with its rows unchanged too — old rows with a
+  /// null permission, deriving as no refusal on record, and old facts
+  /// with a null boolean, deriving as not dictated. The mechanism is
+  /// drift's; the
   /// outcomes — triggers present after first open on a fresh install, old
   /// rows intact after upgrade — are pinned by `test/store/substrate_test.dart`.
   @override
@@ -117,6 +140,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 6) {
         await customStatement(poolFactsOriginContextUpgrade);
+      }
+      if (from < 7) {
+        await customStatement(logEntriesPermissionUpgrade);
+        await customStatement(poolFactsDictatedUpgrade);
       }
     },
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

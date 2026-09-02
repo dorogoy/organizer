@@ -7,8 +7,11 @@
 /// `setting_changed`, since Story 2.4 the ninth kind `session_extended`
 /// (FR-10, AD-19), since Story 2.5 the tenth kind `energy_set`
 /// (FR-4, AD-4), since Story 2.6 the eleventh kind `report_answered`
-/// (SM-2, AD-21), and since Story 3.2 the twelfth kind `capture_created`
-/// (FR-27, AD-14). A new kind is a new kind, never a flag on an old one.
+/// (SM-2, AD-21), since Story 3.2 the twelfth kind `capture_created`
+/// (FR-27, AD-14), and since Story 3.4 the thirteenth kind
+/// `permission_refused` (FR-32, AD-17, AD-21 — one of the system events'
+/// three stated derivation exceptions). A new kind is a new kind, never a
+/// flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -25,6 +28,29 @@ library;
 import 'package:core/energy/energy.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
+
+/// The permission identity a `permission_refused` row names (AD-17:
+/// exactly three runtime permissions, each requested at the moment its
+/// feature is first used). A core enum, stored as wire text — no
+/// free-form strings: a row naming a permission this build does not
+/// know is excluded at the read boundary, never coerced (AD-23).
+enum Permission {
+  /// `RECORD_AUDIO` — dictation into the capture line (FR-32).
+  microphone,
+
+  /// `CAMERA` — the scan path (a later story twins this pattern).
+  camera,
+
+  /// `POST_NOTIFICATIONS` — the ambient invitation (a later story).
+  notifications,
+}
+
+/// Every [Permission] this build knows, keyed by wire name.
+const Map<String, Permission> permissionByName = {
+  'microphone': Permission.microphone,
+  'camera': Permission.camera,
+  'notifications': Permission.notifications,
+};
 
 /// One entry kind, as a past-tense `snake_case` verb phrase. Instances are
 /// values: known kinds are the static constants, and [parse] carries any
@@ -51,6 +77,7 @@ final class LogKind {
   static const energySet = LogKind._('energy_set', known: true);
   static const reportAnswered = LogKind._('report_answered', known: true);
   static const captureCreated = LogKind._('capture_created', known: true);
+  static const permissionRefused = LogKind._('permission_refused', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -66,6 +93,7 @@ final class LogKind {
     'energy_set': energySet,
     'report_answered': reportAnswered,
     'capture_created': captureCreated,
+    'permission_refused': permissionRefused,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -332,6 +360,37 @@ final class ReportAnsweredEntry extends LogEntry {
   final int week;
 }
 
+/// A `permission_refused` system event (Story 3.4, FR-32, AD-17,
+/// AD-21): the user refused one of the three runtime permissions at
+/// the moment its feature was first used — or the system revoked it
+/// after grant, which the next press reads identically — and nothing
+/// else. The crash shape (AD-12's): one payload field and no item
+/// pair, the row asserting a fact that happened, never an absence or
+/// an obligation. The type offers no other field, so no grant, no
+/// capability claim and no re-ask state can ride along (AD-22's
+/// discipline): the entry stands forever, `permissionMayBeAsked`
+/// derives false over it, and reversal lives outside the log — the
+/// system's own settings screen, reached through the Settings row
+/// that renders only while a re-grant has something to reactivate.
+/// The row is never an act: it is not contact for the warm return
+/// (the `crash_recorded` precedent — a refusal is not the user
+/// using the app).
+final class PermissionRefusedEntry extends LogEntry {
+  const PermissionRefusedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.permission,
+  });
+
+  @override
+  final LogKind kind = LogKind.permissionRefused;
+
+  /// The refused permission, as the core enum — the identity
+  /// `permissionMayBeAsked` derives over, never a free-form string.
+  final Permission permission;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -425,6 +484,19 @@ enum LogRecordFlaw {
   /// the setting, pocket and energy rules: every payload column rides
   /// its own kind and no other.
   reportOnNonReportKind,
+
+  /// A `permission_refused` row without a permission this build can
+  /// read (Story 3.4): the column is absent, empty, or names a
+  /// permission this build does not know — either way the row asserts
+  /// nothing about any permission's askability and the derivation
+  /// reads the log as if it were not there. Quiet tolerance, never a
+  /// repair write (AD-23).
+  permissionAbsent,
+
+  /// A permission payload on a kind that is not `permission_refused`
+  /// — mirroring the setting, pocket, energy and report rules: every
+  /// payload column rides its own kind and no other.
+  permissionOnNonPermissionKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -459,7 +531,9 @@ bool _isMoment(LogKind kind) =>
 /// out-of-range value, or an absent week, excludes the row), and
 /// `capture_created` its full item pair and nothing else (Story 3.2 —
 /// the item-act family's own shape, the pair naming the pool fact the
-/// same tap appended). An
+/// same tap appended), and `permission_refused` its permission — one
+/// of the three the [Permission] enum names — and nothing else
+/// (Story 3.4, the crash shape: no item pair). An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known
@@ -490,6 +564,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final carriesPocket = record.pocketMinutes != null;
   final carriesEnergy = record.energyLevel != null;
   final carriesReport = record.reportValue != null || record.reportWeek != null;
+  final permissionIsAbsent =
+      record.permission == null || permissionByName[record.permission!] == null;
+  final carriesPermission = record.permission != null;
 
   if (_isItemAct(kind)) {
     if (itemIdIsAbsent && record.itemOrigin == null) {
@@ -512,6 +589,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
     return (
       entry: ItemActEntry(
@@ -544,6 +624,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
     return (
       entry: CrashEntry(
@@ -578,6 +661,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -605,6 +691,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
     return (
       entry: SessionStartEntry(
@@ -637,6 +726,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
@@ -667,6 +759,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
     return (
       entry: EnergySetEntry(
@@ -703,6 +798,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesEnergy) {
       return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
     }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
     return (
       entry: ReportAnsweredEntry(
         id: record.id,
@@ -710,6 +808,39 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         offsetSeconds: record.offsetSeconds,
         value: value,
         week: week,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.permissionRefused) {
+    if (permissionIsAbsent) {
+      return (entry: null, flaw: LogRecordFlaw.permissionAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    return (
+      entry: PermissionRefusedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        permission: permissionByName[record.permission!]!,
       ),
       flaw: null,
     );
@@ -733,6 +864,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
     return (
       entry: MomentEntry(

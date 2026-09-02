@@ -11,6 +11,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/log/log_entry.dart';
+import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart' hide Card;
@@ -32,19 +35,48 @@ import 'package:organizer/ui/tokens.dart';
 /// land in order and every read replays them.
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
+  final List<PoolFactRecord> facts = [];
 
   @override
-  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+  Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
       List.unmodifiable(entries);
+}
+
+/// The recognizer seam's fake (Story 3.4): the probe's platform answer
+/// and the app-details action's call count.
+class _FakeRecognizer implements RecognizerPort {
+  _FakeRecognizer(this.availability);
+
+  RecognizerAvailability availability;
+  int openAppSettingsCalls = 0;
+
+  @override
+  Future<RecognizerAvailability> probe() async => availability;
+
+  @override
+  Future<RecognizerStart> start(int sessionId) async =>
+      RecognizerStart.unavailable;
+
+  @override
+  Future<void> cancel(int sessionId) async {}
+
+  @override
+  Stream<RecognizerOutcome> get outcomes => const Stream.empty();
+
+  @override
+  Future<void> openAppSettings() async {
+    openAppSettingsCalls++;
+  }
 }
 
 /// Holds its first read after taking a snapshot, so a later refresh can
@@ -286,9 +318,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // The list scrolls (ListView in the frame idiom) and the quiet
-    // census is exactly the group header, the row label and the six
-    // stepped options — no heading chrome, no other group, no light/dark
-    // row, no glyph.
+    // census is exactly the group header, the row label, the six
+    // stepped options and the validator surface's dictated-count line
+    // (Story 3.4 — zero until a dictated capture exists) — no heading
+    // chrome, no other group, no light/dark row, no glyph.
     expect(find.byType(ListView), findsOneWidget);
     expect(textsOf(tester).toSet(), {
       AppStringsEs().settingsGroupYourDay,
@@ -299,6 +332,7 @@ void main() {
       '20\u00A0min',
       '25\u00A0min',
       '30\u00A0min',
+      AppStringsEs().settingsDictatedCount(0),
     });
     expect(find.byType(Icon), findsNothing);
 
@@ -367,6 +401,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
     await launch(tester, store);
 
@@ -401,6 +436,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
         (
           id: 'seed-invalid',
@@ -421,6 +457,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
       ]);
     await launch(tester, store);
@@ -534,6 +571,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ));
       await launch(tester, store);
       await openSettings(tester);
@@ -722,6 +760,198 @@ void main() {
       expect(rows.single.settingValue, 25);
       expect(selectedMinutes(tester), 25);
       expect(await settings.readTimeBag(), 25);
+    });
+  });
+
+  group('the validator surface\'s dictation facts (Story 3.4, FR-32, '
+      'AD-26)', () {
+    PoolFactRecord fact(String id, {bool? dictated}) => (
+      id: id,
+      origin: Origin.manual,
+      size: Size.maintenance,
+      instantUtcMicros: 100,
+      offsetSeconds: 0,
+      originContext: 'llamar al dentista',
+      dictated: dictated,
+    );
+
+    testWidgets('the dictated-count line counts the pool\'s dictated '
+        'captures — the one place the boolean is readable, plural and '
+        'singular both fixed sentences', (tester) async {
+      final store = _RecordingStore();
+      store.facts.addAll([
+        fact('spoken-a', dictated: true),
+        fact('spoken-b', dictated: true),
+        fact('typed', dictated: false),
+        fact('old-row'),
+      ]);
+      await launch(tester, store);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(AppStringsEs().settingsDictatedCount(2)),
+        findsOneWidget,
+      );
+
+      // The singular is its own fixed sentence: one dictated capture.
+      await tester.pumpWidget(const SizedBox.shrink());
+      final single = _RecordingStore();
+      single.facts.add(fact('only', dictated: true));
+      await launch(tester, single);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppStringsEs().settingsDictatedCount(1)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the IA y voz row renders only while refused ∧ not '
+        'granted — the tap opens the system app-details screen, and a '
+        're-grant retires the row by itself', (tester) async {
+      LogEntryRecord refusal(String id) => (
+        id: id,
+        kind: LogKind.permissionRefused.name,
+        instantUtcMicros: 100,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: 'microphone',
+      );
+
+      // Not refused: the row is absent whatever the probe says.
+      final clean = _RecordingStore();
+      final cleanRecognizer = _FakeRecognizer(RecognizerAvailability.askable);
+      await tester.pumpWidget(
+        harnessFor(
+          clean,
+          SettingsController(
+            store: clean,
+            recognizer: cleanRecognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+
+      // Refused and not granted: the row renders, and its one tap
+      // opens the system screen.
+      await tester.pumpWidget(const SizedBox.shrink());
+      final refused = _RecordingStore();
+      refused.entries.add(refusal('refused-row'));
+      final refusedRecognizer = _FakeRecognizer(RecognizerAvailability.askable);
+      await tester.pumpWidget(
+        harnessFor(
+          refused,
+          SettingsController(
+            store: refused,
+            recognizer: refusedRecognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      final row = find.text(AppStringsEs().settingsAiVoice);
+      expect(row, findsOneWidget);
+      expect(
+        tester
+            .widget<Semantics>(
+              find.ancestor(of: row, matching: find.byType(Semantics)).first,
+            )
+            .properties
+            .button,
+        isTrue,
+        reason: 'the row reaches readers as a button',
+      );
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(refusedRecognizer.openAppSettingsCalls, 1);
+      expect(find.byType(ErrorWidget), findsNothing);
+
+      // Refused but re-granted at the system level: nothing to
+      // reactivate — the row retires through the probe alone.
+      await tester.pumpWidget(const SizedBox.shrink());
+      final regranted = _RecordingStore();
+      regranted.entries.add(refusal('refused-row'));
+      final grantedRecognizer = _FakeRecognizer(RecognizerAvailability.granted);
+      await tester.pumpWidget(
+        harnessFor(
+          regranted,
+          SettingsController(
+            store: regranted,
+            recognizer: grantedRecognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+    });
+
+    testWidgets('a return from the foreground re-reads the dictation '
+        'facts: a re-grant made in system settings retires the row '
+        'without leaving the surface (Story 3.4)', (tester) async {
+      LogEntryRecord refusal(String id) => (
+        id: id,
+        kind: LogKind.permissionRefused.name,
+        instantUtcMicros: 100,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: 'microphone',
+      );
+
+      // The row stands: refused and not granted.
+      final store = _RecordingStore();
+      store.entries.add(refusal('refused-row'));
+      final recognizer = _FakeRecognizer(RecognizerAvailability.askable);
+      await tester.pumpWidget(
+        harnessFor(
+          store,
+          SettingsController(
+            store: store,
+            recognizer: recognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
+
+      // The user leaves for the system's app-details screen and
+      // re-grants; the return to the foreground re-derives the
+      // premise and the row retires in place.
+      recognizer.availability = RecognizerAvailability.granted;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
     });
   });
 }

@@ -8,12 +8,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:organizer/capture/dictation_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/main.dart';
 import 'package:organizer/settings/settings_controller.dart';
@@ -159,6 +161,40 @@ void main() {
     expect(await settings.readTimeBag(), 15);
   });
 
+  testWidgets('the dictation seam is exercised: OrganizerApp hands its '
+      'DictationController down to the Dispenser home (Story 3.4)', (
+    tester,
+  ) async {
+    final dictation = DictationController(
+      store: _EmptyCatalogueStore(),
+      recognizer: _UnavailableRecognizer(),
+      addObserver: (_) {},
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: _EmptyCatalogueStore(),
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          dictation: dictation,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen),
+    );
+    expect(identical(dispenser.dictation, dictation), isTrue);
+    // The seam resolves over the empty log and the absent platform:
+    // the affordance derives absent, quietly.
+    await tester.pump();
+    expect(dictation.visible, isFalse);
+    expect(dictation.listening, isFalse);
+  });
+
   test(
     'main wires the one store into the session lifecycle, the '
     'Dispenser and the Settings seam (the one-shell-edit regression pin)',
@@ -190,6 +226,40 @@ void main() {
         reason: 'the settings wiring must hold the same single store',
       );
       expect(source.contains('sessionSettled: () => session.settled'), isTrue);
+      // The dictation seam (Story 3.4) rides the same store and the one
+      // channel adapter — deleting the threading breaks this pin.
+      expect(
+        RegExp(r'DictationController\(\s*store: store').hasMatch(source),
+        isTrue,
+        reason: 'the dictation wiring must hold the same single store',
+      );
+      expect(
+        source.contains('dictation: DictationController('),
+        isTrue,
+        reason: 'the Dispenser home receives the dictation seam',
+      );
     },
   );
+}
+
+/// The dictation seam's absent platform: a recognizer that answers
+/// unavailable and never emits — enough for the wiring pin, whose
+/// business is the threading, not the listening.
+class _UnavailableRecognizer implements RecognizerPort {
+  @override
+  Future<RecognizerAvailability> probe() async =>
+      RecognizerAvailability.unavailable;
+
+  @override
+  Future<RecognizerStart> start(int sessionId) async =>
+      RecognizerStart.unavailable;
+
+  @override
+  Future<void> cancel(int sessionId) async {}
+
+  @override
+  Stream<RecognizerOutcome> get outcomes => const Stream.empty();
+
+  @override
+  Future<void> openAppSettings() async {}
 }

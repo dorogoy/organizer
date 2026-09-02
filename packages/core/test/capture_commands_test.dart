@@ -14,6 +14,7 @@ void main() {
         factId: '0190dddd-0000-7000-8000-000000000001',
         line: 'llamar al dentista',
         size: Size.focus,
+        dictated: false,
       )!;
       expect(content.fact.origin, Origin.manual);
       expect(content.fact.size, Size.focus);
@@ -41,6 +42,7 @@ void main() {
         factId: '0190dddd-0000-7000-8000-000000000002',
         line: '  Vaciar la caja de la entrada \t ',
         size: Size.instant,
+        dictated: false,
       )!;
       expect(content.fact.originContext, 'Vaciar la caja de la entrada');
     });
@@ -57,6 +59,7 @@ void main() {
           factId: '0190dddd-0000-7000-8000-000000000003',
           line: line,
           size: Size.maintenance,
+          dictated: false,
         );
         expect(content, isNotNull);
         expect(content!.fact.originContext, line);
@@ -74,6 +77,7 @@ void main() {
             factId: '0190dddd-0000-7000-8000-000000000004',
             line: blank,
             size: Size.focus,
+            dictated: false,
           ),
           isNull,
         );
@@ -87,9 +91,40 @@ void main() {
           factId: '0190dddd-0000-7000-8000-000000000005',
           line: 'un rincón cualquiera',
           size: size,
+          dictated: false,
         )!;
         expect(content.entry.kind, LogKind.captureCreated);
       }
+    });
+
+    test('the dictated boolean rides the fact verbatim — a provenance '
+        'fact, written once and outside origin arithmetic either way '
+        '(Story 3.4, FR-32)', () {
+      final dictated = captureCreate(
+        factId: '0190dddd-0000-7000-8000-000000000008',
+        line: 'Vaciar la caja de la entrada',
+        size: Size.focus,
+        dictated: true,
+      )!;
+      expect(dictated.fact.origin, Origin.manual);
+      expect(dictated.fact.dictated, isTrue);
+
+      final typed = captureCreate(
+        factId: '0190dddd-0000-7000-8000-000000000009',
+        line: 'Vaciar la caja de la entrada',
+        size: Size.focus,
+        dictated: false,
+      )!;
+      expect(typed.fact.origin, Origin.manual);
+      expect(typed.fact.dictated, isFalse);
+
+      // The log row rides its item pair and nothing else either way —
+      // no dictation flag reaches the log (a new kind is a new kind,
+      // never a flag on an old one).
+      expect(dictated.entry.kind, LogKind.captureCreated);
+      expect(dictated.entry.itemId, '0190dddd-0000-7000-8000-000000000008');
+      expect(dictated.entry.permission, isNull);
+      expect(typed.entry.kind, LogKind.captureCreated);
     });
 
     test('the minted row passes the read boundary unchanged — the item '
@@ -98,6 +133,7 @@ void main() {
         factId: '0190dddd-0000-7000-8000-000000000006',
         line: 'Colgar la toalla que está en el sofá',
         size: Size.maintenance,
+        dictated: false,
       )!;
       final conversion = convertLogEntryRecord((
         id: '0190dddd-0000-7000-8000-000000000007',
@@ -113,6 +149,7 @@ void main() {
         energyLevel: content.entry.energyLevel,
         reportValue: content.entry.reportValue,
         reportWeek: content.entry.reportWeek,
+        permission: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ItemActEntry;

@@ -15,6 +15,7 @@ LogEntryRecord _record(
   int? energyLevel,
   int? reportValue,
   int? reportWeek,
+  String? permission,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -29,11 +30,12 @@ LogEntryRecord _record(
   energyLevel: energyLevel,
   reportValue: reportValue,
   reportWeek: reportWeek,
+  permission: permission,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twelve kinds', () {
+    test('holds exactly the build\'s thirteen kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -47,6 +49,7 @@ void main() {
         LogKind.energySet,
         LogKind.reportAnswered,
         LogKind.captureCreated,
+        LogKind.permissionRefused,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -56,13 +59,14 @@ void main() {
         'card_skipped',
         'crash_recorded',
         'energy_set',
+        'permission_refused',
         'report_answered',
         'session_ended',
         'session_extended',
         'session_started',
         'setting_changed',
       ]);
-      expect(LogKind.knownByName, hasLength(12));
+      expect(LogKind.knownByName, hasLength(13));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1002,6 +1006,169 @@ void main() {
         expect(entries, hasLength(3));
         expect(entries[1].kind, LogKind.captureCreated);
         expect((entries[1] as ItemActEntry).itemId, 'man-cap-4');
+      });
+    });
+
+    group('the permission payload path (Story 3.4, FR-32, AD-17, AD-23)', () {
+      test('a well-shaped permission_refused converts carrying its '
+          'permission — the crash shape: own payload, no item pair', () {
+        final conversion = convertLogEntryRecord(
+          _record('permission_refused', permission: 'microphone'),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<PermissionRefusedEntry>());
+        expect(entry!.kind, LogKind.permissionRefused);
+        expect(
+          (entry as PermissionRefusedEntry).permission,
+          Permission.microphone,
+        );
+      });
+
+      test('each of the three permissions names its own row', () {
+        for (final permission in Permission.values) {
+          final conversion = convertLogEntryRecord(
+            _record('permission_refused', permission: permission.name),
+          );
+          expect(conversion.flaw, isNull, reason: permission.name);
+          expect(
+            (conversion.entry as PermissionRefusedEntry).permission,
+            permission,
+          );
+        }
+      });
+
+      test('a permission_refused without its permission is excluded — '
+          'permissionAbsent, quiet tolerance never a repair write', () {
+        final absent = convertLogEntryRecord(_record('permission_refused'));
+        expect(absent.entry, isNull);
+        expect(absent.flaw, LogRecordFlaw.permissionAbsent);
+
+        final blank = convertLogEntryRecord(
+          _record('permission_refused', permission: ''),
+        );
+        expect(blank.entry, isNull);
+        expect(blank.flaw, LogRecordFlaw.permissionAbsent);
+
+        final unknown = convertLogEntryRecord(
+          _record('permission_refused', permission: 'telepathy'),
+        );
+        expect(unknown.entry, isNull);
+        expect(unknown.flaw, LogRecordFlaw.permissionAbsent);
+      });
+
+      test('an item pair, a stack, setting fields, a pocket, energy or '
+          'report fields on permission_refused are excluded — the row '
+          'rides its permission and nothing else', () {
+        final offenders = <LogRecordFlaw, LogEntryRecord>{
+          LogRecordFlaw.itemOnNonItemKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            itemId: 'man-a',
+            itemOrigin: Origin.manual,
+          ),
+          LogRecordFlaw.stackOffCrashKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            stack: '#0      build',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            energyLevel: 2,
+          ),
+          LogRecordFlaw.reportOnNonReportKind: _record(
+            'permission_refused',
+            permission: 'microphone',
+            reportValue: 3,
+          ),
+        };
+        offenders.forEach((flaw, record) {
+          final conversion = convertLogEntryRecord(record);
+          expect(conversion.entry, isNull, reason: '$flaw');
+          expect(conversion.flaw, flaw);
+        });
+      });
+
+      test('a permission payload on any other kind is excluded — the '
+          'payload column rides its own kind and no other', () {
+        final onAct = convertLogEntryRecord(
+          _record(
+            'card_done',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+            permission: 'microphone',
+          ),
+        );
+        expect(onAct.entry, isNull);
+        expect(onAct.flaw, LogRecordFlaw.permissionOnNonPermissionKind);
+
+        final onMoment = convertLogEntryRecord(
+          _record('app_opened', permission: 'microphone'),
+        );
+        expect(onMoment.entry, isNull);
+        expect(onMoment.flaw, LogRecordFlaw.permissionOnNonPermissionKind);
+
+        final onCrash = convertLogEntryRecord(
+          _record(
+            'crash_recorded',
+            stack: '#0      build',
+            permission: 'camera',
+          ),
+        );
+        expect(onCrash.entry, isNull);
+        expect(onCrash.flaw, LogRecordFlaw.permissionOnNonPermissionKind);
+
+        final onSetting = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            permission: 'notifications',
+          ),
+        );
+        expect(onSetting.entry, isNull);
+        expect(onSetting.flaw, LogRecordFlaw.permissionOnNonPermissionKind);
+
+        final onCapture = convertLogEntryRecord(
+          _record(
+            'capture_created',
+            itemId: 'man-cap-1',
+            itemOrigin: Origin.manual,
+            permission: 'microphone',
+          ),
+        );
+        expect(onCapture.entry, isNull);
+        expect(onCapture.flaw, LogRecordFlaw.permissionOnNonPermissionKind);
+      });
+
+      test('a corrupt permission row never becomes an entry, and a good '
+          'one survives the boundary — the derivation downstream reads '
+          'the log as if the corrupt row were not there', () {
+        final entries = logEntriesOf([
+          _record('permission_refused'),
+          _record('permission_refused', permission: 'microphone'),
+          _record('permission_refused', permission: 'camera'),
+        ]);
+        expect(entries, hasLength(2));
+        expect(
+          (entries[0] as PermissionRefusedEntry).permission,
+          Permission.microphone,
+        );
+        expect(
+          (entries[1] as PermissionRefusedEntry).permission,
+          Permission.camera,
+        );
       });
     });
 

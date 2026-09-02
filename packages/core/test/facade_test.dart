@@ -64,6 +64,7 @@ LogEntryRecord _record(
   energyLevel: energyLevel,
   reportValue: reportValue,
   reportWeek: reportWeek,
+  permission: null,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,
@@ -685,6 +686,7 @@ void main() {
       instantUtcMicros: micros,
       offsetSeconds: 0,
       originContext: line,
+      dictated: null,
     );
 
     test('a standing capture precedes same-size catalogue work — the '

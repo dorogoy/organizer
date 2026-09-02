@@ -170,6 +170,20 @@ class AppStringsEs extends AppStrings {
   String get settingsTimeBag => 'Bolsa de tiempo';
 
   @override
+  String settingsDictatedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count capturas dictadas',
+      one: '1 captura dictada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsAiVoice => 'IA y voz';
+
+  @override
   String get genesisAnalyze => 'Analizar';
 
   @override
@@ -234,6 +248,9 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get dictationListening => 'Escuchando…';
+
+  @override
+  String get microphoneEntry => 'Micrófono - dictar';
 
   @override
   String get captureSave => 'Guardar';

@@ -602,7 +602,10 @@ final class KitchenSink {
       // The pool fact carries no owner, no date-only value and no
       // assignment to a future day (AD-1, AD-14) — and, since Story
       // 3.2, the nullable Origin Context: a manual capture's own
-      // single line, never a deadline any derivation could read.
+      // single line, never a deadline any derivation could read. Since
+      // Story 3.4 the nullable dictation boolean: a provenance fact
+      // (who authored the line), outside origin arithmetic and never
+      // an obligation.
       expect(
         _classOwnFields('PoolFact', 'pool/pool_fact.dart'),
         equals([
@@ -612,6 +615,7 @@ final class KitchenSink {
           'instantUtcMicros',
           'offsetSeconds',
           'originContext',
+          'dictated',
         ]),
       );
     });
@@ -723,6 +727,19 @@ final class KitchenSink {
       expect(
         _classOwnFields('ReportAnsweredEntry', 'log/log_entry.dart'),
         equals(['value', 'week', 'kind']),
+      );
+    });
+
+    test('PermissionRefusedEntry', () {
+      // The permission-refusal payload is the refused permission and
+      // its pinned kind — and nothing else rides along (Story 3.4,
+      // FR-32, AD-17): no grant, no capability claim, no re-ask state
+      // (AD-22's discipline), so no silent re-ask writer can grow from
+      // the shape. `kind` extracts after the constructor parameters
+      // because it is an initialized override.
+      expect(
+        _classOwnFields('PermissionRefusedEntry', 'log/log_entry.dart'),
+        equals(['permission', 'kind']),
       );
     });
 
@@ -851,7 +868,8 @@ final class KitchenSink {
     test('PoolFactRecord', () {
       // The persisted pool DTO is field-identical to the domain fact —
       // the schema's exact columns, no more (AD-1, AD-5). The nullable
-      // Origin Context column is schema v6's additive change (3.2).
+      // Origin Context column is schema v6's additive change (3.2);
+      // the nullable dictation boolean is schema v7's (3.4).
       expect(
         _recordFields('ports/store_port.dart', 'PoolFactRecord'),
         equals([
@@ -861,6 +879,7 @@ final class KitchenSink {
           'instantUtcMicros',
           'offsetSeconds',
           'originContext',
+          'dictated',
         ]),
       );
     });
@@ -871,7 +890,8 @@ final class KitchenSink {
       // nullable setting columns are schema v2's additive pair (2.1);
       // the nullable pocket column is schema v3's (2.2); the nullable
       // energy level column is schema v4's (2.5); the two nullable
-      // report columns are schema v5's additive pair (2.6).
+      // report columns are schema v5's additive pair (2.6); the
+      // nullable permission column is schema v7's (3.4).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -888,6 +908,7 @@ final class KitchenSink {
           'energyLevel',
           'reportValue',
           'reportWeek',
+          'permission',
         ]),
       );
     });
@@ -897,7 +918,8 @@ final class KitchenSink {
       // be appended, by anyone (AD-3, AD-21). The setting fields grew
       // the shape additively (2.1); the pocket field grows it again
       // (2.2); the energy level field grows it once more (2.5); the
-      // two report fields grow it a last time (2.6).
+      // two report fields grow it a last time (2.6); the permission
+      // field grows it once (3.4).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -911,7 +933,19 @@ final class KitchenSink {
           'energyLevel',
           'reportValue',
           'reportWeek',
+          'permission',
         ]),
+      );
+    });
+
+    test('CaptureFactContent', () {
+      // The capture fact's payload: origin, size, the Origin Context
+      // line — and, since 3.4, the dictation boolean, a provenance
+      // fact written once at creation (FR-32). No field here can name
+      // a deadline (AD-1).
+      expect(
+        _recordFields('commands/capture_commands.dart', 'CaptureFactContent'),
+        equals(['origin', 'size', 'originContext', 'dictated']),
       );
     });
 
@@ -968,8 +1002,8 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the twenty-nine
-    // declarations above (twenty-two classes, seven record typedefs).
+    // The frozen census, keyed by (path, name): the thirty-one
+    // declarations above (twenty-three classes, eight record typedefs).
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -981,6 +1015,7 @@ final class KitchenSink {
       'log/log_entry.dart:SettingEntry',
       'log/log_entry.dart:EnergySetEntry',
       'log/log_entry.dart:ReportAnsweredEntry',
+      'log/log_entry.dart:PermissionRefusedEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -996,6 +1031,7 @@ final class KitchenSink {
       'commands/session_commands.dart:LogEntryContent',
       'commands/capture_commands.dart:CaptureFactContent',
       'commands/capture_commands.dart:CaptureContent',
+      'ports/recognizer_port.dart:RecognizerOutcome',
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',
       'derive/checkpoint.dart:CheckpointState',
@@ -1011,6 +1047,10 @@ final class KitchenSink {
       'day/calendar.dart:Calendar',
       // The kind vocabulary value type itself (AD-21).
       'log/log_entry.dart:LogKind',
+      // The permission identity vocabulary (Story 3.4, AD-17) — an
+      // enum with members and no fields, on the value-vocabularies'
+      // own terms.
+      'log/log_entry.dart:Permission',
       // The read boundary's result record — conversion output, not a
       // persisted or derived read model.
       'log/log_entry.dart:LogEntryConversion',
@@ -1018,6 +1058,11 @@ final class KitchenSink {
       // contracts, no fields.
       'ports/store_port.dart:StorePort',
       'ports/clock_port.dart:ClockPort',
+      'ports/recognizer_port.dart:RecognizerPort',
+      // The recognizer port's own state vocabularies (Story 3.4) —
+      // enums with members and no fields.
+      'ports/recognizer_port.dart:RecognizerAvailability',
+      'ports/recognizer_port.dart:RecognizerStart',
       // The weave's private pipeline record (weave.dart internals).
       'weave/weave.dart:_DayPolicy',
       // The value vocabularies — enums with members and no fields
@@ -1600,6 +1645,97 @@ final class KitchenSink {
     expect(commandMints, commandRefs);
     expect(
       RegExp(r'==\s*LogKind\.captureCreated\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('permission_refused is minted in exactly one file and read '
+      'nowhere in core — the derivation matches the entry type, never '
+      'the kind constant (Story 3.4, FR-32, AD-17, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary, through the
+    // subtype the kind owns) and the one command file that mints it.
+    // The derivation in core/derive reads the PermissionRefusedEntry
+    // *type* — a LogKind.permissionRefused reference there would be a
+    // second reader of the kind, and any reference anywhere else in
+    // core lib is a finding.
+    const allowed = {'log/log_entry.dart', 'commands/permission_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bpermissionRefused\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the permissionRefused identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'permission_refused' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]permission_refused['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'permission_refused' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the PermissionRefusedEntry
+    // override.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]permission_refused['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only permission_refused '
+          'wire uses',
+    );
+    expect(
+      RegExp(r'\bpermissionRefused\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only permissionRefused identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.permissionRefused\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified permissionRefused readers in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(
+      _source('commands/permission_commands.dart'),
+    );
+    final commandRefs = RegExp(r'LogKind\.permissionRefused\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.permissionRefused\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.permissionRefused\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
     );

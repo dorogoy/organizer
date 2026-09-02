@@ -50,6 +50,7 @@ Future<void> appendCrashEntry(
     energyLevel: null,
     reportValue: null,
     reportWeek: null,
+    permission: null,
   );
   try {
     await store.appendLogEntry(entry);
