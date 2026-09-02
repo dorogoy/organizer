@@ -54,3 +54,9 @@ tool/env.local.sh
 
 # Devbox environment cache (devbox.json and devbox.lock ARE committed)
 .devbox/
+
+# Story 4.1 evaluation harness: corpus photos and raw provider responses are
+# machine-local evidence, never committed (prompt, schema, bar and manifest
+# metadata ARE committed)
+eval/corpus/photos/
+eval/results/raw/

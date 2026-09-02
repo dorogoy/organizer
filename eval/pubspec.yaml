@@ -1,0 +1,11 @@
+name: eval
+description: The model-evaluation harness (story 4.1) — a standalone Dart package outside the app, so a second HTTP opener never exists as app code (AD-7/AD-12).
+publish_to: none
+environment:
+  sdk: ^3.13.0
+dependencies:
+  http: ^1.2.0
+  args: ^2.5.0
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0
