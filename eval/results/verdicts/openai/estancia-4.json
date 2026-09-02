@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-4",
+  "photoFile": "estancia-4.jpg",
+  "spaceType": "Baño",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:06.853345",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge las toallas del suelo y del inodoro, dóblalas y déjalas juntas junto al inodoro.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira los frascos, el cepillo, el peine y los demás objetos del lavabo y agrúpalos sobre un extremo despejado del mueble.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia el lavabo y toda la encimera despejada, incluida la zona alrededor del grifo.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Limpia el espejo del baño y elimina las marcas visibles de la mampara de cristal.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Retira la alfombrilla del suelo, sacúdela y limpia las manchas visibles del suelo del baño.",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

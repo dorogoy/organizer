@@ -1,0 +1,49 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-7",
+  "photoFile": "estancia-7.jpg",
+  "spaceType": "Habitación infantil",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:26.115567",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa y los calcetines del suelo y guárdalos",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Guarda los bloques de madera de colores en su sitio",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Cierra el libro abierto de la alfombra y colócalo en el escritorio",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Cierra la mochila azul del suelo y colócala de manera ordenada",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Estira y ordena la colcha de la cama",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

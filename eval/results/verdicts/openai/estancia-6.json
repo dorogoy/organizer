@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-6",
+  "photoFile": "estancia-6.jpg",
+  "spaceType": "Comedor",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:19.478246",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Retira los platos, cubiertos, copas y la botella de agua de la mesa.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Junta las servilletas usadas y los papeles apilados, y déjalos juntos para clasificarlos.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge los bolsos que cuelgan de las sillas y colócalos en un único lugar despejado.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Alinea las sillas alrededor de la mesa y despeja por completo su superficie.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia la mesa despejada con un paño, incluyendo los bordes visibles.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

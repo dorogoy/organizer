@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-9",
+  "photoFile": "estancia-9.jpg",
+  "spaceType": "Lavadero",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:29:19.106174",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa sucia del suelo y el área central",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Carga la ropa sucia en la lavadora (si es necesario, separa según el tipo de carga)",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda las toallas limpias apiladas en su cesta de mimbre",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza la ropa limpia restante sobre la encimera o en una superficie despejada",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

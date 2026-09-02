@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-10",
+  "photoFile": "estancia-10.jpg",
+  "spaceType": "Vestidor",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:29:29.635779",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge toda la ropa sucia y desordenada del sillón y el suelo de la sala",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda la ropa limpia en los armarios o cajones correspondientes (ropa doblada)",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Recoge todos los objetos sueltos del suelo que no estén en sus cestas o estantes",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Coloca zapatos sucios en el área designada para dejarlos y barre o limpia el suelo visible",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

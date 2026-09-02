@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-10",
+  "photoFile": "estancia-10.jpg",
+  "spaceType": "Vestidor",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:32.260178",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Guarda los zapatos marrones que están en el suelo frente al banco",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge el cinturón y la bufanda del banco y colócalos en su sitio",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Mete la ropa del cajón abierto en el estante correspondiente",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Guarda la bolsa de compras y la ropa que tiene encima",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

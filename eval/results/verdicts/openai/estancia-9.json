@@ -1,0 +1,45 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-9",
+  "photoFile": "estancia-9.jpg",
+  "spaceType": "Lavadero",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:42.911553",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge toda la ropa del suelo y métela en la cesta de ropa.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Empareja los dos calcetines visibles y junta las prendas sueltas de la colada.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Reúne el detergente y las cápsulas y colócalos juntos en un extremo de la encimera.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Limpia la encimera despejada alrededor del fregadero y del detergente.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

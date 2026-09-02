@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-7",
+  "photoFile": "estancia-7.jpg",
+  "spaceType": "Habitación infantil",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:24.788518",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge las prendas del suelo y dóblalas junto a la mochila.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Cierra el libro abierto y colócalo sobre el escritorio, junto a los lápices.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Junta todos los bloques de colores y guárdalos en una de las cestas visibles.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Levanta el peluche y colócalo sobre la cama.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Aparta la mochila y las prendas dobladas del borde de la alfombra para dejarla completamente despejada.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-1",
+  "photoFile": "estancia-1.jpg",
+  "spaceType": "Dormitorio",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:42:48.232449",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa de la silla y de la cama, dóblala y déjala agrupada sobre la cama.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Coloca los libros del suelo en una pila ordenada junto a la cómoda y junta los dos zapatos delante de ella.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira la taza y el plato de la mesilla y llévalos a lavar.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Alisa la colcha y acomoda las almohadas para dejar la cama despejada y ordenada.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

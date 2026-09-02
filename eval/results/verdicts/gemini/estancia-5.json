@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-5",
+  "photoFile": "estancia-5.jpg",
+  "spaceType": "Despacho",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:19.210637",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los libros que están sobre la silla de oficina y colócalos en la estantería.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira la taza de café y el envoltorio del escritorio.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza y apila los papeles sueltos que están sobre el escritorio.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Retira la mochila negra del suelo junto al escritorio.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

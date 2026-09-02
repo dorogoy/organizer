@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-10",
+  "photoFile": "estancia-10.jpg",
+  "spaceType": "Vestidor",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:51.746021",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los dos zapatos del suelo y colócalos juntos en los estantes inferiores para zapatos.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla la ropa que sobresale del cajón abierto y guárdala dentro, dejando el cajón despejado para cerrarlo.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Dobla la bufanda y guarda también el cinturón en el cajón abierto; después ciérralo.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira el bolso de la banqueta y colócalo en uno de los estantes vacíos del armario.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Deja la banqueta libre, alisando su superficie después de retirar todas las prendas y accesorios.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-7",
+  "photoFile": "estancia-7.jpg",
+  "spaceType": "Habitación infantil",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:56:14.193068",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": false,
+      "reason": "schema check failed: steps[1] is not an object; steps[2] is not an object; steps[3] is not an object; steps[4] is not an object"
+    },
+    "durations": {
+      "ok": false,
+      "reason": "not evaluated — an earlier limb failed"
+    },
+    "steps": {
+      "ok": false,
+      "reason": "not evaluated — an earlier limb failed"
+    },
+    "fenceStripped": true
+  },
+  "steps": null,
+  "human": {
+    "realActions": false,
+    "workableOrder": false,
+    "autoRecorded": true
+  }
+}

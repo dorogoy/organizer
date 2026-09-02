@@ -1,0 +1,53 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-5",
+  "photoFile": "estancia-5.jpg",
+  "spaceType": "Despacho",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:14.624116",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Reúne las hojas sueltas del escritorio y forma una sola pila ordenada.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira la taza y el paquete de comida del escritorio y déjalos juntos fuera de la superficie de trabajo.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Agrupa los libros de la silla en una pila estable junto a la silla.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge la mochila del suelo y colócala junto a la silla, sin bloquear el paso.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Enrolla los cables bajo el escritorio y júntalos para que no queden colgando ni enredados.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Limpia la superficie despejada del escritorio alrededor del monitor y la pila de papeles.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

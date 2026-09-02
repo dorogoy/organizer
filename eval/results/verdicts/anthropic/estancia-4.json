@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-4",
+  "photoFile": "estancia-4.jpg",
+  "spaceType": "Baño",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:22.173539",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge las toallas del suelo y colócalas en el cesto o perchero",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge la ropa del inodoro y guárdala en el cesto de la ropa",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza los productos de baño del lavamanos: agrupa botellas y frascos por tamaño",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia y ordena la rejilla y los accesorios dentro de la ducha",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-2",
+  "photoFile": "estancia-2.jpg",
+  "spaceType": "Cocina",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:12.334696",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge el trapo gris del suelo",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Guarda la bolsa de patatas fritas de la encimera central",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Limpia y ordena los platos y vasos acumulados en el fregadero",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Retira y organiza el correo y los papeles junto al fregadero",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia la tabla de cortar y los restos de comida de la encimera del fondo",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

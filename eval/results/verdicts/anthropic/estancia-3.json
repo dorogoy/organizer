@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-3",
+  "photoFile": "estancia-3.jpg",
+  "spaceType": "Salón",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:17.642141",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge las mantas del sofá y dóblalas sobre el respaldo",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge los vasos, la revista y el control remoto de la mesa de centro y colócalos en el mueble de TV",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge las pantuflas del piso y guárdalas en el armario o espacio de almacenamiento",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Ajusta los cojines del sofá y sillón, y alinea las mantas dobladas",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

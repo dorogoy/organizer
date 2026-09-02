@@ -1,0 +1,1293 @@
+{
+  "generatedAt": "2026-09-02T20:54:57.930976",
+  "barConfirmedOn": "2026-09-02",
+  "prompt": "# Prompt — foto → plan (the shared, immutable input of all five candidates)\n\nThis file is byte-identical for every candidate (`e2b_local`, `e4b_local`,\n`gemini`, `openai`, `anthropic`) and is sent verbatim: the harness adds no\nheader, footer or wrapping of its own. Everything below the marker line is the\nprompt text.\n\n---\n\nEres el asistente de una app móvil de organización del hogar. Recibirás una foto real de un espacio doméstico desordenado. Tu tarea es convertirla en un plan corto que una persona pueda ejecutar hoy mismo, paso a paso.\n\nMira la foto con atención. Devuelve ÚNICAMENTE un objeto JSON válido con esta forma exacta:\n\n{\"steps\": [{\"text\": \"…\", \"duration_minutes\": 4}]}\n\nReglas del plan:\n\n- Escribe cada paso en español, como una acción concreta y directa: «Recoge la ropa del sillón», no «se debería recoger ropa».\n- Devuelve al menos 4 pasos.\n- Cada paso dura entre 3 y 5 minutos: `duration_minutes` es un número entero entre 3 y 5.\n- Cada paso actúa sobre objetos que se ven en la foto. No inventes objetos ni espacios que no aparezcan.\n- El orden debe ser ejecutable de principio a fin: no guardes nada en un sitio antes de despejar la superficie donde va, y despeja antes de limpiar.\n- Un plan corto y realizable, no una lista exhaustiva: agrupa lo que se haga junto.\n\nReglas de formato:\n\n- No escribas nada fuera del objeto JSON: ni explicaciones, ni disculpas, ni bloques de código, ni texto antes o después.\n- El objeto JSON debe poder parsearse directamente.\n",
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "duration_minutes": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "text",
+            "duration_minutes"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "steps"
+    ],
+    "additionalProperties": false
+  },
+  "candidates": {
+    "e2b_local": {
+      "model": "gemma4-it-e2b-FLM",
+      "photos": [
+        {
+          "photoId": "estancia-1",
+          "spaceType": "Dormitorio",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-2",
+          "spaceType": "Cocina",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-3",
+          "spaceType": "Salón",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-4",
+          "spaceType": "Baño",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-5",
+          "spaceType": "Despacho",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-6",
+          "spaceType": "Comedor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-7",
+          "spaceType": "Habitación infantil",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-8",
+          "spaceType": "Recibidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-9",
+          "spaceType": "Lavadero",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-10",
+          "spaceType": "Vestidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        }
+      ],
+      "judged": 10,
+      "machinePassed": 10,
+      "passed": 3,
+      "passesBar": false,
+      "fenceStripped": 10,
+      "costBuilderUsd": null,
+      "costEvidenceUsd": null
+    },
+    "e4b_local": {
+      "model": "gemma4-it-e4b-FLM",
+      "photos": [
+        {
+          "photoId": "estancia-1",
+          "spaceType": "Dormitorio",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-2",
+          "spaceType": "Cocina",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-3",
+          "spaceType": "Salón",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-4",
+          "spaceType": "Baño",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-5",
+          "spaceType": "Despacho",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-6",
+          "spaceType": "Comedor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": false,
+              "reason": "schema check failed: steps[1] is not an object; steps[2] is not an object; steps[3] is not an object; steps[4] is not an object"
+            },
+            "durations": {
+              "ok": false,
+              "reason": "not evaluated — an earlier limb failed"
+            },
+            "steps": {
+              "ok": false,
+              "reason": "not evaluated — an earlier limb failed"
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": false,
+            "autoRecorded": true
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-7",
+          "spaceType": "Habitación infantil",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": false,
+              "reason": "schema check failed: steps[1] is not an object; steps[2] is not an object; steps[3] is not an object; steps[4] is not an object"
+            },
+            "durations": {
+              "ok": false,
+              "reason": "not evaluated — an earlier limb failed"
+            },
+            "steps": {
+              "ok": false,
+              "reason": "not evaluated — an earlier limb failed"
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": false,
+            "autoRecorded": true
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-8",
+          "spaceType": "Recibidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": true
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-9",
+          "spaceType": "Lavadero",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-10",
+          "spaceType": "Vestidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        }
+      ],
+      "judged": 10,
+      "machinePassed": 8,
+      "passed": 2,
+      "passesBar": false,
+      "fenceStripped": 6,
+      "costBuilderUsd": null,
+      "costEvidenceUsd": null
+    },
+    "gemini": {
+      "model": "google/gemini-3.5-flash-lite",
+      "photos": [
+        {
+          "photoId": "estancia-1",
+          "spaceType": "Dormitorio",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-2",
+          "spaceType": "Cocina",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-3",
+          "spaceType": "Salón",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-4",
+          "spaceType": "Baño",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-5",
+          "spaceType": "Despacho",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-6",
+          "spaceType": "Comedor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-7",
+          "spaceType": "Habitación infantil",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-8",
+          "spaceType": "Recibidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-9",
+          "spaceType": "Lavadero",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-10",
+          "spaceType": "Vestidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        }
+      ],
+      "judged": 10,
+      "machinePassed": 10,
+      "passed": 9,
+      "passesBar": true,
+      "fenceStripped": 0,
+      "costBuilderUsd": 0.00757,
+      "costEvidenceUsd": 0.0075715
+    },
+    "openai": {
+      "model": "openai/gpt-5.6-luna",
+      "photos": [
+        {
+          "photoId": "estancia-1",
+          "spaceType": "Dormitorio",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-2",
+          "spaceType": "Cocina",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-3",
+          "spaceType": "Salón",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-4",
+          "spaceType": "Baño",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-5",
+          "spaceType": "Despacho",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-6",
+          "spaceType": "Comedor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-7",
+          "spaceType": "Habitación infantil",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-8",
+          "spaceType": "Recibidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-9",
+          "spaceType": "Lavadero",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-10",
+          "spaceType": "Vestidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        }
+      ],
+      "judged": 10,
+      "machinePassed": 10,
+      "passed": 9,
+      "passesBar": true,
+      "fenceStripped": 0,
+      "costBuilderUsd": 0.00931,
+      "costEvidenceUsd": 0.009408399999999999
+    },
+    "anthropic": {
+      "model": "anthropic/claude-haiku-4.5",
+      "photos": [
+        {
+          "photoId": "estancia-1",
+          "spaceType": "Dormitorio",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-2",
+          "spaceType": "Cocina",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-3",
+          "spaceType": "Salón",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-4",
+          "spaceType": "Baño",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-5",
+          "spaceType": "Despacho",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-6",
+          "spaceType": "Comedor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-7",
+          "spaceType": "Habitación infantil",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        },
+        {
+          "photoId": "estancia-8",
+          "spaceType": "Recibidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": false,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-9",
+          "spaceType": "Lavadero",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": false,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": false
+        },
+        {
+          "photoId": "estancia-10",
+          "spaceType": "Vestidor",
+          "transportOk": true,
+          "machine": {
+            "parse": {
+              "ok": true
+            },
+            "durations": {
+              "ok": true
+            },
+            "steps": {
+              "ok": true
+            },
+            "fenceStripped": false
+          },
+          "human": {
+            "realActions": true,
+            "workableOrder": true,
+            "autoRecorded": false
+          },
+          "passed": true
+        }
+      ],
+      "judged": 10,
+      "machinePassed": 10,
+      "passed": 6,
+      "passesBar": false,
+      "fenceStripped": 0,
+      "costBuilderUsd": 0.0278,
+      "costEvidenceUsd": 0.02807
+    }
+  },
+  "runs": {
+    "e2b_local": [
+      {
+        "timestamp": "2026-09-02T15:29:42.502749",
+        "model": "gemma4-it-e2b-FLM"
+      }
+    ],
+    "e4b_local": [
+      {
+        "timestamp": "2026-09-02T17:57:25.381773",
+        "model": "gemma4-it-e4b-FLM"
+      }
+    ],
+    "gemini": [
+      {
+        "timestamp": "2026-09-02T18:42:34.024738",
+        "model": "google/gemini-3.5-flash-lite",
+        "via": "openrouter"
+      }
+    ],
+    "openai": [
+      {
+        "timestamp": "2026-09-02T18:43:59.412508",
+        "model": "openai/gpt-5.6-luna",
+        "via": "openrouter"
+      }
+    ],
+    "anthropic": [
+      {
+        "timestamp": "2026-09-02T18:44:51.528820",
+        "model": "anthropic/claude-haiku-4.5",
+        "via": "openrouter"
+      }
+    ]
+  },
+  "cascade": {
+    "kind": "cloud-best",
+    "selected": "gemini",
+    "rationale": "gemini is the best cloud candidate at 9/10 (e2b_local 3/10, e4b_local 2/10, gemini 9/10, openai 9/10, anthropic 6/10; ties break in cascade order gemini → openai → anthropic) — proposed; the Local path stays a debug-only stub (FR-28)."
+  },
+  "oq1Draft": "OQ-1 (draft — builder reviews before the PRD/spine edit): both local candidates were killed outright on the desktop (a desktop failure kills — the phone build cannot do better). gemini is the best cloud candidate over the identical corpus, prompt and schema, so the topology half points to cloud BYOK and the Local path ships as the debug-only canned stub (FR-28). Full scores: e2b_local 3/10, e4b_local 2/10, gemini 9/10, openai 9/10, anthropic 6/10."
+}

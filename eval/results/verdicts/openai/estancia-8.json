@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-8",
+  "photoFile": "estancia-8.jpg",
+  "spaceType": "Recibidor",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:43:33.848417",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Guarda el paraguas cerrado en la cesta de mimbre bajo la consola.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Junta los zapatos sueltos en pares y colócalos ordenadamente en las baldas del zapatero.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Acomoda los abrigos en los ganchos, separándolos para que queden bien colgados.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Despeja la consola: apila las revistas, coloca las gafas y las llaves en el cuenco, y deja la planta en su sitio.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Pasa un paño por la superficie despejada de la consola y por las baldas visibles del zapatero.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

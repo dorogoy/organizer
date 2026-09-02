@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-1",
+  "photoFile": "estancia-1.jpg",
+  "spaceType": "Dormitorio",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:54:03.186748",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa oscura del sillón y guárdala en un lugar designado para la ropa sucia.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Pliega los zapatos que están en el suelo y colócalos juntos, cerca de la entrada o junto al mueble auxiliar.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge cualquier objeto pequeño disperso en el suelo (como los libros) y organízalos en una pila ordenada.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla la ropa de cama o manta visible sobre la cama y colócala prolijamente.",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

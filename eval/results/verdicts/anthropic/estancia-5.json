@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-5",
+  "photoFile": "estancia-5.jpg",
+  "spaceType": "Despacho",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:25.900142",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la mochila negra del suelo y guárdala en el armario o en su lugar de almacenamiento",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Ordena los papeles y documentos dispersos en la mesa en una carpeta o bandeja, y apila los magazines",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge los cables enredados bajo el escritorio y organízalos con bridas o los guarda detrás del escritorio",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Retira los libros de la silla y colócalos en la estantería de madera, luego despeja completamente el asiento",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}
