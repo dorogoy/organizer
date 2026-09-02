@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-8",
+  "photoFile": "estancia-8.jpg",
+  "spaceType": "Recibidor",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:29:07.211731",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge todos los objetos sueltos del suelo y ponlos en la caja de mimbre",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda las gafas de sol y otros pequeños objetos sobre la mesa de madera",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Dobla la ropa que está visible en el perchero para colgarla correctamente",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Ordena los libros y revistas sobre la mesa de madera",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

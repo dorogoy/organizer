@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-7",
+  "photoFile": "estancia-7.jpg",
+  "spaceType": "Habitación infantil",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:28:53.999879",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge todas las prendas de ropa sueltas del suelo y colócalas en la cesta o cesto de ropa visible.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge los libros y revistas dispersos sobre el suelo y apílalos en una superficie plana (como la cama o mesa).",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza los juguetes esparcidos (bloques) en un grupo definido para facilitar su recogida posterior.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge cualquier objeto pequeño o desordenado restante en la zona visible y colócalo en el lugar designado (por ejemplo, sobre la cama o en una superficie de trabajo).",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

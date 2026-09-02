@@ -1,0 +1,49 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-6",
+  "photoFile": "estancia-6.jpg",
+  "spaceType": "Comedor",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:29.931784",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la bolsa negra del suelo junto a la silla izquierda y colócala en un lugar seguro fuera de la mesa",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge los platos con comida, los vasos y la botella de agua de la mesa, y llévalos a la cocina",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge el cuaderno y los papeles de la mesa y guárdalos en el escritorio o cajón del aparador",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Pasa un paño limpio por la mesa de comedor para eliminar migas y manchas",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Ajusta las servilletas de tela sobre cada asiento y coloca las sillas en posición ordenada alrededor de la mesa",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

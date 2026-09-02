@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-1",
+  "photoFile": "estancia-1.jpg",
+  "spaceType": "Dormitorio",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:10.665227",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los libros del suelo y colócalos en la mesita de noche",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Guarda los zapatos en el armario o bajo la cama",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge la ropa de la silla y la cama, y colócala en el armario o en una canasta",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Alisa el edredón y acomoda las almohadas en la cama",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

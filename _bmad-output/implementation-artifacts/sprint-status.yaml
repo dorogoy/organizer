@@ -67,7 +67,7 @@ development_status:
   epic-3-retrospective: optional
 
   epic-4: in-progress
-  4-1-the-model-evaluation-harness-and-provider-selection: in-progress
+  4-1-the-model-evaluation-harness-and-provider-selection: review
   4-2-the-egress-chokepoint-sealed-three-ways: backlog
   4-3-the-credential-vault: backlog
   4-4-the-slicer-port-byok-and-the-frozen-allowlist: backlog

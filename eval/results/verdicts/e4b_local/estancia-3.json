@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-3",
+  "photoFile": "estancia-3.jpg",
+  "spaceType": "Salón",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:55:03.766012",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Dobla la manta tirada sobre el sofá y colócala en un lugar designado, como una silla o estantería cercana.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge las revistas y los libros dispersos en la mesa de centro y ponlos juntos en un área temporal (por ejemplo, el suelo).",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Ordena los cojines del sofá, colocándolos de manera uniforme.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia el polvo visible de la mesa de centro con un paño en seco.",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

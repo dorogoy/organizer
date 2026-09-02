@@ -1,3 +1,124 @@
 {
-  "photos": []
+  "photos": [
+    {
+      "id": "estancia-1",
+      "filename": "estancia-1.jpg",
+      "spaceType": "Dormitorio",
+      "groundTruthObjects": [
+        "pila de ropa encima de la silla",
+        "3 libros abiertos en el suelo",
+        "taza vacía y plato con migas en la mesita de noche",
+        "zapatillas en medio del suelo",
+        "chaqueta arrugada sobre la cama"
+      ]
+    },
+    {
+      "id": "estancia-2",
+      "filename": "estancia-2.jpg",
+      "spaceType": "Cocina",
+      "groundTruthObjects": [
+        "platos y vasos sucios en el fregadero",
+        "bolsa de patatas abierta en la isla",
+        "tabla de cortar con restos de verdura",
+        "paño de cocina en el suelo",
+        "correo y ticket encima de la encimera"
+      ]
+    },
+    {
+      "id": "estancia-3",
+      "filename": "estancia-3.jpg",
+      "spaceType": "Salón",
+      "groundTruthObjects": [
+        "manta arrugada sobre el sofá",
+        "revistas y libro abiertos en la mesa de centro",
+        "vasos vacíos y mando a distancia",
+        "zapatillas en medio de la alfombra",
+        "chaqueta tirada en el sillón"
+      ]
+    },
+    {
+      "id": "estancia-4",
+      "filename": "estancia-4.jpg",
+      "spaceType": "Baño",
+      "groundTruthObjects": [
+        "toallas usadas en el suelo",
+        "botes y pasta de dientes abierta en el lavabo",
+        "camiseta encima de la tapa del váter",
+        "cepillo y gomas de pelo desordenados",
+        "alfombrilla de baño fuera de sitio"
+      ]
+    },
+    {
+      "id": "estancia-5",
+      "filename": "estancia-5.jpg",
+      "spaceType": "Despacho",
+      "groundTruthObjects": [
+        "papeles y libretas amontonados en la mesa",
+        "taza vacía y envoltorio de snack",
+        "cables enredados colgando",
+        "libros apilados en la silla",
+        "mochila tirada en el suelo"
+      ]
+    },
+    {
+      "id": "estancia-6",
+      "filename": "estancia-6.jpg",
+      "spaceType": "Comedor",
+      "groundTruthObjects": [
+        "platos con restos y copas en la mesa",
+        "servilletas arrugadas",
+        "botella de agua a medio terminar",
+        "bolso colgando de una silla",
+        "correo amontonado en un extremo de la mesa"
+      ]
+    },
+    {
+      "id": "estancia-7",
+      "filename": "estancia-7.jpg",
+      "spaceType": "Habitación infantil",
+      "groundTruthObjects": [
+        "bloques de construcción en el suelo",
+        "peluche tirado",
+        "cuento abierto en la alfombra",
+        "mochila vaciada",
+        "calcetines y camiseta en el suelo"
+      ]
+    },
+    {
+      "id": "estancia-8",
+      "filename": "estancia-8.jpg",
+      "spaceType": "Recibidor",
+      "groundTruthObjects": [
+        "zapatos amontonados fuera del zapatero",
+        "abrigos tirados en los ganchos",
+        "llaves, gafas y correo en la consola",
+        "paraguas en el suelo",
+        "bolsa de la compra tirada"
+      ]
+    },
+    {
+      "id": "estancia-9",
+      "filename": "estancia-9.jpg",
+      "spaceType": "Lavadero",
+      "groundTruthObjects": [
+        "ropa sucia en el suelo",
+        "detergente abierto y cápsulas sueltas",
+        "ropa limpia sin doblar encima de la secadora",
+        "calcetines sueltos en el suelo",
+        "toallita de secadora arrugada"
+      ]
+    },
+    {
+      "id": "estancia-10",
+      "filename": "estancia-10.jpg",
+      "spaceType": "Vestidor",
+      "groundTruthObjects": [
+        "camisas a medio colgar y torcidas",
+        "zapatos en medio del suelo",
+        "cinturón y bufanda sobre el banco",
+        "cajón abierto con ropa saliendo",
+        "bolsa de compra con prenda sin guardar"
+      ]
+    }
+  ]
 }

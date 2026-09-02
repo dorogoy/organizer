@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-9",
+  "photoFile": "estancia-9.jpg",
+  "spaceType": "Lavadero",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:56:49.369439",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Saca la ropa de la cesta tejida y colócala en el cesto de ropa sucia si es visible, o apílala temporalmente aparte",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Vacía los artículos pequeños (discos azules) del fregadero y organízalos en un lugar designado, como una bandeja o estante pequeño",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge toallas dobladas de la encimera superior y apílalos ordenadamente en el estante asignado",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Coloca los artículos sueltos en el suelo (calcetín, trozos de tela) dentro del cesto de ropa o recógelos para lavarlos",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

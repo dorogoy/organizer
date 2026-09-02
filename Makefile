@@ -76,8 +76,8 @@ codegen-check: ## Fail when a generated file is stale or untracked (store schema
 eval-probe: ## Probe the local Lemonade endpoint with one corpus photo (image-input gate, story 4.1)
 	. ./tool/env.sh && cd eval && dart run bin/harness.dart probe
 
-eval-run: ## Score one candidate over the corpus: CANDIDATE=e2b_local|e4b_local|gemini|openai|anthropic
-	. ./tool/env.sh && cd eval && dart run bin/harness.dart run --candidate $(CANDIDATE)
+eval-run: ## Score one candidate over the corpus: CANDIDATE=e2b_local|e4b_local|gemini|openai|anthropic, optional VIA=openrouter
+	. ./tool/env.sh && cd eval && dart run bin/harness.dart run --candidate $(CANDIDATE) $(if $(VIA),--via $(VIA),)
 
 eval-judge: ## Judge the two human limbs per photo: CANDIDATE=<id> (re-ask via dart run ... judge --candidate <id> --redo)
 	. ./tool/env.sh && cd eval && dart run bin/harness.dart judge --candidate $(CANDIDATE)

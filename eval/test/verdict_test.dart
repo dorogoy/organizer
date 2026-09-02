@@ -157,20 +157,65 @@ void main() {
       },
     );
 
+    test('a single markdown fence is stripped once and recorded (2026-09-02 amendment)', () {
+      final fenced = '```json\n${planJson()}\n```';
+      final evaluation = evaluateModelOutput(TextOutput(fenced));
+      expect(evaluation.verdict.allPassed, isTrue);
+      expect(evaluation.verdict.fenceStripped, isTrue);
+      expect(evaluation.steps, hasLength(4));
+    });
+
+    test('a bare answer records fenceStripped false', () {
+      final evaluation = evaluateModelOutput(TextOutput(planJson()));
+      expect(evaluation.verdict.allPassed, isTrue);
+      expect(evaluation.verdict.fenceStripped, isFalse);
+    });
+
+    test('a fence without the json tag is still a single fence', () {
+      final evaluation = evaluateModelOutput(
+        TextOutput('```\n${planJson()}\n```'),
+      );
+      expect(evaluation.verdict.allPassed, isTrue);
+      expect(evaluation.verdict.fenceStripped, isTrue);
+    });
+
     test(
-      'markdown-fenced JSON fails the first-attempt parse limb — no repair',
+      'prose around the JSON still fails — the amendment is one fence only',
       () {
-        final fenced = '```json\n${planJson()}\n```';
-        final evaluation = evaluateModelOutput(TextOutput(fenced));
+        final chatty = 'Here is the plan:\n```json\n${planJson()}\n```\nDone!';
+        final evaluation = evaluateModelOutput(TextOutput(chatty));
         expect(evaluation.verdict.parse.ok, isFalse);
         expect(
           evaluation.verdict.parse.reason,
           contains('first-attempt JSON parse failed'),
         );
-        expect(evaluation.verdict.durations.reason, contains('not evaluated'));
-        expect(evaluation.steps, isNull);
       },
     );
+
+    test('two fences still fail — no repeated stripping', () {
+      final doubleFenced = '```json\n```\n${planJson()}\n```\n```';
+      final evaluation = evaluateModelOutput(TextOutput(doubleFenced));
+      expect(evaluation.verdict.parse.ok, isFalse);
+    });
+
+    test('an unclosed fence still fails', () {
+      final evaluation = evaluateModelOutput(
+        TextOutput('```json\n${planJson()}'),
+      );
+      expect(evaluation.verdict.parse.ok, isFalse);
+    });
+
+    test('a fence wrapping invalid JSON still fails with the reason', () {
+      final evaluation = evaluateModelOutput(
+        TextOutput('```json\nnot json at all\n```'),
+      );
+      expect(evaluation.verdict.parse.ok, isFalse);
+      expect(
+        evaluation.verdict.parse.reason,
+        contains('first-attempt JSON parse failed'),
+      );
+      expect(evaluation.verdict.fenceStripped, isFalse);
+    });
 
     test('double-encoded JSON fails the schema check', () {
       final evaluation = evaluateModelOutput(
@@ -398,6 +443,44 @@ void main() {
       expect(check.entries.first.groundTruthObjects, ['objeto']);
     });
 
+    test('refuses two ids sharing one photo file', () {
+      final source = manifestOf(10);
+      final decoded = jsonDecode(source) as Map<String, Object?>;
+      (decoded['photos']! as List)[9] = entry(9, 'cocina')
+        ..['filename'] = 'photo-0.jpg';
+      final check = validateManifest(
+        jsonEncode(decoded),
+        photoExists: (_) => true,
+      );
+      expect(
+        check.failures,
+        contains(contains("duplicate filename 'photo-0.jpg'")),
+      );
+    });
+
+    test('refuses ids or filenames carrying path separators', () {
+      const types = ['cocina', 'salón', 'baño', 'dormitorio'];
+      final check = validateManifest(
+        jsonEncode({
+          'photos': [
+            for (var i = 0; i < 9; i++) entry(i, types[i % types.length]),
+            {
+              'id': '../evil',
+              'filename': '../x.jpg',
+              'spaceType': 'pasillo',
+              'groundTruthObjects': ['o'],
+            },
+          ],
+        }),
+        photoExists: (_) => true,
+      );
+      expect(check.failures, contains(contains("'id' must be a bare name")));
+      expect(
+        check.failures,
+        contains(contains("'filename' must be a bare name")),
+      );
+    });
+
     test('refuses on the wrong photo count, listing every failure', () {
       final check = validateManifest(manifestOf(9), photoExists: (_) => true);
       expect(
@@ -479,6 +562,24 @@ void main() {
   });
 
   group('validateBar', () {
+    test('promptTextOf sends the text below the marker, never the header', () {
+      const file =
+          '# Prompt — foto → plan\n\nHeader prose that must not be sent.\n\n---\n\nEres el asistente.\nSegunda línea.\n';
+      expect(promptTextOf(file), startsWith('Eres el asistente'));
+      expect(promptTextOf(file), isNot(contains('Header prose')));
+      expect(promptTextOf(file), contains('Segunda línea.'));
+    });
+
+    test('promptTextOf sends a marker-less file whole', () {
+      const file = 'Solo instrucciones.\n';
+      expect(promptTextOf(file), 'Solo instrucciones.\n');
+    });
+
+    test('comparePhotoIds sorts digit runs numerically', () {
+      final ids = ['estancia-10', 'estancia-2', 'estancia-1'];
+      ids.sort(comparePhotoIds);
+      expect(ids, ['estancia-1', 'estancia-2', 'estancia-10']);
+    });
     test('refuses while only the placeholder line is present', () {
       final check = validateBar('# bar\n\nConfirmed: YYYY-MM-DD — <builder>\n');
       expect(check.ok, isFalse);

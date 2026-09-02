@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-8",
+  "photoFile": "estancia-8.jpg",
+  "spaceType": "Recibidor",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:39.226738",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge el paraguas y los zapatos dispersos en el suelo, y guárdalos en la estantería de madera",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Ordena y agrupa los zapatos en la estantería de dos niveles, colocándolos de forma organizada por pares",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla las dos chaquetas colgadas en los ganchos y colócalas sobre la estantería o en el armario",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Organiza los accesorios sobre la mesa: coloca las gafas de sol, el cuaderno y la maceta en sus lugares correctos",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

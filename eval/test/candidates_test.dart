@@ -73,6 +73,23 @@ void main() {
       expect(specFor('e2b_local').defaultBaseUrl, lemonadeDefaultBaseUrl);
     });
 
+    test(
+      'the cloud trio carries OpenRouter slugs; the local pair does not',
+      () {
+        expect(
+          specFor('gemini').openRouterModel,
+          'google/gemini-3.5-flash-lite',
+        );
+        expect(specFor('openai').openRouterModel, 'openai/gpt-5.6-luna');
+        expect(
+          specFor('anthropic').openRouterModel,
+          'anthropic/claude-haiku-4.5',
+        );
+        expect(specFor('e2b_local').openRouterModel, isNull);
+        expect(specFor('e4b_local').openRouterModel, isNull);
+      },
+    );
+
     test('an unknown candidate id is an error naming the allowed set', () {
       expect(() => specFor('nope'), throwsA(isA<ArgumentError>()));
     });
@@ -92,6 +109,36 @@ void main() {
         );
       },
     );
+
+    test(
+      'the OpenRouter route without its shared key refuses construction',
+      () {
+        expect(
+          () => buildCandidate(id: 'gemini', via: 'openrouter'),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('EVAL_OPENROUTER_API_KEY'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('the local pair refuses the OpenRouter route', () {
+      expect(
+        () => buildCandidate(id: 'e2b_local', via: 'openrouter', apiKey: 'k'),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('an unknown route name is an error', () {
+      expect(
+        () => buildCandidate(id: 'gemini', via: 'carrier-pigeon', apiKey: 'k'),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
   });
 
   group('local pair — OpenAI-compatible chat completions over Lemonade', () {
@@ -382,6 +429,94 @@ void main() {
           'reason',
           contains('tool_use'),
         ),
+      );
+    });
+  });
+
+  group('OpenRouter route — one shared key, three slugs', () {
+    test('gemini via OpenRouter posts chat completions under its slug with a strict json_schema', () async {
+      final server = FakeServer(() => openAiBody('{"steps": []}'));
+      final candidate = buildCandidate(
+        id: 'gemini',
+        via: 'openrouter',
+        apiKey: 'or-1',
+        transport: server.transport,
+      );
+      expect(candidate.id, 'gemini');
+      await request(candidate);
+      expect(
+        server.lastUrl,
+        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+      );
+      expect(server.lastHeaders, containsPair('Authorization', 'Bearer or-1'));
+      final body = jsonDecode(server.lastBody!) as Map<String, Object?>;
+      expect(body['model'], 'google/gemini-3.5-flash-lite');
+      expect(body['max_completion_tokens'], 2048);
+      final format = body['response_format'] as Map<String, Object?>;
+      expect(format['type'], 'json_schema');
+      final jsonSchema = format['json_schema'] as Map<String, Object?>;
+      expect(jsonSchema['strict'], true);
+      expect(jsonSchema['schema'], jsonDecode(schemaJson));
+      final parts =
+          ((body['messages'] as List).first as Map)['content'] as List;
+      expect(parts.first['type'], 'text');
+      expect(parts.last['type'], 'image_url');
+      expect(
+        (parts.last['image_url'] as Map)['url'],
+        startsWith('data:image/jpeg;base64,'),
+      );
+    });
+
+    test(
+      'openai and anthropic keep their own ids and slugs on the route',
+      () async {
+        final server = FakeServer(() => openAiBody('{"steps": []}'));
+        final openai = buildCandidate(
+          id: 'openai',
+          via: 'openrouter',
+          apiKey: 'or-1',
+          transport: server.transport,
+        );
+        await request(openai);
+        expect(openai.id, 'openai');
+        expect(
+          (jsonDecode(server.lastBody!) as Map)['model'],
+          'openai/gpt-5.6-luna',
+        );
+
+        final anthropic = buildCandidate(
+          id: 'anthropic',
+          via: 'openrouter',
+          apiKey: 'or-1',
+          transport: server.transport,
+        );
+        await request(anthropic);
+        expect(anthropic.id, 'anthropic');
+        expect(
+          (jsonDecode(server.lastBody!) as Map)['model'],
+          'anthropic/claude-haiku-4.5',
+        );
+      },
+    );
+
+    test('an explicit --model override wins over the slug, and --base-url over the endpoint', () async {
+      final server = FakeServer(() => openAiBody('{"steps": []}'));
+      final candidate = buildCandidate(
+        id: 'gemini',
+        via: 'openrouter',
+        baseUrl: 'http://localhost:9999/v1',
+        model: 'vendor/custom-model',
+        apiKey: 'or-1',
+        transport: server.transport,
+      );
+      await request(candidate);
+      expect(
+        server.lastUrl,
+        Uri.parse('http://localhost:9999/v1/chat/completions'),
+      );
+      expect(
+        (jsonDecode(server.lastBody!) as Map)['model'],
+        'vendor/custom-model',
       );
     });
   });

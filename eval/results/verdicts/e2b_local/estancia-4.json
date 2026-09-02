@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-4",
+  "photoFile": "estancia-4.jpg",
+  "spaceType": "Baño",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:28:16.000336",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge todas las toallas y ropa sucia del suelo y colócalas en una cesta o canasta para su lavado.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla y guarda la ropa limpia que esté visible sobre el suelo o la cama (si aplica, si hay alguna).",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Limpia las superficies visibles del suelo (suelo de baldosas) recogiendo cualquier objeto suelto.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Asegúrate de que el área del suelo esté despejada para una visión clara del espacio organizado.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

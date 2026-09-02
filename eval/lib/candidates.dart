@@ -8,7 +8,11 @@
 /// base64 image parts for the local pair (Lemonade), OpenAI structured
 /// outputs (`json_schema`, strict), Gemini `generateContent` with a
 /// `responseSchema`, and an Anthropic messages call whose schema rides a
-/// tool. Keys reach cloud candidates through environment variables only.
+/// tool. The cloud trio additionally offers an OpenRouter route (2026-09-02
+/// builder addition): all three ride OpenAI-compatible chat completions at
+/// `https://openrouter.ai/api/v1` with a strict `json_schema` and one shared
+/// `EVAL_OPENROUTER_API_KEY`, each under its OpenRouter model slug. Keys
+/// reach cloud candidates through environment variables only.
 library;
 
 import 'dart:convert';
@@ -28,7 +32,14 @@ Future<http.Response> defaultTransport(
   Uri url,
   Map<String, String> headers,
   String bodyJson,
-) => http.post(url, headers: headers, body: bodyJson);
+) => http
+    .post(url, headers: headers, body: bodyJson)
+    .timeout(
+      const Duration(minutes: 5),
+      onTimeout: () => throw HarnessTransportException(
+        'request timed out after 5 minutes — one attempt, no retry',
+      ),
+    );
 
 /// A transport failure — network error, HTTP non-200, non-JSON body. Fails
 /// the photo; never retried.
@@ -88,6 +99,7 @@ final class CandidateSpec {
     this.envKey,
     required this.defaultModel,
     this.defaultBaseUrl,
+    this.openRouterModel,
   });
 
   final String id;
@@ -95,10 +107,21 @@ final class CandidateSpec {
   final String? envKey;
   final String defaultModel;
   final String? defaultBaseUrl;
+
+  /// The model slug used when this cloud candidate rides the OpenRouter
+  /// route — null for the local pair, which never routes through OpenRouter.
+  final String? openRouterModel;
 }
 
 /// Lemonade's default OpenAI-compatible endpoint (overridable by flag).
 const lemonadeDefaultBaseUrl = 'http://localhost:13305/api/v1';
+
+/// The OpenRouter route's endpoint (overridable by flag).
+const openRouterDefaultBaseUrl = 'https://openrouter.ai/api/v1';
+
+/// The one environment key every cloud candidate accepts on the OpenRouter
+/// route — a single key serves the whole trio.
+const openRouterEnvKey = 'EVAL_OPENROUTER_API_KEY';
 
 const candidateSpecs = <CandidateSpec>[
   CandidateSpec(
@@ -118,18 +141,21 @@ const candidateSpecs = <CandidateSpec>[
     local: false,
     envKey: 'EVAL_GEMINI_API_KEY',
     defaultModel: 'gemini-2.5-flash',
+    openRouterModel: 'google/gemini-3.5-flash-lite',
   ),
   CandidateSpec(
     id: 'openai',
     local: false,
     envKey: 'EVAL_OPENAI_API_KEY',
     defaultModel: 'gpt-5-mini',
+    openRouterModel: 'openai/gpt-5.6-luna',
   ),
   CandidateSpec(
     id: 'anthropic',
     local: false,
     envKey: 'EVAL_ANTHROPIC_API_KEY',
     defaultModel: 'claude-sonnet-4-5',
+    openRouterModel: 'anthropic/claude-haiku-4.5',
   ),
 ];
 
@@ -161,17 +187,46 @@ abstract interface class Candidate {
 
 /// Builds a candidate from a spec plus optional flag overrides. Cloud
 /// candidates require their environment key here — the caller resolves it
-/// and refuses (exit 2) when missing.
+/// and refuses (exit 2) when missing. `via` picks the serving route:
+/// 'native' (default, per-provider adapters) or 'openrouter' (one shared
+/// key, OpenAI-compatible chat completions under each spec's slug).
 Candidate buildCandidate({
   required String id,
   String? baseUrl,
   String? model,
   String? apiKey,
+  String via = 'native',
   Transport? transport,
 }) {
   final spec = specFor(id);
   final theModel = model ?? spec.defaultModel;
   final theTransport = transport ?? defaultTransport;
+  if (via == 'openrouter') {
+    if (spec.local) {
+      throw ArgumentError(
+        'the local pair serves from Lemonade — it does not route through OpenRouter',
+      );
+    }
+    if (apiKey == null || apiKey.isEmpty) {
+      throw StateError(
+        '$openRouterEnvKey is not set — the OpenRouter route takes its key from the environment only',
+      );
+    }
+    final slug = model ?? spec.openRouterModel;
+    if (slug == null) {
+      throw StateError('candidate "$id" has no OpenRouter slug — harness bug');
+    }
+    return ChatCompletionsCandidate.openRouter(
+      id: id,
+      baseUrl: baseUrl ?? openRouterDefaultBaseUrl,
+      model: slug,
+      apiKey: apiKey,
+      transport: theTransport,
+    );
+  }
+  if (via != 'native') {
+    throw ArgumentError('unknown route "$via" — allowed: native, openrouter');
+  }
   if (spec.local) {
     return ChatCompletionsCandidate.openAiCompatible(
       id: id,
@@ -220,7 +275,10 @@ Future<http.Response> postJson(
     response = await transport(url, headers, bodyJson);
   } on HarnessTransportException {
     rethrow;
-  } on Exception catch (e) {
+  } on Object catch (e) {
+    // Errors (not only Exceptions) wrap too: a photo fails once with a
+    // recorded reason, and nothing crashes the corpus — the reason string
+    // keeps the original class visible for diagnosis.
     throw HarnessTransportException('network error: $e');
   }
   if (response.statusCode != 200) {
@@ -264,6 +322,17 @@ class ChatCompletionsCandidate implements Candidate {
   }) : id = 'openai',
        baseUrl = 'https://api.openai.com/v1',
        strict = true;
+
+  /// The OpenRouter route: same OpenAI-compatible wire as the cloud path,
+  /// but at OpenRouter's endpoint, under the candidate's own id and its
+  /// OpenRouter model slug, with one shared bearer key.
+  ChatCompletionsCandidate.openRouter({
+    required this.id,
+    required this.model,
+    required this.apiKey,
+    this.baseUrl = openRouterDefaultBaseUrl,
+    required this.transport,
+  }) : strict = true;
 
   final String baseUrl;
   final String? apiKey;
@@ -316,7 +385,10 @@ class ChatCompletionsCandidate implements Candidate {
       'Content-Type': 'application/json',
       if (apiKey != null) 'Authorization': 'Bearer $apiKey',
     };
-    final url = Uri.parse('$baseUrl/chat/completions');
+    final url = Uri.tryParse('$baseUrl/chat/completions');
+    if (url == null) {
+      throw HarnessTransportException('invalid base url: $baseUrl');
+    }
     final response = await postJson(transport, url, headers, body);
     return CandidateReply(
       output: extractOpenAiContent(decodeJsonBody(response)),
@@ -394,9 +466,12 @@ class GeminiCandidate implements Candidate {
         'responseSchema': geminiSchemaFrom(schemaJson),
       },
     };
-    final url = Uri.parse(
+    final url = Uri.tryParse(
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
     );
+    if (url == null) {
+      throw HarnessTransportException('invalid model id for URL: $model');
+    }
     final response = await postJson(transport, url, {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,

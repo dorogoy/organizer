@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-3",
+  "photoFile": "estancia-3.jpg",
+  "spaceType": "Salón",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:28:04.962362",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge todas las revistas y papeles sueltos sobre la mesa de centro",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla o apila la ropa que está dispersa en el sofá",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Guarda los zapatos sueltos en el área designada (por ejemplo, cerca de la silla)",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge cualquier objeto pequeño que esté esparcido en el suelo alrededor del sofá",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-1",
+  "photoFile": "estancia-1.jpg",
+  "spaceType": "Dormitorio",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:27:39.601450",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge las zapatillas sucias del suelo junto a la cama",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla y apila la ropa que está sobre el colchón de la cama",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Recoge las mantas y prendas que están sobre el sillón",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda las zapatillas limpias en su sitio y archiva la ropa doblada",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

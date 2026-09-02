@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-2",
+  "photoFile": "estancia-2.jpg",
+  "spaceType": "Cocina",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:42:56.040575",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa del suelo y déjala en un montón ordenado junto a la zona de lavandería.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Reúne los papeles de la encimera y apílalos juntos en un solo montón.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Retira la bolsa de patatas y los restos de comida de la isla y tíralos o guárdalos donde corresponda.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Saca los platos, tazas y cubiertos del fregadero y colócalos en sus armarios o en el escurridor.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Limpia la isla y las encimeras despejadas, incluida la zona de la tabla de cortar.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

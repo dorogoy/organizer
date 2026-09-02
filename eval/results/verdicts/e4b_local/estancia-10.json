@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-10",
+  "photoFile": "estancia-10.jpg",
+  "spaceType": "Vestidor",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:57:08.107119",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa arrugada en el cajón inferior central y dobla las prendas grandes que están encima de él.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Organiza las pilas de toallas/ropa doblada en los estantes superiores, asegurando que no sobrecarguen los huecos.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Despeja la superficie superior del mueble inferior, retirando elementos fuera de lugar y dejando solo espacio para el plan.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Coloca las prendas colgadas en los bastidores, alineándolas según su tipo (camisas, pantalones) en los estantes visibles.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

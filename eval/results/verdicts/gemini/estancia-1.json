@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-1",
+  "photoFile": "estancia-1.jpg",
+  "spaceType": "Dormitorio",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:10.187415",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los libros del suelo y colócalos de manera ordenada.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Guarda las zapatillas blancas que están en el suelo junto a la cama.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Retira la ropa oscura que está sobre la cama.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Ordena la ropa y la manta que están sobre la silla de madera.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

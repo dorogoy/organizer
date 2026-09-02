@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-7",
+  "photoFile": "estancia-7.jpg",
+  "spaceType": "Habitación infantil",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:34.577854",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los bloques de construcción de colores dispersos en la alfombra y guárdalos en las cestas de almacenamiento bajo la ventana",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge el libro abierto, la mochila azul y la ropa blanca del suelo y colócalos en el banco de almacenamiento",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge el peluche marrón del centro de la alfombra y colócalo en el rincón o en el estante de la derecha",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Limpia la superficie de la alfombra pasando un paño y ajusta las sillas y el banco para que todo quede ordenado",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

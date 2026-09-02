@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:crypto/crypto.dart' as crypto;
 
 import 'package:eval/candidates.dart';
 import 'package:eval/verdict.dart';
@@ -171,7 +172,7 @@ List<PhotoVerdict> _loadVerdicts(Directory dir) {
       stderr.writeln('warning: skipping unparseable verdict file ${file.path}');
     }
   }
-  verdicts.sort((a, b) => a.photoId.compareTo(b.photoId));
+  verdicts.sort((a, b) => comparePhotoIds(a.photoId, b.photoId));
   return verdicts;
 }
 
@@ -218,7 +219,7 @@ Future<void> _probe(List<String> args) async {
   final CandidateReply reply;
   try {
     reply = await candidate.requestSlicePlan(
-      prompt: paths.prompt.readAsStringSync(),
+      prompt: promptTextOf(paths.prompt.readAsStringSync()),
       schemaJson: paths.schema.readAsStringSync(),
       imageBytes: photo.readAsBytesSync(),
       imageMimeType: _mimeTypeOf(entry.filename)!,
@@ -237,8 +238,24 @@ Future<void> _probe(List<String> args) async {
     exit(0);
   }
   _refuse([
-    'probe failed — the response did not satisfy the schema on the first attempt: ${evaluation.verdict.parse.reason}',
+    'probe failed — the response did not pass every machine limb on the first attempt: '
+        '${_failedLimbsOf(evaluation.verdict)}',
   ]);
+}
+
+/// Names every failed machine limb with its reason — a probe failure is not
+/// always the parse limb, and `null` is not a reason.
+String _failedLimbsOf(MachineVerdict verdict) {
+  final failed = <String>[
+    if (!verdict.parse.ok)
+      'parse — ${verdict.parse.reason ?? 'failed'}'
+    else ...[
+      if (!verdict.durations.ok)
+        'durations — ${verdict.durations.reason ?? 'failed'}',
+      if (!verdict.steps.ok) 'steps — ${verdict.steps.reason ?? 'failed'}',
+    ],
+  ];
+  return failed.join('; ');
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +276,14 @@ Future<void> _run(List<String> args) async {
           'Lemonade base URL (local candidates only; default $lemonadeDefaultBaseUrl)',
     )
     ..addOption('model', help: "override the candidate's default model id")
+    ..addOption(
+      'via',
+      allowed: const ['native', 'openrouter'],
+      defaultsTo: 'native',
+      help:
+          'serving route for cloud candidates: native per-provider adapters, or '
+          "one shared $openRouterEnvKey at OpenRouter under each candidate's slug",
+    )
     ..addFlag(
       'force',
       negatable: false,
@@ -267,9 +292,15 @@ Future<void> _run(List<String> args) async {
   final parsed = _parseOrRefuse(parser, args);
   final candidateId = parsed['candidate'] as String;
   final spec = specFor(candidateId);
+  final via = parsed['via'] as String;
   final baseUrl = parsed['base-url'] as String?;
-  if (baseUrl != null && !spec.local) {
+  if (baseUrl != null && !spec.local && via != 'openrouter') {
     _refuse(['refusing — --base-url applies to the local candidates only']);
+  }
+  if (spec.local && via != 'native') {
+    _refuse([
+      'refusing — the local pair serves from Lemonade and does not route through OpenRouter',
+    ]);
   }
 
   final paths = Paths.resolve();
@@ -278,18 +309,24 @@ Future<void> _run(List<String> args) async {
 
   final existing = _loadTallies(paths);
   if (parsed['force'] != true) {
-    final refusals = cascadeGuardFailures(candidateId, existing);
+    final refusals = [...cascadeGuardFailures(candidateId, existing)];
+    if (existing.containsKey(candidateId)) {
+      refusals.add(
+        '$candidateId is already scored — a re-run is whole-candidate, superseding the earlier run and noted in the report (Ask-First; use --force to record an explicit override)',
+      );
+    }
     if (refusals.isNotEmpty) {
       _refuse(['refusing to score — ${refusals.join('; ')}']);
     }
   }
 
+  final envKey = via == 'openrouter' ? openRouterEnvKey : spec.envKey;
   String? apiKey;
-  if (spec.envKey != null) {
-    apiKey = Platform.environment[spec.envKey!];
+  if (envKey != null) {
+    apiKey = Platform.environment[envKey];
     if (apiKey == null || apiKey.isEmpty) {
       _refuse([
-        'refusing to score — ${spec.envKey} is not set (keys come from the environment only)',
+        'refusing to score — $envKey is not set (keys come from the environment only)',
       ]);
     }
   }
@@ -299,6 +336,7 @@ Future<void> _run(List<String> args) async {
     baseUrl: baseUrl,
     model: parsed['model'] as String?,
     apiKey: apiKey,
+    via: via,
   );
   final rawDir = paths.rawDirFor(candidateId);
   final verdictDir = paths.verdictDirFor(candidateId);
@@ -306,7 +344,8 @@ Future<void> _run(List<String> args) async {
   await verdictDir.create(recursive: true);
 
   stdout.writeln(
-    'scoring $candidateId (model ${candidate.model}) over ${entries.length} photos — '
+    'scoring $candidateId (model ${candidate.model}'
+    '${via == 'openrouter' ? ', via OpenRouter' : ''}) over ${entries.length} photos — '
     'bar confirmed ${bar.confirmedOn}',
   );
 
@@ -324,7 +363,14 @@ Future<void> _run(List<String> args) async {
     stdout.writeln('  ${entry.id}: ${_describe(verdict)}');
   }
 
-  await _appendRunMeta(paths, candidateId, candidate.model);
+  await _appendRunMeta(
+    paths,
+    candidateId,
+    candidate.model,
+    via: via,
+    promptSha256: _sha256Of(paths.prompt.readAsStringSync()),
+    schemaSha256: _sha256Of(paths.schema.readAsStringSync()),
+  );
 
   final t = tally(candidateId, verdicts);
   stdout.writeln(
@@ -356,7 +402,7 @@ Future<PhotoVerdict> _scoreOne({
   final timestamp = DateTime.now().toIso8601String();
   try {
     final reply = await candidate.requestSlicePlan(
-      prompt: paths.prompt.readAsStringSync(),
+      prompt: promptTextOf(paths.prompt.readAsStringSync()),
       schemaJson: paths.schema.readAsStringSync(),
       imageBytes: photo.readAsBytesSync(),
       imageMimeType: _mimeTypeOf(entry.filename)!,
@@ -431,11 +477,66 @@ String _describe(PhotoVerdict verdict) {
   return 'machine limbs ok (${verdict.steps!.length} steps) — human limbs pending';
 }
 
+/// Builder-supplied per-candidate totals from the committed
+/// `results/costs.json` — the raw responses those derive from are
+/// gitignored, so this file is what preserves the figures in-repo.
+Map<String, double> _loadBuilderCosts(Paths paths) {
+  final file = File('${paths.results.path}/costs.json');
+  if (!file.existsSync()) return const {};
+  try {
+    final decoded = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+    final candidates = decoded['candidates'];
+    if (candidates is! Map) return const {};
+    return {
+      for (final entry in candidates.entries)
+        if (entry.value is Map && (entry.value as Map)['usd'] is num)
+          entry.key as String: ((entry.value as Map)['usd'] as num).toDouble(),
+    };
+  } on FormatException {
+    return const {};
+  }
+}
+
+/// Sums `usage.cost_details.upstream_inference_cost` over one candidate's
+/// recorded raw responses — the evidence behind the dashboard figure. Null
+/// when no raw response carries a cost.
+double? _evidenceCostOf(Directory rawDir) {
+  if (!rawDir.existsSync()) return null;
+  var total = 0.0;
+  var any = false;
+  for (final file in rawDir.listSync().whereType<File>()) {
+    if (!file.path.endsWith('.json')) continue;
+    try {
+      final raw = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      final bodyText = raw['responseBody'];
+      if (bodyText is! String) {
+        // A transport-failed photo records no response body — it carries no
+        // cost, and that is not an error.
+        continue;
+      }
+      final body = jsonDecode(bodyText) as Map<String, Object?>;
+      final cost =
+          ((body['usage'] as Map<String, Object?>?)?['cost_details']
+              as Map<String, Object?>?)?['upstream_inference_cost'];
+      if (cost is num) {
+        total += cost.toDouble();
+        any = true;
+      }
+    } on FormatException {
+      // Unparseable raw evidence contributes nothing to the sum.
+    }
+  }
+  return any ? total : null;
+}
+
 Future<void> _appendRunMeta(
   Paths paths,
   String candidateId,
-  String model,
-) async {
+  String model, {
+  String via = 'native',
+  String? promptSha256,
+  String? schemaSha256,
+}) async {
   await paths.runs.create(recursive: true);
   final file = paths.runMetaFor(candidateId);
   var runs = <Object?>[];
@@ -450,10 +551,19 @@ Future<void> _appendRunMeta(
   }
   runs = [
     ...runs,
-    {'timestamp': DateTime.now().toIso8601String(), 'model': model},
+    {
+      'timestamp': DateTime.now().toIso8601String(),
+      'model': model,
+      if (via != 'native') 'via': via,
+      'promptSha256': ?promptSha256,
+      'schemaSha256': ?schemaSha256,
+    },
   ];
   await file.writeAsString(_encoder.convert({'runs': runs}));
 }
+
+String _sha256Of(String content) =>
+    crypto.sha256.convert(utf8.encode(content)).toString();
 
 // ---------------------------------------------------------------------------
 // judge
@@ -647,6 +757,15 @@ Future<void> _report(List<String> args) async {
   final oq1Draft = draftOq1Answer(proposal, tallies);
   final generatedAt = DateTime.now().toIso8601String();
 
+  // Per-candidate cost: builder-supplied totals from the committed
+  // results/costs.json (the raw responses are gitignored), plus the sum of
+  // usage.cost_details.upstream_inference_cost over the recorded raw
+  // responses — both shown so a discrepancy stays visible.
+  final builderCosts = _loadBuilderCosts(paths);
+  final evidenceCosts = {
+    for (final id in orderedIds) id: _evidenceCostOf(paths.rawDirFor(id)),
+  };
+
   final runNotes = <String>[];
   final runsById = <String, List<Object?>>{};
   for (final id in orderedIds) {
@@ -661,8 +780,14 @@ Future<void> _report(List<String> args) async {
           .map((r) => (r as Map)['model'] as String?)
           .toSet()
           .join(', ');
+      final routes = runs
+          .map((r) => (r as Map)['via'])
+          .whereType<String>()
+          .toSet()
+          .join(', ');
       runNotes.add(
         '- $id: ${runs.length} run(s), model(s) $models'
+        '${routes.isEmpty ? '' : ', via $routes'}'
         '${runs.length > 1 ? ' — the latest run supersedes the earlier one(s)' : ''}',
       );
     } on FormatException {
@@ -674,17 +799,68 @@ Future<void> _report(List<String> args) async {
     for (final id in orderedIds)
       for (final v in verdictsById[id]!) v.spaceType,
   };
+  if (!paths.manifest.existsSync()) {
+    _refuse(['refusing — eval/corpus/manifest.json not found']);
+  }
   final manifestOk = validateManifest(
     paths.manifest.readAsStringSync(),
     photoExists: (f) => File('${paths.photos.path}/$f').existsSync(),
   );
+  if (!manifestOk.ok) {
+    _refuse([
+      'refusing — corpus manifest no longer valid: ${manifestOk.failures.join('; ')}',
+    ]);
+  }
+  for (final input in [paths.prompt, paths.schema]) {
+    if (!input.existsSync()) {
+      _refuse(['refusing — ${input.path} not found']);
+    }
+  }
+
+  // Shared-input digests recorded per run since the digest amendment: all
+  // candidates must have run on identical bytes. Pre-amendment runs record
+  // none — noted, not refused (the recorded 2026-09-02 runs predate it).
+  final digestNotes = <String>[];
+  final promptDigests = <String>{};
+  final schemaDigests = <String>{};
+  var digestsRecorded = false;
+  for (final id in orderedIds) {
+    for (final run in runsById[id] ?? const <Object?>[]) {
+      final runMap = run as Map<String, Object?>;
+      final p = runMap['promptSha256'];
+      final s = runMap['schemaSha256'];
+      if (p is String && s is String) {
+        digestsRecorded = true;
+        promptDigests.add(p);
+        schemaDigests.add(s);
+      }
+    }
+  }
+  if (digestsRecorded) {
+    if (promptDigests.length > 1 || schemaDigests.length > 1) {
+      _refuse([
+        'refusing — shared inputs differ across recorded runs '
+            '(prompt digests: ${promptDigests.join(', ')}; '
+            'schema digests: ${schemaDigests.join(', ')}) — the byte-identical claim does not hold',
+      ]);
+    }
+    digestNotes.add(
+      '- shared-input digests: prompt ${promptDigests.first}, schema '
+      '${schemaDigests.first} — identical across every recorded run that carries one',
+    );
+  } else {
+    digestNotes.add(
+      '- shared-input digests: not recorded (the runs predate the digest '
+      'amendment); byte-identity rests on the run procedure',
+    );
+  }
 
   final buffer = StringBuffer();
   buffer
     ..writeln('# Model-evaluation report — story 4.1')
     ..writeln()
     ..writeln(
-      'Generated $generatedAt by `make eval-report`. Machine-written: the builder reviews the ',
+      'Generated $generatedAt by `make eval-report`. Machine-written: the builder reviews the  ',
     )
     ..writeln(
       'selection proposal and the OQ-1 draft below before the PRD/spine edit lands.',
@@ -692,7 +868,9 @@ Future<void> _report(List<String> args) async {
     ..writeln()
     ..writeln('## Shared inputs (byte-identical for every candidate)')
     ..writeln()
-    ..writeln('- prompt: `eval/prompt.md` — verbatim at the end of this report')
+    ..writeln(
+      '- prompt: `eval/prompt.md` — sent as the text below its `---` marker, verbatim at the end of this report',
+    )
     ..writeln(
       '- schema: `eval/schema.json` — verbatim at the end of this report',
     )
@@ -701,6 +879,8 @@ Future<void> _report(List<String> args) async {
       '- corpus: `eval/corpus/manifest.json` — ${manifestOk.entries.length} photos, '
       '${spaceTypes.length} space types (${spaceTypes.join(', ')})',
     )
+    ..writeAll(digestNotes, '\n')
+    ..writeln()
     ..writeln();
   if (runNotes.isNotEmpty) {
     buffer
@@ -728,10 +908,42 @@ Future<void> _report(List<String> args) async {
     );
   }
   buffer.writeln();
+  buffer
+    ..writeln('## Cost (whole 10-photo run per candidate)')
+    ..writeln()
+    ..writeln(
+      'Builder-supplied totals from the committed `results/costs.json` '
+      '(OpenRouter dashboard); the evidence column sums '
+      '`usage.cost_details.upstream_inference_cost` over the recorded raw '
+      'responses (gitignored, reproducible from the provider). Small '
+      'third-decimal differences are dashboard rounding.',
+    )
+    ..writeln()
+    ..writeln(
+      '| candidate | builder-supplied USD | evidence sum USD | per photo USD (evidence) |',
+    )
+    ..writeln('|---|---|---|---|');
   for (final id in orderedIds) {
+    final evidence = evidenceCosts[id];
+    final photos = verdictsById[id]?.length ?? corpusSize;
+    buffer.writeln(
+      '| $id | ${builderCosts[id]?.toStringAsFixed(5) ?? 'n/a'} | '
+      '${evidence?.toStringAsFixed(5) ?? 'n/a'} | '
+      '${evidence == null ? 'n/a' : (evidence / photos).toStringAsFixed(6)} |',
+    );
+  }
+  buffer.writeln();
+  for (final id in orderedIds) {
+    final fenceCount = verdictsById[id]!
+        .where((v) => v.machine?.fenceStripped ?? false)
+        .length;
     buffer
       ..writeln('### $id')
       ..writeln()
+      ..writeln(
+        '- fence-stripped responses (2026-09-02 bar amendment): '
+        '$fenceCount of ${verdictsById[id]!.length}',
+      )
       ..writeln(
         '| photo | transport | parse | durations | steps | real actions | workable order | passed |',
       )
@@ -814,6 +1026,11 @@ Future<void> _report(List<String> args) async {
           id: {
             'model': verdictsById[id]!.first.model,
             ...tallies[id]!.toJsonEntries(),
+            'fenceStripped': verdictsById[id]!
+                .where((v) => v.machine?.fenceStripped ?? false)
+                .length,
+            'costBuilderUsd': builderCosts[id],
+            'costEvidenceUsd': evidenceCosts[id],
             'photos': [
               for (final v in verdictsById[id]!)
                 {

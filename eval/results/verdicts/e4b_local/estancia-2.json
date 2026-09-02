@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-2",
+  "photoFile": "estancia-2.jpg",
+  "spaceType": "Cocina",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:54:41.204973",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Guarda los alimentos y utensilios en la encimera de la cocina.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Recoge el objeto enrollado del mostrador lateral.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia las superficies visibles de la encimera de la cocina con un paño húmedo.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Guarda los elementos sobre el fregadero en recipientes adecuados y apílalos para usar después.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

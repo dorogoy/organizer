@@ -61,19 +61,29 @@ final class MachineVerdict {
     required this.parse,
     required this.durations,
     required this.steps,
+    this.fenceStripped = false,
   });
 
-  factory MachineVerdict.notEvaluated(String why) => MachineVerdict(
+  factory MachineVerdict.notEvaluated(
+    String why, {
+    bool fenceStripped = false,
+  }) => MachineVerdict(
     parse: LimbResult.failed(why),
     durations: const LimbResult.failed(
       'not evaluated — an earlier limb failed',
     ),
     steps: const LimbResult.failed('not evaluated — an earlier limb failed'),
+    fenceStripped: fenceStripped,
   );
 
   final LimbResult parse;
   final LimbResult durations;
   final LimbResult steps;
+
+  /// True when the raw answer carried a single markdown fence that the
+  /// parse limb stripped under the 2026-09-02 bar amendment — recorded so
+  /// the report shows how often a candidate needed it, never buried.
+  final bool fenceStripped;
 
   bool get allPassed => parse.ok && durations.ok && steps.ok;
 
@@ -81,12 +91,14 @@ final class MachineVerdict {
     'parse': parse.toJson(),
     'durations': durations.toJson(),
     'steps': steps.toJson(),
+    'fenceStripped': fenceStripped,
   };
 
   factory MachineVerdict.fromJson(Map<String, Object?> json) => MachineVerdict(
     parse: LimbResult.fromJson(json['parse']! as Map<String, Object?>),
     durations: LimbResult.fromJson(json['durations']! as Map<String, Object?>),
     steps: LimbResult.fromJson(json['steps']! as Map<String, Object?>),
+    fenceStripped: json['fenceStripped'] as bool? ?? false,
   );
 }
 
@@ -150,19 +162,52 @@ List<String> _stepFailures(Object? step, int index) {
   return failures;
 }
 
+/// Matches a whole response that is exactly one markdown fence — optional
+/// leading whitespace, an opening ` ``` ` or ` ```json `, the payload, and a
+/// closing ` ``` ` before optional trailing whitespace. Anything else (prose
+/// around the JSON, two fences, an unclosed fence) does not match.
+final _singleFencePattern = RegExp(
+  r'^\s*```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$',
+);
+
+/// The 2026-09-02 bar amendment tolerates exactly one markdown fence around
+/// the JSON — stripped once, recorded per photo. Returns the payload, or
+/// null when the response is not exactly one fence.
+String? stripSingleFence(String text) {
+  final match = _singleFencePattern.firstMatch(text);
+  return match?.group(1);
+}
+
 /// The three machine limbs over one candidate reply: first-attempt parse
 /// against the schema, every duration within 3–5, at least 4 steps.
 LimbEvaluation evaluateModelOutput(ModelOutput output) {
   Object? decoded;
+  var fenceStripped = false;
   switch (output) {
     case TextOutput(:final text):
       try {
         decoded = jsonDecode(text);
       } on FormatException catch (e) {
-        return LimbEvaluation(
-          MachineVerdict.notEvaluated('first-attempt JSON parse failed: $e'),
-          null,
-        );
+        final payload = stripSingleFence(text);
+        if (payload == null) {
+          return LimbEvaluation(
+            MachineVerdict.notEvaluated('first-attempt JSON parse failed: $e'),
+            null,
+          );
+        }
+        try {
+          decoded = jsonDecode(payload);
+          fenceStripped = true;
+        } on FormatException catch (inner) {
+          // The fence was stripped but its payload is not JSON — record the
+          // payload's error, the text the decode actually ran on.
+          return LimbEvaluation(
+            MachineVerdict.notEvaluated(
+              'first-attempt JSON parse failed: $inner',
+            ),
+            null,
+          );
+        }
       }
     case DecodedOutput(:final value):
       decoded = value;
@@ -174,6 +219,7 @@ LimbEvaluation evaluateModelOutput(ModelOutput output) {
     return LimbEvaluation(
       MachineVerdict.notEvaluated(
         'schema check failed: ${schemaFailures.join('; ')}',
+        fenceStripped: fenceStripped,
       ),
       null,
     );
@@ -204,6 +250,7 @@ LimbEvaluation evaluateModelOutput(ModelOutput output) {
       parse: const LimbResult.passed(),
       durations: durations,
       steps: stepLimb,
+      fenceStripped: fenceStripped,
     ),
     steps,
   );
@@ -448,13 +495,13 @@ CascadeProposal cascadeProposal(Map<String, CandidateTally> results) {
     return CascadeProposal(
       'cloud-best',
       best,
-      '$best is the best cloud candidate at $bestScore/$corpusSize ($_scoresOf(results); ties break in cascade order gemini → openai → anthropic) — proposed; the Local path stays a debug-only stub (FR-28).',
+      '$best is the best cloud candidate at $bestScore/$corpusSize (${_scoresOf(results)}; ties break in cascade order gemini → openai → anthropic) — proposed; the Local path stays a debug-only stub (FR-28).',
     );
   }
   return CascadeProposal(
     'none-passed',
     null,
-    'no candidate reached the $barThreshold/$corpusSize bar ($_scoresOf(results)) — nothing is selected; revise prompt/schema before any re-run.',
+    'no candidate reached the $barThreshold/$corpusSize bar (${_scoresOf(results)}) — nothing is selected; revise prompt/schema before any re-run.',
   );
 }
 
@@ -622,6 +669,7 @@ ManifestCheck validateManifest(
   }
   final entries = <CorpusEntry>[];
   final seenIds = <String>{};
+  final seenFiles = <String>{};
   for (var i = 0; i < photos.length; i++) {
     final entry = photos[i];
     if (entry is! Map) {
@@ -638,12 +686,20 @@ ManifestCheck validateManifest(
     final id = entry['id'];
     if (id is! String || id.trim().isEmpty) {
       fail("'id' is missing or not a non-empty string");
+    } else if (id.contains('/') || id.contains(r'\') || id.contains('..')) {
+      fail("'id' must be a bare name (no path separators or '..')");
     } else if (!seenIds.add(id)) {
       fail("duplicate id '$id'");
     }
     final filename = entry['filename'];
     if (filename is! String || filename.trim().isEmpty) {
       fail("'filename' is missing or not a non-empty string");
+    } else if (filename.contains('/') ||
+        filename.contains(r'\') ||
+        filename.contains('..')) {
+      fail("'filename' must be a bare name (no directories)");
+    } else if (!seenFiles.add(filename)) {
+      fail("duplicate filename '$filename' — two ids sharing one photo");
     } else {
       final lower = filename.toLowerCase();
       final extension = allowedPhotoExtensions.where(lower.endsWith).toList();
@@ -697,6 +753,33 @@ final _confirmationPattern = RegExp(
   r'^Confirmed:\s*(\d{4})-(\d{2})-(\d{2})',
   multiLine: true,
 );
+
+/// `eval/prompt.md` declares that everything below its `---` marker line is
+/// the prompt text — the harness sends exactly that, never the file's own
+/// documentation header. A file with no marker is sent whole (there is
+/// nothing to strip).
+String promptTextOf(String promptFileContents) {
+  final lines = promptFileContents.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim() == '---') {
+      return lines.skip(i + 1).join('\n').trimLeft();
+    }
+  }
+  return promptFileContents;
+}
+
+/// Natural id order — digit runs compare numerically, so `estancia-2`
+/// precedes `estancia-10` instead of following it lexicographically.
+int comparePhotoIds(String a, String b) {
+  final pa = RegExp(r'\d+').allMatches(a).map((m) => m[0]!).toList();
+  final pb = RegExp(r'\d+').allMatches(b).map((m) => m[0]!).toList();
+  for (var i = 0; i < pa.length && i < pb.length; i++) {
+    final na = int.parse(pa[i]);
+    final nb = int.parse(pb[i]);
+    if (na != nb) return na.compareTo(nb);
+  }
+  return a.compareTo(b);
+}
 
 /// The bar is confirmed when PASS-BAR.md carries a dated `Confirmed:` line —
 /// the placeholder `YYYY-MM-DD` does not match, so an unconfirmed bar refuses

@@ -1,0 +1,53 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-3",
+  "photoFile": "estancia-3.jpg",
+  "spaceType": "Salón",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:14.524826",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Lleva los dos vasos de cristal de la mesa de centro a la cocina",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Coloca las revistas abiertas de la mesa de centro en orden sobre la balda de la estantería",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda el mando a distancia del mueble de la televisión en su sitio",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge las zapatillas de estar por casa del suelo y colócalas juntas junto al sofá",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Dobla y estira la manta grande que está sobre el sofá para que quede ordenada",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Dobla la manta verde colocada sobre el sillón y déjala recogida en el respaldo",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

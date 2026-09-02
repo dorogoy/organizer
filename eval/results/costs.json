@@ -1,0 +1,10 @@
+{
+  "source": "OpenRouter activity dashboard, builder-supplied",
+  "date": "2026-09-02",
+  "note": "Builder-supplied totals for the 10-photo scored runs (story 4.1). The report also sums usage.cost_details.upstream_inference_cost from the recorded raw responses — gitignored there, preserved here — and shows both; small third-decimal differences are dashboard rounding.",
+  "candidates": {
+    "gemini": { "usd": 0.00757 },
+    "openai": { "usd": 0.00931 },
+    "anthropic": { "usd": 0.0278 }
+  }
+}

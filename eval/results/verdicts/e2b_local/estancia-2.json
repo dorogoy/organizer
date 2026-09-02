@@ -1,0 +1,45 @@
+{
+  "candidate": "e2b_local",
+  "photoId": "estancia-2",
+  "photoFile": "estancia-2.jpg",
+  "spaceType": "Cocina",
+  "model": "gemma4-it-e2b-FLM",
+  "timestamp": "2026-09-02T15:27:51.090902",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa sucia que está en el suelo y ponla en una cesta o cesto de ropa.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia la encimera blanca del fregadero, quitando cualquier residuo o utensilio que no esté destinado a estar ahí.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Organiza los paños o textiles sueltos en un lugar designado (como el cesto de ropa) para despejar la superficie de trabajo.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Revisa si hay algún objeto desordenado cerca del área de trabajo y colócalo en su lugar correspondiente.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": false,
+    "autoRecorded": false
+  }
+}

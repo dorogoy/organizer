@@ -1,0 +1,49 @@
+{
+  "candidate": "openai",
+  "photoId": "estancia-3",
+  "photoFile": "estancia-3.jpg",
+  "spaceType": "Salón",
+  "model": "openai/gpt-5.6-luna",
+  "timestamp": "2026-09-02T18:42:59.843360",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Dobla la manta y déjala ordenada sobre el sofá.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Dobla la ropa que está sobre el sillón y colócala junta en el propio sillón.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Junta las zapatillas del suelo y déjalas emparejadas junto al sillón.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Apila las revistas abiertas y aparta los vasos y el mando para despejar la mesa de centro.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Limpia la superficie despejada de la mesa de centro.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

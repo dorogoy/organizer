@@ -1,0 +1,45 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-2",
+  "photoFile": "estancia-2.jpg",
+  "spaceType": "Cocina",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:14.461623",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la bolsa de patatas y los vasos del mostrador de la isla",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Retira los papeles y documentos dispersos sobre la encimera derecha",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge la ropa de lino del suelo junto a los armarios inferiores",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Organiza los platos y vasos en el fregadero, coloca la tabla de cortar en su lugar",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

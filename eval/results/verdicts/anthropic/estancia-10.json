@@ -1,0 +1,49 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-10",
+  "photoFile": "estancia-10.jpg",
+  "spaceType": "Vestidor",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:47.695228",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge los zapatos del suelo y colócalos en los estantes inferiores de los armarios",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Guarda la ropa sucia del cajón abierto y ciérralo completamente",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Dobla la bufanda gris sobre la cama y colócala en los estantes de accesorios",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge el bolso y la correa del piso de la cama y coloca el bolso en el rincón",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Alinea las prendas colgadas que están fuera de lugar y asegúrate de que todos los perchos estén orientados uniformemente",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

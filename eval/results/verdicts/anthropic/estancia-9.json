@@ -1,0 +1,49 @@
+{
+  "candidate": "anthropic",
+  "photoId": "estancia-9",
+  "photoFile": "estancia-9.jpg",
+  "spaceType": "Lavadero",
+  "model": "anthropic/claude-haiku-4.5",
+  "timestamp": "2026-09-02T18:44:43.147895",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa esparcida en el suelo frente a las lavadoras y colócala en la canasta encima de la lavadora",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Retira los botellas y accesorios de limpieza del mostrador junto al lavamanos y guárdalos en un armario o estante",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza las toallas de los estantes, asegurándote de que estén alineadas y bien dobladas en sus lugares",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Limpia el mostrador del lavamanos con un paño húmedo para remover polvo y detritos",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Barre el piso de toda la zona para eliminar pelusa y polvo",
+      "duration_minutes": 5
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

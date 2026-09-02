@@ -1,0 +1,45 @@
+{
+  "candidate": "e4b_local",
+  "photoId": "estancia-8",
+  "photoFile": "estancia-8.jpg",
+  "spaceType": "Recibidor",
+  "model": "gemma4-it-e4b-FLM",
+  "timestamp": "2026-09-02T17:56:27.567555",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": true
+  },
+  "steps": [
+    {
+      "text": "Recoge la ropa colgada en el perchero y guárdala en el armario o cuélgala donde corresponda.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Reúne todos los objetos pequeños dispersos sobre la consola de madera (como bolsos, llaves, etc.) y colócalos en el cestón de mimbre inferior.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Despeja las superficies de la consola eliminando cualquier objeto que no pertenezca a ese lugar.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Organiza los zapatos en el estante inferior, asegurándote de que cada par esté colocado ordenadamente.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

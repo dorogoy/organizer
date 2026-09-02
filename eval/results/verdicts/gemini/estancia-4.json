@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-4",
+  "photoFile": "estancia-4.jpg",
+  "spaceType": "Baño",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:17.081203",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge las toallas del suelo y llévalas al cesto de la ropa",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Retira la toalla de encima del inodoro",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Ordena los botes, el cepillo y los accesorios sobre el lavabo",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Extiende y coloca correctamente la alfombrilla gris del suelo",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

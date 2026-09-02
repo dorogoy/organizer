@@ -1,0 +1,49 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-6",
+  "photoFile": "estancia-6.jpg",
+  "spaceType": "Comedor",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:21.101902",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Retira el bolso marrón colgado en la silla y guárdalo en su sitio.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Recoge las servilletas de papel arrugadas y tíralas a la basura.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Lleva los platos sucios, los cubiertos y las copas de vino a la cocina.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Retira la botella de agua y los papeles acumulados sobre la mesa.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Pasa un paño húmedo por la superficie de madera de la mesa.",
+      "duration_minutes": 4
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

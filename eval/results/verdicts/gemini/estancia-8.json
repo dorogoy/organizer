@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-8",
+  "photoFile": "estancia-8.jpg",
+  "spaceType": "Recibidor",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:28.129889",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Ordena los zapatos sueltos del suelo colocándolos en el estante de madera para calzado",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Recoge las gafas de sol, las llaves y los papeles de la mesa consola y colócalos ordenadamente",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Aparta el paraguas negro del suelo y guárdalo junto a la puerta o en su sitio correspondiente",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Mueve la bolsa de papel marrón del suelo hacia un rincón o guárdala para despejar la entrada",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": true,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

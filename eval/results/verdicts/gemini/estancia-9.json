@@ -1,0 +1,45 @@
+{
+  "candidate": "gemini",
+  "photoId": "estancia-9",
+  "photoFile": "estancia-9.jpg",
+  "spaceType": "Lavadero",
+  "model": "google/gemini-3.5-flash-lite",
+  "timestamp": "2026-09-02T18:42:30.296926",
+  "transportOk": true,
+  "transportReason": null,
+  "machine": {
+    "parse": {
+      "ok": true
+    },
+    "durations": {
+      "ok": true
+    },
+    "steps": {
+      "ok": true
+    },
+    "fenceStripped": false
+  },
+  "steps": [
+    {
+      "text": "Recoge toda la ropa del suelo y colócala dentro de la cesta de mimbre.",
+      "duration_minutes": 5
+    },
+    {
+      "text": "Organiza las cápsulas de detergente y la botella blanca sobre la encimera junto al fregadero.",
+      "duration_minutes": 3
+    },
+    {
+      "text": "Dobla y ordena las toallas marrones y blancas de los estantes abiertos.",
+      "duration_minutes": 4
+    },
+    {
+      "text": "Pasa un paño por la encimera blanca alrededor del fregadero para dejarla limpia.",
+      "duration_minutes": 3
+    }
+  ],
+  "human": {
+    "realActions": false,
+    "workableOrder": true,
+    "autoRecorded": false
+  }
+}

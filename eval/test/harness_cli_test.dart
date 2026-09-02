@@ -20,6 +20,7 @@ void main() {
 
   late HttpServer server;
   var requestCount = 0;
+  final capturedBodies = <String>[];
   int Function(int requestNumber) statusFor = (_) => 200;
   String Function(int requestNumber) contentFor = (_) => goodStepsJson;
 
@@ -28,6 +29,7 @@ void main() {
     server.listen((request) async {
       requestCount++;
       final number = requestCount;
+      capturedBodies.add(await utf8.decoder.bind(request).join());
       final status = statusFor(number);
       if (status != 200) {
         request.response.statusCode = status;
@@ -61,6 +63,7 @@ void main() {
 
   setUp(() {
     requestCount = 0;
+    capturedBodies.clear();
     statusFor = (_) => 200;
     contentFor = (_) => goodStepsJson;
   });
@@ -94,8 +97,23 @@ void main() {
   Future<ProcessResult> runHarness(
     List<String> args, {
     Map<String, String>? environment,
+    String? stdin,
   }) async {
-    return Process.run(
+    if (stdin == null) {
+      return Process.run(
+        'dart',
+        ['run', 'bin/harness.dart', ...args],
+        workingDirectory: packageDir,
+        environment: {
+          ...Platform.environment,
+          'EVAL_ROOT': root.path,
+          ...?environment,
+        },
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      );
+    }
+    final process = await Process.start(
       'dart',
       ['run', 'bin/harness.dart', ...args],
       workingDirectory: packageDir,
@@ -104,9 +122,13 @@ void main() {
         'EVAL_ROOT': root.path,
         ...?environment,
       },
-      stdoutEncoding: utf8,
-      stderrEncoding: utf8,
     );
+    process.stdin.write(stdin);
+    await process.stdin.close();
+    final out = await process.stdout.transform(utf8.decoder).join();
+    final err = await process.stderr.transform(utf8.decoder).join();
+    final code = await process.exitCode;
+    return ProcessResult(process.pid, code, out, err);
   }
 
   test('probe — an image-capable endpoint answers in-schema and the local route opens (exit 0)', () async {
@@ -163,6 +185,58 @@ void main() {
     },
   );
 
+  test('run — the OpenRouter route resolves the shared key and scores the slug (exit 0)', () async {
+    final result = await runHarness(
+      [
+        'run',
+        '--candidate',
+        'gemini',
+        '--via',
+        'openrouter',
+        '--force',
+        '--base-url',
+        'http://127.0.0.1:${server.port}/v1',
+      ],
+      environment: {
+        ...Platform.environment,
+        'EVAL_OPENROUTER_API_KEY': 'or-test-key',
+        'EVAL_GEMINI_API_KEY': '',
+      },
+    );
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    expect(result.stdout, contains('via OpenRouter'));
+    expect(result.stdout, contains('google/gemini-3.5-flash-lite'));
+    expect(requestCount, 10);
+    final runMeta = jsonDecode(
+      File('${root.path}/results/runs/gemini.json').readAsStringSync(),
+    ) as Map<String, Object?>;
+    final lastRun = (runMeta['runs']! as List).last as Map<String, Object?>;
+    expect(lastRun['via'], 'openrouter');
+    expect(lastRun['model'], 'google/gemini-3.5-flash-lite');
+  });
+
+  test(
+    'run — the OpenRouter route without the shared key refuses (exit 2)',
+    () async {
+      final result = await runHarness(
+        [
+          'run',
+          '--candidate',
+          'openai',
+          '--via',
+          'openrouter',
+          '--force',
+          '--base-url',
+          'http://127.0.0.1:${server.port}/v1',
+        ],
+        environment: {...Platform.environment, 'EVAL_OPENROUTER_API_KEY': ''},
+      );
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('EVAL_OPENROUTER_API_KEY'));
+      expect(requestCount, 0);
+    },
+  );
+
   test('run — one request per photo; transport and parse failures are recorded and the corpus continues (exit 0)', () async {
     statusFor = (number) => number == 3 ? 500 : 200;
     contentFor = (number) =>
@@ -188,7 +262,10 @@ void main() {
 
     final p05 = readVerdict(verdictDir, 'p05');
     expect(p05['transportOk'], true);
-    expect((p05['machine'] as Map)['parse'] as Map, containsPair('ok', false));
+    // Fenced under the 2026-09-02 amendment: parsed once the single fence was
+    // stripped, and the strip is recorded, not buried.
+    expect((p05['machine'] as Map)['fenceStripped'], true);
+    expect((p05['machine'] as Map)['parse'] as Map, containsPair('ok', true));
 
     final p01 = readVerdict(verdictDir, 'p01');
     final machine = p01['machine']! as Map;
@@ -228,6 +305,198 @@ void main() {
       File('${root.path}/results/scores.json').readAsStringSync(),
     ) as Map<String, Object?>;
     expect((scores['cascade']! as Map)['selected'], 'e2b_local');
+  });
+
+  test('judge — machine-failed photos auto-record their human limbs without a prompt; the rest are asked (exit 0)', () async {
+    await seedPassingRun(root, 'e2b_local', judged: false);
+    // One machine-failed photo: transport ok, schema-invalid steps → the
+    // judge must auto-fail its human limbs and never prompt for it.
+    await File('${root.path}/results/verdicts/e2b_local/p03.json')
+        .writeAsString(
+          jsonEncode(
+            PhotoVerdict(
+              candidate: 'e2b_local',
+              photoId: 'p03',
+              photoFile: 'p03.jpg',
+              spaceType: 'cocina',
+              model: 'test-model',
+              timestamp: '2026-09-02T00:00:00',
+              transportOk: true,
+              machine: MachineVerdict.notEvaluated(
+                'schema check failed: steps[1] is not an object',
+              ),
+              steps: null,
+              human: null,
+            ).toJson(),
+          ),
+        );
+    // Nine prompted photos (all but p03), each answered 4✗ 5✓.
+    final result = await runHarness([
+      'judge',
+      '--candidate',
+      'e2b_local',
+    ], stdin: 'n\ns\n' * 9);
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    expect(result.stdout, contains('no parsed steps (machine failure)'));
+    final p03 = readVerdict(
+      Directory('${root.path}/results/verdicts/e2b_local'),
+      'p03',
+    );
+    final human = p03['human']! as Map<String, Object?>;
+    expect(human['autoRecorded'], true);
+    expect(human['realActions'], false);
+    expect(human['workableOrder'], false);
+    expect(result.stdout, contains('score: 0/10'));
+  });
+
+  test('report — a transport-failed raw record (no responseBody) contributes no cost and crashes nothing (exit 0)', () async {
+    await seedPassingRun(root, 'e2b_local');
+    final rawDir = Directory('${root.path}/results/raw/e2b_local');
+    await rawDir.create(recursive: true);
+    await File('${rawDir.path}/p01.json').writeAsString(
+      jsonEncode({
+        'photoId': 'p01',
+        'ok': false,
+        'transportReason': 'HTTP 500: upstream boom',
+      }),
+    );
+    await File('${rawDir.path}/p02.json').writeAsString(
+      jsonEncode({
+        'photoId': 'p02',
+        'responseBody': jsonEncode({
+          'choices': [
+            {
+              'message': {'content': '{}'},
+            },
+          ],
+          'usage': {
+            'cost_details': {'upstream_inference_cost': 0.00070},
+          },
+        }),
+      }),
+    );
+    final result = await runHarness(['report']);
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    final text = File('${root.path}/results/report.md').readAsStringSync();
+    expect(text, contains('0.00070'));
+    final scores = jsonDecode(
+      File('${root.path}/results/scores.json').readAsStringSync(),
+    ) as Map<String, Object?>;
+    final candidate =
+        (scores['candidates']! as Map)['e2b_local']! as Map<String, Object?>;
+    expect(candidate['costEvidenceUsd'], 0.00070);
+  });
+
+  test(
+    'report — refuses when the manifest is no longer valid (exit 2)',
+    () async {
+      await seedPassingRun(root, 'e2b_local');
+      File('${root.path}/corpus/photos/p01.jpg').deleteSync();
+      final result = await runHarness(['report']);
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('manifest no longer valid'));
+    },
+  );
+
+  test('run — a re-run of an already-scored candidate is an Ask-First refusal without --force (exit 2)', () async {
+    await seedPassingRun(root, 'e2b_local');
+    final result = await runHarness([
+      'run',
+      '--candidate',
+      'e2b_local',
+      '--base-url',
+      'http://127.0.0.1:${server.port}/v1',
+    ]);
+    expect(result.exitCode, 2);
+    expect(result.stderr, contains('already scored'));
+    expect(result.stderr, contains('Ask-First'));
+    expect(requestCount, 0);
+  });
+
+  test(
+    'run — the sent prompt is the text below the marker, never the file header',
+    () async {
+      capturedBodies.clear();
+      await runHarness([
+        'run',
+        '--candidate',
+        'e2b_local',
+        '--base-url',
+        'http://127.0.0.1:${server.port}/v1',
+      ]);
+      final body = jsonDecode(capturedBodies.first) as Map<String, Object?>;
+      final parts =
+          ((body['messages'] as List).first as Map)['content'] as List;
+      final text = (parts.first as Map)['text'] as String;
+      expect(text, startsWith('Eres el asistente'));
+      expect(text, isNot(contains('byte-identical')));
+    },
+  );
+
+  test(
+    'run — the local pair refuses the OpenRouter route cleanly (exit 2)',
+    () async {
+      final result = await runHarness([
+        'run',
+        '--candidate',
+        'e2b_local',
+        '--via',
+        'openrouter',
+      ]);
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('does not route through OpenRouter'));
+      expect(requestCount, 0);
+    },
+  );
+
+  test('report — the cost section shows builder-supplied and evidence-summed figures', () async {
+    await seedPassingRun(root, 'e2b_local');
+    // One raw response carrying an upstream cost — the evidence column
+    // sums these; a second one without a cost contributes nothing.
+    final rawDir = Directory('${root.path}/results/raw/e2b_local');
+    await rawDir.create(recursive: true);
+    Future<void> writeRaw(String photoId, double? cost) =>
+        File('${rawDir.path}/$photoId.json').writeAsString(
+          jsonEncode({
+            'photoId': photoId,
+            'responseBody': jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': '{}'},
+                },
+              ],
+              'usage': {
+                if (cost != null)
+                  'cost_details': {'upstream_inference_cost': cost},
+              },
+            }),
+          }),
+        );
+    await writeRaw('p01', 0.00070);
+    await writeRaw('p02', null);
+    await File('${root.path}/results/costs.json').writeAsString(
+      jsonEncode({
+        'source': 'test',
+        'candidates': {
+          'e2b_local': {'usd': 0.00757},
+        },
+      }),
+    );
+
+    final result = await runHarness(['report']);
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    final text = File('${root.path}/results/report.md').readAsStringSync();
+    expect(text, contains('## Cost (whole 10-photo run per candidate)'));
+    expect(text, contains('0.00757'));
+    expect(text, contains('0.00070'));
+
+    final scores = jsonDecode(
+      File('${root.path}/results/scores.json').readAsStringSync(),
+    ) as Map<String, Object?>;
+    final candidate =
+        (scores['candidates']! as Map)['e2b_local']! as Map<String, Object?>;
+    expect(candidate['costBuilderUsd'], 0.00757);
+    expect(candidate['costEvidenceUsd'], 0.00070);
   });
 
   test('report — refuses when nothing has been scored (exit 2)', () async {
@@ -270,9 +539,14 @@ Future<void> writeManifest(Directory root, {required int photoCount}) async {
       .writeAsString(jsonEncode({'photos': photos}));
 }
 
-/// Seeds a complete, fully-judged, bar-passing run for [candidate] — exactly
-/// what `eval-run` + `eval-judge` would have left behind.
-Future<void> seedPassingRun(Directory root, String candidate) async {
+/// Seeds a complete, bar-passing run for [candidate] — exactly what
+/// `eval-run` + `eval-judge` would have left behind. Pass `judged: false`
+/// to leave the human limbs pending (what `eval-run` alone leaves).
+Future<void> seedPassingRun(
+  Directory root,
+  String candidate, {
+  bool judged = true,
+}) async {
   final verdictDir = Directory('${root.path}/results/verdicts/$candidate');
   await verdictDir.create(recursive: true);
   await Directory('${root.path}/results/runs').create(recursive: true);
@@ -305,7 +579,9 @@ Future<void> seedPassingRun(Directory root, String candidate) async {
         SliceStep(text: 'Limpia la mesa', durationMinutes: 3),
         SliceStep(text: 'Dobla las toallas', durationMinutes: 4),
       ],
-      human: const HumanVerdict(realActions: true, workableOrder: true),
+      human: judged
+          ? const HumanVerdict(realActions: true, workableOrder: true)
+          : null,
     );
     await File('${verdictDir.path}/$id.json')
         .writeAsString(jsonEncode(verdict.toJson()));
