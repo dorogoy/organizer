@@ -286,6 +286,7 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   energyLevel: null,
   reportValue: 3,
   reportWeek: week,
+  permission: null,
 );
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
@@ -302,6 +303,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   energyLevel: null,
   reportValue: null,
   reportWeek: null,
+  permission: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -318,6 +320,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   energyLevel: null,
   reportValue: null,
   reportWeek: null,
+  permission: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -991,6 +994,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1121,6 +1125,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1564,6 +1569,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
     }
 
@@ -1605,6 +1611,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1631,6 +1638,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1653,6 +1661,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1668,6 +1677,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ));
       }
 
@@ -1712,6 +1722,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       final view = await buildFor(
         store,
@@ -2285,6 +2296,7 @@ void main() {
         energyLevel: 2,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2303,6 +2315,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2490,6 +2503,7 @@ void main() {
             energyLevel: null,
             reportValue: null,
             reportWeek: null,
+            permission: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3079,6 +3093,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -3100,6 +3115,7 @@ void main() {
       instantUtcMicros: at.microsecondsSinceEpoch,
       offsetSeconds: 0,
       originContext: line,
+      dictated: null,
     );
 
     test('read deals the standing capture by its own line — the '
@@ -3219,6 +3235,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     );
 
     test('declarePocket mints the capture as the fresh sitting\'s '

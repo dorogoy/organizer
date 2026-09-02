@@ -3,8 +3,8 @@
 // `size-option` pills — and nothing else is asked. No project, no
 // category, no date, no priority, no tags, no recurrence, no
 // confirmation screen; the copy (the spatial frame's three-step rule,
-// read in order) names a place, lists touchable things, and opens the
-// example with a spatial verb. A non-spatial line is accepted in
+// read in order) names a place, lists touchable things, and opens
+// the example with a spatial verb. A non-spatial line is accepted in
 // silence: no validation, no error state, no red edge, no corrective
 // message — and no second version of this screen exists.
 //
@@ -16,23 +16,36 @@
 // when enabled, writes the pool fact and its `capture_created` entry
 // through the controller's single write path, then pops: once the user
 // leaves this surface the capture cannot be corrected or discarded —
-// the only path back to it is being dealt (3.3). One secondary only:
-// `Descartar`, which is also the exit, and the system back gesture
-// behaves as Descartar — no `Cancelar` exists.
+// the only path back to it is being dealt (3.3).
 //
-// The mic capsule (FR-32) is 3.4's, not this story's: the field renders
-// full-width and the keyboard is the only input method here. The 200%
-// floor holds throughout: the surface scrolls
+// The mic capsule (FR-32, Story 3.4) sits at the field's end: the
+// 24px microphone glyph inside a 48dp target, the `_LapizEntry`
+// pattern. It renders only where the derived visibility says so
+// (on-device Spanish recognition available ∧ permission not refused)
+// and is simply absent otherwise — no error, no grey state, no
+// install offer. A press starts listening through the dictation
+// controller; the live state is declared by the blue mass and the
+// `Escuchando…` caption alone — never by motion — and only a final
+// transcript ever lands, replacing the line's content in the existing
+// field so `Guardar` enables through the existing listener. The
+// keyboard is never removed: corrections need it, and a correction
+// after dictation keeps the capture's `dictated` provenance true.
+//
+// The 200% floor holds throughout: the surface scrolls
 // (`SingleChildScrollView`), nothing truncates, every target sits at
 // or above 48dp, and all copy comes through `AppStrings`.
+import 'dart:async';
+
 import 'package:core/pool/pool_fact.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../capture/capture_controller.dart';
+import '../../capture/dictation_controller.dart';
 import '../../strings/app_strings.dart';
 import '../dispenser/duration_chip.dart';
 import '../dispenser/task_card.dart';
+import '../glyphs/microphone_glyph.dart';
 import '../tokens.dart';
 
 /// The surface's width bound on wide grounds — the Dispenser frame's own
@@ -47,10 +60,18 @@ const double _saveDisabledOpacity = 0.45;
 /// The Manual Capture surface. [controller] is the write seam over the
 /// same store the Dispenser holds; absent (the test seam), the surface
 /// renders whole and a `Guardar` goes nowhere — no write, no pop.
+/// [dictation] (Story 3.4) is the press flow's seam: present, the mic
+/// capsule renders wherever its derived visibility says so and a press
+/// listens; absent, the field's keyboard capture is the whole surface —
+/// the honest test seam.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, this.controller});
+  const CaptureScreen({super.key, this.controller, this.dictation});
 
   final CaptureController? controller;
+
+  /// The dictation seam (Story 3.4, FR-32) — same store, same shared
+  /// write queue, threaded the way `capture` is.
+  final DictationController? dictation;
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -67,6 +88,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// entry — the second tap returns early, before anything observable.
   bool _saving = false;
 
+  /// Whether dictation authored the standing line (FR-32): set when a
+  /// final transcript lands, kept through any keyboard correction —
+  /// the boolean records who authored the line, not its final wording
+  /// — and cleared only by a line that went blank (a fresh line has a
+  /// fresh author).
+  bool _dictated = false;
+
+  /// The transcript landing guard: the assignment the callback makes
+  /// must not read as keyboard authorship in the change listener.
+  bool _transcriptLanding = false;
+
   late final TextEditingController _lineController;
 
   @override
@@ -74,16 +106,81 @@ class _CaptureScreenState extends State<CaptureScreen> {
     super.initState();
     _lineController = TextEditingController();
     _lineController.addListener(_onLineChanged);
+    final dictation = widget.dictation;
+    if (dictation != null) {
+      // Every surface entry re-derives the affordance's visibility
+      // from a fresh probe: one transient `unavailable` start must not
+      // retire the capsule for a whole foreground session, and a
+      // re-grant made while the app was away restores it here — the
+      // probe is never cached (no store exists outside the log).
+      unawaited(dictation.refresh());
+      // The final transcript replaces the line's content in the
+      // existing field (FR-32): the commit point is this assignment,
+      // and `Guardar` enables through the field's own listener — no
+      // second enable path exists.
+      dictation.onTranscript = _onTranscript;
+      dictation.addListener(_onDictationChanged);
+    }
   }
 
   @override
   void dispose() {
+    final dictation = widget.dictation;
+    if (dictation != null) {
+      // Unsubscribe first: ending the session may notify, and a
+      // disposed state must not hear it.
+      dictation.removeListener(_onDictationChanged);
+      // Leaving the surface — `Descartar`, the system back,
+      // `Guardar`'s pop, every path that ends here — ends any
+      // dictation the capsule owned: nothing listens outside an
+      // explicit press on this surface (FR-32).
+      dictation.surfaceExited();
+      if (dictation.onTranscript == _onTranscript) {
+        dictation.onTranscript = null;
+      }
+    }
     _lineController.removeListener(_onLineChanged);
     _lineController.dispose();
     super.dispose();
   }
 
+  void _onTranscript(String transcript) {
+    if (!mounted || _saving) {
+      // A transcript landing while `Guardar`'s write is in flight
+      // replaces nothing: the fact and entry were minted from the
+      // line as it stood, and the surface's whole remaining duty is
+      // to leave.
+      return;
+    }
+    _transcriptLanding = true;
+    _lineController.text = _asOneLine(transcript);
+    _transcriptLanding = false;
+    _dictated = true;
+  }
+
+  /// The line's own single-line invariant, on the paste path's terms:
+  /// the field's formatter strips these characters from keyboard
+  /// entry, and the landing commit strips them from a transcript — a
+  /// programmatic assignment bypasses the formatter, so this is the
+  /// same guard in the one place it can be bypassed. Nothing else is
+  /// altered. The characters are spelled code-unit-wise because the
+  /// string table owns every literal (AD-15).
+  static String _asOneLine(String transcript) => String.fromCharCodes(
+    transcript.codeUnits.where((codeUnit) => codeUnit != 10 && codeUnit != 13),
+  );
+
+  void _onDictationChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _onLineChanged() {
+    if (!_transcriptLanding && _lineController.text.trim().isEmpty) {
+      // A blank line has no author: the next content to land — typed
+      // or spoken — authors the capture afresh.
+      _dictated = false;
+    }
     if (mounted) {
       setState(() {});
     }
@@ -112,9 +209,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
     if (controller == null) {
       return;
     }
+    final dictated = _dictated;
     setState(() => _saving = true);
     try {
-      await controller.save(_lineController.text, _size);
+      await controller.save(_lineController.text, _size, dictated: dictated);
       if (!mounted) {
         return;
       }
@@ -216,43 +314,87 @@ class _CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
-  /// The one line of text (FR-27): raised fill, 1px hairline, radius 14,
-  /// 48dp minimum — the field's own register, Lora for the content and
+  /// The one line of text (FR-27) with the mic capsule at its end
+  /// (FR-32, Story 3.4): raised fill, 1px hairline, radius 14, 48dp
+  /// minimum — the field's own register, Lora for the content and
   /// Lexend for the hint. Single-line by the TextField's own default,
   /// and a paste can never put interior newlines into the stored Origin
   /// Context: the single-line formatter strips them on entry, so one
   /// line is what the field holds, not what the keyboard happens to
-  /// send. No validation, no error surface, and the mic capsule is
-  /// 3.4's, so the field renders full-width.
+  /// send. No validation, no error surface; the capsule renders only
+  /// where the derived visibility says so, and while it listens the
+  /// support-style caption below declares the state in prose — the
+  /// state is ink and prose only, never motion. The keyboard is never
+  /// removed: the focus is never touched from here.
   Widget _field(BuildContext context) {
     final theme = Theme.of(context);
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(Radii.radiusDefault),
       borderSide: BorderSide(color: theme.colorScheme.outline, width: 1),
     );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: Spacing.touchTargetMin),
-      child: TextField(
-        controller: _lineController,
-        // One line, enforced at the input boundary: a pasted multi-line
-        // string can never put interior newlines into the stored Origin
-        // Context — the formatter strips them before the controller
-        // ever holds them.
-        inputFormatters: [FilteringTextInputFormatter.singleLineFormatter],
-        // headlineMedium is the wired task role — the captured line is
-        // content, the one Lora register (theme.dart).
-        style: theme.textTheme.headlineMedium,
-        decoration: InputDecoration(
-          hintText: AppStrings.of(context).captureFieldPlaceholder,
-          // bodyMedium carries the hint in the Lexend mechanism
-          // register (theme.dart).
-          hintStyle: theme.textTheme.bodyMedium,
-          filled: true,
-          fillColor: theme.colorScheme.surfaceContainerHighest,
-          enabledBorder: border,
-          focusedBorder: border,
+    final dictation = widget.dictation;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: Spacing.touchTargetMin,
+                ),
+                child: TextField(
+                  controller: _lineController,
+                  // One line, enforced at the input boundary: a pasted
+                  // multi-line string can never put interior newlines
+                  // into the stored Origin Context — the formatter
+                  // strips them before the controller ever holds them.
+                  inputFormatters: [
+                    FilteringTextInputFormatter.singleLineFormatter,
+                  ],
+                  // headlineMedium is the wired task role — the
+                  // captured line is content, the one Lora register
+                  // (theme.dart).
+                  style: theme.textTheme.headlineMedium,
+                  decoration: InputDecoration(
+                    hintText: AppStrings.of(context).captureFieldPlaceholder,
+                    // bodyMedium carries the hint in the Lexend
+                    // mechanism register (theme.dart).
+                    hintStyle: theme.textTheme.bodyMedium,
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainerHighest,
+                    enabledBorder: border,
+                    focusedBorder: border,
+                  ),
+                ),
+              ),
+            ),
+            if (dictation != null && dictation.visible)
+              _MicCapsule(
+                dictating: dictation.listening,
+                onTap: dictation.press,
+              ),
+          ],
         ),
-      ),
+        if (dictation != null && dictation.listening)
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.chipToTask),
+            // bodySmall is the wired support role (theme.dart) — the
+            // caption declares the live state in prose and nothing
+            // else: no error grammar exists for it to borrow. The
+            // live region carries the declaration to TalkBack too —
+            // its appearance announces, ink and prose, never motion.
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                AppStrings.of(context).dictationListening,
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -324,6 +466,50 @@ class _CaptureScreenState extends State<CaptureScreen> {
       enabled: false,
       child: IgnorePointer(
         child: Opacity(opacity: _saveDisabledOpacity, child: pill),
+      ),
+    );
+  }
+}
+
+/// The mic capsule (Story 3.4, FR-32): the dictation affordance at the
+/// field's end — the 24px microphone glyph inside a 48dp opaque target,
+/// the `_LapizEntry` pattern (the battery mark's own grammar). One
+/// press starts listening; no painted label, no fill, no badge,
+/// nothing animated — mass is the visual (neutral at rest, blue while
+/// dictating, the glyph's own declaration) and the semantics label is
+/// the spoken name. Where recognition is unavailable or the permission
+/// refused, the capsule is not here at all: unavailable means absent,
+/// never grey.
+class _MicCapsule extends StatelessWidget {
+  const _MicCapsule({required this.dictating, this.onTap});
+
+  /// Whether an utterance is live — the glyph's own blue-mass
+  /// declaration, paired with the `Escuchando…` caption the field
+  /// renders beneath.
+  final bool dictating;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: AppStrings.of(context).microphoneEntry,
+      child: GestureDetector(
+        // Absent, the tap stays an accepted no-op — a null onTap would
+        // render a disabled control instead.
+        onTap: onTap ?? () {},
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: Spacing.touchTargetMin,
+          height: Spacing.touchTargetMin,
+          child: Center(
+            child: MicrophoneGlyph(
+              Spacing.glyphZoneMarker,
+              dictating: dictating,
+            ),
+          ),
+        ),
       ),
     );
   }

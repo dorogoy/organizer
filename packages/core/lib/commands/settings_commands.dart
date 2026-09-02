@@ -47,6 +47,7 @@ List<LogEntryContent> settingChanged({
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     ),
   ];
 }

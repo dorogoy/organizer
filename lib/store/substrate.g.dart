@@ -68,6 +68,17 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _dictatedMeta = const VerificationMeta(
+    'dictated',
+  );
+  late final GeneratedColumn<bool> dictated = GeneratedColumn<bool>(
+    'dictated',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -76,6 +87,7 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     instantUtcMicros,
     offsetSeconds,
     originContext,
+    dictated,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -141,6 +153,12 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         ),
       );
     }
+    if (data.containsKey('dictated')) {
+      context.handle(
+        _dictatedMeta,
+        dictated.isAcceptableOrUnknown(data['dictated']!, _dictatedMeta),
+      );
+    }
     return context;
   }
 
@@ -174,6 +192,10 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         DriftSqlType.string,
         data['${effectivePrefix}origin_context'],
       ),
+      dictated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}dictated'],
+      ),
     );
   }
 
@@ -193,6 +215,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
   final int instantUtcMicros;
   final int offsetSeconds;
   final String? originContext;
+  final bool? dictated;
   const PoolFact({
     required this.id,
     required this.origin,
@@ -200,6 +223,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     required this.instantUtcMicros,
     required this.offsetSeconds,
     this.originContext,
+    this.dictated,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -211,6 +235,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     map['offset_seconds'] = Variable<int>(offsetSeconds);
     if (!nullToAbsent || originContext != null) {
       map['origin_context'] = Variable<String>(originContext);
+    }
+    if (!nullToAbsent || dictated != null) {
+      map['dictated'] = Variable<bool>(dictated);
     }
     return map;
   }
@@ -225,6 +252,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       originContext: originContext == null && nullToAbsent
           ? const Value.absent()
           : Value(originContext),
+      dictated: dictated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dictated),
     );
   }
 
@@ -240,6 +270,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       instantUtcMicros: serializer.fromJson<int>(json['instant_utc_micros']),
       offsetSeconds: serializer.fromJson<int>(json['offset_seconds']),
       originContext: serializer.fromJson<String?>(json['origin_context']),
+      dictated: serializer.fromJson<bool?>(json['dictated']),
     );
   }
   @override
@@ -252,6 +283,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       'instant_utc_micros': serializer.toJson<int>(instantUtcMicros),
       'offset_seconds': serializer.toJson<int>(offsetSeconds),
       'origin_context': serializer.toJson<String?>(originContext),
+      'dictated': serializer.toJson<bool?>(dictated),
     };
   }
 
@@ -262,6 +294,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     int? instantUtcMicros,
     int? offsetSeconds,
     Value<String?> originContext = const Value.absent(),
+    Value<bool?> dictated = const Value.absent(),
   }) => PoolFact(
     id: id ?? this.id,
     origin: origin ?? this.origin,
@@ -271,6 +304,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     originContext: originContext.present
         ? originContext.value
         : this.originContext,
+    dictated: dictated.present ? dictated.value : this.dictated,
   );
   PoolFact copyWithCompanion(PoolFactsCompanion data) {
     return PoolFact(
@@ -286,6 +320,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       originContext: data.originContext.present
           ? data.originContext.value
           : this.originContext,
+      dictated: data.dictated.present ? data.dictated.value : this.dictated,
     );
   }
 
@@ -297,7 +332,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           ..write('size: $size, ')
           ..write('instantUtcMicros: $instantUtcMicros, ')
           ..write('offsetSeconds: $offsetSeconds, ')
-          ..write('originContext: $originContext')
+          ..write('originContext: $originContext, ')
+          ..write('dictated: $dictated')
           ..write(')'))
         .toString();
   }
@@ -310,6 +346,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     instantUtcMicros,
     offsetSeconds,
     originContext,
+    dictated,
   );
   @override
   bool operator ==(Object other) =>
@@ -320,7 +357,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           other.size == this.size &&
           other.instantUtcMicros == this.instantUtcMicros &&
           other.offsetSeconds == this.offsetSeconds &&
-          other.originContext == this.originContext);
+          other.originContext == this.originContext &&
+          other.dictated == this.dictated);
 }
 
 class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
@@ -330,6 +368,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
   final Value<int> instantUtcMicros;
   final Value<int> offsetSeconds;
   final Value<String?> originContext;
+  final Value<bool?> dictated;
   final Value<int> rowid;
   const PoolFactsCompanion({
     this.id = const Value.absent(),
@@ -338,6 +377,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     this.instantUtcMicros = const Value.absent(),
     this.offsetSeconds = const Value.absent(),
     this.originContext = const Value.absent(),
+    this.dictated = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PoolFactsCompanion.insert({
@@ -347,6 +387,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     required int instantUtcMicros,
     required int offsetSeconds,
     this.originContext = const Value.absent(),
+    this.dictated = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        origin = Value(origin),
@@ -360,6 +401,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Expression<int>? instantUtcMicros,
     Expression<int>? offsetSeconds,
     Expression<String>? originContext,
+    Expression<bool>? dictated,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -369,6 +411,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       if (instantUtcMicros != null) 'instant_utc_micros': instantUtcMicros,
       if (offsetSeconds != null) 'offset_seconds': offsetSeconds,
       if (originContext != null) 'origin_context': originContext,
+      if (dictated != null) 'dictated': dictated,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -380,6 +423,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Value<int>? instantUtcMicros,
     Value<int>? offsetSeconds,
     Value<String?>? originContext,
+    Value<bool?>? dictated,
     Value<int>? rowid,
   }) {
     return PoolFactsCompanion(
@@ -389,6 +433,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       instantUtcMicros: instantUtcMicros ?? this.instantUtcMicros,
       offsetSeconds: offsetSeconds ?? this.offsetSeconds,
       originContext: originContext ?? this.originContext,
+      dictated: dictated ?? this.dictated,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -414,6 +459,9 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     if (originContext.present) {
       map['origin_context'] = Variable<String>(originContext.value);
     }
+    if (dictated.present) {
+      map['dictated'] = Variable<bool>(dictated.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -429,6 +477,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
           ..write('instantUtcMicros: $instantUtcMicros, ')
           ..write('offsetSeconds: $offsetSeconds, ')
           ..write('originContext: $originContext, ')
+          ..write('dictated: $dictated, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -575,6 +624,17 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _permissionMeta = const VerificationMeta(
+    'permission',
+  );
+  late final GeneratedColumn<String> permission = GeneratedColumn<String>(
+    'permission',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -590,6 +650,7 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     energyLevel,
     reportValue,
     reportWeek,
+    permission,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -704,6 +765,12 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         reportWeek.isAcceptableOrUnknown(data['report_week']!, _reportWeekMeta),
       );
     }
+    if (data.containsKey('permission')) {
+      context.handle(
+        _permissionMeta,
+        permission.isAcceptableOrUnknown(data['permission']!, _permissionMeta),
+      );
+    }
     return context;
   }
 
@@ -765,6 +832,10 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}report_week'],
       ),
+      permission: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}permission'],
+      ),
     );
   }
 
@@ -791,6 +862,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final int? energyLevel;
   final int? reportValue;
   final int? reportWeek;
+  final String? permission;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -805,6 +877,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.energyLevel,
     this.reportValue,
     this.reportWeek,
+    this.permission,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -839,6 +912,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || reportWeek != null) {
       map['report_week'] = Variable<int>(reportWeek);
+    }
+    if (!nullToAbsent || permission != null) {
+      map['permission'] = Variable<String>(permission);
     }
     return map;
   }
@@ -876,6 +952,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       reportWeek: reportWeek == null && nullToAbsent
           ? const Value.absent()
           : Value(reportWeek),
+      permission: permission == null && nullToAbsent
+          ? const Value.absent()
+          : Value(permission),
     );
   }
 
@@ -898,6 +977,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       energyLevel: serializer.fromJson<int?>(json['energy_level']),
       reportValue: serializer.fromJson<int?>(json['report_value']),
       reportWeek: serializer.fromJson<int?>(json['report_week']),
+      permission: serializer.fromJson<String?>(json['permission']),
     );
   }
   @override
@@ -917,6 +997,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'energy_level': serializer.toJson<int?>(energyLevel),
       'report_value': serializer.toJson<int?>(reportValue),
       'report_week': serializer.toJson<int?>(reportWeek),
+      'permission': serializer.toJson<String?>(permission),
     };
   }
 
@@ -934,6 +1015,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<int?> energyLevel = const Value.absent(),
     Value<int?> reportValue = const Value.absent(),
     Value<int?> reportWeek = const Value.absent(),
+    Value<String?> permission = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -950,6 +1032,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     energyLevel: energyLevel.present ? energyLevel.value : this.energyLevel,
     reportValue: reportValue.present ? reportValue.value : this.reportValue,
     reportWeek: reportWeek.present ? reportWeek.value : this.reportWeek,
+    permission: permission.present ? permission.value : this.permission,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -984,6 +1067,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       reportWeek: data.reportWeek.present
           ? data.reportWeek.value
           : this.reportWeek,
+      permission: data.permission.present
+          ? data.permission.value
+          : this.permission,
     );
   }
 
@@ -1002,7 +1088,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('pocketMinutes: $pocketMinutes, ')
           ..write('energyLevel: $energyLevel, ')
           ..write('reportValue: $reportValue, ')
-          ..write('reportWeek: $reportWeek')
+          ..write('reportWeek: $reportWeek, ')
+          ..write('permission: $permission')
           ..write(')'))
         .toString();
   }
@@ -1022,6 +1109,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     energyLevel,
     reportValue,
     reportWeek,
+    permission,
   );
   @override
   bool operator ==(Object other) =>
@@ -1039,7 +1127,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.pocketMinutes == this.pocketMinutes &&
           other.energyLevel == this.energyLevel &&
           other.reportValue == this.reportValue &&
-          other.reportWeek == this.reportWeek);
+          other.reportWeek == this.reportWeek &&
+          other.permission == this.permission);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1056,6 +1145,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<int?> energyLevel;
   final Value<int?> reportValue;
   final Value<int?> reportWeek;
+  final Value<String?> permission;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1071,6 +1161,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.energyLevel = const Value.absent(),
     this.reportValue = const Value.absent(),
     this.reportWeek = const Value.absent(),
+    this.permission = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1087,6 +1178,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.energyLevel = const Value.absent(),
     this.reportValue = const Value.absent(),
     this.reportWeek = const Value.absent(),
+    this.permission = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1106,6 +1198,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<int>? energyLevel,
     Expression<int>? reportValue,
     Expression<int>? reportWeek,
+    Expression<String>? permission,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1122,6 +1215,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (energyLevel != null) 'energy_level': energyLevel,
       if (reportValue != null) 'report_value': reportValue,
       if (reportWeek != null) 'report_week': reportWeek,
+      if (permission != null) 'permission': permission,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1140,6 +1234,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<int?>? energyLevel,
     Value<int?>? reportValue,
     Value<int?>? reportWeek,
+    Value<String?>? permission,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1156,6 +1251,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       energyLevel: energyLevel ?? this.energyLevel,
       reportValue: reportValue ?? this.reportValue,
       reportWeek: reportWeek ?? this.reportWeek,
+      permission: permission ?? this.permission,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1202,6 +1298,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (reportWeek.present) {
       map['report_week'] = Variable<int>(reportWeek.value);
     }
+    if (permission.present) {
+      map['permission'] = Variable<String>(permission.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1224,6 +1323,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('energyLevel: $energyLevel, ')
           ..write('reportValue: $reportValue, ')
           ..write('reportWeek: $reportWeek, ')
+          ..write('permission: $permission, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1303,6 +1403,7 @@ typedef $PoolFactsCreateCompanionBuilder = PoolFactsCompanion Function({
   required int instantUtcMicros,
   required int offsetSeconds,
   Value<String?> originContext,
+  Value<bool?> dictated,
   Value<int> rowid,
 });
 typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
@@ -1312,6 +1413,7 @@ typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
   Value<int> instantUtcMicros,
   Value<int> offsetSeconds,
   Value<String?> originContext,
+  Value<bool?> dictated,
   Value<int> rowid,
 });
 
@@ -1351,6 +1453,11 @@ class $PoolFactsFilterComposer
 
   ColumnFilters<String> get originContext => $composableBuilder(
     column: $table.originContext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get dictated => $composableBuilder(
+    column: $table.dictated,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1393,6 +1500,11 @@ class $PoolFactsOrderingComposer
     column: $table.originContext,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get dictated => $composableBuilder(
+    column: $table.dictated,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $PoolFactsAnnotationComposer
@@ -1427,6 +1539,9 @@ class $PoolFactsAnnotationComposer
     column: $table.originContext,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get dictated =>
+      $composableBuilder(column: $table.dictated, builder: (column) => column);
 }
 
 class $PoolFactsTableManager
@@ -1463,6 +1578,7 @@ class $PoolFactsTableManager
                 Value<int> instantUtcMicros = const Value.absent(),
                 Value<int> offsetSeconds = const Value.absent(),
                 Value<String?> originContext = const Value.absent(),
+                Value<bool?> dictated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion(
                 id: id,
@@ -1471,6 +1587,7 @@ class $PoolFactsTableManager
                 instantUtcMicros: instantUtcMicros,
                 offsetSeconds: offsetSeconds,
                 originContext: originContext,
+                dictated: dictated,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1481,6 +1598,7 @@ class $PoolFactsTableManager
                 required int instantUtcMicros,
                 required int offsetSeconds,
                 Value<String?> originContext = const Value.absent(),
+                Value<bool?> dictated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion.insert(
                 id: id,
@@ -1489,6 +1607,7 @@ class $PoolFactsTableManager
                 instantUtcMicros: instantUtcMicros,
                 offsetSeconds: offsetSeconds,
                 originContext: originContext,
+                dictated: dictated,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -1527,6 +1646,7 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> energyLevel,
   Value<int?> reportValue,
   Value<int?> reportWeek,
+  Value<String?> permission,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -1543,6 +1663,7 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> energyLevel,
   Value<int?> reportValue,
   Value<int?> reportWeek,
+  Value<String?> permission,
   Value<int> rowid,
 });
 
@@ -1617,6 +1738,11 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<int> get reportWeek => $composableBuilder(
     column: $table.reportWeek,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get permission => $composableBuilder(
+    column: $table.permission,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1694,6 +1820,11 @@ class $LogEntriesOrderingComposer
     column: $table.reportWeek,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get permission => $composableBuilder(
+    column: $table.permission,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -1761,6 +1892,11 @@ class $LogEntriesAnnotationComposer
     column: $table.reportWeek,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get permission => $composableBuilder(
+    column: $table.permission,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -1804,6 +1940,7 @@ class $LogEntriesTableManager
                 Value<int?> energyLevel = const Value.absent(),
                 Value<int?> reportValue = const Value.absent(),
                 Value<int?> reportWeek = const Value.absent(),
+                Value<String?> permission = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -1819,6 +1956,7 @@ class $LogEntriesTableManager
                 energyLevel: energyLevel,
                 reportValue: reportValue,
                 reportWeek: reportWeek,
+                permission: permission,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1836,6 +1974,7 @@ class $LogEntriesTableManager
                 Value<int?> energyLevel = const Value.absent(),
                 Value<int?> reportValue = const Value.absent(),
                 Value<int?> reportWeek = const Value.absent(),
+                Value<String?> permission = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -1851,6 +1990,7 @@ class $LogEntriesTableManager
                 energyLevel: energyLevel,
                 reportValue: reportValue,
                 reportWeek: reportWeek,
+                permission: permission,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

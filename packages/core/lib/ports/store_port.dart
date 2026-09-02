@@ -20,8 +20,10 @@ import 'package:core/pool/pool_fact.dart';
 /// genesis, the taxonomy size, and the creation instant plus the local
 /// offset in force (AD-4, AD-14) — and, additively since schema v6
 /// (Story 3.2), the nullable Origin Context: a manual capture's own
-/// single line, null for origins whose context lives elsewhere. No
-/// owner, no date-only value.
+/// single line, null for origins whose context lives elsewhere.
+/// Additively since schema v7 (Story 3.4), the nullable dictation
+/// boolean: `true` whenever dictation authored the line, `false` when
+/// the keyboard did, null on old rows. No owner, no date-only value.
 typedef PoolFactRecord = ({
   String id,
   Origin origin,
@@ -29,6 +31,7 @@ typedef PoolFactRecord = ({
   int instantUtcMicros,
   int offsetSeconds,
   String? originContext,
+  bool? dictated,
 });
 
 /// An inert log-entry DTO: id, kind (as its wire name — unknown kinds are
@@ -45,7 +48,10 @@ typedef PoolFactRecord = ({
 /// AD-4). [reportValue]/[reportWeek] are the weekly self-report's
 /// payload — the tapped answer on SM-2's 1–5 scale and the answered
 /// week's `Week.weekOrdinal` — and are set only on `report_answered`,
-/// additively since schema v5 (Story 2.6, AD-21, AD-23).
+/// additively since schema v5 (Story 2.6, AD-21, AD-23). [permission]
+/// is the refused permission's wire name (one of the three the core's
+/// `Permission` enum names) and is set only on `permission_refused`,
+/// additively since schema v7 (Story 3.4, AD-17, AD-23).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -60,6 +66,7 @@ typedef LogEntryRecord = ({
   int? energyLevel,
   int? reportValue,
   int? reportWeek,
+  String? permission,
 });
 
 /// The pool-fact snapshot's domain objects, in snapshot order — the
@@ -78,6 +85,7 @@ List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
       instantUtcMicros: record.instantUtcMicros,
       offsetSeconds: record.offsetSeconds,
       originContext: record.originContext,
+      dictated: record.dictated,
     ),
 ];
 

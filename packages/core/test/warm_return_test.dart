@@ -252,6 +252,33 @@ void main() {
       );
     });
 
+    test('a permission refusal is never contact — the user turning the '
+        'app away is not the user using it (Story 3.4, AD-21, the '
+        'crash precedent)', () {
+      PermissionRefusedEntry refused(int micros, {String id = 'refusal'}) =>
+          PermissionRefusedEntry(
+            id: id,
+            instantUtcMicros: micros,
+            offsetSeconds: 0,
+            permission: Permission.microphone,
+          );
+      // Alone before the open at any distance: not contact, so not due.
+      expect(
+        due([refused(before(const Duration(hours: 96))), _opened(now)]),
+        isFalse,
+      );
+      // After real contact: the refusal moves the anchor not at all,
+      // and the 49 h-old contact still anchors the greeting.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          refused(before(const Duration(hours: 1))),
+          _opened(now),
+        ]),
+        isTrue,
+      );
+    });
+
     test('the opening batch at the open\'s own instant contributes nothing — '
         'the anchor is prior contact', () {
       // A prior day, contacted 49 h 30 m before the read; today's

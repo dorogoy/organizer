@@ -33,7 +33,9 @@
 /// Contact is the opening delimiters and the user's acts (AD-21's
 /// enumeration): every typed entry except the system events — today
 /// `app_opened` (the delimiter itself, which a later opening makes
-/// prior contact) and `crash_recorded` (a crash is not the user). An
+/// prior contact), `crash_recorded` (a crash is not the user) and,
+/// since Story 3.4, `permission_refused` (the user turning the app
+/// away, not using it — the `crash_recorded` precedent). An
 /// `UnknownEntry` contributes nothing: a future kind joins exactly one
 /// set — contact or system — in the same pass that adds it to
 /// [LogKind], never before.
@@ -51,11 +53,13 @@ const int warmReturnThresholdMicros = 48 * 60 * 60 * 1000 * 1000;
 
 /// Whether one entry is a user act (AD-21): every typed entry except
 /// the system events. Today the system events are `app_opened` (the
-/// opening delimiter, counted as contact by the derivation itself) and
-/// `crash_recorded`; `session_ended` is the user's own stop, and the
-/// payload-carrying kinds are all acts. An `UnknownEntry` is not an
-/// act — a tolerated row asserts nothing — and a future kind joins
-/// exactly one set in the pass that adds it.
+/// opening delimiter, counted as contact by the derivation itself),
+/// `crash_recorded` and `permission_refused` (Story 3.4 — a refusal is
+/// the user turning the app away, not the user using it);
+/// `session_ended` is the user's own stop, and the payload-carrying
+/// kinds are all acts. An `UnknownEntry` is not an act — a tolerated
+/// row asserts nothing — and a future kind joins exactly one set in
+/// the pass that adds it.
 bool _isUserAct(LogEntry entry) {
   switch (entry) {
     case ItemActEntry():
@@ -72,6 +76,8 @@ bool _isUserAct(LogEntry entry) {
       // it a set.
       return kind == LogKind.sessionEnded;
     case CrashEntry():
+      return false;
+    case PermissionRefusedEntry():
       return false;
     case UnknownEntry():
       return false;

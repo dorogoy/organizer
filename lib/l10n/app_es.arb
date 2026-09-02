@@ -248,6 +248,21 @@
     "description": "Settings, Tu día group — the Time Bag row label: the daily minutes the user commits, a ceiling for advance work only. Below 10 minutes the day composes without a Focus Chunk, silently; nothing anywhere names that absence."
   },
 
+  "settingsDictatedCount": "{count, plural, =1 {1 captura dictada} other {{count} capturas dictadas}}",
+  "@settingsDictatedCount": {
+    "description": "Settings — the validator surface's dictated-capture count (FR-32, AD-26): the one place the per-capture dictation boolean is readable. A quiet support line, never a card's to carry; the ICU plural substitutes one atomic numeral into an otherwise fixed sentence.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "settingsAiVoice": "IA y voz",
+  "@settingsAiVoice": {
+    "description": "Settings — the microphone reactivation row (Story 3.4): renders only while the permission is refused and not granted, and opens the system's app-details screen. The app never re-asks on its own."
+  },
+
   "genesisAnalyze": "Analizar",
   "@genesisAnalyze": {
     "description": "Typed project genesis — the consent action, with no provider name and no separate dialog."
@@ -356,6 +371,11 @@
   "dictationListening": "Escuchando…",
   "@dictationListening": {
     "description": "Manual Capture — while dictating; prose declares the live state, ink never moves."
+  },
+
+  "microphoneEntry": "Micrófono - dictar",
+  "@microphoneEntry": {
+    "description": "Capture line's mic capsule — TalkBack name of the glyph-only dictation affordance (Story 3.4). Not painted; screen readers only."
   },
 
   "captureSave": "Guardar",

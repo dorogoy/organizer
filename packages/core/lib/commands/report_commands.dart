@@ -49,6 +49,7 @@ List<LogEntryContent> reportAnswered({required int value, required int week}) {
       energyLevel: null,
       reportValue: value,
       reportWeek: week,
+      permission: null,
     ),
   ];
 }

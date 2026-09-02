@@ -67,17 +67,86 @@ const String logEntriesReportWeekUpgrade =
 const String poolFactsOriginContextUpgrade =
     'ALTER TABLE pool_facts ADD COLUMN origin_context TEXT NULL';
 
+/// Schema v7's additive upgrade of `log_entries` (Story 3.4, AD-23):
+/// the one nullable `permission_refused` payload column — the refused
+/// permission's wire name (AD-17, AD-21) — added by ALTER TABLE only,
+/// on the v2→v6 pattern: no table rebuild, no data migration, refusal
+/// triggers untouched. A named infrastructure identifier on the store
+/// module's terms (AD-15's ban is on literals reaching a widget).
+const String logEntriesPermissionUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN permission TEXT NULL';
+
+/// Schema v7's additive upgrade of `pool_facts` (Story 3.4, AD-23): the
+/// one nullable dictation boolean — whether dictation authored the line
+/// (FR-32, AD-26) — added by ALTER TABLE only, on the same pattern: no
+/// table rebuild, no data migration, refusal triggers untouched. A
+/// named infrastructure identifier on the store module's terms (AD-15).
+const String poolFactsDictatedUpgrade =
+    'ALTER TABLE pool_facts ADD COLUMN dictated BOOL NULL';
+
+/// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
+/// table and column a re-check reads are derived from each named upgrade
+/// statement itself, so no second copy of either name exists to drift.
+/// Named infrastructure identifiers on the store module's terms (AD-15).
+const String additiveAlterShape =
+    r'^ALTER TABLE ([a-z_]+) ADD COLUMN ([a-z_]+)';
+
+/// The idempotent upgrade's column-presence read, with the table name
+/// substituted for [tableInfoPragmaSlot] — the one shape the pragma
+/// accepts, as a named identifier on the terms above.
+const String tableInfoPragmaTemplate = 'PRAGMA table_info(@)';
+
+/// The template's substitution slot (see [tableInfoPragmaTemplate]).
+const String tableInfoPragmaSlot = '@';
+
+/// The column of `PRAGMA table_info`'s answer that carries a column's
+/// name — the field the presence comparison reads.
+const String tableInfoNameField = 'name';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 6 (Story 3.2): the only change from 5
-/// is the nullable Origin Context column above, and every later change is
+/// migration (AD-2). schemaVersion 7 (Story 3.4): the only changes from 6
+/// are the two nullable columns above, and every later change is
 /// additive-only (AD-23).
+///
+/// Upgrades run inside one transaction and add each column only when the
+/// table does not already hold it: a v6 install that died between the two
+/// v7 ALTERs (or after their commit but before the version bump) re-opens
+/// on a retry that neither re-runs a landed ALTER nor lands half a step —
+/// failure-atomic and idempotent, so no upgrade window can wedge a device
+/// on its next open.
 @DriftDatabase(include: {substrateSchemaFile})
 class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
+
+  /// Adds [upgrade]'s column to its table only when the table does not
+  /// already hold it — the idempotence half of the upgrade guarantee:
+  /// a relaunch over a half-upgraded file (columns landed, version not
+  /// yet bumped) must not re-run an ALTER that would now fail. The
+  /// table and column are read from the statement itself
+  /// ([additiveAlterShape]), never re-named here; an upgrade off the
+  /// house shape runs as-is, and the migration tests catch it.
+  Future<void> _addColumnIfAbsent(String upgrade) async {
+    final shape = RegExp(additiveAlterShape).firstMatch(upgrade);
+    if (shape == null) {
+      await customStatement(upgrade);
+      return;
+    }
+    final pragma = tableInfoPragmaTemplate.replaceAll(
+      tableInfoPragmaSlot,
+      shape.group(1)!,
+    );
+    final columns = await customSelect(pragma).get();
+    final present = columns.any(
+      (row) => row.read<String>(tableInfoNameField) == shape.group(2),
+    );
+    if (!present) {
+      await customStatement(upgrade);
+    }
+  }
 
   /// The initial migration creates everything: both tables and the four
   /// `.drift`-declared triggers. The v1→v2 step adds the setting columns
@@ -89,36 +158,47 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// energy level column the same way, so a v3 install upgrades with its
   /// rows unchanged too — old rows with a null level, deriving as
   /// unanswered days. The v4→v5 step adds the two report columns the
-  /// same way, so a v4 install upgrades with its rows unchanged too —
-  /// old rows with null report fields, no week gaining or losing a
+  /// same way, so a v4 install upgrades with its rows unchanged too
+  /// — old rows with null report fields, no week gaining or losing a
   /// data point. The v5→v6 step adds the pool's Origin Context column
   /// the same way, so a v5 install upgrades with its rows unchanged
   /// too — old facts with a null context, their origins deriving
-  /// exactly as before. The mechanism is drift's; the
-  /// outcomes — triggers present after first open on a fresh install, old
-  /// rows intact after upgrade — are pinned by `test/store/substrate_test.dart`.
+  /// exactly as before. The v6→v7 step adds the log's permission
+  /// column and the pool's dictation boolean the same way, so a v6
+  /// install upgrades with its rows unchanged too — old rows with a
+  /// null permission, deriving as no refusal on record, and old facts
+  /// with a null boolean, deriving as not dictated. Every step runs
+  /// inside the one transaction and adds only an absent column, and
+  /// the mechanism is
+  /// drift's; the outcomes — triggers present after first open on a
+  /// fresh install, old rows intact after upgrade — are pinned by
+  /// `test/store/substrate_test.dart`.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {
+    onUpgrade: (m, from, to) => transaction(() async {
       if (from < 2) {
-        await customStatement(logEntriesSettingKeyUpgrade);
-        await customStatement(logEntriesSettingValueUpgrade);
+        await _addColumnIfAbsent(logEntriesSettingKeyUpgrade);
+        await _addColumnIfAbsent(logEntriesSettingValueUpgrade);
       }
       if (from < 3) {
-        await customStatement(logEntriesPocketMinutesUpgrade);
+        await _addColumnIfAbsent(logEntriesPocketMinutesUpgrade);
       }
       if (from < 4) {
-        await customStatement(logEntriesEnergyLevelUpgrade);
+        await _addColumnIfAbsent(logEntriesEnergyLevelUpgrade);
       }
       if (from < 5) {
-        await customStatement(logEntriesReportValueUpgrade);
-        await customStatement(logEntriesReportWeekUpgrade);
+        await _addColumnIfAbsent(logEntriesReportValueUpgrade);
+        await _addColumnIfAbsent(logEntriesReportWeekUpgrade);
       }
       if (from < 6) {
-        await customStatement(poolFactsOriginContextUpgrade);
+        await _addColumnIfAbsent(poolFactsOriginContextUpgrade);
       }
-    },
+      if (from < 7) {
+        await _addColumnIfAbsent(logEntriesPermissionUpgrade);
+        await _addColumnIfAbsent(poolFactsDictatedUpgrade);
+      }
+    }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),
   );
 }

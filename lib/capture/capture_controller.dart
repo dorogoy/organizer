@@ -43,15 +43,24 @@ class CaptureController {
   /// the chosen 1-3-5 size, Origin Context the trimmed single line —
   /// then the `capture_created` entry referencing it, both at the one
   /// minted instant, a v7 id per row, the fact before the entry that
-  /// names it. A line that is blank after trimming appends nothing at
+  /// names it. [dictated] (FR-32, Story 3.4) records who authored the
+  /// line: `true` when the transcript landed from the microphone,
+  /// `false` when the keyboard typed it — written once at creation,
+  /// and a keyboard correction after dictation keeps it `true`. A
+  /// line that is blank after trimming appends nothing at
   /// all (the core command's own refusal). Nothing here deals a card
   /// or touches candidacy: a capture is not a candidate until 3.3's
   /// derivation says so.
-  Future<void> save(String line, Size size) {
+  Future<void> save(String line, Size size, {bool dictated = false}) {
     final now = nowOf();
     final factId = idMinter.v7();
     return writeQueue.enqueue(() async {
-      final captured = captureCreate(factId: factId, line: line, size: size);
+      final captured = captureCreate(
+        factId: factId,
+        line: line,
+        size: size,
+        dictated: dictated,
+      );
       if (captured == null) {
         return;
       }
@@ -62,6 +71,7 @@ class CaptureController {
         instantUtcMicros: now.microsecondsSinceEpoch,
         offsetSeconds: now.timeZoneOffset.inSeconds,
         originContext: captured.fact.originContext,
+        dictated: captured.fact.dictated,
       ));
       final content = captured.entry;
       await store.appendLogEntry((
@@ -78,6 +88,7 @@ class CaptureController {
         energyLevel: content.energyLevel,
         reportValue: content.reportValue,
         reportWeek: content.reportWeek,
+        permission: content.permission?.name,
       ));
     });
   }

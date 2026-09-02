@@ -982,6 +982,7 @@ void main() {
             energyLevel: null,
             reportValue: null,
             reportWeek: null,
+            permission: null,
           ),
           (
             id: 'seed-deal',
@@ -1004,6 +1005,7 @@ void main() {
             energyLevel: null,
             reportValue: null,
             reportWeek: null,
+            permission: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2061,6 +2063,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2252,6 +2255,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -2326,6 +2330,7 @@ void main() {
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -2353,6 +2358,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
       ]);
 
@@ -2538,6 +2544,7 @@ void main() {
             energyLevel: null,
             reportValue: null,
             reportWeek: null,
+            permission: null,
           ));
         }
         await SessionController(
@@ -2613,6 +2620,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
     }
 
@@ -2927,6 +2935,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       await SessionController(
         store: store,
@@ -3056,6 +3065,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
     }
 
@@ -3595,6 +3605,7 @@ void main() {
         energyLevel: null,
         reportValue: 3,
         reportWeek: 1389,
+        permission: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -3611,6 +3622,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
     }
 
@@ -3754,6 +3766,7 @@ void main() {
         energyLevel: null,
         reportValue: null,
         reportWeek: null,
+        permission: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));

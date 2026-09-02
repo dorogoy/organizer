@@ -38,6 +38,7 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       energyLevel: energyLevelWireOf(level),
       reportValue: null,
       reportWeek: null,
+      permission: null,
     ),
   ];
 }

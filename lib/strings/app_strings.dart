@@ -359,6 +359,18 @@ abstract class AppStrings {
   /// **'Bolsa de tiempo'**
   String get settingsTimeBag;
 
+  /// Settings — the validator surface's dictated-capture count (FR-32, AD-26): the one place the per-capture dictation boolean is readable. A quiet support line, never a card's to carry; the ICU plural substitutes one atomic numeral into an otherwise fixed sentence.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =1 {1 captura dictada} other {{count} capturas dictadas}}'**
+  String settingsDictatedCount(int count);
+
+  /// Settings — the microphone reactivation row (Story 3.4): renders only while the permission is refused and not granted, and opens the system's app-details screen. The app never re-asks on its own.
+  ///
+  /// In es, this message translates to:
+  /// **'IA y voz'**
+  String get settingsAiVoice;
+
   /// Typed project genesis — the consent action, with no provider name and no separate dialog.
   ///
   /// In es, this message translates to:
@@ -484,6 +496,12 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Escuchando…'**
   String get dictationListening;
+
+  /// Capture line's mic capsule — TalkBack name of the glyph-only dictation affordance (Story 3.4). Not painted; screen readers only.
+  ///
+  /// In es, this message translates to:
+  /// **'Micrófono - dictar'**
+  String get microphoneEntry;
 
   /// Manual Capture — confirm, disabled until the line holds text: a blank capture is not a task (FR-27).
   ///

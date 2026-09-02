@@ -192,9 +192,10 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, eleven wire names wide: every user-act and
-    // moment kind exists in the shell only inside the core's own
-    // constants — a quoted wire name in lib/ is a minter that
+    // The absolute ban, twelve wire names wide: every user-act and
+    // moment kind — and, since Story 3.4, the `permission_refused`
+    // system event — exists in the shell only inside the core's own
+    // constants: a quoted wire name in lib/ is a minter that
     // bypasses the vocabulary. (crash_recorded is not banned here:
     // the crash channel's constant idiom is pinned below.)
     const bannedWireNames = [
@@ -209,6 +210,7 @@ void main() {
       'energy_set',
       'report_answered',
       'capture_created',
+      'permission_refused',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -318,6 +320,16 @@ void main() {
           'exactly one core captureCreate command invocation — the '
           'capture channel\'s LogEntryContent path (Story 3.2)',
     );
+    final dictation = sources['lib/capture/dictation_controller.dart'];
+    expect(dictation, isNotNull, reason: 'the dictation channel is gone');
+    final dictationSource = dictation ?? '';
+    expect(
+      RegExp(r'\bpermissionRefuse\s*\(').allMatches(dictationSource),
+      hasLength(1),
+      reason:
+          'exactly one core permissionRefuse command invocation — the '
+          'dictation channel\'s LogEntryContent path (Story 3.4)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -326,7 +338,8 @@ void main() {
     // answers, the pocket declaration (Story 2.2), the pause
     // (Story 2.3), the checkpoint extension (Story 2.4), the check-in
     // answer (Story 2.5) and the report answer (Story 2.6) — beside
-    // the session, settings and capture channels and AD-12's crash
+    // the session, settings and capture channels, the dictation
+    // channel's refusal append (Story 3.4) and AD-12's crash
     // channel, each mapped below; together, the only paths that can
     // mint user-act and session kinds. The exact counts pin an
     // unlisted call site even inside a sanctioned file; tear-offs
@@ -351,6 +364,7 @@ void main() {
       callCounts,
       {
         'lib/capture/capture_controller.dart': 1,
+        'lib/capture/dictation_controller.dart': 1,
         'lib/crash.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
@@ -365,6 +379,7 @@ void main() {
       contentCounts,
       {
         'lib/capture/capture_controller.dart': 1,
+        'lib/capture/dictation_controller.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,

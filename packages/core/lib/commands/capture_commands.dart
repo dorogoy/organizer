@@ -29,6 +29,12 @@
 /// guards only the command boundary). A non-spatial line is accepted
 /// without comment: nothing here judges the text, and nothing ever
 /// will.
+///
+/// Story 3.4 widens the fact payload with [dictated] (FR-32): the
+/// boolean rides the same single minter — written once at creation,
+/// never updated, and a keyboard correction after dictation keeps it
+/// `true`, because it records who authored the line, not its final
+/// wording.
 
 library;
 
@@ -38,11 +44,17 @@ import 'package:core/pool/pool_fact.dart';
 
 /// The pool-fact payload of one capture: the origin (always `manual` —
 /// a dictated capture is `manual` too, dictation being an input method
-/// and not a genesis path), the chosen 1-3-5 size, and the Origin
-/// Context — the trimmed single line. The shell completes the fact,
-/// minting the UUIDv7 id, the instant and the offset in force, before
-/// the port sees it.
-typedef CaptureFactContent = ({Origin origin, Size size, String originContext});
+/// and not a genesis path), the chosen 1-3-5 size, the Origin
+/// Context — the trimmed single line — and, since Story 3.4, the
+/// dictation boolean: whether dictation authored the line. The shell
+/// completes the fact, minting the UUIDv7 id, the instant and the
+/// offset in force, before the port sees it.
+typedef CaptureFactContent = ({
+  Origin origin,
+  Size size,
+  String originContext,
+  bool dictated,
+});
 
 /// One capture's whole write: the pool-fact payload plus the
 /// `capture_created` content row referencing the fact the same batch
@@ -52,17 +64,27 @@ typedef CaptureContent = ({CaptureFactContent fact, LogEntryContent entry});
 /// `capture_created` for the saved line — exactly one content row, its
 /// whole payload the item pair naming the pool fact (the fact's id,
 /// `Origin.manual`), and the fact payload the line itself carries.
+/// [dictated] records who authored the line (FR-32): `true` when the
+/// transcript landed from the microphone, `false` when the keyboard
+/// typed it — written once here, never updated, and outside origin
+/// arithmetic either way.
 CaptureContent? captureCreate({
   required String factId,
   required String line,
   required Size size,
+  required bool dictated,
 }) {
   final trimmed = line.trim();
   if (trimmed.isEmpty) {
     return null;
   }
   return (
-    fact: (origin: Origin.manual, size: size, originContext: trimmed),
+    fact: (
+      origin: Origin.manual,
+      size: size,
+      originContext: trimmed,
+      dictated: dictated,
+    ),
     entry: (
       kind: LogKind.captureCreated,
       itemId: factId,
@@ -74,6 +96,7 @@ CaptureContent? captureCreate({
       energyLevel: null,
       reportValue: null,
       reportWeek: null,
+      permission: null,
     ),
   );
 }

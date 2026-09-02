@@ -150,6 +150,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   energyLevel: null,
   reportValue: null,
   reportWeek: null,
+  permission: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -166,6 +167,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   energyLevel: null,
   reportValue: null,
   reportWeek: null,
+  permission: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -242,6 +244,7 @@ void main() {
             _fixedClock().microsecondsSinceEpoch - 60 * 1000 * 1000,
         offsetSeconds: 0,
         originContext: 'Llamar al dentista',
+        dictated: null,
       ),
     ]);
     await buildController(store).handleAppOpen();
@@ -567,6 +570,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
         _act(
           'card_dealt',
@@ -627,6 +631,7 @@ void main() {
           energyLevel: null,
           reportValue: null,
           reportWeek: null,
+          permission: null,
         ),
       ]);
     await buildController(within).handleAppOpen();

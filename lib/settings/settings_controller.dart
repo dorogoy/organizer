@@ -1,5 +1,7 @@
 import 'package:core/commands/settings_commands.dart';
+import 'package:core/derive/permission.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
 import 'package:uuid/uuid.dart';
@@ -14,6 +16,15 @@ import 'package:uuid/uuid.dart';
 /// store instance the dispenser holds is handed in (one substrate under
 /// the whole shell — `app_test.dart`'s single-openStore pin).
 ///
+/// Story 3.4 adds the validator surface's dictation facts (FR-32,
+/// AD-26): the microphone reactivation row's premise — refused (the
+/// `permissionMayBeAsked` derivation over the log) ∧ not granted (the
+/// recognizer probe's own platform read) — plus the dictated-capture
+/// count over the pool facts. Both are reads, writing nothing; the
+/// row's single action opens the system's app-details screen through
+/// the recognizer port, the permission surface's only recovery path
+/// (the app itself never re-asks).
+///
 /// Writes are serialized with the `_enqueueWrite` pattern
 /// (`dispenser_controller.dart`): one setting change's read→compute→append
 /// runs to completion before the next begins, so a rapid second tap on
@@ -24,11 +35,18 @@ import 'package:uuid/uuid.dart';
 class SettingsController {
   SettingsController({
     required this.store,
+    this.recognizer,
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
   });
 
   final StorePort store;
+
+  /// The recognizer seam (Story 3.4): the probe's granted bit and the
+  /// app-details action. Absent (the test seam), the reactivation row
+  /// reads as absent and the dictated count still renders.
+  final RecognizerPort? recognizer;
+
   final Uuid idMinter;
   final DateTime Function() nowOf;
 
@@ -45,6 +63,56 @@ class SettingsController {
     await _writes;
     final log = logEntriesOf(await store.readLogEntries());
     return deriveTimeBagMinutes(log);
+  }
+
+  /// Reads the microphone reactivation row's premise (Story 3.4,
+  /// FR-32): the row renders only while it has something to reactivate
+  /// — the permission is refused (the derivation over the log, one
+  /// definition) ∧ not granted (the probe's platform read, so a system
+  /// re-grant retires the row by itself). The probe speaks "not
+  /// granted" only as `askable` — available ∧ not granted — so an
+  /// `unavailable` read hides the row: while recognition cannot run
+  /// there is nothing to reactivate into, and the row returns with
+  /// availability (a refused-but-re-granted read already retired it).
+  /// With no recognizer seam the row reads as absent; a failed read is
+  /// quiet and reads the same.
+  Future<bool> readMicReactivationAvailable() async {
+    await _writes;
+    final recognizer = this.recognizer;
+    if (recognizer == null) {
+      return false;
+    }
+    final entries = logEntriesOf(await store.readLogEntries());
+    if (permissionMayBeAsked(entries, Permission.microphone)) {
+      return false;
+    }
+    try {
+      return await recognizer.probe() == RecognizerAvailability.askable;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Reads the dictated-capture count (Story 3.4, FR-32, AD-26): pool
+  /// facts whose dictation boolean is `true` — the validator surface's
+  /// own figure, rendered nowhere else (no card marks a capture as
+  /// spoken). Old rows read `null`, deriving as not dictated.
+  Future<int> readDictatedCount() async {
+    await _writes;
+    final facts = await store.readPoolFacts();
+    return facts.where((fact) => fact.dictated == true).length;
+  }
+
+  /// The reactivation row's single action (Story 3.4): the system's
+  /// app-details screen, opened through the recognizer port — the
+  /// permission surface's only recovery path. The app never re-asks on
+  /// its own; a re-grant restores the affordance through the probe.
+  Future<void> openMicAppSettings() async {
+    final recognizer = this.recognizer;
+    if (recognizer == null) {
+      return;
+    }
+    await recognizer.openAppSettings();
   }
 
   /// Appends one `setting_changed` {time_bag, [minutes]} row — or
@@ -73,6 +141,7 @@ class SettingsController {
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
+          permission: content.permission?.name,
         ));
       }
     });

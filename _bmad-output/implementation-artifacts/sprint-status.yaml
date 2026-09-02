@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-01-2026
+last_updated: 09-02-2026
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -63,7 +63,7 @@ development_status:
   3-1-on-device-recognition-availability-verified-on-the-handsets: done
   3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a: done
   3-3-the-capture-comes-back-as-an-ordinary-card: done
-  3-4-dictation-into-the-capture-line: backlog
+  3-4-dictation-into-the-capture-line: done
   epic-3-retrospective: optional
 
   epic-4: backlog

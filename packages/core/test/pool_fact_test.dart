@@ -49,4 +49,43 @@ void main() {
     );
     expect(fact.originContext, 'llamar al dentista');
   });
+
+  test('a fact may carry the dictation boolean — a provenance fact '
+      'beside the origin, never inside it (Story 3.4, FR-32, AD-26)', () {
+    const dictated = PoolFact(
+      id: '0190bbbb-0000-7000-8000-000000000003',
+      origin: Origin.manual,
+      size: Size.maintenance,
+      instantUtcMicros: 1700000000999999,
+      offsetSeconds: 3600,
+      originContext: 'llamar cinco minutos al dentista',
+      dictated: true,
+    );
+    // Dictation is an input method, not a genesis path: the origin
+    // stays `manual`, exactly as a typed capture's.
+    expect(dictated.dictated, isTrue);
+    expect(dictated.origin, Origin.manual);
+
+    const typed = PoolFact(
+      id: '0190bbbb-0000-7000-8000-000000000004',
+      origin: Origin.manual,
+      size: Size.maintenance,
+      instantUtcMicros: 1700000000888888,
+      offsetSeconds: 3600,
+      originContext: 'llamar al dentista',
+      dictated: false,
+    );
+    expect(typed.dictated, isFalse);
+
+    // Absent is a shape too — old rows, and origins whose authorship
+    // the boolean never described.
+    const contextless = PoolFact(
+      id: '0190bbbb-0000-7000-8000-000000000005',
+      origin: Origin.shipped,
+      size: Size.instant,
+      instantUtcMicros: 1700000000777777,
+      offsetSeconds: 0,
+    );
+    expect(contextless.dictated, isNull);
+  });
 }

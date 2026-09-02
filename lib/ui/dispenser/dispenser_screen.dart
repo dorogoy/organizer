@@ -118,6 +118,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../capture/capture_controller.dart';
+import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
@@ -161,6 +162,7 @@ class DispenserScreen extends StatefulWidget {
     this.sessionSettled,
     this.settings,
     this.capture,
+    this.dictation,
   });
 
   final DispenserController controller;
@@ -179,6 +181,11 @@ class DispenserScreen extends StatefulWidget {
   /// opens the surface with no controller behind it — the write goes
   /// nowhere and the route stays.
   final CaptureController? capture;
+
+  /// The dictation seam (Story 3.4): threaded beside the capture seam —
+  /// absent (the test seam), the capture surface renders with the
+  /// keyboard alone and no capsule.
+  final DictationController? dictation;
 
   @override
   State<DispenserScreen> createState() => _DispenserScreenState();
@@ -802,7 +809,10 @@ class _DispenserScreenState extends State<DispenserScreen>
     if (ModalRoute.of(context)?.isCurrent ?? false) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => CaptureScreen(controller: widget.capture),
+          builder: (context) => CaptureScreen(
+            controller: widget.capture,
+            dictation: widget.dictation,
+          ),
         ),
       );
     }
