@@ -45,6 +45,14 @@ app.*.map.json
 /android/app/release
 /android/.gradle/
 
+# Gradle wrapper injected from the pinned Flutter SDK's cache by
+# tool/bootstrap.sh (story 4-2 — the egress seals drive gradlew without
+# a prior flutter build). Flutter-managed, never committed; the pinned
+# distribution stays in the committed gradle-wrapper.properties.
+/android/gradlew
+/android/gradlew.bat
+/android/gradle/wrapper/gradle-wrapper.jar
+
 # Toolchain provisioned by tool/bootstrap.sh (never committed) — the
 # pattern matches both a directory and the machine-shared symlink
 .toolchain

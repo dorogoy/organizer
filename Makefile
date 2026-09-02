@@ -14,7 +14,7 @@
 # after a first `make deps` in a shell opened before provisioning, and a
 # no-op when nothing changed.
 
-.PHONY: help gate deps codegen codegen-check test test-core format format-check analyze check run build clean eval-probe eval-run eval-judge eval-report
+.PHONY: help gate deps codegen codegen-check test test-core format format-check analyze check check-egress-imports check-gradle-dependencies check-android-manifest run build clean eval-probe eval-run eval-judge eval-report
 
 .DEFAULT_GOAL := help
 
@@ -41,7 +41,7 @@ format-check: ## Verify formatting without rewriting anything
 analyze: ## Static analysis (flutter analyze; see check for the tool/ checks)
 	. ./tool/env.sh && flutter analyze
 
-check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21), catalogue floor, continuity, evolution, dictate wire contract, codegen freshness, eval harness unit tests (story 4.1)
+check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21), catalogue floor, continuity, evolution, dictate wire contract, the three egress seals (AD-7, story 4-2: Dart/Kotlin imports, frozen Gradle graph, merged-manifest sets), codegen freshness, eval harness unit tests (story 4.1)
 	. ./tool/env.sh && dart run tool/check_core_purity.dart
 	. ./tool/env.sh && dart run tool/check_no_literal_strings.dart
 	. ./tool/env.sh && dart run tool/check_text_scaling.dart
@@ -52,8 +52,20 @@ check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + 
 	. ./tool/env.sh && dart run tool/check_catalogue_id_diff.dart
 	. ./tool/env.sh && dart run tool/check_catalogue_evolution.dart
 	. ./tool/env.sh && dart run tool/check_dictate_wire_contract.dart
+	$(MAKE) --no-print-directory check-egress-imports
+	$(MAKE) --no-print-directory check-gradle-dependencies
+	$(MAKE) --no-print-directory check-android-manifest
 	. ./tool/env.sh && cd eval && dart test
 	$(MAKE) --no-print-directory codegen-check
+
+check-egress-imports: ## Egress seal 1 (AD-7, story 4-2): no HTTP import or socket outside lib/egress/, no socket or date computation in the app's Kotlin
+	. ./tool/env.sh && dart run tool/check_egress_imports.dart
+
+check-gradle-dependencies: ## Egress seal 2 (AD-7, story 4-2): the resolved Gradle runtime classpaths match the frozen allowlist (first run downloads Gradle 9.3.1)
+	. ./tool/env.sh && dart run tool/check_gradle_dependencies.dart
+
+check-android-manifest: ## Egress seal 3 (AD-7, story 4-2): the merged manifests declare nothing outside the per-variant enumerated sets
+	. ./tool/env.sh && dart run tool/check_android_manifest.dart
 
 codegen: ## Regenerate every generated file (store schema, localization accessors, catalogue lookup)
 	. ./tool/env.sh && dart run build_runner build --delete-conflicting-outputs

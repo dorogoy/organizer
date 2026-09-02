@@ -36,8 +36,9 @@ if [ -d "$ORGANIZER_ROOT/.toolchain/flutter/bin" ]; then
   export PATH
 fi
 
-# Android SDK provisioned by the bootstrap (needed by make build / make run,
-# never by the completion gate).
+# Android SDK provisioned by the bootstrap (needed by make build / make
+# run and by the two Gradle-backed egress seals under make check —
+# story 4-2: they drive gradlew before any flutter build has happened).
 if [ -d "$ORGANIZER_ROOT/.toolchain/android-sdk" ]; then
   export ANDROID_HOME="$ORGANIZER_ROOT/.toolchain/android-sdk"
   export ANDROID_SDK_ROOT="$ANDROID_HOME"
