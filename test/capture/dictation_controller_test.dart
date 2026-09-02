@@ -25,6 +25,10 @@ class _FakeRecognizer implements RecognizerPort {
   /// own stand, resolved by the test.
   Completer<RecognizerStart>? startGate;
 
+  /// When set, `probe` pends on this gate — the overlapping-refresh
+  /// race's own stand, resolved by the test.
+  Completer<RecognizerAvailability>? probeGate;
+
   final List<int> startedSessions = [];
   final List<int> cancelledSessions = [];
   final StreamController<RecognizerOutcome> _outcomes =
@@ -36,7 +40,13 @@ class _FakeRecognizer implements RecognizerPort {
   }
 
   @override
-  Future<RecognizerAvailability> probe() async => availability;
+  Future<RecognizerAvailability> probe() async {
+    final gate = probeGate;
+    if (gate != null) {
+      return gate.future;
+    }
+    return availability;
+  }
 
   @override
   Future<RecognizerStart> start(int sessionId) async {
@@ -492,6 +502,34 @@ void main() {
     await controller.press();
     expect(recognizer.startedSessions, [1, 3]);
     expect(controller.listening, isTrue);
+  });
+
+  test('a stale refresh cannot overwrite a newer read\'s visibility — '
+      'only the newest generation commits (the ordering guard)', () async {
+    recognizer.availability = RecognizerAvailability.granted;
+    final slowGate = Completer<RecognizerAvailability>();
+    recognizer.probeGate = slowGate;
+    final controller = build();
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.visible, isFalse, reason: 'the first read still pends');
+
+    // A newer refresh lands while the first one pends: the constructor
+    // read, a surface entry and a resume can all overlap like this.
+    recognizer.probeGate = null;
+    final observer = observers.single;
+    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.visible, isTrue, reason: 'the newest read landed');
+
+    // The stale read resolves last: unavailable must not flip the
+    // visibility the newer generation already committed.
+    slowGate.complete(RecognizerAvailability.unavailable);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      controller.visible,
+      isTrue,
+      reason: 'a stale refresh overwrites nothing',
+    );
   });
 
   test('dispose unregisters through the injected seam — symmetric with '

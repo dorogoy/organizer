@@ -115,6 +115,14 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
   /// stale answer clearing a state a newer press owns.
   bool _starting = false;
 
+  /// The refresh's ordering guard: an older refresh (its probe or log
+  /// read still in flight) must not overwrite the visibility a newer
+  /// one already landed — the entry, lifecycle and press paths can all
+  /// overlap, and only the newest read may commit.
+  int _refreshGeneration = 0;
+
+  bool _disposed = false;
+
   bool _visible = false;
   bool _listening = false;
 
@@ -129,6 +137,11 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _disposed = true;
+    // Invalidate every in-flight refresh at once: a late read may no
+    // longer commit state — and, through [_notify], reach a listener
+    // that is itself going away.
+    _refreshGeneration++;
     _outcomesSubscription?.cancel();
     _removeObserver(this);
     super.dispose();
@@ -136,14 +149,24 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Recomputes the derived visibility: the probe's platform facts and
   /// the log's refusal derivation, one read each. A failing read or
-  /// probe leaves the standing state exactly as it was — quiet.
+  /// probe leaves the standing state exactly as it was — quiet. Only
+  /// the newest refresh commits: overlapping reads (the constructor,
+  /// a surface entry, a resume) resolve in any order, and a stale one
+  /// overwrites nothing.
   Future<void> refresh() async {
+    final generation = ++_refreshGeneration;
     final availability = await _probeQuietly();
     if (availability == null) {
       return;
     }
+    if (generation != _refreshGeneration) {
+      return;
+    }
     final mayBeAsked = await _micMayBeAsked();
     if (mayBeAsked == null) {
+      return;
+    }
+    if (generation != _refreshGeneration) {
       return;
     }
     final visible =
@@ -151,7 +174,7 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
         (availability == RecognizerAvailability.granted || mayBeAsked);
     if (visible != _visible) {
       _visible = visible;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -172,7 +195,7 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
   /// owns the standing session: a stale answer from a session a
   /// newer press or an interruption superseded clears nothing.
   Future<void> press() async {
-    if (!_visible || _listening || _starting) {
+    if (_disposed || !_visible || _listening || _starting) {
       return;
     }
     _starting = true;
@@ -205,12 +228,12 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
           // through the probe's granted bit alone.
           if (_visible) {
             _visible = false;
-            notifyListeners();
+            _notify();
           }
         case RecognizerStart.unavailable:
           if (sessionId == _sessionId && _visible) {
             _visible = false;
-            notifyListeners();
+            _notify();
           }
       }
     } finally {
@@ -258,7 +281,16 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _listening = listening;
-    notifyListeners();
+    _notify();
+  }
+
+  /// The one notification path: a disposed controller notifies nobody —
+  /// a press or refresh resolving after disposal may still mutate its
+  /// own fields, but no listener exists to reach.
+  void _notify() {
+    if (!_disposed) {
+      notifyListeners();
+    }
   }
 
   /// The capture surface's exit hook (FR-32): `Descartar`, the system

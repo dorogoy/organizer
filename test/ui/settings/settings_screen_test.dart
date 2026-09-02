@@ -903,6 +903,31 @@ void main() {
       await openSettings(tester);
       await tester.pumpAndSettle();
       expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+
+      // Refused, not granted, but recognition itself unavailable: the
+      // probe cannot speak "not granted" there, and there is nothing
+      // to reactivate into while recognition cannot run — the row
+      // stays hidden, returning with availability.
+      await tester.pumpWidget(const SizedBox.shrink());
+      final noModel = _RecordingStore();
+      noModel.entries.add(refusal('refused-row'));
+      final unavailableRecognizer = _FakeRecognizer(
+        RecognizerAvailability.unavailable,
+      );
+      await tester.pumpWidget(
+        harnessFor(
+          noModel,
+          SettingsController(
+            store: noModel,
+            recognizer: unavailableRecognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
     });
 
     testWidgets('a return from the foreground re-reads the dictation '

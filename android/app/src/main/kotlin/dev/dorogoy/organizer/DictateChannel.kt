@@ -23,7 +23,9 @@ import io.flutter.plugin.common.MethodChannel
  *  - `start(sessionId)` → "listening" | "refused" | "unavailable" —
  *    requests RECORD_AUDIO at this first-use moment when it is not
  *    granted (never at app entry), and either listens, reports the
- *    refusal, or reports quiet unavailability.
+ *    refusal, or reports quiet unavailability. A denial read after a
+ *    grant was once observed is the system-level revocation: refused
+ *    outright, no second ask (reversal belongs to Settings).
  *  - `cancel(sessionId)` → the interruption path; nothing listens
  *    outside an explicit press's foreground lifetime.
  *  - `openAppSettings` → the Settings reactivation row's single
@@ -46,6 +48,17 @@ internal class DictateChannel(
 
     /** The press whose permission request is still unanswered, if any. */
     private var stagedStart: StagedStart? = null
+
+    /**
+     * Whether this channel has ever observed the microphone permission
+     * granted — main-confined with every other field, engine-lifetime
+     * only (never persisted: the log stays the only permission store).
+     * A press that finds the permission denied after a grant was seen
+     * reads as the system-level revocation (FR-32): it is answered with
+     * the refusal outright, never re-asked — the app asks at the first
+     * use moment only, and reversal belongs to the Settings row.
+     */
+    private var sawGrant = false
 
     private class StagedStart(
         val sessionId: Int,
@@ -70,7 +83,17 @@ internal class DictateChannel(
             PROBE_METHOD -> probe(result)
             START_METHOD -> start(call.arguments as? Int, result)
             CANCEL_METHOD -> {
-                recognizer.cancel(call.arguments as? Int ?: -1)
+                val sessionId = call.arguments as? Int ?: -1
+                // A cancelled press must not stay armed: a permission
+                // request still staged for it would let a later grant
+                // answer (or even begin listening) after the surface
+                // that pressed is gone. Settle it now, quietly.
+                val staged = stagedStart
+                if (staged != null && staged.sessionId == sessionId) {
+                    stagedStart = null
+                    staged.result.success(WIRE_UNAVAILABLE)
+                }
+                recognizer.cancel(sessionId)
                 result.success(null)
             }
             OPEN_APP_SETTINGS_METHOD -> {
@@ -89,6 +112,9 @@ internal class DictateChannel(
             }
             val granted =
                 activity.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                sawGrant = true
+            }
             result.success(if (granted) WIRE_GRANTED else WIRE_ASKABLE)
         }
     }
@@ -99,6 +125,14 @@ internal class DictateChannel(
             return
         }
         if (activity.checkSelfPermission(PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+            // A grant this channel once observed, now denied, is the
+            // system-level revocation — read identically to the first-use
+            // refusal (FR-32): the refusal is reported outright and no
+            // second system ask is made; reversal belongs to Settings.
+            if (sawGrant) {
+                result.success(WIRE_REFUSED)
+                return
+            }
             // A superseded press (a second press while the dialog
             // stands) is answered quietly before its own request lands.
             stagedStart?.result?.success(WIRE_UNAVAILABLE)
@@ -106,6 +140,7 @@ internal class DictateChannel(
             activity.requestPermissions(arrayOf(PERMISSION), PERMISSION_REQUEST_CODE)
             return
         }
+        sawGrant = true
         beginListening(sessionId, result)
     }
 
@@ -123,11 +158,21 @@ internal class DictateChannel(
         }
         val staged = stagedStart
         stagedStart = null
+        if (grantResults.isEmpty()) {
+            // The system cancelled the request itself (the activity
+            // gone, the ask dismissed without an answer): nobody
+            // refused anything, so no refusal is reported — a staged
+            // press, if any still stands, resolves quiet-unavailable.
+            staged?.result?.success(WIRE_UNAVAILABLE)
+            return true
+        }
+        val granted = grantResults[0] == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            sawGrant = true
+        }
         if (staged == null) {
             return true
         }
-        val granted =
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
         if (granted) {
             beginListening(staged.sessionId, staged.result)
         } else {
@@ -140,8 +185,12 @@ internal class DictateChannel(
         sessionId: Int,
         result: MethodChannel.Result,
     ) {
-        val started = recognizer.startListening(sessionId)
-        result.success(if (started) WIRE_LISTENING else WIRE_UNAVAILABLE)
+        // The support gate re-arms asynchronously (the probe again), so
+        // the start's answer arrives from the recognizer's callback —
+        // every path of which lands on the main looper exactly once.
+        recognizer.startListening(sessionId) { started ->
+            result.success(if (started) WIRE_LISTENING else WIRE_UNAVAILABLE)
+        }
     }
 
     private fun openAppSettings() {

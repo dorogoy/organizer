@@ -69,8 +69,13 @@ class SettingsController {
   /// FR-32): the row renders only while it has something to reactivate
   /// — the permission is refused (the derivation over the log, one
   /// definition) ∧ not granted (the probe's platform read, so a system
-  /// re-grant retires the row by itself). With no recognizer seam the
-  /// row reads as absent; a failed read is quiet and reads the same.
+  /// re-grant retires the row by itself). The probe speaks "not
+  /// granted" only as `askable` — available ∧ not granted — so an
+  /// `unavailable` read hides the row: while recognition cannot run
+  /// there is nothing to reactivate into, and the row returns with
+  /// availability (a refused-but-re-granted read already retired it).
+  /// With no recognizer seam the row reads as absent; a failed read is
+  /// quiet and reads the same.
   Future<bool> readMicReactivationAvailable() async {
     await _writes;
     final recognizer = this.recognizer;
@@ -82,7 +87,7 @@ class SettingsController {
       return false;
     }
     try {
-      return await recognizer.probe() != RecognizerAvailability.granted;
+      return await recognizer.probe() == RecognizerAvailability.askable;
     } catch (_) {
       return false;
     }

@@ -120,15 +120,36 @@ internal class DictateRecognizer(private val context: Context) {
     }
 
     /**
-     * Starts one utterance for [sessionId], emitting exactly one
-     * terminal outcome through the registered outcome sink — the final
-     * transcript, or null when nothing landed (a recognizer error, an
-     * empty `onResults`; interruption yields nothing, and partial
-     * results never emit). Answers false when the static gate refuses
-     * (quiet unavailability). Must be called on the main thread; every
-     * recognition callback is re-posted there regardless.
+     * Starts one utterance for [sessionId], answering [onAnswered] on the
+     * main thread with whether listening began — the 3-1 rule re-armed at
+     * the press itself: the support check runs again here, because a model
+     * removed between the visibility probe and the press must not begin
+     * listening (FR-32's quiet unavailability, not a broken session). The
+     * answer is bounded by the probe's own timeout; a session cancelled
+     * while the probe ran answers false and owns nothing further.
      */
-    fun startListening(sessionId: Int): Boolean {
+    fun startListening(
+        sessionId: Int,
+        onAnswered: (started: Boolean) -> Unit,
+    ) {
+        mainHandler.post {
+            pendingSessionId = sessionId
+            pendingAnswer = onAnswered
+            probeAvailability { available ->
+                if (pendingSessionId != sessionId) {
+                    // Cancelled or superseded while the probe ran: the
+                    // session owns nothing, and its answer already left
+                    // through the cancel path.
+                    return@probeAvailability
+                }
+                pendingSessionId = -1
+                pendingAnswer = null
+                onAnswered(available && beginSession(sessionId))
+            }
+        }
+    }
+
+    private fun beginSession(sessionId: Int): Boolean {
         if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             return false
         }
@@ -184,34 +205,49 @@ internal class DictateRecognizer(private val context: Context) {
     /**
      * Cancels the session [sessionId] without delivering anything — the
      * interruption path (backgrounding, call, focus loss). A session id
-     * other than the active one is already gone: nothing to do.
+     * other than the active one is already gone: nothing to do — except
+     * a session still awaiting its own support probe, whose pending
+     * answer is settled here (false) so no Dart future can hang on a
+     * session that will never begin.
      */
     fun cancel(sessionId: Int) {
         if (sessionId == activeSessionId) {
             cancelActive()
+        }
+        if (sessionId == pendingSessionId) {
+            pendingSessionId = -1
+            pendingAnswer?.invoke(false)
+            pendingAnswer = null
         }
     }
 
     /** Releases the recognizer outright (the channel's teardown). */
     fun destroy() {
         cancelActive()
+        if (pendingSessionId != -1) {
+            pendingSessionId = -1
+            pendingAnswer?.invoke(false)
+            pendingAnswer = null
+        }
     }
 
     /**
      * Emits the session's one terminal outcome, then releases the
-     * recognizer: a stale session (cancelled or superseded) drops its
-     * outcome and only cleans up.
+     * recognizer — but only for the session that still owns it: a stale
+     * session (cancelled or superseded) drops its outcome AND touches
+     * nothing, because the standing recognizer belongs to a newer
+     * session whose utterance a late cleanup must not cut off.
      */
     private fun emitTerminal(
         sessionId: Int,
         transcript: () -> String?,
     ) {
-        val isLive = sessionId == activeSessionId
-        val value = if (isLive) transcript() else null
-        cancelActive()
-        if (isLive) {
-            outcomeSink?.invoke(sessionId, value)
+        if (sessionId != activeSessionId) {
+            return
         }
+        val value = transcript()
+        cancelActive()
+        outcomeSink?.invoke(sessionId, value)
     }
 
     /** The sink every terminal outcome flows through, set once by the channel. */
@@ -220,6 +256,15 @@ internal class DictateRecognizer(private val context: Context) {
     }
 
     private var outcomeSink: ((sessionId: Int, transcript: String?) -> Unit)? = null
+
+    /**
+     * The session still awaiting its start probe's answer, with the
+     * answer owed — main-confined with everything else, so a cancel or
+     * teardown arriving mid-probe settles the future it must.
+     */
+    private var pendingSessionId = -1
+
+    private var pendingAnswer: ((started: Boolean) -> Unit)? = null
 
     private fun cancelActive() {
         recognizer?.let {

@@ -193,3 +193,15 @@ context:
 
 - The surface census plus six dictation widget flows (replace, interrupt, blank)
   [`capture_screen_test.dart:743`](../../test/ui/capture/capture_screen_test.dart#L743)
+
+### Review Findings
+
+- [x] [Review][Patch] Add native/integration coverage for the dictation channel and an independent protocol cross-check (resolved decision: add now) — `DictateChannel.kt` and `DictateRecognizer.kt` have no Android-side automated tests, while the Dart wire tests reuse the production protocol constants; the permission, Spanish-support and callback-race paths must be verified independently of the production constants.
+- [x] [Review][Patch] Cancel staged permission requests when dictation is cancelled [android/app/src/main/kotlin/dev/dorogoy/organizer/DictateChannel.kt:72-75]
+- [x] [Review][Patch] Prevent stale native callbacks from cancelling a newer recognition session [android/app/src/main/kotlin/dev/dorogoy/organizer/DictateRecognizer.kt:205-214]
+- [x] [Review][Patch] Detect permission revocation without re-asking and persist the refusal outcome [android/app/src/main/kotlin/dev/dorogoy/organizer/DictateChannel.kt:101-106]
+- [x] [Review][Patch] Keep the Settings reactivation row tied to the actual microphone grant when recognition is unavailable [lib/settings/settings_controller.dart:80-85]
+- [x] [Review][Patch] Guard dictation visibility refreshes against out-of-order probe and log results [lib/capture/dictation_controller.dart:140-155]
+- [x] [Review][Patch] Make the v6-to-v7 schema migration failure-atomic [lib/store/substrate.dart:144-146]
+- [x] [Review][Patch] Re-enforce the Spanish on-device support gate when starting recognition [android/app/src/main/kotlin/dev/dorogoy/organizer/DictateRecognizer.kt:131-145]
+- [x] [Review][Defer] Capture fact and `capture_created` appends are not atomic, so dictated counts can include orphaned or retry-duplicated facts [lib/capture/capture_controller.dart:67-92] — deferred, pre-existing

@@ -45,8 +45,9 @@ app.*.map.json
 /android/app/release
 /android/.gradle/
 
-# Toolchain provisioned by tool/bootstrap.sh (never committed)
-.toolchain/
+# Toolchain provisioned by tool/bootstrap.sh (never committed) — the
+# pattern matches both a directory and the machine-shared symlink
+.toolchain
 
 # Machine-local environment overrides (opt-in seed etc.) — never committed
 tool/env.local.sh

@@ -40,8 +40,10 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// upgrade statements — Story 2.1's additive columns — schema v3's
 /// pocket column, Story 2.2, schema v4's energy level column,
 /// Story 2.5, schema v5's two report columns, Story 2.6, schema v6's
-/// pool Origin Context column, Story 3.2, and schema v7's permission
-/// and dictation columns, Story 3.4), the dictate channel's wire
+/// pool Origin Context column, Story 3.2, schema v7's permission
+/// and dictation columns, Story 3.4, and the same story's idempotent
+/// upgrade helpers — the additive ALTER's shape, the pragma template,
+/// its slot and the pragma's name field), the dictate channel's wire
 /// vocabulary (channel and method names, outcome keys and answers —
 /// protocol identifiers mirrored by the Kotlin half, never widget
 /// copy, on the store module's terms), and the catalogue
@@ -62,6 +64,10 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'poolFactsOriginContextUpgrade',
     'logEntriesPermissionUpgrade',
     'poolFactsDictatedUpgrade',
+    'additiveAlterShape',
+    'tableInfoPragmaTemplate',
+    'tableInfoPragmaSlot',
+    'tableInfoNameField',
   },
   'lib/store/connection.dart': {'substrateFileName'},
   'lib/store/drift_store.dart': {'rowIdColumnName'},
