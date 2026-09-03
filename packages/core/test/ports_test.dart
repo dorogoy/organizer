@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:core/ports/clock_port.dart';
 import 'package:core/ports/files_port.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:test/test.dart';
 
@@ -49,6 +50,17 @@ class _ShellFiles implements FilesPort {
   Future<void> delete(String scope, String name) async {}
 }
 
+/// A shell-side stand-in proving the slicer port is implementable
+/// outside its declaring library (Story 4-4, AD-9) — adapters send,
+/// the core only names the vocabulary.
+class _ShellSlicer implements SlicerPort {
+  const _ShellSlicer();
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) async =>
+      const SlicerFailed(SlicerFailureCause.managedUnavailable);
+}
+
 void main() {
   test('the ports library declares exactly the build\'s ports', () {
     final dir = Directory('lib/ports');
@@ -63,12 +75,13 @@ void main() {
             .toList()
           ..sort();
     // The two Epic-1 ports, the recognizer port Story 3.4 adds
-    // (FR-32), and the files port Story 4.3 adds (AD-22): one file
-    // each.
+    // (FR-32), the files port Story 4.3 adds (AD-22), and the slicer
+    // port Story 4-4 adds (AD-9): one file each.
     expect(names, [
       'clock_port.dart',
       'files_port.dart',
       'recognizer_port.dart',
+      'slicer_port.dart',
       'store_port.dart',
     ]);
   });
@@ -82,4 +95,18 @@ void main() {
     expect(files, isA<FilesPort>());
     expect(clock.instant(), DateTime.fromMillisecondsSinceEpoch(0));
   });
+
+  test(
+    'the slicer port is implementable by a shell-side adapter (AD-9)',
+    () async {
+      const slicer = _ShellSlicer();
+      expect(slicer, isA<SlicerPort>());
+      expect(
+        await slicer.slice(
+          const RescueSliceRequest(originContext: 'shelf', task: 'clear it'),
+        ),
+        isA<SlicerFailed>(),
+      );
+    },
+  );
 }

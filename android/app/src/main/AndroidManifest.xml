@@ -3,6 +3,12 @@
          of the three runtime permissions, requested at the moment its
          feature is first used — never at app entry or first run. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- The BYOK Slicer's egress (Story 4-4, AD-7): the one deliberate
+         main-manifest permission 4-2's seal anticipated — sockets leave
+         only through lib/egress/, and this is the platform's own word
+         for allowing them at all. Nothing in first run touches the
+         network; the permission guards the slice call alone. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="organizer"
         android:name="${applicationName}"

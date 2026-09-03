@@ -27,6 +27,12 @@ dependencies:
   # AD-7's egress image cap (story 4.2): pure-Dart JPEG/PNG codec, no
   # Android footprint — both native seals stay unaffected by it.
   image: 4.9.2
+  # The BYOK Slicer's transport (story 4-4, AD-7): the egress
+  # chokepoint's one HTTP client, imported only inside lib/egress/
+  # (the Dart import seal carries that boundary). Pure Dart, so the
+  # resolved Gradle graph is unchanged by it. Exact-pinned like
+  # every runtime dep (the caret range was the review's finding).
+  http: 1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -35,6 +41,10 @@ dev_dependencies:
   drift_dev: 2.34.3
   build_runner: ^2.4.0
   yaml: 3.1.3
+  # The BYOK wire's stall-timeout test drives the fake clock directly
+  # (story 4-4's review round); already resolved transitively via
+  # flutter_test, promoted so the test names its own dependency.
+  fake_async: ^1.3.3
 
 flutter:
   uses-material-design: true

@@ -24,6 +24,7 @@ import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
 import '../dispenser/duration_chip.dart';
 import '../tokens.dart';
+import 'slicer_access_section.dart';
 
 /// The settings surface (FR-7, UX-DR33): the flat platform list. The
 /// Time Bag row offers the six stepped options [timeBagOptions] as
@@ -209,6 +210,23 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
             const SizedBox(height: Spacing.taskToActions),
+            // The IA y voz group header (Story 4-4, reusing 3.4's
+            // string): the second quiet group of the flat list,
+            // holding the BYOK access path's pills, terms lines and
+            // key field, and — beneath it — the validator surface's
+            // dictation facts, moved under this header from the flat
+            // list's tail where 3.4 first rendered them.
+            Text(
+              AppStrings.of(context).settingsAiVoice,
+              // bodySmall is the wired support role (theme.dart).
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: Spacing.actionGap),
+            // The access section (Story 4-4, FR-28): provider pills,
+            // terms sentences, the quiet key field and the free-tier
+            // sentence — stated once, here and nowhere else.
+            SlicerAccessSection(controller: widget.controller),
+            const SizedBox(height: Spacing.actionGap),
             // The validator surface's dictated count (Story 3.4, FR-32,
             // AD-26): the one place the per-capture dictation boolean is
             // readable — a quiet support line, rendered only once the

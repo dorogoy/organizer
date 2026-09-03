@@ -368,7 +368,10 @@ void main() {
         'lib/crash.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
-        'lib/settings/settings_controller.dart': 1,
+        // Story 4-4 grows the settings channel's append sites to
+        // two: the Time Bag's int row and the selected provider's
+        // text row, both through the same sanctioned minter.
+        'lib/settings/settings_controller.dart': 2,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -382,7 +385,7 @@ void main() {
         'lib/capture/dictation_controller.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 7,
         'lib/session/session_controller.dart': 1,
-        'lib/settings/settings_controller.dart': 1,
+        'lib/settings/settings_controller.dart': 2,
       },
       reason:
           'records constructed over core LogEntryContent exist '

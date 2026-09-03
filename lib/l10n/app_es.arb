@@ -260,7 +260,68 @@
 
   "settingsAiVoice": "IA y voz",
   "@settingsAiVoice": {
-    "description": "Settings — the microphone reactivation row (Story 3.4): renders only while the permission is refused and not granted, and opens the system's app-details screen. The app never re-asks on its own."
+    "description": "Settings — the IA y voz group header (Story 4-4, reusing the string 3.4 authored): the BYOK access path's provider pills, terms lines and quiet key field, beside the validator surface's dictation facts. The reactivation row inside the group carries the same label."
+  },
+
+  "providerNameGemini": "Gemini",
+  "@providerNameGemini": {
+    "description": "Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist."
+  },
+
+  "providerNameOpenai": "OpenAI",
+  "@providerNameOpenai": {
+    "description": "Settings, IA y voz — the openai allowlist entry's rendered name."
+  },
+
+  "providerNameAnthropic": "Anthropic",
+  "@providerNameAnthropic": {
+    "description": "Settings, IA y voz — the anthropic allowlist entry's rendered name."
+  },
+
+  "providerNameOpenrouter": "OpenRouter",
+  "@providerNameOpenrouter": {
+    "description": "Settings, IA y voz — the openrouter allowlist entry's rendered name."
+  },
+
+  "providerTermsGemini": "Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.",
+  "@providerTermsGemini": {
+    "description": "Settings, IA y voz — the gemini entry's terms line: the date baked at verification, stated as verified on that day and not since; no age indicator, no re-check, no removal.",
+    "x-signoff": "Sergio, 2026-09-03"
+  },
+
+  "providerTermsOpenai": "Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.",
+  "@providerTermsOpenai": {
+    "description": "Settings, IA y voz — the openai entry's terms line: the date baked at verification, stated as verified on that day and not since.",
+    "x-signoff": "Sergio, 2026-09-03"
+  },
+
+  "providerTermsAnthropic": "Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.",
+  "@providerTermsAnthropic": {
+    "description": "Settings, IA y voz — the anthropic entry's terms line: the date baked at verification, stated as verified on that day and not since.",
+    "x-signoff": "Sergio, 2026-09-03"
+  },
+
+  "providerTermsOpenrouter": "Términos sin entrenamiento verificados el 3 de septiembre de 2026; ese día, y no desde entonces.",
+  "@providerTermsOpenrouter": {
+    "description": "Settings, IA y voz — the openrouter entry's terms line: the date baked at admission, stated as verified on that day and not since.",
+    "x-signoff": "Sergio, 2026-09-03"
+  },
+
+  "settingsProviderKeyLabel": "Clave de IA",
+  "@settingsProviderKeyLabel": {
+    "description": "Settings, IA y voz — the quiet obscured key field's label. Submit saves; empty submit deletes; no confirmation, no read-back, no availability claim anywhere."
+  },
+
+  "settingsProviderKeyFreeTierNote": "Una clave de nivel gratuito puede usarse para entrenar los modelos; esta app no puede saber de qué nivel es cada clave.",
+  "@settingsProviderKeyFreeTierNote": {
+    "description": "Settings, IA y voz — the free-tier sentence, stated exactly once in the whole build, below the key field and nowhere else.",
+    "x-signoff": "Sergio, 2026-09-03"
+  },
+
+  "localSlicerCannedMarker": "Paso local de ejemplo — este plan no es real",
+  "@localSlicerCannedMarker": {
+    "description": "The Local Slicer's canned marker (Story 4-4, AD-9): every step of the debug stub's output carries it — unmistakable by construction, reachable only in the debug variant with the compile-time flag set.",
+    "x-signoff": "Sergio, 2026-09-03"
   },
 
   "genesisAnalyze": "Analizar",

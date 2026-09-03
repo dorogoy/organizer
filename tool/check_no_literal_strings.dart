@@ -51,10 +51,17 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// shape, Story 4.3 — channel, methods, outcome keys and wire
 /// words), the files module's scope and path-segment identifiers
 /// (Story 4.3 — the credentials scope, the staging suffix, and the
-/// traversal refusal's separators and dot segments), and the
-/// catalogue loader's two diagnostics
+/// traversal refusal's separators and dot segments), the catalogue
+/// loader's two diagnostics
 /// templates (crash-path context naming the asset path and the
-/// stale-codegen remedy — a named decision on the store module's terms).
+/// stale-codegen remedy — a named decision on the store module's terms),
+/// and the egress module's wire vocabulary (Story 4-4 — the frozen
+/// provider allowlist's ids and fixed model ids, the BYOK wires'
+/// endpoint/header/body/response identifiers, the rescue contract's
+/// prompt pieces and schema, the Local stub's dart-define key, and
+/// the settings section's unreachable-empty render name —
+/// provider-facing protocol identifiers, never widget copy, on the
+/// same terms).
 const Map<String, Set<String>> namedConstantAllowance = {
   'lib/ui/tokens.dart': {'lora', 'lexend', 'shortDateFormat', 'durationFormat'},
   'lib/store/substrate.dart': {
@@ -120,6 +127,107 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'catalogueCauseSlot',
     'catalogueIdSlot',
   },
+  'lib/egress/provider_allowlist.dart': {
+    'geminiProviderId',
+    'openAiProviderId',
+    'anthropicProviderId',
+    'openRouterProviderId',
+    'geminiModelId',
+    'openAiModelId',
+    'anthropicModelId',
+    'openRouterModelSlug',
+  },
+  'lib/egress/byok_wire.dart': {
+    'geminiModelsUrlPrefix',
+    'geminiGenerateContentSuffix',
+    'openAiChatCompletionsUrl',
+    'anthropicMessagesUrl',
+    'openRouterChatCompletionsUrl',
+    'contentTypeHeader',
+    'jsonContentType',
+    'wirePostMethod',
+    'xGoogApiKeyHeader',
+    'authorizationHeader',
+    'bearerSchemePrefix',
+    'xApiKeyHeader',
+    'anthropicVersionHeader',
+    'anthropicVersionValue',
+    'modelKey',
+    'contentsKey',
+    'roleKey',
+    'messagesKey',
+    'userRoleValue',
+    'contentKey',
+    'typeKey',
+    'textTypeValue',
+    'textKey',
+    'inlineDataTypeValue',
+    'inlineMimeTypeKey',
+    'inlineDataKey',
+    'imageUrlTypeValue',
+    'imageUrlKey',
+    'imageUrlUrlKey',
+    'dataUriSchemePrefix',
+    'dataUriBase64Middle',
+    'imageTypeValue',
+    'sourceKey',
+    'base64TypeValue',
+    'dataKey',
+    'mediaTypeKey',
+    'generationConfigKey',
+    'responseMimeTypeKey',
+    'responseSchemaKey',
+    'applicationJsonValue',
+    'responseFormatKey',
+    'jsonSchemaTypeValue',
+    'jsonSchemaKey',
+    'schemaNameKey',
+    'strictKey',
+    'schemaKey',
+    'maxTokensKey',
+    'maxCompletionTokensKey',
+    'toolsKey',
+    'descriptionKey',
+    'inputSchemaKey',
+    'toolChoiceKey',
+    'toolTypeValue',
+    'nameKey',
+    'slicePlanSchemaName',
+    'emitSlicePlanToolName',
+    'emitSlicePlanToolDescription',
+    'providerRoutingKey',
+    'zdrRoutingKey',
+    'choicesKey',
+    'messageKey',
+    'candidatesKey',
+    'partsKey',
+    'toolUseTypeValue',
+    'inputKey',
+    'imageJpegMimeType',
+    'imagePngMimeType',
+    'wireStatusMessagePrefix',
+  },
+  'lib/egress/rescue_contract.dart': {
+    'rescuePromptHead',
+    'rescuePromptAfterShape',
+    'rescuePromptTaskLead',
+    'rescuePromptTail',
+    'rescueExampleShapeOpen',
+    'rescueExampleStepsToText',
+    'rescueExampleTextToDuration',
+    'rescueExampleDurationClose',
+    'rescueSliceSchemaJson',
+    'propertiesKey',
+    'requiredKey',
+    'itemsKey',
+    'schemaTypeKey',
+    'schemaStringTypeValue',
+    'canonicalSchemaObjectFailure',
+    'canonicalSchemaPropertyWithoutTypeFailure',
+    'canonicalSchemaPropertyNotObjectFailure',
+  },
+  'lib/egress/slicer_factory.dart': {'localSlicerEnvironmentKey'},
+  'lib/ui/settings/slicer_access_section.dart': {'uncoveredProviderRender'},
 };
 
 /// A string literal found in source, with its 1-based start line.
