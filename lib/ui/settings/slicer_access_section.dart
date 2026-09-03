@@ -58,6 +58,11 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
   /// lands scopes against the log's truth, not the field's timing.
   Future<void> _selectionRead = Future<void>.value();
 
+  /// The in-flight (or settled) pill write — the submit path awaits
+  /// it too, so a tap-then-immediate-submit scopes to the provider
+  /// just chosen, not the selection that still sat on screen.
+  Future<void> _selectionWrite = Future<void>.value();
+
   /// The key field's controller — an entry point, never a display:
   /// a submit hands its text to the vault and the field clears, so
   /// the field never remembers what the vault now holds (and never
@@ -115,13 +120,17 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
     if (controller == null || providerId == _selectedProvider) {
       return;
     }
-    try {
-      await controller.writeSelectedProvider(providerId);
-    } catch (_) {
-      return;
-    }
-    _readSelection();
-    await _readSettled();
+    final write = () async {
+      try {
+        await controller.writeSelectedProvider(providerId);
+      } catch (_) {
+        return;
+      }
+      _readSelection();
+      await _readSettled();
+    }();
+    _selectionWrite = write;
+    await write;
   }
 
   /// The key field's submit (FR-28): text saves, empty deletes —
@@ -135,6 +144,7 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
   /// register never changes.
   Future<void> _onKeySubmitted(String text) async {
     final controller = widget.controller;
+    await _selectionWrite;
     await _readSettled();
     if (!mounted) {
       return;
@@ -237,6 +247,12 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
         controller: _keyFieldController,
         onSubmitted: _onKeySubmitted,
         obscureText: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        enableIMEPersonalizedLearning: false,
+        smartDashesType: SmartDashesType.disabled,
+        smartQuotesType: SmartQuotesType.disabled,
+        autofillHints: const <String>[],
         // bodyMedium carries the entry in the Lexend mechanism
         // register (theme.dart) — a mechanism, never content.
         style: theme.textTheme.bodyMedium,

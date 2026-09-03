@@ -99,6 +99,11 @@ void main() {
         expect(recorded, hasLength(1), reason: 'one send per slice');
         final request = recorded.single;
         expect(
+          request.followRedirects,
+          isFalse,
+          reason: 'a 3xx must not replay the API key off the allowlist',
+        );
+        expect(
           request.url.toString(),
           'https://generativelanguage.googleapis.com/v1beta/models/'
           'gemini-3.5-flash-lite:generateContent',
@@ -453,6 +458,26 @@ void main() {
       );
     });
 
+    test('a TLS handshake failure reads networkUnreachable', () async {
+      expect(
+        await causeOf(
+          () => jsonResponse({}),
+          thrown: HandshakeException('bad handshake'),
+        ),
+        SlicerFailureCause.networkUnreachable,
+      );
+    });
+
+    test('a ClientException reads networkUnreachable', () async {
+      expect(
+        await causeOf(
+          () => jsonResponse({}),
+          thrown: http.ClientException('transport failed'),
+        ),
+        SlicerFailureCause.networkUnreachable,
+      );
+    });
+
     test('an unparseable 200 body reads malformedResponse', () async {
       await seedKey('openai', 'o-key');
       final client = recording(
@@ -576,9 +601,14 @@ void main() {
         final parts = (body[contentsKey] as List).single[partsKey] as List;
         expect((parts[0] as Map)[textKey], 'describe el rincón');
         final image = parts[1] as Map<String, Object?>;
-        expect(image[typeKey], inlineDataTypeValue);
-        expect(image[inlineMimeTypeKey], imageJpegMimeType);
-        final decoded = base64Decode(image[inlineDataKey] as String);
+        expect(
+          image.containsKey(typeKey),
+          isFalse,
+          reason: 'generateContent nests mime+data under inline_data',
+        );
+        final inline = image[inlineDataTypeValue] as Map<String, Object?>;
+        expect(inline[inlineMimeTypeKey], imageJpegMimeType);
+        final decoded = base64Decode(inline[inlineDataKey] as String);
         expect(
           decoded,
           equals(bytes),
@@ -586,6 +616,119 @@ void main() {
         );
       },
     );
+
+    test('an OpenAI scan rides an image_url data-URI', () async {
+      await seedKey('openai', 'o-key');
+      final client = recording(
+        (request) => jsonResponse({
+          choicesKey: [
+            {
+              messageKey: {contentKey: '{"steps":[]}'},
+            },
+          ],
+        }),
+      );
+      final bytes = gradientJpeg(640, 480);
+      await slicerWith(client, 'openai').slice(
+        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
+      );
+      final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
+      final content = (body[messagesKey] as List).single[contentKey] as List;
+      expect((content[0] as Map)[textKey], 'describe el rincón');
+      final image = content[1] as Map<String, Object?>;
+      expect(image[typeKey], imageUrlTypeValue);
+      final url = (image[imageUrlKey] as Map)[imageUrlUrlKey] as String;
+      expect(
+        url.startsWith(
+          dataUriSchemePrefix + imageJpegMimeType + dataUriBase64Middle,
+        ),
+        isTrue,
+      );
+      expect(base64Decode(url.split(dataUriBase64Middle).last), bytes);
+    });
+
+    test('an OpenRouter scan rides the same data-URI and keeps ZDR', () async {
+      await seedKey('openrouter', 'r-key');
+      final client = recording(
+        (request) => jsonResponse({
+          choicesKey: [
+            {
+              messageKey: {contentKey: '{"steps":[]}'},
+            },
+          ],
+        }),
+      );
+      final bytes = gradientJpeg(640, 480);
+      await slicerWith(client, 'openrouter').slice(
+        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
+      );
+      final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
+      final content = (body[messagesKey] as List).single[contentKey] as List;
+      final image = content[1] as Map<String, Object?>;
+      expect(image[typeKey], imageUrlTypeValue);
+      final routing = body[providerRoutingKey] as Map<String, Object?>;
+      expect(routing[zdrRoutingKey], true);
+      expect(
+        base64Decode(
+          ((image[imageUrlKey] as Map)[imageUrlUrlKey] as String)
+              .split(dataUriBase64Middle)
+              .last,
+        ),
+        bytes,
+      );
+    });
+
+    test('an Anthropic scan rides a base64 image source', () async {
+      await seedKey('anthropic', 'a-key');
+      final client = recording(
+        (request) => jsonResponse({
+          contentKey: [
+            {typeKey: textTypeValue, textKey: '{"steps":[]}'},
+          ],
+        }),
+      );
+      final bytes = gradientJpeg(640, 480);
+      await slicerWith(client, 'anthropic').slice(
+        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
+      );
+      final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
+      final content = (body[messagesKey] as List).single[contentKey] as List;
+      final image = content[0] as Map<String, Object?>;
+      expect(image[typeKey], imageTypeValue);
+      final source = image[sourceKey] as Map<String, Object?>;
+      expect(source[typeKey], base64TypeValue);
+      expect(source[mediaTypeKey], imageJpegMimeType);
+      expect(base64Decode(source[dataKey] as String), bytes);
+      expect((content[1] as Map)[textKey], 'describe el rincón');
+    });
+
+    test('an in-cap PNG keeps image/png on the OpenAI data-URI', () async {
+      await seedKey('openai', 'o-key');
+      final client = recording(
+        (request) => jsonResponse({
+          choicesKey: [
+            {
+              messageKey: {contentKey: '{"steps":[]}'},
+            },
+          ],
+        }),
+      );
+      final bytes = gradientPng(200, 100);
+      await slicerWith(
+        client,
+        'openai',
+      ).slice(ScanSliceRequest(imageBytes: bytes, prompt: 'png'));
+      final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
+      final content = (body[messagesKey] as List).single[contentKey] as List;
+      final url =
+          ((content[1] as Map)[imageUrlKey] as Map)[imageUrlUrlKey] as String;
+      expect(
+        url.startsWith(
+          dataUriSchemePrefix + imagePngMimeType + dataUriBase64Middle,
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('the review patches (4-4 review round)', () {

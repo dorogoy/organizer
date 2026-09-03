@@ -13,6 +13,7 @@
 // — no retry, no queue, no metering, no report. Everything is a
 // named wire constant on the egress module's terms (AD-15's ban is
 // on literals reaching a widget; these never leave the wire).
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -69,6 +70,9 @@ const String contentTypeHeader = 'Content-Type';
 /// The one content type every wire sends.
 const String jsonContentType = 'application/json';
 
+/// The one HTTP method every wire send uses.
+const String wirePostMethod = 'POST';
+
 /// Gemini's key header.
 const String xGoogApiKeyHeader = 'x-goog-api-key';
 
@@ -116,7 +120,8 @@ const String textTypeValue = 'text';
 /// A text part's (and gemini part's) text field.
 const String textKey = 'text';
 
-/// Gemini's inline image part's type value.
+/// Gemini generateContent's inline image part field — mime type and
+/// bytes nest under this key; the part has no `type` discriminator.
 const String inlineDataTypeValue = 'inline_data';
 
 /// Gemini's inline image part's mime-type field.
@@ -284,17 +289,19 @@ const Duration wireSendTimeout = Duration(minutes: 2);
 
 /// Sends one slice request over [entry]'s wire: builds the URL,
 /// headers and body per the entry's kind, POSTs exactly once under
-/// [wireSendTimeout], and returns the 2xx response body as text. A
-/// non-2xx status throws [WireStatusException] (the classification
-/// evidence); a stall throws `TimeoutException`; socket-level
-/// failures propagate as themselves — all three for the same
-/// reason: the classifier reads the evidence. A 2xx body that is
-/// not valid UTF-8 throws `FormatException` — the delivered-but-
-/// unusable evidence, `malformedResponse` by the taxonomy's own
-/// definition. The schema is the request's structured-output
-/// contract — the rescue contract for rescue payloads; scan and
-/// genesis ride their prompts verbatim with no schema until Epic 5
-/// authors their contracts.
+/// [wireSendTimeout], and returns the 2xx response body as text. The
+/// POST does not follow redirects (a 3xx is status evidence, never a
+/// second host) and a stall completes the abort trigger so the
+/// in-flight send does not outlive the bound. A non-2xx status
+/// throws [WireStatusException] (the classification evidence); a
+/// stall throws `TimeoutException`; socket-level failures propagate
+/// as themselves — all three for the same reason: the classifier
+/// reads the evidence. A 2xx body that is not valid UTF-8 throws
+/// `FormatException` — the delivered-but-unusable evidence,
+/// `malformedResponse` by the taxonomy's own definition. The schema
+/// is the request's structured-output contract — the rescue contract
+/// for rescue payloads; scan and genesis ride their prompts
+/// verbatim with no schema until Epic 5 authors their contracts.
 Future<String> sendSlicerWire({
   required http.Client client,
   required ProviderAllowlistEntry entry,
@@ -303,25 +310,46 @@ Future<String> sendSlicerWire({
 }) async {
   final prompt = _promptOf(payload);
   final schema = payload is RescueResliceText ? rescueSliceSchemaJson : null;
-  final response = await client
-      .post(
-        _urlFor(entry),
-        headers: _headersFor(entry, apiKey),
-        body: jsonEncode(
+  final abort = Completer<void>();
+  final request =
+      http.AbortableRequest(
+          wirePostMethod,
+          _urlFor(entry),
+          abortTrigger: abort.future,
+        )
+        ..followRedirects = false
+        ..headers.addAll(_headersFor(entry, apiKey))
+        ..body = jsonEncode(
           _bodyFor(
             entry: entry,
             payload: payload,
             prompt: prompt,
             schema: schema,
           ),
-        ),
-      )
-      .timeout(wireSendTimeout);
-  final status = response.statusCode;
-  if (status < 200 || status >= 300) {
-    throw WireStatusException(status);
+        );
+  try {
+    final response = await _postOnce(client, request).timeout(wireSendTimeout);
+    final status = response.statusCode;
+    if (status < 200 || status >= 300) {
+      throw WireStatusException(status);
+    }
+    return utf8.decode(response.bodyBytes);
+  } on TimeoutException {
+    if (!abort.isCompleted) {
+      abort.complete();
+    }
+    rethrow;
   }
-  return utf8.decode(response.bodyBytes);
+}
+
+/// One POST through [client.send], then the full body — the timeout
+/// wraps this whole round trip so a stall on either half is one bound.
+Future<http.Response> _postOnce(
+  http.Client client,
+  http.BaseRequest request,
+) async {
+  final streamed = await client.send(request);
+  return http.Response.fromStream(streamed);
 }
 
 /// Extracts the provider's slice text from a delivered response
@@ -431,9 +459,10 @@ Map<String, Object?> _geminiBody(
         {textKey: prompt},
         if (payload is ScanImagePrompt)
           {
-            typeKey: inlineDataTypeValue,
-            inlineMimeTypeKey: imageMimeTypeOf(payload.imageBytes),
-            inlineDataKey: base64Encode(payload.imageBytes),
+            inlineDataTypeValue: {
+              inlineMimeTypeKey: imageMimeTypeOf(payload.imageBytes),
+              inlineDataKey: base64Encode(payload.imageBytes),
+            },
           },
       ],
     },

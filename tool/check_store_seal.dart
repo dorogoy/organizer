@@ -233,24 +233,29 @@ List<Finding> scanDartIoSource({
   return findings;
 }
 
-/// dart:io's file and process families, banned by identifier inside
-/// `lib/egress/` — the fence around the 4-4 dart:io exception. A
-/// bare `File(...)` construction needs no import line to reach the
-/// filesystem, and `Process`/`exit`/`sleep`/stdio reopen both files
-/// and sockets through child processes the seals could never see —
-/// so identifiers are policed, not imports alone.
+/// dart:io's file, process and socket families, banned by identifier
+/// inside `lib/egress/` — the fence around the 4-4 dart:io exception.
+/// A bare `File(...)` construction needs no import line to reach the
+/// filesystem; `Process`/`exit`/`sleep`/stdio reopen files and sockets
+/// through child processes the seals could never see; `Socket`/
+/// `HttpClient`/`WebSocket` would open a second socket beside
+/// `package:http` — so identifiers are policed, not imports alone.
+/// `SocketException` stays legal: `\bSocket\b` does not match it.
 final RegExp _dartIoSideChannelIdentifierRegExp = RegExp(
   r'\b(?:File|Directory|RandomAccessFile|FileSystemEntity'
   r'|FileSystemException|FileStat|FileMode|FileLock|Link|Process'
-  r'|ProcessResult|ProcessSignal|Stdin|Stdout|Stderr|sleep|exit)\b',
+  r'|ProcessResult|ProcessSignal|Stdin|Stdout|Stderr|Socket'
+  r'|HttpClient|WebSocket|ServerSocket|SecureSocket'
+  r'|stdout|stdin|stderr|sleep|exit)\b',
 );
 
-/// Scans one `lib/egress/` file's source for dart:io file or
-/// process APIs — the exception's fence (Story 4-4): the egress
+/// Scans one `lib/egress/` file's source for dart:io file, process
+/// or socket APIs — the exception's fence (Story 4-4): the egress
 /// module may import dart:io to classify a SocketException and may
-/// touch no file and spawn no child process, so the side-file rule
-/// holds inside the one module the HTTP seal calls home. Comments
-/// and string literals are masked, so prose cannot false-positive.
+/// touch no file, spawn no child process and open no second socket,
+/// so the side-file rule holds inside the one module the HTTP seal
+/// calls home. Comments and string literals are masked, so prose
+/// cannot false-positive.
 List<Finding> scanEgressFileApiSource({
   required String file,
   required String source,
@@ -262,10 +267,11 @@ List<Finding> scanEgressFileApiSource({
       Finding(
         file,
         _lineOf(masked, match.start),
-        "dart:io file or process API '${match.group(0)}' is banned in "
-        'lib/egress/ — the dart:io exception covers socket classification '
-        'only; side files and child processes are nobody\'s business here '
-        '(AD-21 store seal, Story 4-4)',
+        "dart:io file, process or socket API '${match.group(0)}' is banned "
+        'in lib/egress/ — the dart:io exception covers socket '
+        'classification only; side files, child processes and a second '
+        'socket opener are nobody\'s business here (AD-21 store seal, '
+        'Story 4-4)',
       ),
     );
   }

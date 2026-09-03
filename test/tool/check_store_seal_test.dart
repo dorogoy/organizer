@@ -190,6 +190,24 @@ void main() {
       expect(findings.every((f) => f.message.contains('AD-21')), isTrue);
     });
 
+    test('dart:io socket constructors and stdio getters in lib/egress/ '
+        'are flagged — no second opener beside package:http', () {
+      final path = '$fixtures/egress_socket_channel_leak.dart';
+      final source = File(path).readAsStringSync();
+      final findings = scanEgressFileApiSource(
+        file: 'lib/egress/leak.dart',
+        source: source,
+      );
+      expect(findings, isNotEmpty);
+      for (final token in ['HttpClient', 'Socket', 'stdout']) {
+        expect(
+          findings.any((finding) => finding.message.contains(token)),
+          isTrue,
+          reason: token,
+        );
+      }
+    });
+
     test('dart:io process APIs in lib/egress/ are flagged too — no child '
         'processes through the chokepoint (Story 4-4 fence)', () {
       final path = '$fixtures/egress_process_leak.dart';
@@ -208,7 +226,7 @@ void main() {
       }
       expect(
         findings.every(
-          (finding) => finding.message.contains('file or process API'),
+          (finding) => finding.message.contains('file, process or socket API'),
         ),
         isTrue,
       );
@@ -536,8 +554,29 @@ class WildcardLeak
       ]);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
-      expect(out, contains('dart:io file or process API'));
+      expect(out, contains('dart:io file, process or socket API'));
       expect(out, contains('lib/egress/wire.dart:'));
+    });
+
+    test('a dart:io socket-channel leak under lib/egress/ fails the '
+        'executable (HttpClient/Socket/stdout)', () async {
+      final root = _makeTemp('egress_socket_channel_leak');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      Directory('${root.path}/lib/egress').createSync(recursive: true);
+      File('${root.path}/lib/egress/open.dart').writeAsStringSync(
+        "import 'dart:io';\n"
+        'void leak() => HttpClient();\n',
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('dart:io file, process or socket API'));
+      expect(out, contains('HttpClient'));
+      expect(out, contains('lib/egress/open.dart:'));
     });
 
     test('a dart:io process leak under lib/egress/ fails the executable '
@@ -556,7 +595,7 @@ class WildcardLeak
       ]);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
-      expect(out, contains('dart:io file or process API'));
+      expect(out, contains('dart:io file, process or socket API'));
       expect(out, contains('lib/egress/spawn.dart:'));
     });
 

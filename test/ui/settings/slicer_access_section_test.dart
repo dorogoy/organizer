@@ -48,6 +48,33 @@ class _RecordingStore implements StorePort {
       List.unmodifiable(entries);
 }
 
+/// A store whose `setting_changed` append waits on [gate] — the
+/// in-flight pill-write race for the key submit path.
+class _DelaySettingAppendStore implements StorePort {
+  _DelaySettingAppendStore(this._inner, this.gate);
+
+  final _RecordingStore _inner;
+  final Completer<void> gate;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (entry.kind == 'setting_changed') {
+      await gate.future;
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
 /// A store whose every `setting_changed` append throws — the
 /// write-failure row for the quiet-failure paths (the settings
 /// suite's own shape).
@@ -283,6 +310,17 @@ void main() {
       isTrue,
       reason: 'the key entry is quiet by construction',
     );
+    expect(tester.widget<TextField>(field).autocorrect, isFalse);
+    expect(tester.widget<TextField>(field).enableSuggestions, isFalse);
+    expect(
+      tester.widget<TextField>(field).smartDashesType,
+      SmartDashesType.disabled,
+    );
+    expect(
+      tester.widget<TextField>(field).smartQuotesType,
+      SmartQuotesType.disabled,
+    );
+    expect(tester.widget<TextField>(field).autofillHints, isEmpty);
 
     final beforeSave = textsOf(tester).toSet();
     await tester.enterText(field, 'g-key-xyz');
@@ -414,6 +452,36 @@ void main() {
   });
 
   group('the review patches (4-4 review round)', () {
+    testWidgets('a key submit during an in-flight pill write waits for '
+        'the write and scopes to the new provider', (tester) async {
+      final h = harness();
+      final gate = Completer<void>();
+      final delayed = _DelaySettingAppendStore(h.store, gate);
+      final controller = SettingsController(
+        store: delayed,
+        vault: h.vault,
+        nowOf: () => DateTime.utc(2026, 9, 3, 12),
+      );
+      await pumpSettings(tester, controller);
+      await tester.tap(find.text(AppStringsEs().providerNameGemini));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'g-race-key');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(
+        h.files.blobs,
+        isEmpty,
+        reason: 'submit waits on the in-flight write',
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+      expect(
+        utf8Decode(h.files.blobs['$credentialFilesScope/gemini']),
+        'g-race-key',
+      );
+    });
+
     testWidgets('a fast submit against a seeded selection waits for the '
         'read and saves the key — the log\'s truth, not the field\'s '
         'timing', (tester) async {

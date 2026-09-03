@@ -145,6 +145,7 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'openRouterChatCompletionsUrl',
     'contentTypeHeader',
     'jsonContentType',
+    'wirePostMethod',
     'xGoogApiKeyHeader',
     'authorizationHeader',
     'bearerSchemePrefix',

@@ -11,7 +11,7 @@
 // classify from evidence — HTTP status or socket family — and
 // nothing here queues, retries, meters or reports anything.
 import 'dart:async';
-import 'dart:io' show SocketException;
+import 'dart:io' show SocketException, TlsException;
 
 import 'package:core/ports/slicer_port.dart';
 import 'package:http/http.dart' as http;
@@ -131,7 +131,8 @@ final class ByokSlicer implements SlicerPort {
   /// `providerUnreachable`: the provider answered the request with
   /// a refusal-to-serve, which is a reachability fact, not a
   /// malformation of a delivered answer. Socket evidence (including
-  /// the http package's own client failures) reads
+  /// the http package's own client failures, and dart:io TLS
+  /// handshake failures that IOClient does not wrap) reads
   /// `networkUnreachable`. Decode evidence — a delivered 2xx body
   /// that is not valid UTF-8 — reads `malformedResponse`, the
   /// taxonomy's delivered-but-unusable bucket, which is otherwise
@@ -152,7 +153,9 @@ final class ByokSlicer implements SlicerPort {
       }
       return SlicerFailureCause.providerUnreachable;
     }
-    if (cause is SocketException || cause is http.ClientException) {
+    if (cause is SocketException ||
+        cause is TlsException ||
+        cause is http.ClientException) {
       return SlicerFailureCause.networkUnreachable;
     }
     if (cause is FormatException) {

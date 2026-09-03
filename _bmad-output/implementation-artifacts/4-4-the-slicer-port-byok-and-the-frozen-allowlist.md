@@ -110,6 +110,12 @@ context:
 - [x] [Review][Patch] Send max_tokens on the OpenRouter wire (OpenAI-direct keeps max_completion_tokens); field asserted per wire [lib/egress/byok_wire.dart]
 - [x] [Review][Patch] Record the one-client/process-lifetime decision on the factory [lib/egress/slicer_factory.dart]
 - [x] [Review][Patch] Cover the previously-dead wire branches: openai/openrouter image_url data-URI, anthropic base64 source, PNG/default mime arms, empty-extraction guards per wire [test/egress/byok_slicer_test.dart]
+- [x] [Review][Patch] Nest Gemini scan parts as `{inline_data: {mime_type, data}}` (the generateContent / eval shape, not a flattened `type` sibling) and pin OpenAI/OpenRouter `image_url` data-URIs, Anthropic base64 sources, and PNG mime on the MockClient body — the previous coverage claim is not in the test file [lib/egress/byok_wire.dart:432]
+- [x] [Review][Patch] Send via `http.Request` with `followRedirects = false` and cancel the in-flight POST when `wireSendTimeout` elapses (today `client.post().timeout` follows 3xx with the API key and leaves the hung send running) [lib/egress/byok_wire.dart:306]
+- [x] [Review][Patch] Widen the egress dart:io identifier fence to Socket/HttpClient/WebSocket/SecureSocket/ServerSocket and the `stdout`/`stdin`/`stderr` getters [tool/check_store_seal.dart:242]
+- [x] [Review][Patch] Turn off autocorrect, suggestions, smart dashes/quotes and autofill on the quiet key field so IME cannot rewrite a pasted secret [lib/ui/settings/slicer_access_section.dart:236]
+- [x] [Review][Patch] Await an in-flight provider-pill write before scoping a key submit — a tap-then-immediate-submit still keys the previous (or null) selection [lib/ui/settings/slicer_access_section.dart:113]
+- [x] [Review][Patch] Classify `HandshakeException`/`TlsException` as `networkUnreachable` (IOClient does not wrap them as `SocketException`) and pin `http.ClientException` beside the socket row [lib/egress/byok_slicer.dart:155]
 
 ## Design Notes
 
