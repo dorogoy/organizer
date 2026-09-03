@@ -8,7 +8,7 @@ const fixture = 'test/fixtures/gradle_dependencies/sample_dependencies.txt';
 
 void main() {
   test('the parser reads real report shape: markers stripped, conflicts '
-      'resolved, projects skipped', () {
+      'resolved, and non-coordinate nodes retained', () {
     final resolved = parseResolvedDependencies(
       File(fixture).readAsStringSync(),
     );
@@ -37,10 +37,7 @@ void main() {
           'engine-hash versions are frozen by design — every Flutter '
           'patch bump is a visible re-freeze',
     );
-    expect(
-      resolved.every((coordinate) => !coordinate.startsWith('project')),
-      isTrue,
-    );
+    expect(resolved, contains('non-coordinate:project :jni'));
   });
 
   test('a version-conflict line contributes the reconstructed resolved '
@@ -78,6 +75,42 @@ void main() {
     expect(resolved, {
       'com.example:unresolved:1.0',
       'com.example:resolved:2.0',
+    });
+  });
+
+  test('project and local-file entries remain visible in the graph', () {
+    const output =
+        '--- debugRuntimeClasspath - Runtime classpath\n'
+        '+--- project :localLibrary\n'
+        "\\--- file collection 'libs/local.aar'\n";
+    expect(parseResolvedDependencies(output), {
+      'non-coordinate:project :localLibrary',
+      "non-coordinate:file collection 'libs/local.aar'",
+    });
+  });
+
+  test('version text is preserved when it contains a plus suffix', () {
+    const output =
+        '--- debugRuntimeClasspath - Runtime classpath\n'
+        '+--- com.example:build:1.0+local.7\n';
+    expect(parseResolvedDependencies(output), {
+      'com.example:build:1.0+local.7',
+    });
+  });
+
+  test('a conflict preserves non-alphanumeric version qualifiers', () {
+    const output =
+        '--- debugRuntimeClasspath - Runtime classpath\n'
+        '+--- com.example:aar:1.0 -> 2.0@aar\n';
+    expect(parseResolvedDependencies(output), {'com.example:aar:2.0@aar'});
+  });
+
+  test('a project entry is not mistaken for a coordinate', () {
+    const output =
+        '--- debugRuntimeClasspath - Runtime classpath\n'
+        '+--- project:local:debug\n';
+    expect(parseResolvedDependencies(output), {
+      'non-coordinate:project:local:debug',
     });
   });
 
@@ -177,5 +210,5 @@ void main() {
 }
 
 final RegExp _coordinateRegExpForTest = RegExp(
-  r'^[A-Za-z0-9._-]+:[A-Za-z0-9._-]+:[A-Za-z0-9._-]+$',
+  r'^(?:non-coordinate:.+|[A-Za-z0-9._-]+:[A-Za-z0-9._-]+:[^\s()]+)$',
 );

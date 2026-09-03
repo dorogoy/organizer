@@ -28,6 +28,7 @@ const Duration gradleTimeout = Duration(minutes: 15);
 Future<String> runGradle({
   required String androidDir,
   required List<String> args,
+  Duration timeout = gradleTimeout,
 }) async {
   final wrapper = File('$androidDir/gradlew');
   if (!wrapper.existsSync()) {
@@ -73,7 +74,7 @@ Future<String> runGradle({
         .asFuture(),
   ];
   try {
-    final exitCode = await process.exitCode.timeout(gradleTimeout);
+    final exitCode = await process.exitCode.timeout(timeout);
     await Future.wait(drains);
     if (exitCode != 0) {
       throw StateError(
@@ -85,7 +86,7 @@ Future<String> runGradle({
   } on TimeoutException {
     process.kill();
     throw StateError(
-      'gradlew ${args.join(' ')} exceeded ${gradleTimeout.inMinutes} '
+      'gradlew ${args.join(' ')} exceeded ${timeout.inMinutes} '
       'minutes — likely a stalled distribution download; re-run (the '
       'partial download is discarded)',
     );

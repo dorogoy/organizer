@@ -109,9 +109,9 @@ context:
 - `devbox run -- flutter test test/egress test/tool` -- expected: all matrix rows green.
 
 **Executed evidence (2026-09-03, post-review patches, devbox):**
-- `make gate` green — 599 tests, `dart format` 0 changed, `flutter analyze` no issues.
-- `make check` green — all prior checks plus `egress import check passed`, `gradle dependency check passed (3 configurations, 147 coordinates)`, `android manifest check passed (3 variants)`, eval 94 tests, codegen fresh.
-- `flutter test test/egress test/tool` green — 238 tests, including conflict-line parsing, foreign-activity failure, star-import `java.time.*`, flavor source-set glob, EXIF bake, third-format (GIF), header-ceiling, stack-capture, wrapper/local.properties exit-2 drills.
+- `make gate` green — 618 tests, `dart format` 0 changed, `flutter analyze` no issues.
+- `make check` green — all prior checks plus `egress import check passed`, `gradle dependency check passed (3 configurations, 153 graph entries)`, `android manifest check passed (3 variants)`, eval 94 tests, codegen fresh.
+- `flutter test test/egress test/tool` green — 257 tests, including conflict-line parsing, project/local-file graph entries, foreign-application metadata failure, Dart FFI/server sockets, star-import `java.time.*`, flavor source-set glob, symlink refusal, EXIF bake, third-format (GIF), header-ceiling, stack-capture, wrapper/local.properties exit-2 drills.
 - Gradle distribution switched to `-bin` with `distributionSha256Sum` (b266d5ff…); one local re-download observed, seals green after.
 - Fresh-clone facts verified: `flutter pub get` writes `android/local.properties`; the official Flutter tarball ships `bin/cache/artifacts/gradle_wrapper/`.
 
@@ -183,5 +183,19 @@ context:
 - Shared fixtures and both over-cap orientations, ~3× faster than the first cut.
   [`egress_fixtures.dart:1`](../../test/egress/egress_fixtures.dart#L1)
 
-- 238 check/module tests: conflict lines, foreign activities, star imports, EXIF, GIF.
+- 257 check/module tests: conflict lines, foreign activities, star imports, EXIF, GIF.
   [`check_egress_imports_test.dart:1`](../../test/tool/check_egress_imports_test.dart#L1)
+
+### Review Findings
+
+- [x] [Review][Patch] Do not reject valid oversized images, and bound the decode without permitting an unsafe 20,000 x 20,000 allocation [lib/egress/image_cap.dart:49-53]
+- [x] [Review][Patch] Seal Dart server and raw socket APIs outside the egress permit zone [tool/check_egress_imports.dart:59-68]
+- [x] [Review][Patch] Parse show, hide and deferred clauses so every outside HTTP import is detected [tool/check_egress_imports.dart:138-189]
+- [x] [Review][Patch] Prevent Dart FFI from opening a native socket outside all three egress seals [tool/check_egress_imports.dart:40-44]
+- [x] [Review][Patch] Include project and local-file runtime dependencies in the frozen Gradle graph [tool/check_gradle_dependencies.dart:230-265]
+- [x] [Review][Patch] Enumerate the application entry point and startup metadata in the merged-manifest seal [tool/check_android_manifest.dart:108-131]
+- [x] [Review][Patch] Seal java.nio.channels socket APIs in the Kotlin/Java sweep [tool/check_egress_imports.dart:104-122]
+- [x] [Review][Patch] Catch java.util wildcard imports and unqualified date APIs in the Kotlin/Java sweep [tool/check_egress_imports.dart:124-133]
+- [x] [Review][Patch] Fail closed or inspect symlinked Dart, Kotlin and Java sources [tool/check_egress_imports.dart:82-97]
+- [x] [Review][Patch] Preserve complete Gradle versions containing characters outside the narrow coordinate regex [tool/check_gradle_dependencies.dart:212-215]
+- [x] [Review][Patch] Add direct tests for the Gradle runner's documented exit-2 environment contract [tool/gradle_runner.dart:28-93]

@@ -69,6 +69,22 @@ const Set<String> permittedComponentsAllVariants = {
   'receiver androidx.profileinstaller.ProfileInstallReceiver',
 };
 
+/// The application class in the merged Flutter template. A custom
+/// Application is a process-start hook and therefore needs an explicit
+/// allowlist entry rather than disappearing from the inventory.
+const String permittedApplicationName = 'android.app.Application';
+
+/// Metadata already present in the Flutter and AndroidX baseline. In
+/// particular, the Startup provider consumes metadata as initializer class
+/// names, so an unknown entry must fail the seal even when its provider name
+/// is otherwise permitted.
+const Set<String> permittedMetadataAllVariants = {
+  'io.flutter.embedding.android.NormalTheme',
+  'flutterEmbedding',
+  'androidx.lifecycle.ProcessLifecycleInitializer',
+  'androidx.profileinstaller.ProfileInstallerInitializer',
+};
+
 /// The activities each variant's merged manifest may declare: exactly
 /// the launcher, nothing else — a manifest-initialised SDK's classic
 /// entry point is a foreign `<activity>` (or an `<activity-alias>`
@@ -86,6 +102,8 @@ const Set<String> enumeratedElementKinds = {
   'provider',
   'activity',
   'activity-alias',
+  'application',
+  'meta-data',
 };
 
 /// One merged manifest's declarations.
@@ -93,6 +111,8 @@ class ManifestInventory {
   const ManifestInventory({
     required this.permissions,
     required this.components,
+    required this.applicationName,
+    required this.metadata,
   });
 
   /// Every `uses-permission` android:name, verbatim.
@@ -100,35 +120,54 @@ class ManifestInventory {
 
   /// Every `<service>/<receiver>/<provider>` as `kind android:name`.
   final Set<String> components;
+
+  /// The merged application class, if the manifest names one.
+  final String? applicationName;
+
+  /// Every `meta-data android:name`, including entries nested under the
+  /// permitted AndroidX Startup provider.
+  final Set<String> metadata;
 }
 
 // `activity-alias` precedes `activity` in the alternation: a plain
 // `activity` would otherwise match the prefix of an `<activity-alias>`
 // element and mis-kindle it.
 final RegExp _elementRegExp = RegExp(
-  r'<(uses-permission|service|receiver|provider|activity-alias|activity)'
+  r'<(uses-permission|service|receiver|provider|activity-alias|activity|'
+  r'application|meta-data)'
   r'\b([^>]*)>',
   dotAll: true,
 );
 
 final RegExp _nameAttributeRegExp = RegExp(r'android:name="([^"]+)"');
 
-/// Enumerates the merged manifest's declared permissions and
-/// components. RegExp over machine-generated XML, matching the repo's
-/// zero-dependency check style.
+/// Enumerates the merged manifest's declared permissions, application,
+/// startup metadata and components. RegExp over machine-generated XML,
+/// matching the repo's zero-dependency check style.
 ManifestInventory enumerateManifest(String manifestXml) {
   final permissions = <String>{};
   final components = <String>{};
+  String? applicationName;
+  final metadata = <String>{};
   for (final match in _elementRegExp.allMatches(manifestXml)) {
     final kind = match.group(1)!;
     final name = _nameAttributeRegExp.firstMatch(match.group(2) ?? '');
     if (kind == 'uses-permission') {
       permissions.add(name?.group(1) ?? '');
+    } else if (kind == 'application') {
+      applicationName = name?.group(1);
+    } else if (kind == 'meta-data') {
+      metadata.add(name?.group(1) ?? '');
     } else {
       components.add('$kind ${name?.group(1) ?? ''}');
     }
   }
-  return ManifestInventory(permissions: permissions, components: components);
+  return ManifestInventory(
+    permissions: permissions,
+    components: components,
+    applicationName: applicationName,
+    metadata: metadata,
+  );
 }
 
 /// Compares one variant's inventory against the enumerated sets. The
@@ -144,6 +183,8 @@ List<Finding> checkInventory({
   Map<String, Set<String>> permissionSets = permittedPermissionsByVariant,
   Set<String> componentSet = permittedComponentsAllVariants,
   Set<String> activitySet = permittedActivitiesAllVariants,
+  String permittedApplication = permittedApplicationName,
+  Set<String> metadataSet = permittedMetadataAllVariants,
 }) {
   final findings = <Finding>[];
   final permittedPermissions = {
@@ -160,6 +201,30 @@ List<Finding> checkInventory({
         "permission '$permission' is outside variant $variant's effective "
         'set ${_sorted(permittedPermissions)} (AD-7 manifest seal — a new '
         'permission is a deliberate allowlist edit)',
+      ),
+    );
+  }
+  final application = inventory.applicationName;
+  if (application != null && application != permittedApplication) {
+    findings.add(
+      Finding(
+        manifestPath,
+        1,
+        "application '$application' is outside the enumerated baseline in "
+        'variant $variant (AD-7 manifest seal — a process-start application '
+        'class requires a deliberate allowlist edit)',
+      ),
+    );
+  }
+  for (final metadataName
+      in inventory.metadata.difference(metadataSet).toList()..sort()) {
+    findings.add(
+      Finding(
+        manifestPath,
+        1,
+        "metadata '$metadataName' is outside the enumerated baseline in "
+        'variant $variant (AD-7 manifest seal — startup metadata requires a '
+        'deliberate allowlist edit)',
       ),
     );
   }

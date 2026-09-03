@@ -10,20 +10,23 @@ const int egressImageCap = 1536;
 /// The JPEG quality of a capped re-encode (story 4.2's decided value).
 const int egressJpegQuality = 85;
 
-/// The absolute per-dimension ceiling of a decodable input (story 4-2
-/// review): 20000 px bounds the decode allocation (~400 MP worst case)
-/// before it is attempted. Header dimensions beyond it are treated as
-/// undecodable — the cap shrinks everything real long before this.
-const int egressDimensionCeiling = 20000;
+/// The maximum raster allocation the pure-Dart decoder may make before the
+/// resize. This is a pixel budget rather than a per-dimension limit, so a
+/// valid panoramic frame can still be reduced to [egressImageCap] without
+/// being rejected merely for having one long edge. The budget keeps a
+/// decompression bomb from asking the isolate for an unbounded raster.
+const int egressPixelCeiling = 16_000_000;
 
 /// Applies the cap to encoded image bytes, in three phases:
 ///
 /// 1. A header probe (`startDecode` — no pixel decode) reads the
-///    raster dimensions. Any dimension over [egressDimensionCeiling]
-///    is undecodable rather than an OOM attempt; both within
-///    [egressImageCap] returns the input value-identical with no full
-///    decode — the header alone decides pass-through, so the original
-///    bytes (EXIF orientation tag included) travel untouched.
+///    raster dimensions. A raster over [egressPixelCeiling] is rejected
+///    before allocation as an undecodable resource, while a valid image
+///    with a long edge over [egressImageCap] but within the pixel budget is
+///    decoded and reduced. Both dimensions within [egressImageCap] return
+///    the input value-identical with no full decode — the header alone
+///    decides pass-through, so the original bytes (EXIF orientation tag
+///    included) travel untouched.
 /// 2. Oversized input is decoded (first frame only for animated
 ///    formats), its EXIF orientation baked into the pixels before the
 ///    target dimensions are computed — a portrait-stored-landscape
@@ -46,10 +49,9 @@ Future<Uint8List> prepareImageForEgress(Uint8List bytes) =>
 Uint8List _capImage(Uint8List bytes) {
   final decoder = _probeDecoder(bytes);
   final (probeWidth, probeHeight) = _probeDimensions(decoder, bytes);
-  if (probeWidth > egressDimensionCeiling ||
-      probeHeight > egressDimensionCeiling) {
-    // A header this size is either corrupt or hostile; the decode
-    // allocation it implies is never made.
+  if (probeWidth * probeHeight > egressPixelCeiling) {
+    // The decoder stores every source pixel as 32-bit RGBA. Refuse a
+    // resource whose allocation would be unsafe, before pixel decode.
     throw const FormatException();
   }
   final longest = probeWidth > probeHeight ? probeWidth : probeHeight;

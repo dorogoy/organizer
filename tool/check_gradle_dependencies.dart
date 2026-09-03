@@ -9,11 +9,12 @@
 // files to read instead.
 //
 // The allowlist is in code (not a data file) on the store seal's
-// precedent, and every entry carries its version — including the
-// engine-hash io.flutter artifacts — so every drift, even a Flutter
-// patch bump, is a visible, deliberate re-freeze rather than silent
-// acceptance. Drift fails with the exact additions and removals and
-// the re-freeze instruction:
+// precedent. Maven entries carry their full version — including the
+// engine-hash io.flutter artifacts — while project/file entries retain
+// their exact non-coordinate label. Every drift, even a Flutter patch
+// bump, is a visible, deliberate re-freeze rather than silent acceptance.
+// Drift fails with the exact additions and removals and the re-freeze
+// instruction:
 //
 //   dart run tool/check_gradle_dependencies.dart --re-freeze
 //
@@ -39,8 +40,10 @@ const List<String> frozenConfigurations = [
   'profileRuntimeClasspath',
 ];
 
-/// The frozen allowlist: configuration -> every `group:artifact:version`
-/// the resolved graph held at freeze time. Re-freeze with
+/// The frozen allowlist: configuration -> every resolved graph entry the
+/// classpath held at freeze time. Maven coordinates are stored verbatim;
+/// non-coordinate nodes (for example a project or local AAR) carry the
+/// `non-coordinate:` prefix. Re-freeze with
 /// `dart run tool/check_gradle_dependencies.dart --re-freeze` — drift
 /// is a deliberate act or it is a failure (AD-7).
 // Frozen AD-7 egress allowlist (seal 2 re-freeze output).
@@ -89,6 +92,8 @@ const Map<String, Set<String>> gradleDependencyAllowlist = {
     'io.flutter:armeabi_v7a_debug:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:flutter_embedding_debug:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:x86_64_debug:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
+    'non-coordinate:project :jni',
+    'non-coordinate:project :jni_flutter',
     'org.jetbrains.kotlin:kotlin-stdlib-common:2.4.0',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.20',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.20',
@@ -140,6 +145,8 @@ const Map<String, Set<String>> gradleDependencyAllowlist = {
     'io.flutter:armeabi_v7a_release:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:flutter_embedding_release:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:x86_64_release:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
+    'non-coordinate:project :jni',
+    'non-coordinate:project :jni_flutter',
     'org.jetbrains.kotlin:kotlin-stdlib-common:2.4.0',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.20',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.20',
@@ -191,6 +198,8 @@ const Map<String, Set<String>> gradleDependencyAllowlist = {
     'io.flutter:armeabi_v7a_profile:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:flutter_embedding_profile:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
     'io.flutter:x86_64_profile:1.0.0-a804b261645ef8c13eb3d5c44a5c2fb0340c5539',
+    'non-coordinate:project :jni',
+    'non-coordinate:project :jni_flutter',
     'org.jetbrains.kotlin:kotlin-stdlib-common:2.4.0',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.20',
     'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.20',
@@ -209,9 +218,17 @@ const Map<String, Set<String>> gradleDependencyAllowlist = {
 /// has no branch marker and does not match.
 final RegExp _treeEntryRegExp = RegExp(r'^[| ]*[+\\]--- +(.*)$');
 
-/// One `group:artifact:version` token.
+/// One Maven `group:artifact:version` token. A resolved Maven version may
+/// contain `+` and other non-space, non-marker characters, so do not narrow
+/// the version to the common dotted form.
 final RegExp _coordinateRegExp = RegExp(
-  r'[A-Za-z0-9._-]+:[A-Za-z0-9._-]+:[A-Za-z0-9._-]+',
+  r'[A-Za-z0-9._-]+:[A-Za-z0-9._-]+:[^\s()]+',
+);
+
+const String _nonCoordinatePrefix = 'non-coordinate:';
+
+final RegExp _nonCoordinateEntryRegExp = RegExp(
+  r'^(?:project\b|file\b|fileTree\b)',
 );
 
 /// Gradle report markers stripped before parsing: `(n)` not resolved,
@@ -220,13 +237,14 @@ final RegExp _coordinateRegExp = RegExp(
 final RegExp _markerRegExp = RegExp(r'\s*\((?:n|\*|c|b)\)');
 
 /// Parses one `gradlew :app:dependencies --configuration …` report
-/// into its set of `group:artifact:version` coordinates. Version
+/// into its set of resolved graph entries. Version
 /// conflicts (`g:a:1.0 -> 2.0`) contribute the resolved coordinate —
 /// the pre-arrow `group:artifact` combined with the post-arrow
 /// version, so a conflict line never silently drops out of the set; a
 /// post-arrow full coordinate (`g:a:1.0 -> other:b:2.0`, a
-/// substitution) stands on its own. `project :x` entries contribute
-/// nothing.
+/// substitution) stands on its own. Entries without Maven coordinates are
+/// retained with the [non-coordinate] prefix so a local project or file
+/// dependency cannot enter the runtime graph silently.
 Set<String> parseResolvedDependencies(String gradleOutput) {
   final coordinates = <String>{};
   for (final line in gradleOutput.split('\n')) {
@@ -235,11 +253,21 @@ Set<String> parseResolvedDependencies(String gradleOutput) {
       continue;
     }
     final text = entry.group(1)!.replaceAll(_markerRegExp, '');
+    final trimmed = text.trim();
+    if (_nonCoordinateEntryRegExp.hasMatch(trimmed)) {
+      coordinates.add('$_nonCoordinatePrefix$trimmed');
+      continue;
+    }
     final arrow = text.lastIndexOf(' -> ');
     if (arrow < 0) {
-      coordinates.addAll(
-        _coordinateRegExp.allMatches(text).map((match) => match.group(0)!),
-      );
+      final matches = _coordinateRegExp.allMatches(text).toList();
+      if (matches.isEmpty) {
+        if (text.trim().isNotEmpty) {
+          coordinates.add('$_nonCoordinatePrefix${text.trim()}');
+        }
+      } else {
+        coordinates.addAll(matches.map((match) => match.group(0)!));
+      }
       continue;
     }
     final pre = text.substring(0, arrow);
@@ -253,13 +281,18 @@ Set<String> parseResolvedDependencies(String gradleOutput) {
     }
     final preMatches = _coordinateRegExp.allMatches(pre).toList();
     if (preMatches.isEmpty) {
+      if (text.trim().isNotEmpty) {
+        coordinates.add('$_nonCoordinatePrefix${text.trim()}');
+      }
       continue;
     }
     final preParts = preMatches.last.group(0)!.split(':')..removeLast();
     if (post.isEmpty) {
       coordinates.add(preMatches.last.group(0)!);
-    } else if (RegExp(r'^[A-Za-z0-9._+-]+$').hasMatch(post)) {
+    } else if (RegExp(r'^[^\s()]+$').hasMatch(post)) {
       coordinates.add('${preParts.join(':')}:$post');
+    } else {
+      coordinates.add('$_nonCoordinatePrefix${text.trim()}');
     }
   }
   return coordinates;
@@ -325,13 +358,16 @@ String renderAllowlistLiteral(
   for (final configuration in frozenConfigurations) {
     buffer.write("  '$configuration': {\n");
     for (final coordinate in (resolved[configuration] ?? {}).toList()..sort()) {
-      buffer.write("    '$coordinate',\n");
+      buffer.write('    ${_dartStringLiteral(coordinate)},\n');
     }
     buffer.write('  },\n');
   }
   buffer.write('};');
   return buffer.toString();
 }
+
+String _dartStringLiteral(String value) =>
+    "'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'";
 
 /// The pinned Flutter SDK's own version, read from its cache — the
 /// version the frozen graph was resolved against. `unknown` when the
@@ -406,7 +442,7 @@ Future<int> runCheck([String repoRoot = '']) async {
       .reduce((a, b) => a + b);
   print(
     'gradle dependency check passed '
-    '(${frozenConfigurations.length} configurations, $total coordinates)',
+    '(${frozenConfigurations.length} configurations, $total graph entries)',
   );
   return 0;
 }

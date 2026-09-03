@@ -37,11 +37,10 @@ const List<String> egressImportAllowlist = [
 /// HTTP-client packages (by package name) whose import is forbidden
 /// outside the allowlist.
 ///
-/// Residual risk, stated plainly: this ban is by package name, and FFI
-/// (`dart:ffi`) can always open a socket without any of them — that
-/// escape is covered by the other two egress seals (the resolved
-/// Gradle graph and the merged-manifest sets), which is precisely why
-/// AD-7 seals the chokepoint three ways instead of one.
+/// Residual risk, stated plainly: a package can still hide a client behind
+/// native code or a generated source file; the source sweep therefore works
+/// with the resolved Gradle graph and merged-manifest seals instead of
+/// pretending that a package-name denylist is complete.
 const Set<String> httpClientPackageDenylist = {
   'http',
   'dio',
@@ -65,7 +64,15 @@ const Set<String> dartSocketIdentifiers = {
   'WebSocket',
   'RawSocket',
   'RawDatagramSocket',
+  'ServerSocket',
+  'RawServerSocket',
+  'RawSecureSocket',
+  'DatagramSocket',
 };
+
+/// Native FFI is a second way to reach a socket without a Dart HTTP package.
+/// It is permitted only in the egress zone, just like the package denylist.
+const Set<String> dartNativeEscapeLibraries = {'dart:ffi'};
 
 /// True when [packageName] names a banned HTTP-client package.
 bool packageIsHttpClient(String packageName) =>
@@ -80,15 +87,23 @@ const List<String> dartScopeRoots = ['lib', 'packages', 'tool', 'test'];
 /// set's `kotlin`/`java` tree, so a future flavor is swept
 /// automatically instead of by hand-editing a list.
 List<String> kotlinSourceRoots(Directory androidSrc) {
-  if (!androidSrc.existsSync()) {
+  final rootType = FileSystemEntity.typeSync(
+    androidSrc.path,
+    followLinks: false,
+  );
+  if (rootType != FileSystemEntityType.directory) {
     return const [];
   }
   final roots = <String>[];
-  for (final sourceSet
-      in androidSrc.listSync(followLinks: false).whereType<Directory>()) {
+  for (final sourceSet in androidSrc.listSync(followLinks: false)) {
+    if (sourceSet is! Directory) {
+      continue;
+    }
     for (final kind in const ['kotlin', 'java']) {
       final dir = Directory('${sourceSet.path}/$kind');
-      if (dir.existsSync()) {
+      if (dir.existsSync() &&
+          FileSystemEntity.typeSync(dir.path, followLinks: false) !=
+              FileSystemEntityType.link) {
         roots.add(dir.path);
       }
     }
@@ -102,7 +117,8 @@ List<String> kotlinSourceRoots(Directory androidSrc) {
 /// Apache HTTP client. Captures the whole import statement so findings
 /// can name it.
 final RegExp _kotlinConnectionImportRegExp = RegExp(
-  r'^(import\s+(?:java\.net\.|javax\.net\.|okhttp3\.|org\.apache\.http\.)\S+)',
+  r'^([ \t]*import\s+(?:static\s+)?(?:java\.net\.|java\.nio\.channels\.|'
+  r'javax\.net\.|okhttp3\.|org\.apache\.http\.)\S+)',
   multiLine: true,
 );
 
@@ -111,13 +127,16 @@ final RegExp _kotlinConnectionImportRegExp = RegExp(
 /// alone is escapable. okhttp3's qualified form is included on the
 /// same reasoning.
 final RegExp _kotlinQualifiedConnectionRegExp = RegExp(
-  r'\b(?:java\.net\.|javax\.net\.|okhttp3\.)\S+',
+  r'\b(?:java\.net\.|java\.nio\.channels\.|javax\.net\.|okhttp3\.|'
+  r'org\.apache\.http\.)\S+',
 );
 
 /// Socket/connection identifiers forbidden in the app's Kotlin outside
 /// import lines.
 final RegExp _kotlinConnectionIdentifierRegExp = RegExp(
   r'\b(?:Socket|ServerSocket|DatagramSocket|MulticastSocket'
+  r'|SocketChannel|ServerSocketChannel|AsynchronousSocketChannel'
+  r'|AsynchronousServerSocketChannel|DatagramChannel'
   r'|HttpURLConnection|URLConnection|URL|OkHttpClient)\b',
 );
 
@@ -128,7 +147,8 @@ final RegExp _kotlinConnectionIdentifierRegExp = RegExp(
 /// `java.time.` alternative consumes its whole qualified tail, so a
 /// star import (`import java.time.*`) is caught too.
 final RegExp _kotlinDateComputationRegExp = RegExp(
-  r'\b(?:java\.util\.Date\b|Calendar\b|java\.time\.\S+'
+  r'\b(?:java\.util\.Date\b|java\.util\.\*|GregorianCalendar\b|'
+  r'Date\b|DateFormat\b|SimpleDateFormat\b|Calendar\b|java\.time\.\S+'
   r'|System\.currentTimeMillis\b)',
 );
 
@@ -136,14 +156,14 @@ final RegExp _kotlinDateComputationRegExp = RegExp(
 /// preceding directive's semicolon, through URIs and configuration, to
 /// the terminating `;` — the same shape check_core_purity scans.
 final RegExp _directiveRegExp = RegExp(
-  "(?:^|;)[ \\t]*(import|export|part(?:[ \\t]+of)?)(?:[^;'\"|'[^']*'|\"[^\"]*\")*;",
+  r'(?:^|;)[ \t]*(import|export|part(?:[ \t]+of)?)[\s\S]*?;',
   multiLine: true,
 );
 
 final RegExp _quotedUriRegExp = RegExp("'([^']*)'|\"([^\"]*)\"");
 
 final RegExp _socketIdentifierRegExp = RegExp(
-  r'\b(?:HttpClient|Socket|SecureSocket|WebSocket|RawSocket|RawDatagramSocket)\b',
+  r'\b(?:' + dartSocketIdentifiers.join('|') + r')\b',
 );
 
 int _lineOf(String text, int index) =>
@@ -171,6 +191,16 @@ List<Finding> scanDartSource({
     for (final quoted in _quotedUriRegExp.allMatches(span)) {
       final uri = quoted.group(1) ?? quoted.group(2) ?? '';
       if (!uri.startsWith('package:')) {
+        if (dartNativeEscapeLibraries.contains(uri)) {
+          findings.add(
+            Finding(
+              file,
+              _lineOf(masked, directive.start + quoted.start),
+              "native FFI import '$uri' is legal only inside "
+              '${allowlist.join(', ')} (AD-7 egress seal)',
+            ),
+          );
+        }
         continue;
       }
       final packageName = uri.substring(8).split('/').first;
@@ -219,7 +249,7 @@ List<Finding> scanKotlinSource({required String file, required String source}) {
   }
   final importLines = <int>{};
   for (final match in RegExp(
-    r'^import\b',
+    r'^[ \t]*import\b',
     multiLine: true,
   ).allMatches(masked)) {
     importLines.add(_lineOf(masked, match.start));
@@ -265,11 +295,17 @@ List<Finding> scanKotlinSource({required String file, required String source}) {
 
 /// Collects every file with one of [extensions] under [root]
 /// recursively.
-List<File> _collectFiles(Directory root, Set<String> extensions) {
+List<File> _collectFiles(
+  Directory root,
+  Set<String> extensions, {
+  void Function(String path)? onSymlink,
+}) {
   final files = <File>[];
   void walk(Directory dir) {
     for (final entity in dir.listSync(followLinks: false)) {
-      if (entity is Directory) {
+      if (entity is Link) {
+        onSymlink?.call(entity.path);
+      } else if (entity is Directory) {
         final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
         if (name != '.dart_tool') {
           walk(entity);
@@ -288,29 +324,94 @@ List<File> _collectFiles(Directory root, Set<String> extensions) {
   return files;
 }
 
+/// Finds source-set links which `_collectFiles` cannot see because the link is
+/// the `kotlin`/`java` root itself rather than a child of a real directory.
+List<String> kotlinSymlinkRoots(Directory androidSrc) {
+  final rootType = FileSystemEntity.typeSync(
+    androidSrc.path,
+    followLinks: false,
+  );
+  if (rootType == FileSystemEntityType.link) {
+    return [androidSrc.path];
+  }
+  if (rootType != FileSystemEntityType.directory) {
+    return const [];
+  }
+  final links = <String>[];
+  for (final sourceSet in androidSrc.listSync(followLinks: false)) {
+    if (sourceSet is Link) {
+      links.add(sourceSet.path);
+      continue;
+    }
+    if (sourceSet is! Directory) {
+      continue;
+    }
+    for (final kind in const ['kotlin', 'java']) {
+      final path = '${sourceSet.path}/$kind';
+      if (FileSystemEntity.typeSync(path, followLinks: false) ==
+          FileSystemEntityType.link) {
+        links.add(path);
+      }
+    }
+  }
+  links.sort();
+  return links;
+}
+
 /// Runs the whole check against [repoRoot], printing one
 /// `file:line: message` line per finding. Returns the process exit
 /// code: 0 clean, 1 findings, 2 no lib/ to seal.
 Future<int> runCheck([String repoRoot = '']) async {
   final root = repoRoot.isEmpty ? '' : '$repoRoot/';
   final libDir = Directory('${root}lib');
-  if (!libDir.existsSync()) {
+  final libType = FileSystemEntity.typeSync(libDir.path, followLinks: false);
+  if (libType == FileSystemEntityType.link) {
+    final scoped = root.isEmpty
+        ? libDir.path
+        : libDir.path.substring(root.length);
+    print(
+      '$scoped:1: symlinked source is not allowed in the egress sweep (AD-7)',
+    );
+    return 1;
+  }
+  if (libType != FileSystemEntityType.directory) {
     stderr.writeln('lib/ not found at ${libDir.path}');
     return 2;
   }
   final findings = <Finding>[];
+  String scopedPath(String path) =>
+      root.isEmpty ? path : path.substring(root.length);
+  void reportSymlink(String path) {
+    final scoped = _normalize(scopedPath(path));
+    if (scoped.startsWith('test/fixtures/')) {
+      return;
+    }
+    findings.add(
+      Finding(
+        scoped,
+        1,
+        'symlinked source is not allowed in the egress sweep (AD-7)',
+      ),
+    );
+  }
+
   for (final scope in dartScopeRoots) {
     final dir = Directory('$root$scope');
-    if (!dir.existsSync()) {
+    final dirType = FileSystemEntity.typeSync(dir.path, followLinks: false);
+    if (dirType == FileSystemEntityType.link) {
+      reportSymlink(dir.path);
       continue;
     }
-    for (final file in _collectFiles(dir, {'.dart'})) {
+    if (dirType != FileSystemEntityType.directory) {
+      continue;
+    }
+    for (final file in _collectFiles(dir, {
+      '.dart',
+    }, onSymlink: reportSymlink)) {
       // Paths are reported — and matched against the allowlist —
       // relative to the scanned root, so an absolute root still seals
       // correctly.
-      final scoped = root.isEmpty
-          ? file.path
-          : file.path.substring(root.length);
+      final scoped = scopedPath(file.path);
       if (_normalize(scoped).startsWith('test/fixtures/')) {
         continue;
       }
@@ -319,14 +420,17 @@ Future<int> runCheck([String repoRoot = '']) async {
       );
     }
   }
-  for (final scopeRoot in kotlinSourceRoots(
-    Directory('${root}android/app/src'),
-  )) {
+  final androidSrc = Directory('${root}android/app/src');
+  for (final link in kotlinSymlinkRoots(androidSrc)) {
+    reportSymlink(link);
+  }
+  for (final scopeRoot in kotlinSourceRoots(androidSrc)) {
     final dir = Directory(scopeRoot);
-    for (final file in _collectFiles(dir, {'.kt', '.java'})) {
-      final scoped = root.isEmpty
-          ? file.path
-          : file.path.substring(root.length);
+    for (final file in _collectFiles(dir, {
+      '.kt',
+      '.java',
+    }, onSymlink: reportSymlink)) {
+      final scoped = scopedPath(file.path);
       findings.addAll(
         scanKotlinSource(file: scoped, source: file.readAsStringSync()),
       );

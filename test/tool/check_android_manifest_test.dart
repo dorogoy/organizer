@@ -174,6 +174,67 @@ void main() {
       'provider androidx.startup.InitializationProvider',
       'receiver androidx.profileinstaller.ProfileInstallReceiver',
     });
+    expect(inventory.applicationName, 'android.app.Application');
+    expect(inventory.metadata, isEmpty);
+  });
+
+  test('application and startup metadata are enumerated and allowlisted', () {
+    final inventory = enumerateManifest('''
+<manifest>
+  <application android:name="android.app.Application">
+    <activity android:name="dev.dorogoy.organizer.MainActivity">
+      <meta-data android:name="io.flutter.embedding.android.NormalTheme" />
+    </activity>
+    <meta-data android:name="flutterEmbedding" />
+    <provider android:name="androidx.startup.InitializationProvider">
+      <meta-data android:name="androidx.lifecycle.ProcessLifecycleInitializer" />
+    </provider>
+  </application>
+</manifest>
+''');
+    expect(inventory.applicationName, 'android.app.Application');
+    expect(inventory.metadata, {
+      'io.flutter.embedding.android.NormalTheme',
+      'flutterEmbedding',
+      'androidx.lifecycle.ProcessLifecycleInitializer',
+    });
+    expect(
+      checkInventory(
+        manifestPath: 'fixture.xml',
+        variant: 'release',
+        inventory: inventory,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('a foreign application and startup metadata both fail closed', () {
+    final inventory = enumerateManifest('''
+<manifest>
+  <application android:name="com.sneaky.sdk.SpyApplication">
+    <meta-data android:name="com.sneaky.sdk.Initializer" />
+  </application>
+</manifest>
+''');
+    final findings = checkInventory(
+      manifestPath: 'fixture.xml',
+      variant: 'release',
+      inventory: inventory,
+    );
+    expect(findings, hasLength(2));
+    expect(findings.any((f) => f.message.contains('SpyApplication')), isTrue);
+    expect(findings.any((f) => f.message.contains('sdk.Initializer')), isTrue);
+  });
+
+  test('the application and metadata baselines are explicit', () {
+    expect(permittedApplicationName, 'android.app.Application');
+    expect(
+      permittedMetadataAllVariants,
+      containsAll([
+        'io.flutter.embedding.android.NormalTheme',
+        'flutterEmbedding',
+      ]),
+    );
   });
 
   test('a permission element (definition) is not a uses-permission', () {

@@ -7,10 +7,10 @@ import 'package:organizer/egress/image_cap.dart';
 import 'egress_fixtures.dart';
 
 void main() {
-  test('the decided cap, quality and ceiling are pinned', () {
+  test('the decided cap, quality and pixel ceiling are pinned', () {
     expect(egressImageCap, 1536);
     expect(egressJpegQuality, 85);
-    expect(egressDimensionCeiling, 20000);
+    expect(egressPixelCeiling, 16_000_000);
   });
 
   test('a JPEG within the cap is returned unchanged in value', () async {
@@ -57,6 +57,16 @@ void main() {
     expect(image.height, 768);
     expect(formatOf(out), img.ImageFormat.png);
   });
+
+  test(
+    'a valid panoramic image over the old edge limit is still downscaled',
+    () async {
+      final out = await prepareImageForEgress(gradientJpeg(24000, 100));
+      final image = decodeOrThrow(out);
+      expect(image.width, 1536);
+      expect(image.height, 6);
+    },
+  );
 
   test('aspect ratio survives the downscale (either orientation)', () async {
     final landscape = decodeOrThrow(
@@ -128,28 +138,28 @@ void main() {
     expect(prepareImageForEgress(garbage), throwsA(isA<FormatException>()));
   });
 
-  test('a header claiming impossible dimensions is undecodable, not an '
+  test('a header claiming an unsafe pixel budget is undecodable, not an '
       'OOM attempt', () async {
-    // The pixel payload is tiny, but the header claims 24000 px wide —
-    // the probe rejects before any decode allocation.
-    final bytes = _fakeWideJpegHeader();
+    // The pixel payload is tiny, but the header claims 20 MP — the probe
+    // rejects before any decode allocation.
+    final bytes = _fakeOverBudgetJpegHeader();
     expect(prepareImageForEgress(bytes), throwsA(isA<FormatException>()));
   });
 }
 
-/// Builds bytes whose JPEG header declares a 24000×100 SOF frame —
-/// large enough to trip the ceiling, small enough to build cheaply.
-Uint8List _fakeWideJpegHeader() {
+/// Builds bytes whose JPEG header declares a 5000×4000 SOF frame —
+/// large enough to trip the pixel budget, small enough to build cheaply.
+Uint8List _fakeOverBudgetJpegHeader() {
   // Minimal JPEG: SOI, APP0(JFIF), SOF0 with the lying dimensions, and
   // a truncated tail (the probe never reaches pixels).
   final out = BytesBuilder();
   out.add([0xFF, 0xD8]); // SOI
   out.add([0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00]); // APP0
   out.add([0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
-  // SOF0: length 17, precision 8, height 100, width 24000 (0x5DC0).
+  // SOF0: length 17, precision 8, height 4000, width 5000.
   out.add([0xFF, 0xC0, 0x00, 0x11, 0x08]);
-  out.add([0x00, 100 >> 8, 100 & 0xFF]);
-  out.add([(24000 >> 8) & 0xFF, 24000 & 0xFF]);
+  out.add([4000 >> 8, 4000 & 0xFF]);
+  out.add([5000 >> 8, 5000 & 0xFF]);
   out.add([0x03]); // 3 components, then a plausible truncated tail
   out.add([0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01]);
   out.add([0xFF, 0xD9]); // EOI

@@ -56,6 +56,39 @@ void main() {
     expect(findings.single.message, contains('lib/egress/'));
   });
 
+  test('all Dart server and raw socket identifiers are sealed', () {
+    const source = '''
+final a = ServerSocket;
+final b = RawServerSocket;
+final c = RawSecureSocket;
+final d = DatagramSocket;
+''';
+    final findings = scanDartSource(file: 'lib/ui/net.dart', source: source);
+    final messages = findings.map((finding) => finding.message).join('\n');
+    expect(messages, contains("'ServerSocket'"));
+    expect(messages, contains("'RawServerSocket'"));
+    expect(messages, contains("'RawSecureSocket'"));
+    expect(messages, contains("'DatagramSocket'"));
+  });
+
+  test('Dart FFI imports are sealed outside the permit zone', () {
+    const source = "import 'dart:ffi';\n";
+    final findings = scanDartSource(file: 'lib/ui/native.dart', source: source);
+    expect(findings, hasLength(1));
+    expect(findings.single.message, contains("'dart:ffi'"));
+    expect(findings.single.message, contains('lib/egress/'));
+  });
+
+  test('Dart HTTP imports with clauses are all detected', () {
+    const source =
+        "import 'package:http/http.dart' show Client;\n"
+        "import 'package:http/http.dart' hide BaseClient;\n"
+        "import 'package:http/http.dart' deferred as http;\n";
+    final findings = scanDartSource(file: 'lib/ui/http.dart', source: source);
+    expect(findings, hasLength(3));
+    expect(findings.map((finding) => finding.line), [1, 2, 3]);
+  });
+
   test('an http import inside lib/egress/ is permitted', () {
     final path = '$fixtures/inside.dart';
     final findings = scanDartSource(
@@ -167,6 +200,34 @@ void main() {
       expect(date.first.line, 7);
     });
 
+    test('NIO channels, indented imports, java.util wildcard and Date are '
+        'flagged', () {
+      const source = '''
+    import static java.nio.channels.SocketChannel.open
+    import java.util.*
+
+    fun date(): Date = Date()
+''';
+      final findings = scanKotlinSource(
+        file: 'test/fixtures/egress_imports/expanded.kt',
+        source: source,
+      );
+      expect(
+        findings.any(
+          (finding) => finding.message.contains('java.nio.channels'),
+        ),
+        isTrue,
+      );
+      expect(
+        findings.any((finding) => finding.message.contains('java.util.*')),
+        isTrue,
+      );
+      expect(
+        findings.where((finding) => finding.message.contains("'Date'")),
+        isNotEmpty,
+      );
+    });
+
     test('fully-qualified java.net usage without an import is flagged', () {
       final path = '$fixtures/QualifiedSocketFixture.kt';
       final findings = scanKotlinSource(
@@ -226,6 +287,48 @@ void main() {
         scanKotlinSource(file: path, source: File(path).readAsStringSync()),
         isEmpty,
       );
+    });
+
+    test('a symlinked Dart source is reported without following it', () async {
+      final root = _makeTemp('dart_symlink');
+      final target = File('${root.path}/outside.dart')
+        ..writeAsStringSync("import 'package:http/http.dart';\n");
+      final link = Link('${root.path}/lib/ui/linked.dart')
+        ..createSync(target.path, recursive: true);
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_egress_imports.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      expect(result.stdout as String, contains('lib/ui/linked.dart'));
+      expect(result.stdout as String, contains('symlinked source'));
+      expect(link.existsSync(), isTrue);
+    });
+
+    test('symlinked Kotlin and Java source roots are reported', () async {
+      final root = _makeTemp('native_symlink');
+      Directory('${root.path}/lib').createSync();
+      final src = Directory('${root.path}/android/app/src/main')
+        ..createSync(recursive: true);
+      final outside = Directory('${root.path}/outside')
+        ..createSync(recursive: true);
+      final kotlinTarget = Directory('${outside.path}/kotlin')
+        ..createSync(recursive: true);
+      final javaTarget = Directory('${outside.path}/java')
+        ..createSync(recursive: true);
+      Link('${src.path}/kotlin').createSync(kotlinTarget.path);
+      Link('${src.path}/java').createSync(javaTarget.path);
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_egress_imports.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('android/app/src/main/kotlin'));
+      expect(out, contains('android/app/src/main/java'));
+      expect(out, contains('symlinked source'));
     });
   });
 
