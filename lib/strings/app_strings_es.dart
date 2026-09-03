@@ -184,6 +184,45 @@ class AppStringsEs extends AppStrings {
   String get settingsAiVoice => 'IA y voz';
 
   @override
+  String get providerNameGemini => 'Gemini';
+
+  @override
+  String get providerNameOpenai => 'OpenAI';
+
+  @override
+  String get providerNameAnthropic => 'Anthropic';
+
+  @override
+  String get providerNameOpenrouter => 'OpenRouter';
+
+  @override
+  String get providerTermsGemini =>
+      'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.';
+
+  @override
+  String get providerTermsOpenai =>
+      'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.';
+
+  @override
+  String get providerTermsAnthropic =>
+      'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.';
+
+  @override
+  String get providerTermsOpenrouter =>
+      'Términos sin entrenamiento verificados el 3 de septiembre de 2026; ese día, y no desde entonces.';
+
+  @override
+  String get settingsProviderKeyLabel => 'Clave de IA';
+
+  @override
+  String get settingsProviderKeyFreeTierNote =>
+      'Una clave de nivel gratuito puede usarse para entrenar los modelos; esta app no puede saber de qué nivel es cada clave.';
+
+  @override
+  String get localSlicerCannedMarker =>
+      'Paso local de ejemplo — este plan no es real';
+
+  @override
   String get genesisAnalyze => 'Analizar';
 
   @override

@@ -170,6 +170,14 @@ class _FailFirstSettingAppendStore implements StorePort {
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 
+/// A tall surface for the tests that census or reach the whole flat
+/// list (Story 4-4 grew it past one test viewport): the list is lazy,
+/// so a default-height surface never builds the IA y voz tail.
+Future<void> useTallSurface(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const ui.Size(320, 2400));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+}
+
 void main() {
   final shipped = File(catalogueAssetPath).readAsStringSync();
 
@@ -310,6 +318,7 @@ void main() {
     tester,
   ) async {
     final store = _RecordingStore();
+    await useTallSurface(tester);
     await launch(tester, store);
 
     await tester.tap(find.text(AppStringsEs().newProjectLink));
@@ -318,21 +327,36 @@ void main() {
     await tester.pumpAndSettle();
 
     // The list scrolls (ListView in the frame idiom) and the quiet
-    // census is exactly the group header, the row label, the six
-    // stepped options and the validator surface's dictated-count line
-    // (Story 3.4 — zero until a dictated capture exists) — no heading
-    // chrome, no other group, no light/dark row, no glyph.
+    // census is exactly the two groups' copy: Tu día's header, row
+    // label and six stepped options (Story 2.1), plus the IA y voz
+    // group (Story 4-4) — its header, the four allowlisted provider
+    // names, the terms sentences (three unique — the first three
+    // entries' shared date reads as one string), the key label and
+    // the free-tier sentence — and the validator surface's
+    // dictated-count line (Story 3.4 — zero until a dictated capture
+    // exists). No heading chrome, no other group, no light/dark row,
+    // no glyph.
     expect(find.byType(ListView), findsOneWidget);
+    final es = AppStringsEs();
     expect(textsOf(tester).toSet(), {
-      AppStringsEs().settingsGroupYourDay,
-      AppStringsEs().settingsTimeBag,
+      es.settingsGroupYourDay,
+      es.settingsTimeBag,
       '5\u00A0min',
       '10\u00A0min',
       '15\u00A0min',
       '20\u00A0min',
       '25\u00A0min',
       '30\u00A0min',
-      AppStringsEs().settingsDictatedCount(0),
+      es.settingsAiVoice,
+      es.providerNameGemini,
+      es.providerNameOpenai,
+      es.providerNameAnthropic,
+      es.providerNameOpenrouter,
+      es.providerTermsGemini,
+      es.providerTermsOpenrouter,
+      es.settingsProviderKeyLabel,
+      es.settingsProviderKeyFreeTierNote,
+      es.settingsDictatedCount(0),
     });
     expect(find.byType(Icon), findsNothing);
 
@@ -782,6 +806,7 @@ void main() {
     testWidgets('the dictated-count line counts the pool\'s dictated '
         'captures — the one place the boolean is readable, plural and '
         'singular both fixed sentences', (tester) async {
+      await useTallSurface(tester);
       final store = _RecordingStore();
       store.facts.addAll([
         fact('spoken-a', dictated: true),
@@ -832,7 +857,17 @@ void main() {
         permission: 'microphone',
       );
 
-      // Not refused: the row is absent whatever the probe says.
+      // The IA y voz label now names the group header (Story 4-4), so
+      // the reactivation row's presence is the second rendering: the
+      // row is the label's button-shaped occurrence.
+      await useTallSurface(tester);
+      Finder reactivationRow() => find.ancestor(
+        of: find.text(AppStringsEs().settingsAiVoice),
+        matching: find.byType(Semantics),
+      );
+
+      // Not refused: the row is absent whatever the probe says — the
+      // header alone carries the label.
       final clean = _RecordingStore();
       final cleanRecognizer = _FakeRecognizer(RecognizerAvailability.askable);
       await tester.pumpWidget(
@@ -848,10 +883,17 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
       await tester.pumpAndSettle();
-      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
+      expect(
+        reactivationRow().evaluate().where(
+          (element) => (element.widget as Semantics).properties.button ?? false,
+        ),
+        isEmpty,
+        reason: 'no button-shaped IA y voz row stands',
+      );
 
-      // Refused and not granted: the row renders, and its one tap
-      // opens the system screen.
+      // Refused and not granted: the row renders beneath the header,
+      // and its one tap opens the system screen.
       await tester.pumpWidget(const SizedBox.shrink());
       final refused = _RecordingStore();
       refused.entries.add(refusal('refused-row'));
@@ -869,27 +911,30 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
       await tester.pumpAndSettle();
-      final row = find.text(AppStringsEs().settingsAiVoice);
-      expect(row, findsOneWidget);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNWidgets(2));
+      final buttonRows = reactivationRow()
+          .evaluate()
+          .where(
+            (element) =>
+                (element.widget as Semantics).properties.button ?? false,
+          )
+          .toList();
       expect(
-        tester
-            .widget<Semantics>(
-              find.ancestor(of: row, matching: find.byType(Semantics)).first,
-            )
-            .properties
-            .button,
-        isTrue,
+        buttonRows,
+        isNotEmpty,
         reason: 'the row reaches readers as a button',
       );
-      await tester.ensureVisible(row);
+      final rowLabel = find.text(AppStringsEs().settingsAiVoice).last;
+      await tester.ensureVisible(rowLabel);
       await tester.pumpAndSettle();
-      await tester.tap(row);
+      await tester.tap(rowLabel);
       await tester.pumpAndSettle();
       expect(refusedRecognizer.openAppSettingsCalls, 1);
       expect(find.byType(ErrorWidget), findsNothing);
 
       // Refused but re-granted at the system level: nothing to
-      // reactivate — the row retires through the probe alone.
+      // reactivate — the row retires through the probe alone, and
+      // the header stands as the label's one rendering again.
       await tester.pumpWidget(const SizedBox.shrink());
       final regranted = _RecordingStore();
       regranted.entries.add(refusal('refused-row'));
@@ -907,7 +952,7 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
       await tester.pumpAndSettle();
-      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
 
       // Refused, not granted, but recognition itself unavailable: the
       // probe cannot speak "not granted" there, and there is nothing
@@ -932,7 +977,7 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
       await tester.pumpAndSettle();
-      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
     });
 
     testWidgets('a return from the foreground re-reads the dictation '
@@ -956,7 +1001,9 @@ void main() {
         permission: 'microphone',
       );
 
-      // The row stands: refused and not granted.
+      // The row stands: refused and not granted — the label renders
+      // twice (group header and row, Story 4-4).
+      await useTallSurface(tester);
       final store = _RecordingStore();
       store.entries.add(refusal('refused-row'));
       final recognizer = _FakeRecognizer(RecognizerAvailability.askable);
@@ -973,15 +1020,16 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
       await tester.pumpAndSettle();
-      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsNWidgets(2));
 
       // The user leaves for the system's app-details screen and
       // re-grants; the return to the foreground re-derives the
-      // premise and the row retires in place.
+      // premise and the row retires in place — the header alone
+      // remains.
       recognizer.availability = RecognizerAvailability.granted;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
-      expect(find.text(AppStringsEs().settingsAiVoice), findsNothing);
+      expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
       expect(find.byType(ErrorWidget), findsNothing);
     });
   });

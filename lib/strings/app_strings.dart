@@ -365,11 +365,77 @@ abstract class AppStrings {
   /// **'{count, plural, =1 {1 captura dictada} other {{count} capturas dictadas}}'**
   String settingsDictatedCount(int count);
 
-  /// Settings — the microphone reactivation row (Story 3.4): renders only while the permission is refused and not granted, and opens the system's app-details screen. The app never re-asks on its own.
+  /// Settings — the IA y voz group header (Story 4-4, reusing the string 3.4 authored): the BYOK access path's provider pills, terms lines and quiet key field, beside the validator surface's dictation facts. The reactivation row inside the group carries the same label.
   ///
   /// In es, this message translates to:
   /// **'IA y voz'**
   String get settingsAiVoice;
+
+  /// Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist.
+  ///
+  /// In es, this message translates to:
+  /// **'Gemini'**
+  String get providerNameGemini;
+
+  /// Settings, IA y voz — the openai allowlist entry's rendered name.
+  ///
+  /// In es, this message translates to:
+  /// **'OpenAI'**
+  String get providerNameOpenai;
+
+  /// Settings, IA y voz — the anthropic allowlist entry's rendered name.
+  ///
+  /// In es, this message translates to:
+  /// **'Anthropic'**
+  String get providerNameAnthropic;
+
+  /// Settings, IA y voz — the openrouter allowlist entry's rendered name.
+  ///
+  /// In es, this message translates to:
+  /// **'OpenRouter'**
+  String get providerNameOpenrouter;
+
+  /// Settings, IA y voz — the gemini entry's terms line: the date baked at verification, stated as verified on that day and not since; no age indicator, no re-check, no removal.
+  ///
+  /// In es, this message translates to:
+  /// **'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.'**
+  String get providerTermsGemini;
+
+  /// Settings, IA y voz — the openai entry's terms line: the date baked at verification, stated as verified on that day and not since.
+  ///
+  /// In es, this message translates to:
+  /// **'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.'**
+  String get providerTermsOpenai;
+
+  /// Settings, IA y voz — the anthropic entry's terms line: the date baked at verification, stated as verified on that day and not since.
+  ///
+  /// In es, this message translates to:
+  /// **'Términos sin entrenamiento verificados el 26 de agosto de 2026; ese día, y no desde entonces.'**
+  String get providerTermsAnthropic;
+
+  /// Settings, IA y voz — the openrouter entry's terms line: the date baked at admission, stated as verified on that day and not since.
+  ///
+  /// In es, this message translates to:
+  /// **'Términos sin entrenamiento verificados el 3 de septiembre de 2026; ese día, y no desde entonces.'**
+  String get providerTermsOpenrouter;
+
+  /// Settings, IA y voz — the quiet obscured key field's label. Submit saves; empty submit deletes; no confirmation, no read-back, no availability claim anywhere.
+  ///
+  /// In es, this message translates to:
+  /// **'Clave de IA'**
+  String get settingsProviderKeyLabel;
+
+  /// Settings, IA y voz — the free-tier sentence, stated exactly once in the whole build, below the key field and nowhere else.
+  ///
+  /// In es, this message translates to:
+  /// **'Una clave de nivel gratuito puede usarse para entrenar los modelos; esta app no puede saber de qué nivel es cada clave.'**
+  String get settingsProviderKeyFreeTierNote;
+
+  /// The Local Slicer's canned marker (Story 4-4, AD-9): every step of the debug stub's output carries it — unmistakable by construction, reachable only in the debug variant with the compile-time flag set.
+  ///
+  /// In es, this message translates to:
+  /// **'Paso local de ejemplo — este plan no es real'**
+  String get localSlicerCannedMarker;
 
   /// Typed project genesis — the consent action, with no provider name and no separate dialog.
   ///

@@ -3,14 +3,20 @@
 // The store seal (AD-21): no persistence API may be touched outside the
 // store module — the log and the pool are the only replayable domain
 // stores, and "no preferences, no side files, nothing outside the pool
-// and log" must fail the build, not depend on review. Story 4.3 grows
+// and log" must fail the build, not depend on review. Story 4.3 grew
 // the seal to the shape AD-21 always stated (the anticipated
 // evolution): the Files module arrives beside Store, a dart:io rule
 // closes the side-file gap the import allowlist could not see, and a
 // Kotlin sweep closes the native half — Keystore/crypto APIs live in
 // exactly one allowlisted file (the credential wrapping key's own
 // service) and file APIs live in no Kotlin file at all (Files is
-// Dart-side only).
+// Dart-side only). Story 4-4 grows the dart:io rule once more, by the
+// decision it anticipated: `lib/egress/` joins the allowlist for the
+// BYOK wire's socket-failure classification alone, and a new rule
+// denies dart:io's file and process families there — the egress
+// module may catch a SocketException and may touch no file and
+// spawn no child process, because side channels are nobody's
+// business, the egress chokepoint included.
 //
 // Persistence-package imports — drift*, sqlite3*, sqflite*,
 // shared_preferences* plus the named denylist below — are legal only
@@ -26,8 +32,12 @@
 // [dartIoAllowlist] — the stated gap ("relative imports of vendored
 // persistence code and dart:io/dart:ffi side-file writes are
 // unguarded", now closed for lib/): side files are Files' business
-// or nobody's. tool/ and test/ stay outside this rule by decision —
-// the checks and tests read the tree they police.
+// or nobody's. `lib/egress/` carries the one 4-4 exception
+// (SocketException classification), fenced by
+// [scanEgressFileApiSource]: the file-API family is banned there by
+// name, so the exception cannot widen into a side channel. tool/ and
+// test/ stay outside this rule by decision — the checks and tests
+// read the tree they police.
 //
 // The Kotlin sweep: Keystore/crypto APIs (`java.security.KeyStore`,
 // `android.security.keystore.*`, `javax.crypto.*` and their
@@ -63,11 +73,14 @@ const List<String> persistenceImportAllowlist = [
 ];
 
 /// Directory prefixes (repo-relative) where a `dart:io` import is legal
-/// under `lib/` — the store and files modules alone: side files are
-/// Files' business or nobody's (Story 4.3, AD-21).
+/// under `lib/` — the store and files modules, plus the egress module's
+/// one 4-4 exception: the BYOK wire classifies socket failures
+/// (SocketException), and the file-API rule below denies it everything
+/// else dart:io offers.
 const List<String> dartIoAllowlist = [
   'lib/store/', // the drift adapter's own file plumbing
   'lib/files/', // the Files adapter is dart:io's one shell home
+  'lib/egress/', // socket-failure classification only (Story 4-4)
 ];
 
 /// The one Kotlin file where Keystore/crypto APIs are legal (AD-21's
@@ -215,6 +228,46 @@ List<Finding> scanDartIoSource({
         );
       }
     }
+  }
+  findings.sort((a, b) => a.line.compareTo(b.line));
+  return findings;
+}
+
+/// dart:io's file and process families, banned by identifier inside
+/// `lib/egress/` — the fence around the 4-4 dart:io exception. A
+/// bare `File(...)` construction needs no import line to reach the
+/// filesystem, and `Process`/`exit`/`sleep`/stdio reopen both files
+/// and sockets through child processes the seals could never see —
+/// so identifiers are policed, not imports alone.
+final RegExp _dartIoSideChannelIdentifierRegExp = RegExp(
+  r'\b(?:File|Directory|RandomAccessFile|FileSystemEntity'
+  r'|FileSystemException|FileStat|FileMode|FileLock|Link|Process'
+  r'|ProcessResult|ProcessSignal|Stdin|Stdout|Stderr|sleep|exit)\b',
+);
+
+/// Scans one `lib/egress/` file's source for dart:io file or
+/// process APIs — the exception's fence (Story 4-4): the egress
+/// module may import dart:io to classify a SocketException and may
+/// touch no file and spawn no child process, so the side-file rule
+/// holds inside the one module the HTTP seal calls home. Comments
+/// and string literals are masked, so prose cannot false-positive.
+List<Finding> scanEgressFileApiSource({
+  required String file,
+  required String source,
+}) {
+  final findings = <Finding>[];
+  final masked = maskCommentsAndStrings(source);
+  for (final match in _dartIoSideChannelIdentifierRegExp.allMatches(masked)) {
+    findings.add(
+      Finding(
+        file,
+        _lineOf(masked, match.start),
+        "dart:io file or process API '${match.group(0)}' is banned in "
+        'lib/egress/ — the dart:io exception covers socket classification '
+        'only; side files and child processes are nobody\'s business here '
+        '(AD-21 store seal, Story 4-4)',
+      ),
+    );
   }
   findings.sort((a, b) => a.line.compareTo(b.line));
   return findings;
@@ -471,6 +524,16 @@ Future<int> runCheck([String repoRoot = '']) async {
         findings.addAll(
           scanDartIoSource(file: scoped, source: file.readAsStringSync()),
         );
+        // The 4-4 exception's fence: inside the egress module, the
+        // file-API family is banned by identifier.
+        if (_normalize(scoped).startsWith('lib/egress/')) {
+          findings.addAll(
+            scanEgressFileApiSource(
+              file: scoped,
+              source: file.readAsStringSync(),
+            ),
+          );
+        }
       }
     }
   }
@@ -492,8 +555,9 @@ Future<int> runCheck([String repoRoot = '']) async {
     print(
       'store seal check FAILED: ${findings.length} finding(s) — persistence '
       'APIs live only in the store and files modules, dart:io only beside '
-      'them, Keystore/crypto only in $keystoreAllowlistedPath, and no file '
-      'APIs in Kotlin at all (AD-21)',
+      'them (egress: socket classification only), Keystore/crypto only in '
+      '$keystoreAllowlistedPath, and no file APIs in Kotlin or lib/egress/ '
+      'at all (AD-21)',
     );
     return 1;
   }

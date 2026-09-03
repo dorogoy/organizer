@@ -59,12 +59,15 @@ void main() {
     expect(findings, isEmpty);
   });
 
-  test('the default allowlist holds exactly the four decided scopes', () {
+  test('the default allowlist holds exactly the five decided scopes '
+      '(4-4 grew the dart:io half by lib/egress/)', () {
     expect(persistenceImportAllowlist, contains('lib/store/'));
     expect(persistenceImportAllowlist, contains('lib/files/'));
     expect(persistenceImportAllowlist, contains('test/store/'));
     expect(persistenceImportAllowlist, contains('test/files/'));
     expect(persistenceImportAllowlist, hasLength(4));
+    expect(dartIoAllowlist, contains('lib/egress/'));
+    expect(dartIoAllowlist, hasLength(3));
   });
 
   test('the seal covers the prefixes and the named denylist', () {
@@ -139,6 +142,98 @@ void main() {
       const source = "const text = '''\nimport 'dart:io';\n''';\n";
       expect(
         scanDartIoSource(file: 'lib/ui/screen.dart', source: source),
+        isEmpty,
+      );
+    });
+
+    test('lib/egress/ may import dart:io for SocketException (Story 4-4)', () {
+      const source = "import 'dart:io' show SocketException;\n";
+      expect(
+        scanDartIoSource(file: 'lib/egress/byok_slicer.dart', source: source),
+        isEmpty,
+      );
+    });
+  });
+
+  group('the egress file-API fence (Story 4-4 — socket classification '
+      'only)', () {
+    test('a clean egress file — SocketException classification — passes', () {
+      final path = '$fixtures/egress_socket_ok.dart';
+      expect(
+        scanEgressFileApiSource(
+          file: 'lib/egress/byok_slicer.dart',
+          source: File(path).readAsStringSync(),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('dart:io file APIs in lib/egress/ are flagged, with file and '
+        'line', () {
+      final path = '$fixtures/egress_file_leak.dart';
+      final source = File(path).readAsStringSync();
+      final findings = scanEgressFileApiSource(
+        file: 'lib/egress/leak.dart',
+        source: source,
+      );
+      final directoryOffset = source.indexOf('Directory(');
+      final directoryLine =
+          '\n'.allMatches(source.substring(0, directoryOffset)).length + 1;
+      expect(findings, isNotEmpty);
+      expect(findings.first.file, 'lib/egress/leak.dart');
+      expect(findings.first.line, directoryLine);
+      expect(findings.first.message, contains('Directory'));
+      expect(
+        findings.any((finding) => finding.message.contains('File')),
+        isTrue,
+      );
+      expect(findings.every((f) => f.message.contains('AD-21')), isTrue);
+    });
+
+    test('dart:io process APIs in lib/egress/ are flagged too — no child '
+        'processes through the chokepoint (Story 4-4 fence)', () {
+      final path = '$fixtures/egress_process_leak.dart';
+      final source = File(path).readAsStringSync();
+      final findings = scanEgressFileApiSource(
+        file: 'lib/egress/leak.dart',
+        source: source,
+      );
+      expect(findings, isNotEmpty);
+      for (final token in ['Process', 'sleep', 'exit']) {
+        expect(
+          findings.any((finding) => finding.message.contains(token)),
+          isTrue,
+          reason: token,
+        );
+      }
+      expect(
+        findings.every(
+          (finding) => finding.message.contains('file or process API'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('a file-API identifier inside a string literal or comment is '
+        'not a finding', () {
+      const source = '''
+const copy = 'File in a string stays copy';
+// Directory in a comment stays copy too
+var fine = 1;
+''';
+      expect(
+        scanEgressFileApiSource(file: 'lib/egress/copy.dart', source: source),
+        isEmpty,
+      );
+    });
+
+    test('the fence polices lib/egress/ alone — the files module still '
+        'may', () {
+      // The scan is only invoked for egress paths by runCheck; the
+      // direct call documents the scope by refusing nothing here.
+      const source = 'var fine = 1;\n';
+      expect(
+        scanEgressFileApiSource(file: 'lib/egress/ok.dart', source: source),
         isEmpty,
       );
     });
@@ -423,6 +518,64 @@ class WildcardLeak
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains("a 'dart:io' import is legal under lib/"));
+    });
+
+    test('a dart:io file-API leak under lib/egress/ fails the executable '
+        '(Story 4-4 fence)', () async {
+      final root = _makeTemp('egress_file_leak');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      Directory('${root.path}/lib/egress').createSync(recursive: true);
+      File('${root.path}/lib/egress/wire.dart').writeAsStringSync(
+        "import 'dart:io';\n"
+        "void leak() => File('side').readAsStringSync();\n",
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('dart:io file or process API'));
+      expect(out, contains('lib/egress/wire.dart:'));
+    });
+
+    test('a dart:io process leak under lib/egress/ fails the executable '
+        '(the fence covers child processes)', () async {
+      final root = _makeTemp('egress_process_leak');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      Directory('${root.path}/lib/egress').createSync(recursive: true);
+      File('${root.path}/lib/egress/spawn.dart').writeAsStringSync(
+        "import 'dart:io';\n"
+        "void leak() => Process.runSync('cat', ['envelope']);\n",
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('dart:io file or process API'));
+      expect(out, contains('lib/egress/spawn.dart:'));
+    });
+
+    test('a socket-classification dart:io import under lib/egress/ '
+        'passes the executable (the 4-4 exception)', () async {
+      final root = _makeTemp('egress_socket');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      Directory('${root.path}/lib/egress').createSync(recursive: true);
+      File('${root.path}/lib/egress/wire.dart').writeAsStringSync(
+        "import 'dart:io' show SocketException;\n"
+        'Object? classify(Object cause) => cause is SocketException;\n',
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 0);
+      expect(result.stdout as String, contains('store seal check passed'));
     });
 
     test('a Kotlin crypto leak outside the allowlisted file fails the '

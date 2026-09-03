@@ -45,6 +45,86 @@ void main() {
     expect(scanDartSource(file: 'lib/ui/screen.dart', source: source), isEmpty);
   });
 
+  group('the egress-module import surface (story 4-4\'s review guard)', () {
+    test('importing the provider allowlist from outside is clean', () {
+      final path = '$fixtures/egress_allowlist_ok.dart';
+      expect(
+        scanDartSource(
+          file: 'lib/settings/settings_controller.dart',
+          source: File(path).readAsStringSync(),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('importing a wire from outside is flagged, package form', () {
+      final path = '$fixtures/egress_wire_leak.dart';
+      final source = File(path).readAsStringSync();
+      final findings = scanDartSource(
+        file: 'lib/ui/screen.dart',
+        source: source,
+      );
+      expect(findings, hasLength(1));
+      expect(
+        findings.single.message,
+        contains('package:organizer/egress/byok_slicer.dart'),
+      );
+      expect(findings.single.message, contains('provider_allowlist.dart'));
+      expect(findings.single.message, contains('AD-7'));
+    });
+
+    test('the same leak as a relative import is flagged too', () {
+      const source = "import '../egress/byok_wire.dart';\nvar send = 1;\n";
+      final findings = scanDartSource(
+        file: 'lib/ui/screen.dart',
+        source: source,
+      );
+      expect(findings, hasLength(1));
+      expect(findings.single.message, contains('../egress/byok_wire.dart'));
+    });
+
+    test('the shell root alone may import the factory — anywhere else it '
+        'is a finding', () {
+      const source =
+          "import 'package:organizer/egress/slicer_factory.dart';\n"
+          'var build = buildSlicer;\n';
+      expect(
+        scanDartSource(
+          file: 'lib/main.dart',
+          source: source,
+        ).where((finding) => finding.message.contains('egress import')),
+        isEmpty,
+        reason:
+            'the composition root wires the factory (the story\'s own '
+            'Code Map)',
+      );
+      expect(
+        scanDartSource(
+          file: 'lib/ui/screen.dart',
+          source: source,
+        ).where((finding) => finding.message.contains('egress import')),
+        isNotEmpty,
+      );
+      // The composition exception is exactly one file, one import.
+      expect(egressImportsLegalByFile, {
+        'lib/main.dart': {'slicer_factory.dart'},
+      });
+      expect(egressImportsLegalAnywhere, {'provider_allowlist.dart'});
+    });
+
+    test('tests may import the egress module freely — the guard polices '
+        'lib/ alone', () {
+      final path = '$fixtures/egress_wire_leak.dart';
+      expect(
+        scanDartSource(
+          file: 'test/egress/byok_slicer_test.dart',
+          source: File(path).readAsStringSync(),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   test('a socket identifier outside the permit zone is flagged', () {
     final path = '$fixtures/socket_outside.dart';
     final findings = scanDartSource(
@@ -98,9 +178,11 @@ final d = DatagramSocket;
     expect(findings, isEmpty);
   });
 
-  test('the default allowlist holds exactly the one decided scope', () {
+  test('the default allowlist holds exactly the two decided scopes '
+      '(4-4 grew it by the wire\'s own fakes)', () {
     expect(egressImportAllowlist, contains('lib/egress/'));
-    expect(egressImportAllowlist, hasLength(1));
+    expect(egressImportAllowlist, contains('test/egress/'));
+    expect(egressImportAllowlist, hasLength(2));
   });
 
   test('the denylist covers the enumerated HTTP-client packages', () {

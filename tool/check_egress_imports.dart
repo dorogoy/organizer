@@ -29,10 +29,32 @@ import 'check_core_purity.dart';
 
 /// Directory prefixes (repo-relative, forward slashes, trailing slash =
 /// directory scope) where HTTP-client imports and socket identifiers
-/// are legal. Grown only by explicit decision (AD-7).
+/// are legal. Grown only by explicit decision (AD-7). Story 4-4 grew
+/// it to the egress module's own test suite: `test/egress/` fakes the
+/// BYOK wire over the http package's types (`MockClient`), exactly the
+/// allowance the store seal holds for the store's and files' own tests
+/// — the fakes never open a socket, and no other test scope may import
+/// a client.
 const List<String> egressImportAllowlist = [
   'lib/egress/', // the single egress chokepoint — the only HTTP opener
+  'test/egress/', // the chokepoint's own fakes (story 4-4, AD-7)
 ];
+
+/// The egress module's importable surface (Story 4-4's review guard):
+/// outside `lib/egress/` itself, the only egress file any `lib/` file
+/// may import is the frozen provider allowlist — the one piece whose
+/// facts (ids, wire kinds, model ids) are configuration for its
+/// consumers (the settings controller's refusal, the section's
+/// pills). The wires, the slicer shapes and the dispatch stay inside
+/// the chokepoint; importing them elsewhere would grow its surface
+/// past what the seals describe.
+const Set<String> egressImportsLegalAnywhere = {'provider_allowlist.dart'};
+
+/// The composition-root exception: `lib/main.dart` wires the factory
+/// (the story's own Code Map), so it alone may import it.
+const Map<String, Set<String>> egressImportsLegalByFile = {
+  'lib/main.dart': {'slicer_factory.dart'},
+};
 
 /// HTTP-client packages (by package name) whose import is forbidden
 /// outside the allowlist.
@@ -172,8 +194,31 @@ int _lineOf(String text, int index) =>
 String _normalize(String path) =>
     path.replaceAll('\\', '/').replaceFirst('./', '');
 
+/// The egress file a URI names, or null when it names none: a
+/// `package:organizer/egress/<name>` import, or a relative import
+/// whose path carries an `egress` segment (the forms `lib/` files
+/// actually write).
+String? _egressImportOf(String uri) {
+  const packagePrefix = 'package:organizer/egress/';
+  if (uri.startsWith(packagePrefix)) {
+    return uri.substring(packagePrefix.length);
+  }
+  if (uri.startsWith('package:')) {
+    return null;
+  }
+  final segments = uri.split('/');
+  for (var i = 0; i + 1 < segments.length; i++) {
+    if (segments[i] == 'egress') {
+      return segments.sublist(i + 1).join('/');
+    }
+  }
+  return null;
+}
+
 /// Scans one Dart file's source for HTTP-client imports and socket
-/// identifiers outside the allowlist.
+/// identifiers outside the allowlist — plus, for `lib/` files
+/// outside the egress module itself, imports of egress files beyond
+/// the module's importable surface.
 List<Finding> scanDartSource({
   required String file,
   required String source,
@@ -185,11 +230,30 @@ List<Finding> scanDartSource({
   if (allowed) {
     return findings;
   }
+  final policesEgressImports =
+      normalized.startsWith('lib/') && !normalized.startsWith('lib/egress/');
+  final legalEgressImports = {
+    ...egressImportsLegalAnywhere,
+    ...?egressImportsLegalByFile[normalized],
+  };
   final masked = maskCommentsAndStrings(source);
   for (final directive in _directiveRegExp.allMatches(masked)) {
     final span = directive.group(0)!;
     for (final quoted in _quotedUriRegExp.allMatches(span)) {
       final uri = quoted.group(1) ?? quoted.group(2) ?? '';
+      final egressImport = policesEgressImports ? _egressImportOf(uri) : null;
+      if (egressImport != null && !legalEgressImports.contains(egressImport)) {
+        findings.add(
+          Finding(
+            file,
+            _lineOf(masked, directive.start + quoted.start),
+            "egress import '$uri' is legal outside lib/egress/ only for "
+            '${egressImportsLegalAnywhere.join(', ')} (plus the shell '
+            "root's composition imports) — the chokepoint's internals stay "
+            'inside (AD-7 egress seal, story 4-4)',
+          ),
+        );
+      }
       if (!uri.startsWith('package:')) {
         if (dartNativeEscapeLibraries.contains(uri)) {
           findings.add(

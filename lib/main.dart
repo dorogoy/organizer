@@ -1,3 +1,4 @@
+import 'package:core/ports/slicer_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import 'capture/capture_controller.dart';
 import 'capture/dictation_controller.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
+import 'egress/slicer_factory.dart';
 import 'files/app_files.dart';
 import 'platform/credentials/credentials_cipher.dart';
 import 'platform/dictate/dictate_recognizer.dart';
@@ -42,6 +44,25 @@ void main() {
     files: AppFiles(),
     cipher: CredentialsChannelCipher(),
   );
+  // The Settings seam (Story 4-4): the same store the whole shell
+  // holds, the recognizer, and now the vault — the IA y voz key
+  // path's one persistence surface. Constructed here so the slicer
+  // below can read the provider selection through it.
+  final settings = SettingsController(
+    store: store,
+    recognizer: recognizer,
+    vault: vault,
+  );
+  // The Slicer (Story 4-4, AD-9): the factory composes it inside the
+  // egress module — the one place an HTTP client may be constructed
+  // — over the vault and the settings derivation's per-call reader.
+  // Threaded into the shell root like the vault, and equally unread:
+  // no surface calls it until 4-6 wires Rescue Mode.
+  final slicer = buildSlicer(
+    vault: vault,
+    readSelectedProvider: settings.readSelectedProvider,
+    localCannedMarker: AppStringsEs().localSlicerCannedMarker,
+  );
   // The session lifecycle wiring (AD-19) sits beside the crash guard:
   // app opens and backgroundings become log facts — `app_opened`, the
   // session's first `card_dealt`, `session_ended`. The launch open runs
@@ -66,7 +87,7 @@ void main() {
           writeQueue: logWrites,
         ),
         sessionSettled: () => session.settled,
-        settings: SettingsController(store: store, recognizer: recognizer),
+        settings: settings,
         // The Manual Capture seam (Story 3.2): same store, same shared
         // write queue — a capture's fact and entry serialize against
         // every other write the shell owns.
@@ -85,6 +106,10 @@ void main() {
         // key path (4-4) is its first reader, and nothing here pulls
         // it into a surface early.
         vault: vault,
+        // The Slicer (Story 4-4, AD-9): threaded like the vault and
+        // unread until Rescue Mode (4-6) — the port ships with no
+        // production call site, exactly as 4-2's dispatch did.
+        slicer: slicer,
       ),
     ),
   );
@@ -105,6 +130,7 @@ class OrganizerApp extends StatelessWidget {
     this.capture,
     this.dictation,
     this.vault,
+    this.slicer,
   });
 
   final DispenserController? dispenser;
@@ -123,9 +149,15 @@ class OrganizerApp extends StatelessWidget {
   final DictationController? dictation;
 
   /// The credential vault (Story 4.3, AD-22), constructed once in
-  /// main — the shell's only seal/unseal composition, unread by any
-  /// surface until 4-4's Settings key path arrives.
+  /// main — the shell's only seal/unseal composition, consumed by
+  /// the Settings key path since 4-4.
   final CredentialVault? vault;
+
+  /// The Slicer (Story 4-4, AD-9), composed once in main through the
+  /// egress factory — threaded and unread until Rescue Mode (4-6)
+  /// calls it. No surface reaches it; the field exists so the
+  /// shell's composition stays visible at the root.
+  final SlicerPort? slicer;
 
   @override
   Widget build(BuildContext context) {

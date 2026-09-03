@@ -38,24 +38,36 @@ void main() {
     expect(findings, isEmpty);
   });
 
-  test('INTERNET in release is outside its effective set, which the '
-      'finding names in full', () {
+  test('INTERNET in release is the deliberate allowlist edit of story '
+      '4-4 — the enumerated release set carries it', () {
     final path = '$fixtures/release_with_internet.xml';
     final findings = checkInventory(
       manifestPath: path,
       variant: 'release',
       inventory: enumerateManifest(File(path).readAsStringSync()),
     );
+    expect(findings, isEmpty);
+  });
+
+  test('a foreign permission in release is outside its effective set, '
+      'which the finding names in full', () {
+    final path = '$fixtures/release_with_foreign_permission.xml';
+    final findings = checkInventory(
+      manifestPath: path,
+      variant: 'release',
+      inventory: enumerateManifest(File(path).readAsStringSync()),
+    );
     expect(findings, hasLength(1));
-    expect(findings.single.message, contains('android.permission.INTERNET'));
+    expect(findings.single.message, contains('android.permission.CAMERA'));
     expect(findings.single.message, contains('release'));
     expect(findings.single.message, contains('effective set'));
-    // The full effective set — the platform injection included, not
-    // just the app-authored half.
+    // The full effective set — the platform injection and 4-4's
+    // deliberate INTERNET included, not just RECORD_AUDIO.
     expect(
       findings.single.message,
       contains('android.permission.RECORD_AUDIO'),
     );
+    expect(findings.single.message, contains('android.permission.INTERNET'));
     expect(
       findings.single.message,
       contains(
@@ -125,9 +137,11 @@ void main() {
     expect(findings.single.message, contains('com.sneaky.sdk.BootReceiver'));
   });
 
-  test('the enumerated permission sets are the decided per-variant ones', () {
+  test('the enumerated permission sets are the decided per-variant ones '
+      '(4-4 grew release by the deliberate INTERNET edit)', () {
     expect(permittedPermissionsByVariant['release'], {
       'android.permission.RECORD_AUDIO',
+      'android.permission.INTERNET',
     });
     expect(permittedPermissionsByVariant['debug'], {
       'android.permission.RECORD_AUDIO',
@@ -248,7 +262,7 @@ void main() {
   });
 
   test('findings cite line 1 because the XML is machine-generated', () {
-    final path = '$fixtures/release_with_internet.xml';
+    final path = '$fixtures/release_with_foreign_permission.xml';
     final findings = checkInventory(
       manifestPath: path,
       variant: 'release',

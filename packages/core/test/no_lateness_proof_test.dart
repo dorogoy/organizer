@@ -1008,8 +1008,10 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the thirty-one
-    // declarations above (twenty-three classes, eight record typedefs).
+    // The frozen census, keyed by (path, name): the thirty-eight
+    // declarations above (thirty classes, eight record typedefs) —
+    // Story 4-4 adds the slicer port's sealed request union, its two
+    // outcomes and the three request kinds.
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -1042,6 +1044,13 @@ final class KitchenSink {
       'curation/curation.dart:CurationObservation',
       'derive/checkpoint.dart:CheckpointState',
       'derive/strip.dart:StripState',
+      'ports/slicer_port.dart:SlicerRequest',
+      'ports/slicer_port.dart:ScanSliceRequest',
+      'ports/slicer_port.dart:GenesisSliceRequest',
+      'ports/slicer_port.dart:RescueSliceRequest',
+      'ports/slicer_port.dart:SlicerOutcome',
+      'ports/slicer_port.dart:SlicerDelivered',
+      'ports/slicer_port.dart:SlicerFailed',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
@@ -1066,6 +1075,9 @@ final class KitchenSink {
       'ports/clock_port.dart:ClockPort',
       'ports/recognizer_port.dart:RecognizerPort',
       'ports/files_port.dart:FilesPort',
+      // The slicer port interface (Story 4-4, AD-9) — a method
+      // contract, no fields, on the ports' own terms.
+      'ports/slicer_port.dart:SlicerPort',
       // The recognizer port's own state vocabularies (Story 3.4) —
       // enums with members and no fields.
       'ports/recognizer_port.dart:RecognizerAvailability',
@@ -1086,6 +1098,9 @@ final class KitchenSink {
       // The ambient strip's resident vocabulary (Story 2.5) — the
       // precedence order's members, no fields.
       'derive/strip.dart:StripResident',
+      // The slicer's failure-cause vocabulary (Story 4-4, FR-29) —
+      // seven members and no fields, the closed taxonomy itself.
+      'ports/slicer_port.dart:SlicerFailureCause',
     };
 
     final classDeclaration = RegExp(

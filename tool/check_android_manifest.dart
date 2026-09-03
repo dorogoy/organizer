@@ -12,16 +12,17 @@
 // `dev.dorogoy.organizer.MainActivity`, with an empty alias set.
 //
 // Enumerated sets: the app-authored permissions are exactly
-// RECORD_AUDIO in release, plus the template's dev-tooling INTERNET in
-// debug/profile (hot reload, not app egress — 4-4 adding INTERNET to
-// main is a deliberate allowlist edit). On top of those, one fixed
-// platform baseline is enumerated below: AGP's targetSdk-34
-// dynamic-receiver permission injection and the androidx
-// startup/profileinstaller components that androidx.core (via the
-// Flutter embedding) merges into every modern app. That baseline is
-// named, minimal and version-pinned by this check itself — any other
-// component, in any variant, fails. Findings cite line 1 because
-// merged manifests are machine-generated XML.
+// RECORD_AUDIO and INTERNET in release (4-4's BYOK egress — the
+// deliberate main-manifest edit this seal anticipated), plus the
+// template's dev-tooling INTERNET in debug/profile (hot reload, not
+// app egress). On top of those, one fixed platform baseline is
+// enumerated below: AGP's targetSdk-34 dynamic-receiver permission
+// injection and the androidx startup/profileinstaller components
+// that androidx.core (via the Flutter embedding) merges into every
+// modern app. That baseline is named, minimal and version-pinned by
+// this check itself — any other component, in any variant, fails.
+// Findings cite line 1 because merged manifests are machine-
+// generated XML.
 //
 // The check drives `process{Debug,Release,Profile}MainManifest` itself
 // (through the bootstrap-injected gradle wrapper, via the shared
@@ -50,10 +51,11 @@ const String dynamicReceiverPermission =
     'dev.dorogoy.organizer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION';
 
 /// The app-authored permissions each variant's merged manifest may
-/// carry. Grown only by explicit decision (AD-7): story 4-4's INTERNET
-/// in main is a deliberate edit of this map.
+/// carry. Grown only by explicit decision (AD-7): story 4-4 added
+/// INTERNET to main for the BYOK Slicer's egress — the deliberate
+/// edit of this map that story made.
 const Map<String, Set<String>> permittedPermissionsByVariant = {
-  'release': {recordAudioPermission},
+  'release': {recordAudioPermission, internetPermission},
   'debug': {recordAudioPermission, internetPermission},
   'profile': {recordAudioPermission, internetPermission},
 };
