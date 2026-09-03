@@ -9,11 +9,20 @@
 #     lags the line's patches and is not the official SDK);
 #   - the Android SDK (cmdline-tools + platform-tools + platform 36 +
 #     build-tools 36), because nixpkgs carries no android-sdk package
-#     (verified 2026-08-27). Needed by `make build` / `make run`, never by
-#     the completion gate.
+#     (verified 2026-08-27). Needed by `make build` / `make run` and by
+#     the two Gradle-backed egress seals under `make check` (story 4-2).
+#   - the Gradle wrapper under android/, injected from the pinned SDK's
+#     own cache so the egress seals can resolve the Gradle graph and
+#     merge the manifests without a prior `flutter build` (story 4-2).
+#     Flutter-managed files, kept out of git; the pinned distribution
+#     stays in the committed gradle-wrapper.properties.
 #
 # A patch bump within the 3.47 line is exactly two edited values below
-# (version, sha256) plus a re-lock and the gate — nothing else changes.
+# (version, sha256) plus a re-lock and the gate — plus one visible,
+# deliberate re-freeze of the egress Gradle-graph allowlist (seal 2,
+# story 4-2: the engine-hash io.flutter coordinates change with the
+# engine; `dart run tool/check_gradle_dependencies.dart --re-freeze`
+# prints the new literal). Nothing else changes.
 #
 # Offline behaviour: once the SDK is provisioned (seeded or unpacked) and
 # the archives are cached in .toolchain/downloads/, this script performs
@@ -37,7 +46,7 @@ FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stabl
 # (sourced by tool/env.sh). Empty disables the seed.
 FLUTTER_SEED="${FLUTTER_SEED:-}"
 
-# --- Android SDK (for make build / make run only) -----------------------------
+# --- Android SDK (build/run + the Gradle-backed egress seals) -----------------
 CMDLINETOOLS_BUILD=13114758
 CMDLINETOOLS_SHA256=7ec965280a073311c339e571cd5de778b9975026cfcbe79f2b1cdcb1e15317ee
 ANDROID_PLATFORM=android-36
@@ -149,6 +158,31 @@ if [ "$need_sdk" = 1 ]; then
     "platform-tools" "platforms;$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS" >/dev/null
 else
   log "Android SDK ($ANDROID_PLATFORM) already provisioned"
+fi
+
+# --- Gradle wrapper (injected from the pinned SDK's cache) ---------------------
+# The egress seals (story 4-2: resolved-graph allowlist, merged-manifest
+# enumeration) drive gradlew directly and must run in CI before any
+# `flutter build` has produced a wrapper. The wrapper files are the
+# Flutter SDK's own, so they are injected here — idempotently, every
+# bootstrap — and gitignored (see .gitignore); the distribution pin
+# lives in the committed android/gradle/wrapper/gradle-wrapper.properties.
+# No cache-warming step is needed: the official tarball itself ships
+# bin/cache/artifacts/gradle_wrapper/{gradlew,gradlew.bat,gradle/wrapper/
+# gradle-wrapper.jar} (verified 2026-09-03 by listing
+# flutter_linux_3.47.2-stable.tar.xz), so a fresh unpack always has it.
+WRAPPER_SRC="$TOOLCHAIN/flutter/bin/cache/artifacts/gradle_wrapper"
+if [ -d "$WRAPPER_SRC" ]; then
+  log "injecting the Gradle wrapper from the pinned Flutter SDK"
+  mkdir -p "$ROOT/android/gradle/wrapper"
+  cp -f "$WRAPPER_SRC/gradlew" "$ROOT/android/gradlew"
+  cp -f "$WRAPPER_SRC/gradlew.bat" "$ROOT/android/gradlew.bat"
+  cp -f "$WRAPPER_SRC/gradle/wrapper/gradle-wrapper.jar" \
+    "$ROOT/android/gradle/wrapper/gradle-wrapper.jar"
+  chmod +x "$ROOT/android/gradlew"
+else
+  printf '[bootstrap] the pinned SDK has no gradle_wrapper cache (%s) — the egress seals will not run; re-provision the SDK\n' "$WRAPPER_SRC" >&2
+  exit 1
 fi
 
 log "toolchain ready"

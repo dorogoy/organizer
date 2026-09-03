@@ -19,6 +19,15 @@ jobs:
       - name: Provision SDKs and dependencies
         run: devbox run -- make deps
 
+      - name: Gradle caches (egress seals' resolved graph + pinned distribution)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Codegen freshness (Drift, localization, and catalogue outputs)
         run: devbox run -- make codegen-check
 

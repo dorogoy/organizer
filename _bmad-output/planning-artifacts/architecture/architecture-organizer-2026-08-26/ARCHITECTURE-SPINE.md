@@ -260,6 +260,7 @@ Verified against the live web on 2026-08-26 by an independent reviewer; where a 
 | `saf_stream` | 4.0.1 | the actual write path for FR-30. Missing this pair was the first draft's error |
 | credential storage | our own Kotlin `credentials` channel | AndroidKeyStore owns a non-exportable AEAD wrapping key; provider-scoped ciphertext envelopes live in app-private Files storage, never preferences. `flutter_secure_storage` is deliberately not used because it does not expose the wrapping-key + Files-envelope contract AD-22 requires |
 | `uuid` | 4.6.0 | RFC 9562 v7. Intra-millisecond monotonicity is **opt-in** (`UuidV7Monotonic`), not the default — and conventions forbid ordering by id bits anyway; AD-3's tie-break is stable-id order, not mint order |
+| `image` | 4.9.2 | pure-Dart JPEG/PNG codec, pinned (story 4-2). AD-7's egress resolution cap (1536 px, JPEG q85) runs over it inside `compute()`; no Android footprint, so both native egress seals stay unaffected |
 | `flutter_localizations` / `gen_l10n` | ships with Flutter | |
 | `material` / `cupertino` | **not a dependency** | The first draft invented these. Material and Cupertino left the core in **3.47**, as opt-in `material_ui` 1.1.0 / `cupertino_ui`; the SDK still ships the libraries and `package:flutter/material.dart` is only *scheduled* for deprecation in the November 2026 stable. Nothing to add to the pubspec today |
 | `flutter_local_notifications` | deliberately unused | 22.3.0 and actively maintained; AD-11's carve-out is about where the guarantee lives, not about the package being unfit |
