@@ -4,9 +4,11 @@
 //
 // The audit list is every key in the shipped ARB minus the keys carrying an
 // explicit `x-audit-exclude` — so silence ADDS a string to the audit rather
-// than omitting one. The seven FR-29 no-Slicer strings are pinned by key and
-// must carry BOTH a non-placeholder value AND an `x-signoff` reviewer marker
-// inside their `@key` block: existence and review are separate gates.
+// than omitting one. The seven FR-29 no-Slicer strings and their
+// single exit (`noSlicerExit`, Story 4-5) are pinned by key and
+// must carry BOTH a non-placeholder value AND an `x-signoff` reviewer
+// marker inside their `@key` block: existence and review are separate
+// gates.
 //
 // Per-key audit metadata lives inside each key's `@key` block in
 // `app_es.arb` itself — never a second file — as free-text strings
@@ -20,8 +22,9 @@ import 'dart:io';
 
 const String arbPath = 'lib/l10n/app_es.arb';
 
-/// The seven FR-29 no-Slicer strings, pinned by key. A cause's string
-/// missing, empty, placeholder-shaped, or unsigned fails the build.
+/// The seven FR-29 no-Slicer strings plus their single exit, pinned by
+/// key. A cause's string (or the exit's) missing, empty,
+/// placeholder-shaped, or unsigned fails the build.
 const Set<String> pinnedNoSlicerKeys = {
   'noSlicerNoKey',
   'noSlicerInvalidKey',
@@ -30,6 +33,7 @@ const Set<String> pinnedNoSlicerKeys = {
   'noSlicerOffline',
   'noSlicerConsentDeclined',
   'personInFrame',
+  'noSlicerExit',
 };
 
 final RegExp _signoffShape = RegExp(r'^([^,]+),\s*(\d{4}-\d{2}-\d{2})$');

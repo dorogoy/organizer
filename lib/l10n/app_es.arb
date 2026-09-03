@@ -220,7 +220,8 @@
 
   "noSlicerExit": "Anotarlo",
   "@noSlicerExit": {
-    "description": "No-Slicer surface — the single exit, to Manual Capture."
+    "description": "No-Slicer surface — the single exit, to Manual Capture.",
+    "x-signoff": "Sergio, 2026-08-27"
   },
 
   "newProjectLink": "Nuevo proyecto",

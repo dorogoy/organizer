@@ -1101,6 +1101,10 @@ final class KitchenSink {
       // The slicer's failure-cause vocabulary (Story 4-4, FR-29) —
       // seven members and no fields, the closed taxonomy itself.
       'ports/slicer_port.dart:SlicerFailureCause',
+      // The no-Slicer cause vocabulary (Story 4-5, FR-29) — the UI's
+      // seven renderable states, members and no fields, where the
+      // total map from the failure taxonomy lands.
+      'ports/no_slicer_cause.dart:NoSlicerCause',
     };
 
     final classDeclaration = RegExp(
