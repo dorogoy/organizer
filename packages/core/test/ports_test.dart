@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:core/ports/clock_port.dart';
+import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:test/test.dart';
 
@@ -32,6 +33,22 @@ class _ShellStore implements StorePort {
   Future<List<LogEntryRecord>> readLogEntries() async => const [];
 }
 
+/// A shell-side stand-in proving the files port is implementable outside
+/// its declaring library (Story 4.3, AD-21, AD-22) — adapters move bytes,
+/// never semantics.
+class _ShellFiles implements FilesPort {
+  const _ShellFiles();
+
+  @override
+  Future<List<int>?> read(String scope, String name) async => null;
+
+  @override
+  Future<void> write(String scope, String name, List<int> bytes) async {}
+
+  @override
+  Future<void> delete(String scope, String name) async {}
+}
+
 void main() {
   test('the ports library declares exactly the build\'s ports', () {
     final dir = Directory('lib/ports');
@@ -45,10 +62,12 @@ void main() {
             .map((file) => file.uri.pathSegments.last)
             .toList()
           ..sort();
-    // The two Epic-1 ports plus the recognizer port Story 3.4 adds
-    // (FR-32): ClockPort minimalism, one file each.
+    // The two Epic-1 ports, the recognizer port Story 3.4 adds
+    // (FR-32), and the files port Story 4.3 adds (AD-22): one file
+    // each.
     expect(names, [
       'clock_port.dart',
+      'files_port.dart',
       'recognizer_port.dart',
       'store_port.dart',
     ]);
@@ -57,8 +76,10 @@ void main() {
   test('both ports are implementable by a shell-side adapter (AD-5)', () {
     const clock = _ShellClock();
     const store = _ShellStore();
+    const files = _ShellFiles();
     expect(clock, isA<ClockPort>());
     expect(store, isA<StorePort>());
+    expect(files, isA<FilesPort>());
     expect(clock.instant(), DateTime.fromMillisecondsSinceEpoch(0));
   });
 }

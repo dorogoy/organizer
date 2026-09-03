@@ -45,6 +45,7 @@ List<LogEntryContent> reportAnswered({required int value, required int week}) {
       stack: null,
       settingKey: null,
       settingValue: null,
+      settingTextValue: null,
       pocketMinutes: null,
       energyLevel: null,
       reportValue: value,

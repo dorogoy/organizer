@@ -59,9 +59,12 @@ void main() {
     expect(findings, isEmpty);
   });
 
-  test('the default allowlist holds exactly the two decided scopes', () {
+  test('the default allowlist holds exactly the four decided scopes', () {
     expect(persistenceImportAllowlist, contains('lib/store/'));
-    expect(persistenceImportAllowlist, hasLength(2));
+    expect(persistenceImportAllowlist, contains('lib/files/'));
+    expect(persistenceImportAllowlist, contains('test/store/'));
+    expect(persistenceImportAllowlist, contains('test/files/'));
+    expect(persistenceImportAllowlist, hasLength(4));
   });
 
   test('the seal covers the prefixes and the named denylist', () {
@@ -103,6 +106,254 @@ void main() {
     final findings = scanSource(file: 'lib/ui/screen.dart', source: source);
     expect(findings, hasLength(1));
     expect(findings.single.message, contains('package:drift/drift.dart'));
+  });
+
+  group('the dart:io rule (Story 4.3 — side files are Files\' business or '
+      'nobody\'s)', () {
+    test('a dart:io import under lib/ outside store/files is flagged', () {
+      const source = "import 'dart:io';\n";
+      final findings = scanDartIoSource(
+        file: 'lib/ui/screen.dart',
+        source: source,
+      );
+      expect(findings, hasLength(1));
+      expect(findings.single.file, 'lib/ui/screen.dart');
+      expect(findings.single.line, 1);
+      expect(findings.single.message, contains('dart:io'));
+      expect(findings.single.message, contains('AD-21 store seal'));
+    });
+
+    test('the files module may import dart:io', () {
+      const source = "import 'dart:io';\n";
+      expect(
+        scanDartIoSource(file: 'lib/files/app_files.dart', source: source),
+        isEmpty,
+      );
+      expect(
+        scanDartIoSource(file: 'lib/store/connection.dart', source: source),
+        isEmpty,
+      );
+    });
+
+    test('a dart:io import inside a string literal is not an import', () {
+      const source = "const text = '''\nimport 'dart:io';\n''';\n";
+      expect(
+        scanDartIoSource(file: 'lib/ui/screen.dart', source: source),
+        isEmpty,
+      );
+    });
+  });
+  group('the Kotlin sweep (Story 4.3 — one closed native exception)', () {
+    test('Keystore/crypto is clean inside exactly the allowlisted path', () {
+      final path = '$fixtures/CredentialKeystore.kt';
+      expect(
+        scanKotlinSource(
+          file:
+              'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+              'CredentialKeystore.kt',
+          source: File(path).readAsStringSync(),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a decoy same-named file on another path is not the service — '
+        'the allowlist matches the exact path, not a basename', () {
+      final path = '$fixtures/DecoyCredentialKeystore.kt';
+      final findings = scanKotlinSource(
+        file:
+            'android/app/src/debug/kotlin/dev/dorogoy/organizer/other/'
+            'CredentialKeystore.kt',
+        source: File(path).readAsStringSync(),
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.every(
+          (finding) => finding.message.contains('Keystore/crypto'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('ordinary channel Kotlin is clean by default', () {
+      final path = '$fixtures/CleanChannel.kt';
+      expect(
+        scanKotlinSource(file: path, source: File(path).readAsStringSync()),
+        isEmpty,
+      );
+    });
+
+    test('Keystore/crypto outside the allowlisted file is flagged, imports '
+        'and identifiers both', () {
+      final path = '$fixtures/CryptoLeak.kt';
+      final findings = scanKotlinSource(
+        file: path,
+        source: File(path).readAsStringSync(),
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.every((finding) => finding.message.contains('AD-21')),
+        isTrue,
+      );
+      expect(
+        findings.any((finding) => finding.message.contains('import')),
+        isTrue,
+      );
+      expect(
+        findings.any((finding) => finding.message.contains('KeyGenerator')),
+        isTrue,
+      );
+      expect(
+        findings.any((finding) => finding.message.contains('fully-qualified')),
+        isTrue,
+      );
+    });
+
+    test('file APIs are flagged in no Kotlin file — the allowlisted '
+        'keystore file included', () {
+      final leakPath = '$fixtures/FileLeak.kt';
+      final findings = scanKotlinSource(
+        file: leakPath,
+        source: File(leakPath).readAsStringSync(),
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.every((finding) => finding.message.contains('Dart-side')),
+        isTrue,
+      );
+      // And even the wrapping key's own service may not touch files.
+      final keystoreWithFile = '''
+import java.security.KeyStore
+import java.io.File
+
+internal class CredentialKeystore {
+    fun leak() = File("envelope").readBytes()
+}
+''';
+      final mixed = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+            'CredentialKeystore.kt',
+        source: keystoreWithFile,
+      );
+      expect(
+        mixed.where((finding) => finding.message.contains('file-API')),
+        isNotEmpty,
+      );
+      expect(
+        mixed.where((finding) => finding.message.contains('Keystore/crypto')),
+        isEmpty,
+      );
+    });
+
+    test('crypto inside a string literal or comment is not a finding', () {
+      const source = '''
+val copy = "Cipher in a string stays copy"
+// KeyStore in a comment stays copy too
+val fine = 1
+''';
+      expect(scanKotlinSource(file: 'SomeChannel.kt', source: source), isEmpty);
+    });
+
+    test('side-channel store APIs are flagged in no Kotlin file — the '
+        'allowlisted keystore service included', () {
+      final path = '$fixtures/SideChannelLeak.kt';
+      final findings = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+            'SideChannelLeak.kt',
+        source: File(path).readAsStringSync(),
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.every(
+          (finding) => finding.message.contains('side-channel store API'),
+        ),
+        isTrue,
+      );
+      for (final token in [
+        'openFileOutput',
+        'getFilesDir',
+        'getCacheDir',
+        'getExternalFilesDir',
+        'getSharedPreferences',
+      ]) {
+        expect(
+          findings.any((finding) => finding.message.contains(token)),
+          isTrue,
+          reason: token,
+        );
+      }
+
+      // And the one allowlisted file carries no side-channel
+      // exemption either: Files is Dart-side only, everywhere.
+      final keystoreWithPrefs = '''
+import android.content.Context
+
+internal class CredentialKeystore(private val context: Context) {
+    fun leak() = context.getSharedPreferences("vault", 0)
+}
+''';
+      final mixed = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+            'CredentialKeystore.kt',
+        source: keystoreWithPrefs,
+      );
+      expect(
+        mixed.where(
+          (finding) => finding.message.contains('side-channel store API'),
+        ),
+        isNotEmpty,
+      );
+      expect(
+        mixed.where((finding) => finding.message.contains('Keystore/crypto')),
+        isEmpty,
+      );
+    });
+
+    test('the NIO file family is flagged imported and fully qualified', () {
+      final path = '$fixtures/NioFilesLeak.kt';
+      final findings = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+            'NioFilesLeak.kt',
+        source: File(path).readAsStringSync(),
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.any(
+          (finding) =>
+              finding.message.contains('NIO file import') &&
+              finding.message.contains('java.nio.file.Files'),
+        ),
+        isTrue,
+      );
+      expect(
+        findings.any((finding) => finding.message.contains('NIO file usage')),
+        isTrue,
+      );
+    });
+
+    test('a wildcard NIO file import is flagged', () {
+      const source = '''
+package dev.dorogoy.organizer
+
+import java.nio.file.*
+
+class WildcardLeak
+''';
+      final findings = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/WildcardLeak.kt',
+        source: source,
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.any((finding) => finding.message.contains('NIO file import')),
+        isTrue,
+      );
+    });
   });
 
   group('the executable', () {
@@ -157,6 +408,81 @@ void main() {
       ]);
       expect(result.exitCode, 1);
       expect(result.stdout as String, contains('lib/fixtures/bad.dart'));
+    });
+
+    test('a dart:io leak under lib/ fails the executable', () async {
+      final root = _makeTemp('dart_io');
+      Directory('${root.path}/lib/ui').createSync(recursive: true);
+      File('${root.path}/lib/ui/screen.dart')
+          .writeAsStringSync("import 'dart:io';\nvoid main() {}\n");
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains("a 'dart:io' import is legal under lib/"));
+    });
+
+    test('a Kotlin crypto leak outside the allowlisted file fails the '
+        'executable', () async {
+      final root = _makeTemp('kotlin_crypto');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      final kotlinDir = Directory(
+        '${root.path}/android/app/src/main/kotlin/dev/dorogoy/organizer',
+      )..createSync(recursive: true);
+      File('${kotlinDir.path}/MainActivity.kt')
+          .writeAsStringSync('class MainActivity\n');
+      File('${kotlinDir.path}/CryptoLeak.kt').writeAsStringSync(
+        'import javax.crypto.Cipher\n'
+        'class CryptoLeak\n'
+        '    fun leak() = Cipher.getInstance("AES/GCM/NoPadding")\n',
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('CryptoLeak.kt:'));
+      expect(out, contains('Keystore/crypto'));
+    });
+
+    test('a decoy CredentialKeystore.kt in another source set fails the '
+        'executable — the real one stays clean', () async {
+      final root = _makeTemp('kotlin_decoy');
+      Directory('${root.path}/lib/store').createSync(recursive: true);
+      final main = Directory(
+        '${root.path}/android/app/src/main/kotlin/dev/dorogoy/organizer',
+      )..createSync(recursive: true);
+      File('${main.path}/CredentialKeystore.kt').writeAsStringSync(
+        File('$fixtures/CredentialKeystore.kt').readAsStringSync(),
+      );
+      final debug = Directory(
+        '${root.path}/android/app/src/debug/kotlin/dev/dorogoy/organizer',
+      )..createSync(recursive: true);
+      File('${debug.path}/CredentialKeystore.kt').writeAsStringSync(
+        File('$fixtures/DecoyCredentialKeystore.kt').readAsStringSync(),
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_store_seal.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      final out = result.stdout as String;
+      expect(out, contains('src/debug/kotlin'));
+      expect(out, contains('Keystore/crypto'));
+      expect(
+        out,
+        isNot(
+          contains(
+            'src/main/kotlin/dev/dorogoy/organizer/CredentialKeystore.kt:',
+          ),
+        ),
+      );
     });
   });
 }

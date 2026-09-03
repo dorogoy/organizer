@@ -11,6 +11,15 @@ SettingEntry _setting(int micros, String key, int value) => SettingEntry(
   value: value,
 );
 
+SettingEntry _textSetting(int micros, String key, String textValue) =>
+    SettingEntry(
+      id: 'setting-$micros-$key-text',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      key: key,
+      textValue: textValue,
+    );
+
 MomentEntry _moment(int micros) => MomentEntry(
   id: 'moment-$micros',
   instantUtcMicros: micros,
@@ -111,6 +120,23 @@ void main() {
         expect(deriveTimeBagMinutes([_setting(1000, 'time_bag', 17)]), 17);
       });
 
+      test('a text-valued time_bag row derives the default — the '
+          'exactly-one-of shape at the derivation, tolerated for '
+          'value: null (Story 4.3)', () {
+        expect(
+          deriveTimeBagMinutes([_textSetting(1000, 'time_bag', 'openai')]),
+          defaultTimeBagMinutes,
+        );
+        // And it does not shadow a valid int beside it.
+        expect(
+          deriveTimeBagMinutes([
+            _setting(1000, 'time_bag', 20),
+            _textSetting(2000, 'time_bag', 'openai'),
+          ]),
+          20,
+        );
+      });
+
       test('the boundary values 5 and 30 are valid; 10 is the weave\'s own '
           'threshold, not the setting\'s', () {
         expect(deriveTimeBagMinutes([_setting(1, 'time_bag', 5)]), 5);
@@ -167,6 +193,171 @@ void main() {
     test('a key this build does not know returns no content (AD-23: this '
         'build does not write what it cannot read)', () {
       expect(settingChanged(key: 'future_setting', value: 15), isEmpty);
+    });
+  });
+
+  group('the derived selected provider (Story 4.3, AD-22 — text, never a '
+      'credential, never an availability claim)', () {
+    test('an empty log derives null — no choice stands', () {
+      expect(deriveSelectedProvider(const []), isNull);
+    });
+
+    test('the latest valid selected_provider text wins — store read '
+        'order', () {
+      expect(
+        deriveSelectedProvider([
+          _moment(1000),
+          _textSetting(2000, 'selected_provider', 'openai'),
+          _moment(3000),
+          _textSetting(4000, 'selected_provider', 'anthropic'),
+        ]),
+        'anthropic',
+      );
+    });
+
+    test('a text outside the provider charset is treated as absent — the '
+        'previous choice or none stands (AD-23)', () {
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', '../evil'),
+        ]),
+        isNull,
+      );
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', 'UPPER'),
+        ]),
+        isNull,
+      );
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', 'a' * 65),
+        ]),
+        isNull,
+      );
+      // An empty text is not a value: the earlier valid choice
+      // stands, exactly as if the row were not there.
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', 'openai'),
+          _textSetting(2000, 'selected_provider', ''),
+        ]),
+        'openai',
+      );
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', 'not openai!'),
+          _textSetting(2000, 'selected_provider', 'openai'),
+        ]),
+        'openai',
+      );
+    });
+
+    test('an int-valued selected_provider row derives nothing — the '
+        'exactly-one-of rule, read side', () {
+      expect(
+        deriveSelectedProvider([_setting(1000, 'selected_provider', 15)]),
+        isNull,
+      );
+    });
+
+    test('the boundary values of the charset derive — 1 and 64 chars', () {
+      expect(
+        deriveSelectedProvider([_textSetting(1000, 'selected_provider', 'a')]),
+        'a',
+      );
+      expect(
+        deriveSelectedProvider([
+          _textSetting(1000, 'selected_provider', 'a' * 64),
+        ]),
+        'a' * 64,
+      );
+    });
+
+    test('the charset rule is shared and pinned — the vault refuses what '
+        'the derivation ignores', () {
+      expect(isValidProviderId('openai'), isTrue);
+      expect(isValidProviderId('anthropic'), isTrue);
+      expect(isValidProviderId('gemini_2'), isTrue);
+      expect(isValidProviderId(''), isFalse);
+      expect(isValidProviderId('../evil'), isFalse);
+      expect(isValidProviderId('UPPER'), isFalse);
+      expect(isValidProviderId('openai '), isFalse);
+      expect(isValidProviderId('a' * 64), isTrue);
+      expect(isValidProviderId('a' * 65), isFalse);
+    });
+  });
+
+  group('the derived providerConfigured (Story 4.3, AD-22)', () {
+    test('both halves are required — the choice and the live credential', () {
+      expect(deriveProviderConfigured('openai', true), isTrue);
+      expect(deriveProviderConfigured('openai', false), isFalse);
+      expect(deriveProviderConfigured(null, true), isFalse);
+      expect(deriveProviderConfigured(null, false), isFalse);
+    });
+
+    test('the restore story: the choice survived, the credential did not — '
+        'false until a credential is saved again', () {
+      final selected = deriveSelectedProvider([
+        _textSetting(1000, 'selected_provider', 'openai'),
+      ]);
+      expect(selected, 'openai');
+      expect(deriveProviderConfigured(selected, false), isFalse);
+      expect(deriveProviderConfigured(selected, true), isTrue);
+    });
+  });
+
+  group('the selected_provider minter (the single sanctioned writer)', () {
+    test('a charset-valid provider id mints exactly one text row', () {
+      final contents = settingChanged(
+        key: selectedProviderSettingKey,
+        textValue: 'openai',
+      );
+      expect(contents, hasLength(1));
+      expect(contents.single.kind, LogKind.settingChanged);
+      expect(contents.single.settingKey, selectedProviderSettingKey);
+      expect(contents.single.settingValue, isNull);
+      expect(contents.single.settingTextValue, 'openai');
+      expect(contents.single.itemId, isNull);
+      expect(contents.single.stack, isNull);
+    });
+
+    test('a text outside the charset returns no content — refusal is '
+        'silence', () {
+      for (final text in ['', '../evil', 'UPPER', 'a' * 65, 'sp ace']) {
+        expect(
+          settingChanged(key: selectedProviderSettingKey, textValue: text),
+          isEmpty,
+          reason: text,
+        );
+      }
+    });
+
+    test('the two value halves never cross — an int on the text key or a '
+        'text on the int key returns no content', () {
+      expect(
+        settingChanged(key: selectedProviderSettingKey, value: 15),
+        isEmpty,
+      );
+      expect(
+        settingChanged(key: timeBagSettingKey, textValue: 'openai'),
+        isEmpty,
+      );
+      expect(
+        settingChanged(
+          key: selectedProviderSettingKey,
+          value: 15,
+          textValue: 'openai',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('neither value returns no content — the exactly-one-of rule at '
+        'the mint, refusal as silence', () {
+      expect(settingChanged(key: timeBagSettingKey), isEmpty);
+      expect(settingChanged(key: selectedProviderSettingKey), isEmpty);
+      expect(settingChanged(key: 'future_setting'), isEmpty);
     });
   });
 }

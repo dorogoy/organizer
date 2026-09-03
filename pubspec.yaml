@@ -18,6 +18,11 @@ dependencies:
     path: packages/core
   drift: 2.34.3
   drift_flutter: 0.3.1
+  # The Files adapter's app-private roots (story 4.3, AD-22): already
+  # resolved transitively via drift_flutter — promoted to direct only
+  # so `lib/files/` names its own dependency; the resolved Gradle
+  # graph is unchanged by the promotion.
+  path_provider: 2.1.6
   uuid: 4.6.0
   # AD-7's egress image cap (story 4.2): pure-Dart JPEG/PNG codec, no
   # Android footprint — both native seals stay unaffected by it.

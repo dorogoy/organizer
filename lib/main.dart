@@ -5,6 +5,8 @@ import 'capture/capture_controller.dart';
 import 'capture/dictation_controller.dart';
 import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
+import 'files/app_files.dart';
+import 'platform/credentials/credentials_cipher.dart';
 import 'platform/dictate/dictate_recognizer.dart';
 import 'session/session_controller.dart';
 import 'session/log_write_queue.dart';
@@ -14,6 +16,7 @@ import 'strings/app_strings.dart';
 import 'strings/app_strings_es.dart';
 import 'ui/dispenser/dispenser_screen.dart';
 import 'ui/theme.dart';
+import 'vault/credential_vault.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +31,17 @@ void main() {
   // constructed here and threaded to every consumer — the dictation
   // seam and the Settings surface's permission reads alike.
   final recognizer = DictateRecognizer();
+  // The credential vault (Story 4.3, AD-22): the Files adapter over
+  // app-private storage and the `credentials` channel's one cipher
+  // seam, composed into the one vault the shell owns. Constructed
+  // here — the channel registration and the vault's wiring crash
+  // nothing at boot — and threaded into the shell root for story
+  // 4-4's Settings surfaces to consume; no surface reads it yet, and
+  // the vault itself reads and writes nothing until asked.
+  final vault = CredentialVault(
+    files: AppFiles(),
+    cipher: CredentialsChannelCipher(),
+  );
   // The session lifecycle wiring (AD-19) sits beside the crash guard:
   // app opens and backgroundings become log facts — `app_opened`, the
   // session's first `card_dealt`, `session_ended`. The launch open runs
@@ -66,6 +80,11 @@ void main() {
           recognizer: recognizer,
           writeQueue: logWrites,
         ),
+        // The credential vault (Story 4.3): one instance, constructed
+        // in main beside the cipher seam it consumes — the Settings
+        // key path (4-4) is its first reader, and nothing here pulls
+        // it into a surface early.
+        vault: vault,
       ),
     ),
   );
@@ -85,6 +104,7 @@ class OrganizerApp extends StatelessWidget {
     this.settings,
     this.capture,
     this.dictation,
+    this.vault,
   });
 
   final DispenserController? dispenser;
@@ -101,6 +121,11 @@ class OrganizerApp extends StatelessWidget {
   /// The dictation seam (Story 3.4), threaded into the capture surface
   /// beside the capture seam — same store, same shared write queue.
   final DictationController? dictation;
+
+  /// The credential vault (Story 4.3, AD-22), constructed once in
+  /// main — the shell's only seal/unseal composition, unread by any
+  /// surface until 4-4's Settings key path arrives.
+  final CredentialVault? vault;
 
   @override
   Widget build(BuildContext context) {

@@ -84,6 +84,15 @@ const String logEntriesPermissionUpgrade =
 const String poolFactsDictatedUpgrade =
     'ALTER TABLE pool_facts ADD COLUMN dictated BOOL NULL';
 
+/// Schema v8's additive upgrade of `log_entries` (Story 4.3, AD-23):
+/// the one nullable `setting_changed` text column — the selected AI
+/// provider's id (AD-22: never a credential, never an availability
+/// claim) — added by ALTER TABLE only, on the v2→v7 pattern: no table
+/// rebuild, no data migration, refusal triggers untouched. A named
+/// infrastructure identifier on the store module's terms (AD-15).
+const String logEntriesTextValueUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN text_value TEXT NULL';
+
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
 /// statement itself, so no second copy of either name exists to drift.
@@ -105,8 +114,8 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 7 (Story 3.4): the only changes from 6
-/// are the two nullable columns above, and every later change is
+/// migration (AD-2). schemaVersion 8 (Story 4.3): the only change from 7
+/// is the one nullable column above, and every later change is
 /// additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -120,7 +129,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -167,7 +176,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// column and the pool's dictation boolean the same way, so a v6
   /// install upgrades with its rows unchanged too — old rows with a
   /// null permission, deriving as no refusal on record, and old facts
-  /// with a null boolean, deriving as not dictated. Every step runs
+  /// with a null boolean, deriving as not dictated. The v7→v8 step
+  /// adds the log's setting text column the same way, so a v7 install
+  /// upgrades with its rows unchanged too — old setting rows with a
+  /// null text, deriving exactly as before. Every step runs
   /// inside the one transaction and adds only an absent column, and
   /// the mechanism is
   /// drift's; the outcomes — triggers present after first open on a
@@ -197,6 +209,9 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       if (from < 7) {
         await _addColumnIfAbsent(logEntriesPermissionUpgrade);
         await _addColumnIfAbsent(poolFactsDictatedUpgrade);
+      }
+      if (from < 8) {
+        await _addColumnIfAbsent(logEntriesTextValueUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

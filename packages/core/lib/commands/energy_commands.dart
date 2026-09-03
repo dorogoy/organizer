@@ -34,6 +34,7 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       stack: null,
       settingKey: null,
       settingValue: null,
+      settingTextValue: null,
       pocketMinutes: null,
       energyLevel: energyLevelWireOf(level),
       reportValue: null,

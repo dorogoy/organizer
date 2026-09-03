@@ -17,7 +17,9 @@
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
 /// store port returns become domain entries only after their shape checks
 /// out — itemId/itemOrigin travel as a pair, `stack` rides only on
-/// `crash_recorded`, `setting_changed` carries its key and value,
+/// `crash_recorded`, `setting_changed` carries its key and exactly one of
+/// its int or text value (the text half additively since Story 4.3,
+/// schema v8),
 /// `session_started` and `session_extended` carry their minutes,
 /// `energy_set` carries its level, `report_answered` carries its answer
 /// and the week it answers, and a known kind's payload must match
@@ -253,30 +255,44 @@ final class CrashEntry extends LogEntry {
 }
 
 /// A `setting_changed` user act (Story 2.1, AD-1): the setting's key and
-/// its new value. The settings record is a derived cache over these
-/// entries — never a source of truth — and the type offers no other
-/// field, so no availability claim or capability grant can ride along
-/// (AD-22's discipline, arrived at ahead of its story). A value outside
-/// the setting's confirmed range stays in the log and derives nothing:
-/// tolerance, never repair (AD-23).
+/// its new value — an int since 2.1, and additively since Story 4.3 a
+/// text (AD-22: the selected AI provider rides this row as
+/// `selected_provider`, never a credential or an availability claim).
+/// The settings record is a derived cache over these entries — never a
+/// source of truth — and the type offers no other field, so no
+/// availability claim or capability grant can ride along (AD-22's
+/// discipline, arrived at ahead of its story). Exactly one of
+/// [value]/[textValue] is non-null on every entry the read boundary
+/// returns; a value outside the setting's confirmed range stays in the
+/// log and derives nothing: tolerance, never repair (AD-23).
 final class SettingEntry extends LogEntry {
   const SettingEntry({
     required super.id,
     required super.instantUtcMicros,
     required super.offsetSeconds,
     required this.key,
-    required this.value,
+    this.value,
+    this.textValue,
   });
 
   @override
   final LogKind kind = LogKind.settingChanged;
 
-  /// The setting's key — the only key this build knows is the Time
-  /// Bag's; any other key is carried verbatim and derives nothing.
+  /// The setting's key — the keys this build knows are the Time Bag's
+  /// and the selected provider's; any other key is carried verbatim
+  /// and derives nothing.
   final String key;
 
-  /// The setting's new value, as written.
-  final int value;
+  /// The setting's new int value, as written — null exactly when
+  /// [textValue] carries the row's value instead.
+  final int? value;
+
+  /// The setting's new text value, as written (Story 4.3, AD-22) —
+  /// null exactly when [value] carries the row's value instead. The
+  /// one sanctioned text is a provider id, charset-validated by the
+  /// derivation; the field can hold no credential, because the vault
+  /// never mints one here.
+  final String? textValue;
 }
 
 /// An `energy_set` user act (Story 2.5, FR-4, AD-4): the level the
@@ -435,8 +451,17 @@ enum LogRecordFlaw {
   /// setting it changed; an empty string is not a value here either).
   settingKeyAbsent,
 
-  /// `setting_changed` without its int value.
+  /// `setting_changed` without either payload value (Story 4.3): the
+  /// int column and the text column are both null (or empty — an empty
+  /// string is not a value), so the row names a setting but asserts
+  /// nothing about it. The row stays in the log and derives nothing.
   settingValueAbsent,
+
+  /// `setting_changed` carrying both its int and its text value
+  /// (Story 4.3): the exactly-one-of rule broken from the other side —
+  /// the row asserts two values and therefore none. The row stays in
+  /// the log and derives nothing.
+  settingValueConflict,
 
   /// A setting key or value on a kind that is not `setting_changed`.
   settingOnNonSettingKind,
@@ -558,9 +583,14 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   // The house rule, applied to the setting fields as to every other:
   // an empty string is not a value — an empty setting key counts as
   // absent, so it cannot make a non-setting kind "carry" a setting
-  // payload.
+  // payload. The text value (Story 4.3) reads by the same rule: an
+  // empty text counts as absent everywhere below.
   final settingKeyIsAbsent = record.settingKey?.isEmpty ?? true;
-  final carriesSetting = !settingKeyIsAbsent || record.settingValue != null;
+  final settingTextIsAbsent = record.settingTextValue?.isEmpty ?? true;
+  final carriesSetting =
+      !settingKeyIsAbsent ||
+      record.settingValue != null ||
+      !settingTextIsAbsent;
   final carriesPocket = record.pocketMinutes != null;
   final carriesEnergy = record.energyLevel != null;
   final carriesReport = record.reportValue != null || record.reportWeek != null;
@@ -643,8 +673,16 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (record.settingKey?.isEmpty ?? true) {
       return (entry: null, flaw: LogRecordFlaw.settingKeyAbsent);
     }
-    if (record.settingValue == null) {
+    if (record.settingValue == null && settingTextIsAbsent) {
+      // Neither payload value: the row names a setting and asserts
+      // nothing (the empty-string-is-not-a-value rule makes an empty
+      // text count as absent here too).
       return (entry: null, flaw: LogRecordFlaw.settingValueAbsent);
+    }
+    if (record.settingValue != null && !settingTextIsAbsent) {
+      // Both payload values: exactly-one-of broken from the other
+      // side — the row asserts two values and therefore none.
+      return (entry: null, flaw: LogRecordFlaw.settingValueConflict);
     }
     if (record.itemId != null || record.itemOrigin != null) {
       return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
@@ -670,7 +708,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
         key: record.settingKey!,
-        value: record.settingValue!,
+        value: record.settingValue,
+        // An empty text is not a value (the house rule): an empty
+        // string normalizes to absent here, so an int-valued row
+        // with an empty text converts as int-only, exactly as the
+        // foreign-kind rule reads it.
+        textValue: settingTextIsAbsent ? null : record.settingTextValue,
       ),
       flaw: null,
     );

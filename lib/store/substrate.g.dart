@@ -580,6 +580,17 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _textValueMeta = const VerificationMeta(
+    'textValue',
+  );
+  late final GeneratedColumn<String> textValue = GeneratedColumn<String>(
+    'text_value',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   static const VerificationMeta _pocketMinutesMeta = const VerificationMeta(
     'pocketMinutes',
   );
@@ -646,6 +657,7 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     stack,
     settingKey,
     settingValue,
+    textValue,
     pocketMinutes,
     energyLevel,
     reportValue,
@@ -732,6 +744,12 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         ),
       );
     }
+    if (data.containsKey('text_value')) {
+      context.handle(
+        _textValueMeta,
+        textValue.isAcceptableOrUnknown(data['text_value']!, _textValueMeta),
+      );
+    }
     if (data.containsKey('pocket_minutes')) {
       context.handle(
         _pocketMinutesMeta,
@@ -816,6 +834,10 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}setting_value'],
       ),
+      textValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text_value'],
+      ),
       pocketMinutes: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}pocket_minutes'],
@@ -858,6 +880,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final String? stack;
   final String? settingKey;
   final int? settingValue;
+  final String? textValue;
   final int? pocketMinutes;
   final int? energyLevel;
   final int? reportValue;
@@ -873,6 +896,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.stack,
     this.settingKey,
     this.settingValue,
+    this.textValue,
     this.pocketMinutes,
     this.energyLevel,
     this.reportValue,
@@ -900,6 +924,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || settingValue != null) {
       map['setting_value'] = Variable<int>(settingValue);
+    }
+    if (!nullToAbsent || textValue != null) {
+      map['text_value'] = Variable<String>(textValue);
     }
     if (!nullToAbsent || pocketMinutes != null) {
       map['pocket_minutes'] = Variable<int>(pocketMinutes);
@@ -940,6 +967,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       settingValue: settingValue == null && nullToAbsent
           ? const Value.absent()
           : Value(settingValue),
+      textValue: textValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(textValue),
       pocketMinutes: pocketMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(pocketMinutes),
@@ -973,6 +1003,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       stack: serializer.fromJson<String?>(json['stack']),
       settingKey: serializer.fromJson<String?>(json['setting_key']),
       settingValue: serializer.fromJson<int?>(json['setting_value']),
+      textValue: serializer.fromJson<String?>(json['text_value']),
       pocketMinutes: serializer.fromJson<int?>(json['pocket_minutes']),
       energyLevel: serializer.fromJson<int?>(json['energy_level']),
       reportValue: serializer.fromJson<int?>(json['report_value']),
@@ -993,6 +1024,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'stack': serializer.toJson<String?>(stack),
       'setting_key': serializer.toJson<String?>(settingKey),
       'setting_value': serializer.toJson<int?>(settingValue),
+      'text_value': serializer.toJson<String?>(textValue),
       'pocket_minutes': serializer.toJson<int?>(pocketMinutes),
       'energy_level': serializer.toJson<int?>(energyLevel),
       'report_value': serializer.toJson<int?>(reportValue),
@@ -1011,6 +1043,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<String?> stack = const Value.absent(),
     Value<String?> settingKey = const Value.absent(),
     Value<int?> settingValue = const Value.absent(),
+    Value<String?> textValue = const Value.absent(),
     Value<int?> pocketMinutes = const Value.absent(),
     Value<int?> energyLevel = const Value.absent(),
     Value<int?> reportValue = const Value.absent(),
@@ -1026,6 +1059,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     stack: stack.present ? stack.value : this.stack,
     settingKey: settingKey.present ? settingKey.value : this.settingKey,
     settingValue: settingValue.present ? settingValue.value : this.settingValue,
+    textValue: textValue.present ? textValue.value : this.textValue,
     pocketMinutes: pocketMinutes.present
         ? pocketMinutes.value
         : this.pocketMinutes,
@@ -1055,6 +1089,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       settingValue: data.settingValue.present
           ? data.settingValue.value
           : this.settingValue,
+      textValue: data.textValue.present ? data.textValue.value : this.textValue,
       pocketMinutes: data.pocketMinutes.present
           ? data.pocketMinutes.value
           : this.pocketMinutes,
@@ -1085,6 +1120,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('stack: $stack, ')
           ..write('settingKey: $settingKey, ')
           ..write('settingValue: $settingValue, ')
+          ..write('textValue: $textValue, ')
           ..write('pocketMinutes: $pocketMinutes, ')
           ..write('energyLevel: $energyLevel, ')
           ..write('reportValue: $reportValue, ')
@@ -1105,6 +1141,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     stack,
     settingKey,
     settingValue,
+    textValue,
     pocketMinutes,
     energyLevel,
     reportValue,
@@ -1124,6 +1161,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.stack == this.stack &&
           other.settingKey == this.settingKey &&
           other.settingValue == this.settingValue &&
+          other.textValue == this.textValue &&
           other.pocketMinutes == this.pocketMinutes &&
           other.energyLevel == this.energyLevel &&
           other.reportValue == this.reportValue &&
@@ -1141,6 +1179,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<String?> stack;
   final Value<String?> settingKey;
   final Value<int?> settingValue;
+  final Value<String?> textValue;
   final Value<int?> pocketMinutes;
   final Value<int?> energyLevel;
   final Value<int?> reportValue;
@@ -1157,6 +1196,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.stack = const Value.absent(),
     this.settingKey = const Value.absent(),
     this.settingValue = const Value.absent(),
+    this.textValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
     this.energyLevel = const Value.absent(),
     this.reportValue = const Value.absent(),
@@ -1174,6 +1214,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.stack = const Value.absent(),
     this.settingKey = const Value.absent(),
     this.settingValue = const Value.absent(),
+    this.textValue = const Value.absent(),
     this.pocketMinutes = const Value.absent(),
     this.energyLevel = const Value.absent(),
     this.reportValue = const Value.absent(),
@@ -1194,6 +1235,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<String>? stack,
     Expression<String>? settingKey,
     Expression<int>? settingValue,
+    Expression<String>? textValue,
     Expression<int>? pocketMinutes,
     Expression<int>? energyLevel,
     Expression<int>? reportValue,
@@ -1211,6 +1253,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (stack != null) 'stack': stack,
       if (settingKey != null) 'setting_key': settingKey,
       if (settingValue != null) 'setting_value': settingValue,
+      if (textValue != null) 'text_value': textValue,
       if (pocketMinutes != null) 'pocket_minutes': pocketMinutes,
       if (energyLevel != null) 'energy_level': energyLevel,
       if (reportValue != null) 'report_value': reportValue,
@@ -1230,6 +1273,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<String?>? stack,
     Value<String?>? settingKey,
     Value<int?>? settingValue,
+    Value<String?>? textValue,
     Value<int?>? pocketMinutes,
     Value<int?>? energyLevel,
     Value<int?>? reportValue,
@@ -1247,6 +1291,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       stack: stack ?? this.stack,
       settingKey: settingKey ?? this.settingKey,
       settingValue: settingValue ?? this.settingValue,
+      textValue: textValue ?? this.textValue,
       pocketMinutes: pocketMinutes ?? this.pocketMinutes,
       energyLevel: energyLevel ?? this.energyLevel,
       reportValue: reportValue ?? this.reportValue,
@@ -1286,6 +1331,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (settingValue.present) {
       map['setting_value'] = Variable<int>(settingValue.value);
     }
+    if (textValue.present) {
+      map['text_value'] = Variable<String>(textValue.value);
+    }
     if (pocketMinutes.present) {
       map['pocket_minutes'] = Variable<int>(pocketMinutes.value);
     }
@@ -1319,6 +1367,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('stack: $stack, ')
           ..write('settingKey: $settingKey, ')
           ..write('settingValue: $settingValue, ')
+          ..write('textValue: $textValue, ')
           ..write('pocketMinutes: $pocketMinutes, ')
           ..write('energyLevel: $energyLevel, ')
           ..write('reportValue: $reportValue, ')
@@ -1642,6 +1691,7 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> stack,
   Value<String?> settingKey,
   Value<int?> settingValue,
+  Value<String?> textValue,
   Value<int?> pocketMinutes,
   Value<int?> energyLevel,
   Value<int?> reportValue,
@@ -1659,6 +1709,7 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> stack,
   Value<String?> settingKey,
   Value<int?> settingValue,
+  Value<String?> textValue,
   Value<int?> pocketMinutes,
   Value<int?> energyLevel,
   Value<int?> reportValue,
@@ -1718,6 +1769,11 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<int> get settingValue => $composableBuilder(
     column: $table.settingValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get textValue => $composableBuilder(
+    column: $table.textValue,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1801,6 +1857,11 @@ class $LogEntriesOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get textValue => $composableBuilder(
+    column: $table.textValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get pocketMinutes => $composableBuilder(
     column: $table.pocketMinutes,
     builder: (column) => ColumnOrderings(column),
@@ -1873,6 +1934,9 @@ class $LogEntriesAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get textValue =>
+      $composableBuilder(column: $table.textValue, builder: (column) => column);
+
   GeneratedColumn<int> get pocketMinutes => $composableBuilder(
     column: $table.pocketMinutes,
     builder: (column) => column,
@@ -1936,6 +2000,7 @@ class $LogEntriesTableManager
                 Value<String?> stack = const Value.absent(),
                 Value<String?> settingKey = const Value.absent(),
                 Value<int?> settingValue = const Value.absent(),
+                Value<String?> textValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
                 Value<int?> energyLevel = const Value.absent(),
                 Value<int?> reportValue = const Value.absent(),
@@ -1952,6 +2017,7 @@ class $LogEntriesTableManager
                 stack: stack,
                 settingKey: settingKey,
                 settingValue: settingValue,
+                textValue: textValue,
                 pocketMinutes: pocketMinutes,
                 energyLevel: energyLevel,
                 reportValue: reportValue,
@@ -1970,6 +2036,7 @@ class $LogEntriesTableManager
                 Value<String?> stack = const Value.absent(),
                 Value<String?> settingKey = const Value.absent(),
                 Value<int?> settingValue = const Value.absent(),
+                Value<String?> textValue = const Value.absent(),
                 Value<int?> pocketMinutes = const Value.absent(),
                 Value<int?> energyLevel = const Value.absent(),
                 Value<int?> reportValue = const Value.absent(),
@@ -1986,6 +2053,7 @@ class $LogEntriesTableManager
                 stack: stack,
                 settingKey: settingKey,
                 settingValue: settingValue,
+                textValue: textValue,
                 pocketMinutes: pocketMinutes,
                 energyLevel: energyLevel,
                 reportValue: reportValue,

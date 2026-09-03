@@ -41,13 +41,18 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// pocket column, Story 2.2, schema v4's energy level column,
 /// Story 2.5, schema v5's two report columns, Story 2.6, schema v6's
 /// pool Origin Context column, Story 3.2, schema v7's permission
-/// and dictation columns, Story 3.4, and the same story's idempotent
-/// upgrade helpers — the additive ALTER's shape, the pragma template,
-/// its slot and the pragma's name field), the dictate channel's wire
-/// vocabulary (channel and method names, outcome keys and answers —
-/// protocol identifiers mirrored by the Kotlin half, never widget
-/// copy, on the store module's terms), and the catalogue
-/// loader's two diagnostics
+/// and dictation columns, Story 3.4, schema v8's setting text column,
+/// Story 4.3, and 3.4's idempotent upgrade helpers — the additive
+/// ALTER's shape, the pragma template, its slot and the pragma's name
+/// field), the dictate channel's wire vocabulary (channel and method
+/// names, outcome keys and answers — protocol identifiers mirrored
+/// by the Kotlin half, never widget copy, on the store module's
+/// terms), the credentials channel's wire vocabulary (the same
+/// shape, Story 4.3 — channel, methods, outcome keys and wire
+/// words), the files module's scope and path-segment identifiers
+/// (Story 4.3 — the credentials scope, the staging suffix, and the
+/// traversal refusal's separators and dot segments), and the
+/// catalogue loader's two diagnostics
 /// templates (crash-path context naming the asset path and the
 /// stale-codegen remedy — a named decision on the store module's terms).
 const Map<String, Set<String>> namedConstantAllowance = {
@@ -57,6 +62,7 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'recursiveTriggersPragma',
     'logEntriesSettingKeyUpgrade',
     'logEntriesSettingValueUpgrade',
+    'logEntriesTextValueUpgrade',
     'logEntriesPocketMinutesUpgrade',
     'logEntriesEnergyLevelUpgrade',
     'logEntriesReportValueUpgrade',
@@ -85,6 +91,27 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'dictateGrantedWire',
     'dictateListeningWire',
     'dictateRefusedWire',
+  },
+  'lib/platform/credentials/credentials_cipher.dart': {
+    'credentialsChannelName',
+    'credentialsSealMethod',
+    'credentialsUnsealMethod',
+    'credentialsOutcomeKey',
+    'credentialsEnvelopeKey',
+    'credentialsPlaintextKey',
+    'credentialsSealedWire',
+    'credentialsReadyWire',
+    'credentialsCorruptWire',
+    'credentialsInvalidatedWire',
+  },
+  'lib/files/app_files.dart': {
+    'credentialFilesScope',
+    'stagingSuffix',
+    'segmentSlash',
+    'segmentBackslash',
+    'selfSegment',
+    'parentSegment',
+    'segmentNulCharacter',
   },
   'lib/catalogue/loader.dart': {
     'catalogueReadFailureTemplate',

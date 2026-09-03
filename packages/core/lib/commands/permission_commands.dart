@@ -40,6 +40,7 @@ List<LogEntryContent> permissionRefuse(Permission permission) {
       stack: null,
       settingKey: null,
       settingValue: null,
+      settingTextValue: null,
       pocketMinutes: null,
       energyLevel: null,
       reportValue: null,

@@ -253,6 +253,7 @@ Verified against the live web on 2026-08-26 by an independent reviewer; where a 
 | Android target SDK | 36 (Android 16) | API 37 (Android 17) shipped 2026-06-16; Play requires 36 from 2026-08-31 (its live policy page) — the Aug-2027 date for 37 is a projection, and moot while AD-18 rules out store distribution. 37's edge-to-edge and resizability changes are a known follow-up |
 | Android minSdk | 33 | **Not** because of the on-device recognizer: `createOnDeviceSpeechRecognizer()` and `isOnDeviceRecognitionAvailable()` are API **31**. 33 is set by `POST_NOTIFICATIONS` and by `checkRecognitionSupport()` / `triggerModelDownload()`, which are what FR-32 needs to know the *Spanish model* is present |
 | drift | 2.34.3 | + `drift_flutter` 0.3.1. AD-2's triggers must be declared in a `.drift` file — drift supports them nowhere else — and created in the initial migration |
+| `path_provider` | 2.1.6 | The Files adapter's app-private roots (story 4.3). Already resolved transitively via `drift_flutter`; promoted to direct only so `lib/files/` names its own dependency — the resolved Gradle graph is unchanged by the promotion |
 | `flutter_riverpod` | 3.4.2 | |
 | `camera` | 0.12.0+2 | first-party (flutter.dev) |
 | `google_mlkit_face_detection` | 0.15.1 | community-maintained, **not** by Google. 32-bit libs exist but only the 64-bit libs are 16 KB-aligned; `abiFilters` must exclude 32-bit ABIs — which is also the 16 KB page-size condition |

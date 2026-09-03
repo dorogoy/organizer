@@ -351,6 +351,7 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
               stack: content.stack,
               settingKey: content.settingKey,
               settingValue: content.settingValue,
+              settingTextValue: null,
               pocketMinutes: content.pocketMinutes,
               energyLevel: content.energyLevel,
               reportValue: content.reportValue,

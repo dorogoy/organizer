@@ -40,6 +40,14 @@
 -- (FR-32, AD-26) — the same additive-only ALTER TABLE path, so a v6
 -- install upgrades in place with its rows unchanged.
 --
+-- Schema v8 (Story 4.3) adds the one nullable log-entry payload column
+-- `text_value` — a `setting_changed` row's text value, the selected AI
+-- provider's id (AD-22: never a credential, never an availability
+-- claim) — the same additive-only ALTER TABLE path, so a v7 install
+-- upgrades in place with its rows unchanged. A setting row carries
+-- exactly one of `setting_value`/`text_value`; the shape is the core
+-- read boundary's to check, not the schema's (below).
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -67,6 +75,7 @@ CREATE TABLE log_entries (
   stack TEXT NULL,
   setting_key TEXT NULL,
   setting_value INTEGER NULL,
+  text_value TEXT NULL,
   pocket_minutes INTEGER NULL,
   energy_level INTEGER NULL,
   report_value INTEGER NULL,
