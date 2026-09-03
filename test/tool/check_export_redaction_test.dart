@@ -64,6 +64,20 @@ void main() {
   });
 
   test(
+    'a credential-family property with non-string non-empty value is rejected',
+    () {
+      for (final payload in ['12345', '[1, 2, 3]', '{"nested": "secret"}']) {
+        final findings = scanExport(
+          file: 'leak.json',
+          source: '{"api_key": $payload}',
+        );
+        expect(findings, hasLength(1), reason: payload);
+        expect(findings.single.message, contains('non-empty value'));
+      }
+    },
+  );
+
+  test(
     'an empty or absent credential-family property is the clean absence',
     () {
       expect(

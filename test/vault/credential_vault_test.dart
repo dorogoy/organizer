@@ -24,6 +24,7 @@ class _FakeFiles implements FilesPort {
   int writes = 0;
   int failWrites = 0;
   Future<void> Function(String scope, String name)? deleteGate;
+  Future<void> Function(String scope, String name, List<int> bytes)? writeGate;
 
   String _key(String scope, String name) => '$scope/$name';
 
@@ -33,6 +34,10 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> write(String scope, String name, List<int> bytes) async {
+    final gate = writeGate;
+    if (gate != null) {
+      await gate(scope, name, bytes);
+    }
     if (failWrites > 0) {
       failWrites--;
       throw StateError('disk full');
@@ -177,6 +182,25 @@ void main() {
         expect(files.writes, 2);
       },
     );
+
+    test(
+      'a cipher seal throwing asynchronously while a write is queued is quiet',
+      () async {
+        final held = Completer<void>();
+        files.writeGate = (scope, name, bytes) => held.future;
+        final firstSave = vault.saveCredential('openai', 'first');
+        await Future<void>.delayed(Duration.zero);
+
+        cipher.sealGate = (_) => Future.error(
+          const FormatException('simulated channel/protocol failure'),
+        );
+        final secondSave = vault.saveCredential('openai', 'second');
+
+        held.complete();
+        await firstSave;
+        await expectLater(secondSave, completes);
+      },
+    );
   });
 
   group('delete — idempotent', () {
@@ -246,6 +270,15 @@ void main() {
         CredentialAvailability.invalidated,
       );
     });
+
+    test('an envelope decrypting to malformed UTF-8 reads corrupt', () async {
+      await vault.saveCredential('openai', 'sk-secret-1');
+      cipher.unsealAnswers.add((plaintext: const [0xFF, 0xFE], failure: null));
+      expect(
+        await vault.credentialAvailable('openai'),
+        CredentialAvailability.corrupt,
+      );
+    });
   });
 
   group('withCredential — the request scope', () {
@@ -312,6 +345,21 @@ void main() {
       expect(
         (access as AccessUnavailable<int>).cause,
         CredentialAccessCause.invalidated,
+      );
+      expect(invoked, isFalse);
+    });
+
+    test('malformed UTF-8: corrupt cause, operation not invoked', () async {
+      await vault.saveCredential('openai', 'sk-secret-1');
+      cipher.unsealAnswers.add((plaintext: const [0xFF, 0xFE], failure: null));
+      var invoked = false;
+      final access = await vault.withCredential<int>('openai', (_) {
+        invoked = true;
+        return 1;
+      });
+      expect(
+        (access as AccessUnavailable<int>).cause,
+        CredentialAccessCause.corrupt,
       );
       expect(invoked, isFalse);
     });

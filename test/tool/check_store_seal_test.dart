@@ -334,6 +334,26 @@ internal class CredentialKeystore(private val context: Context) {
         isTrue,
       );
     });
+
+    test('a wildcard NIO file import is flagged', () {
+      const source = '''
+package dev.dorogoy.organizer
+
+import java.nio.file.*
+
+class WildcardLeak
+''';
+      final findings = scanKotlinSource(
+        file:
+            'android/app/src/main/kotlin/dev/dorogoy/organizer/WildcardLeak.kt',
+        source: source,
+      );
+      expect(findings, isNotEmpty);
+      expect(
+        findings.any((finding) => finding.message.contains('NIO file import')),
+        isTrue,
+      );
+    });
   });
 
   group('the executable', () {

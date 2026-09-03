@@ -3,7 +3,7 @@ title: 'The credential vault'
 type: 'feature'
 created: '2026-09-03'
 status: 'done'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: '0286640d42b00b0f1c0ca8cb5ab48b44566b215f'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-4-context.md'
@@ -92,6 +92,13 @@ context:
 - Given a restore where the choice survived but no credential was saved, when `providerConfigured` derives, then it is false until a credential is saved again.
 - Given the export fixtures, when the redaction check runs, then plaintext, provider-key shapes and `keyExists: true` all fail and the clean shape passes.
 - Given the story's failure modes, when tests run, then save, replace, delete, absent, corrupt, Android-invalidated and request-time invalidation are all covered.
+
+### Review Findings
+
+- [x] [Review][Patch] Align credentialAvailable UTF-8 decoding and corruption detection with withCredential [lib/vault/credential_vault.dart:162-171]
+- [x] [Review][Patch] Catch asynchronous cipher.seal errors immediately to prevent unhandled Zone errors during queued writes [lib/vault/credential_vault.dart:118]
+- [x] [Review][Patch] Check non-string primitive and collection payloads in export redaction scan [tool/check_export_redaction.dart:100-109]
+- [x] [Review][Patch] Catch wildcard java.nio.file.* imports in store seal sweep [tool/check_store_seal.dart:281-285]
 
 ## Design Notes
 

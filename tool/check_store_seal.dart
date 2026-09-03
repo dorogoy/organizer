@@ -279,7 +279,7 @@ final RegExp _kotlinSideChannelStoreRegExp = RegExp(
 /// .file.Files`/`Paths` write files while looking like nothing the
 /// `java.io` rule polices.
 final RegExp _kotlinNioFileImportRegExp = RegExp(
-  r'^([ \t]*import\s+(?:static\s+)?java\.nio\.file\.(?:Files|Paths)\b\S*)',
+  r'^([ \t]*import\s+(?:static\s+)?java\.nio\.file\.(?:(?:Files|Paths)\b|\*)\S*)',
   multiLine: true,
 );
 

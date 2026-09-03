@@ -115,7 +115,12 @@ class CredentialVault {
     if (!isValidProviderId(provider)) {
       return Future<void>.value();
     }
-    final sealing = cipher.seal(utf8.encode(plaintext));
+    final sealing = cipher
+        .seal(utf8.encode(plaintext))
+        .catchError(
+          (Object _) =>
+              (envelope: null, failure: CredentialsCipherFailure.corrupt),
+        );
     // The returned future is quiet by contract (never a throw): a
     // refused id, a failed seal, a failed write — the next read
     // measures the result, and no error surface exists anywhere.
@@ -161,14 +166,23 @@ class CredentialVault {
     }
     final unsealed = await cipher.unseal(envelope);
     final failure = unsealed.failure;
-    if (failure == null) {
-      return CredentialAvailability.available;
+    if (failure != null) {
+      return switch (failure) {
+        CredentialsCipherFailure.corrupt => CredentialAvailability.corrupt,
+        CredentialsCipherFailure.invalidated =>
+          CredentialAvailability.invalidated,
+      };
     }
-    return switch (failure) {
-      CredentialsCipherFailure.corrupt => CredentialAvailability.corrupt,
-      CredentialsCipherFailure.invalidated =>
-        CredentialAvailability.invalidated,
-    };
+    final plaintextBytes = unsealed.plaintext;
+    if (plaintextBytes == null) {
+      return CredentialAvailability.corrupt;
+    }
+    try {
+      utf8.decode(plaintextBytes);
+      return CredentialAvailability.available;
+    } on FormatException {
+      return CredentialAvailability.corrupt;
+    }
   }
 
   /// Runs [operation] with the provider's plaintext — the one

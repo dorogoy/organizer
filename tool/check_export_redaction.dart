@@ -97,7 +97,16 @@ void _scanValue(
       }
       if (_credentialFamilyRegExp.hasMatch(key)) {
         credentialPropertyName ??= key;
-        if (child is String && child.isNotEmpty) {
+        final bool isNonEmpty = switch (child) {
+          null => false,
+          bool _ => false,
+          String s => s.isNotEmpty,
+          List l => l.isNotEmpty,
+          Map m => m.isNotEmpty,
+          num _ => true,
+          _ => false,
+        };
+        if (isNonEmpty) {
           findings.add((
             probe: probe,
             message:
