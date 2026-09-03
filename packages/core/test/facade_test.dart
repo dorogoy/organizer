@@ -46,6 +46,7 @@ LogEntryRecord _record(
   String? stack,
   String? settingKey,
   int? settingValue,
+  String? settingTextValue,
   int? pocketMinutes,
   int? energyLevel,
   int? reportValue,
@@ -60,6 +61,7 @@ LogEntryRecord _record(
   stack: stack,
   settingKey: settingKey,
   settingValue: settingValue,
+  settingTextValue: settingTextValue,
   pocketMinutes: pocketMinutes,
   energyLevel: energyLevel,
   reportValue: reportValue,
@@ -157,6 +159,7 @@ void main() {
       micros,
       settingKey: 'time_bag',
       settingValue: minutes,
+      settingTextValue: null,
     );
 
     /// An open sitting — deals resolve only inside one (Story 2.3).
@@ -391,6 +394,7 @@ void main() {
             utcMicros(2026, 8, 28, 8),
             settingKey: 'time_bag',
             settingValue: 45,
+            settingTextValue: null,
           ),
           sitting(utcMicros(2026, 8, 28, 9)),
         ]),
@@ -407,6 +411,7 @@ void main() {
             utcMicros(2026, 8, 28, 8),
             settingKey: 'future_setting',
             settingValue: 5,
+            settingTextValue: null,
           ),
           sitting(utcMicros(2026, 8, 28, 9)),
         ]),

@@ -11,6 +11,7 @@ LogEntryRecord _record(
   String? stack,
   String? settingKey,
   int? settingValue,
+  String? settingTextValue,
   int? pocketMinutes,
   int? energyLevel,
   int? reportValue,
@@ -26,6 +27,7 @@ LogEntryRecord _record(
   stack: stack,
   settingKey: settingKey,
   settingValue: settingValue,
+  settingTextValue: settingTextValue,
   pocketMinutes: pocketMinutes,
   energyLevel: energyLevel,
   reportValue: reportValue,
@@ -378,6 +380,91 @@ void main() {
         );
         expect(conversion.entry, isNull);
         expect(conversion.flaw, LogRecordFlaw.settingValueAbsent);
+      });
+
+      test('a setting row with neither int nor text is excluded — the '
+          'exactly-one-of rule broken by absence (Story 4.3, schema v8)', () {
+        final neither = convertLogEntryRecord(
+          _record('setting_changed', settingKey: 'selected_provider'),
+        );
+        expect(neither.entry, isNull);
+        expect(neither.flaw, LogRecordFlaw.settingValueAbsent);
+
+        // An empty text is not a value: it counts as absent, so the
+        // row still holds neither (the house rule, aligned).
+        final emptyText = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'selected_provider',
+            settingTextValue: '',
+          ),
+        );
+        expect(emptyText.entry, isNull);
+        expect(emptyText.flaw, LogRecordFlaw.settingValueAbsent);
+      });
+
+      test('a setting row with both int and text is excluded — the '
+          'exactly-one-of rule broken by excess (Story 4.3, schema v8)', () {
+        final both = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'selected_provider',
+            settingValue: 15,
+            settingTextValue: 'openai',
+          ),
+        );
+        expect(both.entry, isNull);
+        expect(both.flaw, LogRecordFlaw.settingValueConflict);
+      });
+
+      test('a text-valued setting row converts carrying its text, null int '
+          '(Story 4.3, AD-22)', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'selected_provider',
+            settingTextValue: 'openai',
+          ),
+        );
+        expect(conversion.flaw, isNull);
+        final entry = conversion.entry as SettingEntry;
+        expect(entry.key, 'selected_provider');
+        expect(entry.value, isNull);
+        expect(entry.textValue, 'openai');
+      });
+
+      test('an int value with an empty text converts as int-only — the '
+          'empty string normalizes to absent, never a phantom second '
+          'value (Story 4.3)', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'setting_changed',
+            settingKey: 'time_bag',
+            settingValue: 15,
+            settingTextValue: '',
+          ),
+        );
+        expect(conversion.flaw, isNull);
+        final entry = conversion.entry as SettingEntry;
+        expect(entry.value, 15);
+        expect(entry.textValue, isNull);
+      });
+
+      test('a text value on a non-setting kind is excluded — the payload '
+          'column rides its own kind and no other (Story 4.3)', () {
+        final onMoment = convertLogEntryRecord(
+          _record('app_opened', settingTextValue: 'openai'),
+        );
+        expect(onMoment.entry, isNull);
+        expect(onMoment.flaw, LogRecordFlaw.settingOnNonSettingKind);
+
+        // An empty text on a foreign kind carries nothing: the row
+        // converts as its own kind (the house rule).
+        final emptyOnMoment = convertLogEntryRecord(
+          _record('app_opened', settingTextValue: ''),
+        );
+        expect(emptyOnMoment.flaw, isNull);
+        expect(emptyOnMoment.entry, isA<MomentEntry>());
       });
 
       test('an item pair or stack on setting_changed is excluded', () {

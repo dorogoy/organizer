@@ -684,14 +684,16 @@ final class KitchenSink {
     });
 
     test('SettingEntry', () {
-      // The settings payload is its key and value — the settings record
-      // is a derived cache over these rows (AD-1), and no field may
-      // name an availability claim or capability grant (AD-22's
-      // discipline, ahead of its story). `kind` extracts after the
-      // constructor parameters because it is an initialized override.
+      // The settings payload is its key and exactly one of its two
+      // values — the int since 2.1, the text additively since 4.3
+      // (AD-22: the selected provider, never a credential, never an
+      // availability claim). The settings record is a derived cache
+      // over these rows (AD-1). `kind` extracts after the
+      // constructor parameters because it is an initialized
+      // override.
       expect(
         _classOwnFields('SettingEntry', 'log/log_entry.dart'),
-        equals(['key', 'value', 'kind']),
+        equals(['key', 'value', 'textValue', 'kind']),
       );
     });
 
@@ -891,7 +893,8 @@ final class KitchenSink {
       // the nullable pocket column is schema v3's (2.2); the nullable
       // energy level column is schema v4's (2.5); the two nullable
       // report columns are schema v5's additive pair (2.6); the
-      // nullable permission column is schema v7's (3.4).
+      // nullable permission column is schema v7's (3.4); the nullable
+      // setting text column is schema v8's (4.3).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -904,6 +907,7 @@ final class KitchenSink {
           'stack',
           'settingKey',
           'settingValue',
+          'settingTextValue',
           'pocketMinutes',
           'energyLevel',
           'reportValue',
@@ -919,7 +923,8 @@ final class KitchenSink {
       // the shape additively (2.1); the pocket field grows it again
       // (2.2); the energy level field grows it once more (2.5); the
       // two report fields grow it a last time (2.6); the permission
-      // field grows it once (3.4).
+      // field grows it once (3.4); the setting text field grows it
+      // once more (4.3).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -929,6 +934,7 @@ final class KitchenSink {
           'stack',
           'settingKey',
           'settingValue',
+          'settingTextValue',
           'pocketMinutes',
           'energyLevel',
           'reportValue',
@@ -1059,6 +1065,7 @@ final class KitchenSink {
       'ports/store_port.dart:StorePort',
       'ports/clock_port.dart:ClockPort',
       'ports/recognizer_port.dart:RecognizerPort',
+      'ports/files_port.dart:FilesPort',
       // The recognizer port's own state vocabularies (Story 3.4) —
       // enums with members and no fields.
       'ports/recognizer_port.dart:RecognizerAvailability',

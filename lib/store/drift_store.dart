@@ -54,6 +54,10 @@ class DriftStore implements StorePort {
             stack: Value(entry.stack),
             settingKey: Value(entry.settingKey),
             settingValue: Value(entry.settingValue),
+            // The generated column's own name (text_value → textValue)
+            // carries the v8 text; the record's field is the port's
+            // name — this one mapping is the adapter's whole job.
+            textValue: Value(entry.settingTextValue),
             pocketMinutes: Value(entry.pocketMinutes),
             energyLevel: Value(entry.energyLevel),
             reportValue: Value(entry.reportValue),
@@ -111,6 +115,7 @@ class DriftStore implements StorePort {
           stack: row.stack,
           settingKey: row.settingKey,
           settingValue: row.settingValue,
+          settingTextValue: row.textValue,
           pocketMinutes: row.pocketMinutes,
           energyLevel: row.energyLevel,
           reportValue: row.reportValue,

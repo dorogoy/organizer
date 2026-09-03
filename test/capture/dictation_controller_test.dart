@@ -150,6 +150,7 @@ void main() {
           stack: null,
           settingKey: null,
           settingValue: null,
+          settingTextValue: null,
           pocketMinutes: null,
           energyLevel: null,
           reportValue: null,

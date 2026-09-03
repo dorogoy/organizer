@@ -37,6 +37,7 @@ LogEntryRecord _entry({
   stack: null,
   settingKey: null,
   settingValue: null,
+  settingTextValue: null,
   pocketMinutes: pocketMinutes,
   energyLevel: null,
   reportValue: reportValue,
@@ -314,6 +315,7 @@ void main() {
         stack: stack,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -341,6 +343,7 @@ void main() {
       stack: null,
       settingKey: null,
       settingValue: null,
+      settingTextValue: null,
       pocketMinutes: null,
       energyLevel: null,
       reportValue: null,
@@ -415,6 +418,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -432,6 +436,7 @@ void main() {
         stack: '#0      build',
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -449,6 +454,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -555,13 +561,16 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its fourteen declared columns — the two '
+    test('log_entries holds exactly its fifteen declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
         '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
         'AD-23), the nullable energy level column is schema v4\'s '
         '(Story 2.5), the two nullable report columns are schema '
-        'v5\'s additive pair (Story 2.6) and the nullable permission '
-        'column is schema v7\'s (Story 3.4, AD-17)', () async {
+        'v5\'s additive pair (Story 2.6), the nullable permission '
+        'column is schema v7\'s (Story 3.4, AD-17) and the nullable '
+        'setting text column is schema v8\'s (Story 4.3, AD-22) — '
+        'asserted on a brand-new database, so a fresh create that '
+        'dropped it fails here', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
         'energy_level',
@@ -578,6 +587,7 @@ void main() {
         'setting_key',
         'setting_value',
         'stack',
+        'text_value',
       ]);
     });
 
@@ -614,6 +624,7 @@ void main() {
         stack: null,
         settingKey: 'time_bag',
         settingValue: 25,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -647,6 +658,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: 15,
         energyLevel: null,
         reportValue: null,
@@ -680,6 +692,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: 2,
         reportValue: null,
@@ -723,6 +736,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: 9,
@@ -756,6 +770,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: 3,
@@ -838,7 +853,7 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -859,6 +874,7 @@ void main() {
           'setting_key',
           'setting_value',
           'stack',
+          'text_value',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -913,6 +929,7 @@ void main() {
         stack: null,
         settingKey: 'time_bag',
         settingValue: 10,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -929,6 +946,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: 15,
         energyLevel: null,
         reportValue: null,
@@ -945,6 +963,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: 1,
         reportValue: null,
@@ -961,6 +980,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: 3,
@@ -979,7 +999,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1061,7 +1081,7 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 7);
+        expect(db.schemaVersion, 8);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1082,6 +1102,7 @@ void main() {
             'setting_key',
             'setting_value',
             'stack',
+            'text_value',
           ],
         );
         expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1126,6 +1147,7 @@ void main() {
           stack: null,
           settingKey: null,
           settingValue: null,
+          settingTextValue: null,
           pocketMinutes: 20,
           energyLevel: null,
           reportValue: null,
@@ -1143,6 +1165,7 @@ void main() {
           stack: null,
           settingKey: null,
           settingValue: null,
+          settingTextValue: null,
           pocketMinutes: null,
           energyLevel: null,
           reportValue: 4,
@@ -1220,7 +1243,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1241,6 +1264,7 @@ void main() {
           'setting_key',
           'setting_value',
           'stack',
+          'text_value',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1290,6 +1314,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: 2,
         reportValue: null,
@@ -1307,6 +1332,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: 4,
@@ -1384,7 +1410,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1405,6 +1431,7 @@ void main() {
           'setting_key',
           'setting_value',
           'stack',
+          'text_value',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1456,6 +1483,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: 3,
@@ -1548,7 +1576,7 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -1680,7 +1708,7 @@ void main() {
         'null boolean, and both new shapes append beside them', () async {
       await takeOverWithV6();
 
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1701,6 +1729,7 @@ void main() {
           'setting_key',
           'setting_value',
           'stack',
+          'text_value',
         ],
       );
       expect(
@@ -1775,6 +1804,7 @@ void main() {
         stack: null,
         settingKey: null,
         settingValue: null,
+        settingTextValue: null,
         pocketMinutes: null,
         energyLevel: null,
         reportValue: null,
@@ -1840,5 +1870,231 @@ void main() {
     final facts = poolFactsOf(snapshot);
     expect(facts.first.dictated, isTrue);
     expect(facts.last.dictated, isFalse);
+  });
+
+  group('the v7→v8 upgrade (Story 4.3, AD-23 — additive, ALTER-only)', () {
+    /// The v7 schema exactly as a v7 install presents it: the v6 shape
+    /// plus the log's permission column and the pool's dictated
+    /// boolean, `user_version` 7 — seeded over a memory executor so
+    /// drift's runner sees version 7 and upgrades.
+    Future<void> takeOverWithV7() async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              "INSERT INTO pool_facts VALUES ('v7-fact', 'manual', "
+                  "'maintenance', 100, 3600, 'Vaciar la caja de la entrada', "
+                  'NULL)',
+              "INSERT INTO log_entries VALUES ('v7-setting', "
+                  "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                  "'time_bag', 15, NULL, NULL, NULL, NULL, NULL)",
+              'PRAGMA user_version = 7',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v7 database upgrades in place: one ALTER adds the '
+        'setting text column, the v7 rows read back unchanged with null '
+        'text, and a selected_provider row appends beside them', () async {
+      await takeOverWithV7();
+
+      expect(db.schemaVersion, 8);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'permission',
+          'pocket_minutes',
+          'report_value',
+          'report_week',
+          'setting_key',
+          'setting_value',
+          'stack',
+          'text_value',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v7 rows ride the migration untouched: the int-valued
+      // setting keeps its value and reads as carrying no text.
+      final logBefore = await store.readLogEntries();
+      expect(logBefore, hasLength(1));
+      expect(logBefore.single.kind, 'setting_changed');
+      expect(logBefore.single.settingKey, 'time_bag');
+      expect(logBefore.single.settingValue, 15);
+      expect(logBefore.single.settingTextValue, isNull);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET text_value = 'openai' "
+          "WHERE id = 'v7-setting'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a text-valued setting row beside
+      // the old rows, and it round-trips through the boundary.
+      await store.appendLogEntry((
+        id: 'v8-provider',
+        kind: LogKind.settingChanged.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: 'selected_provider',
+        settingValue: null,
+        settingTextValue: 'openai',
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+      ));
+
+      final logAfter = await store.readLogEntries();
+      expect(logAfter, hasLength(2));
+      expect(logAfter.last.id, 'v8-provider');
+      expect(logAfter.last.settingTextValue, 'openai');
+      expect(logAfter.last.settingValue, isNull);
+      // And the row converts through the core's read boundary with
+      // its text intact — the exactly-one-of shape holds.
+      final conversion = convertLogEntryRecord(logAfter.last);
+      expect(conversion.flaw, isNull);
+      expect((conversion.entry as SettingEntry).textValue, 'openai');
+      expect((conversion.entry as SettingEntry).value, isNull);
+    });
+
+    test(
+      'a v7 install that died between the v8 ALTER and its version bump '
+      're-opens idempotently — the half-upgraded column is not re-added',
+      () async {
+        // The crash window, seeded exactly: the v8 ALTER landed, the
+        // version bump did not (user_version still 7), so drift's
+        // runner re-runs the v8 step over the already-added column —
+        // `_addColumnIfAbsent` must see it and skip, not fail.
+        await db.close();
+        db = SubstrateDatabase(
+          NativeDatabase.memory(
+            setup: (rawDb) {
+              for (final statement in [
+                'CREATE TABLE pool_facts ('
+                    'id TEXT NOT NULL PRIMARY KEY, '
+                    'origin TEXT NOT NULL, '
+                    'size TEXT NOT NULL, '
+                    'instant_utc_micros INTEGER NOT NULL, '
+                    'offset_seconds INTEGER NOT NULL, '
+                    'origin_context TEXT NULL, '
+                    'dictated BOOL NULL)',
+                'CREATE TABLE log_entries ('
+                    'id TEXT NOT NULL PRIMARY KEY, '
+                    'kind TEXT NOT NULL, '
+                    'instant_utc_micros INTEGER NOT NULL, '
+                    'offset_seconds INTEGER NOT NULL, '
+                    'item_id TEXT NULL, '
+                    'item_origin TEXT NULL, '
+                    'stack TEXT NULL, '
+                    'setting_key TEXT NULL, '
+                    'setting_value INTEGER NULL, '
+                    'text_value TEXT NULL, '
+                    'pocket_minutes INTEGER NULL, '
+                    'energy_level INTEGER NULL, '
+                    'report_value INTEGER NULL, '
+                    'report_week INTEGER NULL, '
+                    'permission TEXT NULL)',
+                'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                    "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                    "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                    "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                    "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                    "insert-only (AD-2)'); END",
+                "INSERT INTO log_entries VALUES ('v7-setting', "
+                    "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                    "'time_bag', 15, NULL, NULL, NULL, NULL, NULL, NULL)",
+                'PRAGMA user_version = 7',
+              ]) {
+                rawDb.execute(statement);
+              }
+            },
+          ),
+        );
+        store = DriftStore(db);
+
+        expect(db.schemaVersion, 8);
+        final log = await store.readLogEntries();
+        expect(log, hasLength(1));
+        expect(log.single.settingValue, 15);
+        expect(log.single.settingTextValue, isNull);
+      },
+    );
   });
 }

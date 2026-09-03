@@ -109,7 +109,7 @@ void main() {
 
   test('the wire vocabulary is pinned to independent raw literals — a '
       'constant drifted on either side of the channel fails here and in '
-      'tool/check_dictate_wire_contract.dart, never only in production', () {
+      'tool/check_wire_contracts.dart, never only in production', () {
     expect(dictateChannelName, 'dev.dorogoy.organizer/dictate');
     expect(dictateProbeMethod, 'probe');
     expect(dictateStartMethod, 'start');

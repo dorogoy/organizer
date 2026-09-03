@@ -46,6 +46,7 @@ Future<void> appendCrashEntry(
     stack: resolvedStack,
     settingKey: null,
     settingValue: null,
+    settingTextValue: null,
     pocketMinutes: null,
     energyLevel: null,
     reportValue: null,

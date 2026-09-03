@@ -41,7 +41,7 @@ format-check: ## Verify formatting without rewriting anything
 analyze: ## Static analysis (flutter analyze; see check for the tool/ checks)
 	. ./tool/env.sh && flutter analyze
 
-check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21), catalogue floor, continuity, evolution, dictate wire contract, the three egress seals (AD-7, story 4-2: Dart/Kotlin imports, frozen Gradle graph, merged-manifest sets), codegen freshness, eval harness unit tests (story 4.1)
+check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + string-table audit (AD-15), text scaling (UX-DR45), forbidden vocabulary (naming), store seal (AD-21, grown in story 4.3: dart:io + Kotlin Keystore sweep), catalogue floor, continuity, evolution, wire contracts (dictate + credentials, story 4.3), the three egress seals (AD-7, story 4-2: Dart/Kotlin imports, frozen Gradle graph, merged-manifest sets), export redaction (AD-22, story 4.3), codegen freshness, eval harness unit tests (story 4.1)
 	. ./tool/env.sh && dart run tool/check_core_purity.dart
 	. ./tool/env.sh && dart run tool/check_no_literal_strings.dart
 	. ./tool/env.sh && dart run tool/check_text_scaling.dart
@@ -51,7 +51,8 @@ check: ## Run every tool/ check: core purity (AD-3, AD-5), no-literal-strings + 
 	. ./tool/env.sh && dart run tool/check_catalogue_floor.dart
 	. ./tool/env.sh && dart run tool/check_catalogue_id_diff.dart
 	. ./tool/env.sh && dart run tool/check_catalogue_evolution.dart
-	. ./tool/env.sh && dart run tool/check_dictate_wire_contract.dart
+	. ./tool/env.sh && dart run tool/check_wire_contracts.dart
+	. ./tool/env.sh && dart run tool/check_export_redaction.dart
 	$(MAKE) --no-print-directory check-egress-imports
 	$(MAKE) --no-print-directory check-gradle-dependencies
 	$(MAKE) --no-print-directory check-android-manifest

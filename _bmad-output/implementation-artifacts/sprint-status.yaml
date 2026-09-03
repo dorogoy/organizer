@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-02-2026
+last_updated: 09-03-2026
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -69,7 +69,7 @@ development_status:
   epic-4: in-progress
   4-1-the-model-evaluation-harness-and-provider-selection: done
   4-2-the-egress-chokepoint-sealed-three-ways: done
-  4-3-the-credential-vault: backlog
+  4-3-the-credential-vault: review
   4-4-the-slicer-port-byok-and-the-frozen-allowlist: backlog
   4-5-honest-degradation-one-calm-surface-seven-strings-one-exit: backlog
   4-6-rescue-mode: backlog

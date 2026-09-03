@@ -1,0 +1,92 @@
+{
+  "format": "organizer-export",
+  "schemaVersion": 8,
+  "log": [
+    {
+      "id": "01923f8e-5f1e-7abc-8def-0123456789ab",
+      "kind": "app_opened",
+      "instantUtcMicros": 1788000000000000,
+      "offsetSeconds": 7200
+    },
+    {
+      "id": "01923f8e-5f1e-7abc-8def-0123456789ac",
+      "kind": "session_started",
+      "instantUtcMicros": 1788000006000000,
+      "offsetSeconds": 7200,
+      "pocketMinutes": 15
+    },
+    {
+      "id": "01923f8e-5f1e-7abc-8def-0123456789ad",
+      "kind": "card_dealt",
+      "instantUtcMicros": 1788000006000001,
+      "offsetSeconds": 7200,
+      "itemId": "01923f8a-1111-7abc-8def-0123456789aa",
+      "itemOrigin": "shipped"
+    },
+    {
+      "id": "01923f8e-5f1e-7abc-8def-0123456789ae",
+      "kind": "card_done",
+      "instantUtcMicros": 1788000120000000,
+      "offsetSeconds": 7200,
+      "itemId": "01923f8a-1111-7abc-8def-0123456789aa",
+      "itemOrigin": "shipped"
+    },
+    {
+      "id": "01923f8e-5f1e-7abc-8def-0123456789af",
+      "kind": "session_ended",
+      "instantUtcMicros": 1788000480000000,
+      "offsetSeconds": 7200
+    },
+    {
+      "id": "01923f8f-5f1e-7abc-8def-0123456789b0",
+      "kind": "energy_set",
+      "instantUtcMicros": 1788010000000000,
+      "offsetSeconds": 7200,
+      "energyLevel": 1
+    },
+    {
+      "id": "01923f8f-5f1e-7abc-8def-0123456789b1",
+      "kind": "setting_changed",
+      "instantUtcMicros": 1788010100000000,
+      "offsetSeconds": 7200,
+      "settingKey": "time_bag",
+      "settingValue": 20
+    },
+    {
+      "id": "01923f8f-5f1e-7abc-8def-0123456789b2",
+      "kind": "setting_changed",
+      "instantUtcMicros": 1788010200000000,
+      "offsetSeconds": 7200,
+      "settingKey": "selected_provider",
+      "textValue": "openai"
+    },
+    {
+      "id": "01923f8f-5f1e-7abc-8def-0123456789b3",
+      "kind": "capture_created",
+      "instantUtcMicros": 1788020000000000,
+      "offsetSeconds": 7200,
+      "itemId": "01923f90-2222-7abc-8def-0123456789bb",
+      "itemOrigin": "capture"
+    }
+  ],
+  "pool": [
+    {
+      "id": "01923f8a-1111-7abc-8def-0123456789aa",
+      "origin": "shipped",
+      "size": "focus",
+      "instantUtcMicros": 1787900000000000,
+      "offsetSeconds": 7200,
+      "originContext": null,
+      "dictated": null
+    },
+    {
+      "id": "01923f90-2222-7abc-8def-0123456789bb",
+      "origin": "capture",
+      "size": "maintenance",
+      "instantUtcMicros": 1788020000000000,
+      "offsetSeconds": 7200,
+      "originContext": "regar las plantas del balcón",
+      "dictated": false
+    }
+  ]
+}

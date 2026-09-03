@@ -39,10 +39,15 @@ typedef PoolFactRecord = ({
 /// and — where a pool item is referenced — that item's id and origin
 /// (AD-14). [stack] is the crash payload and is set only on
 /// `crash_recorded`, which carries stack + timestamp and nothing else
-/// (AD-12). [settingKey]/[settingValue] are the settings payload and are
-/// set only on `setting_changed`, additively since schema v2 (AD-1,
-/// AD-23). [pocketMinutes] is the declared pocket and is set only on
-/// `session_started`, additively since schema v3 (Story 2.2, AD-19).
+/// (AD-12). [settingKey]/[settingValue] are the settings payload's key
+/// and int value and are set only on `setting_changed`, additively since
+/// schema v2 (AD-1, AD-23); [settingTextValue] is the payload's text
+/// value (the selected AI provider's id) and is set only on
+/// `setting_changed` too, additively since schema v8 (Story 4.3,
+/// AD-22, AD-23) — a setting row carries exactly one of the two values,
+/// never both, never neither. [pocketMinutes] is the declared pocket
+/// and is set only on `session_started`, additively since schema v3
+/// (Story 2.2, AD-19).
 /// [energyLevel] is the tapped level's stable wire int (0/1/2) and is
 /// set only on `energy_set`, additively since schema v4 (Story 2.5,
 /// AD-4). [reportValue]/[reportWeek] are the weekly self-report's
@@ -62,6 +67,7 @@ typedef LogEntryRecord = ({
   String? stack,
   String? settingKey,
   int? settingValue,
+  String? settingTextValue,
   int? pocketMinutes,
   int? energyLevel,
   int? reportValue,

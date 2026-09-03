@@ -145,6 +145,7 @@ void main() {
         stack: content.entry.stack,
         settingKey: content.entry.settingKey,
         settingValue: content.entry.settingValue,
+        settingTextValue: null,
         pocketMinutes: content.entry.pocketMinutes,
         energyLevel: content.entry.energyLevel,
         reportValue: content.entry.reportValue,

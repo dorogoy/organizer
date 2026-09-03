@@ -137,6 +137,7 @@ class SettingsController {
           stack: content.stack,
           settingKey: content.settingKey,
           settingValue: content.settingValue,
+          settingTextValue: content.settingTextValue,
           pocketMinutes: content.pocketMinutes,
           energyLevel: content.energyLevel,
           reportValue: content.reportValue,
