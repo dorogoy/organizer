@@ -455,3 +455,20 @@ Day anchorDayOf(LogFacts facts, int instantUtcMicros, int offsetSeconds) =>
       instantUtcMicros,
       offsetSeconds,
     );
+
+/// The latest index of a `card_done` naming [itemId], append order, or
+/// -1 — the walk home reads the answer kind so a command file stays a
+/// minter that never reads what it mints (Story 4.6's discard: only a
+/// done after the activation ends the deal the rescue was converting).
+int latestDoneIndex(List<LogEntry> log, String itemId) {
+  var index = -1;
+  for (var i = 0; i < log.length; i++) {
+    final entry = log[i];
+    if (entry is ItemActEntry &&
+        entry.itemId == itemId &&
+        entry.kind == LogKind.cardDone) {
+      index = i;
+    }
+  }
+  return index;
+}

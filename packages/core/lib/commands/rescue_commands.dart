@@ -34,6 +34,7 @@ import 'package:core/pool/pool_fact.dart';
 import 'package:core/settings/settings.dart';
 import 'package:core/slicer/rescue_steps.dart';
 import 'package:core/ports/slicer_port.dart';
+import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 
 /// The step-fact payload of one delivered re-slice: the step's own
@@ -138,14 +139,14 @@ List<LogEntryContent> rescueRequested({
   // process, or the live landing already matched it), so a killed
   // flight never bricks the item's tap path — the in-memory flight
   // guard holds the live double-tap shut instead.
-  var sessionStart = -1;
+  var sittingStart = -1;
   for (var i = 0; i < log.length; i++) {
     if (log[i].kind == LogKind.sessionStarted) {
-      sessionStart = i;
+      sittingStart = i;
     }
   }
   LogKind? latestSliceKind;
-  for (var i = sessionStart + 1; i < log.length; i++) {
+  for (var i = sittingStart + 1; i < log.length; i++) {
     final entry = log[i];
     if (entry is SliceEntry && entry.itemId == itemId) {
       latestSliceKind = entry.kind;
@@ -197,7 +198,6 @@ RescueReturnedContent rescueReturned({
   // predating it is a previous life (a catalogue repetition
   // re-dealt), and the live deal's landing proceeds.
   var activationIndex = -1;
-  var doneIndex = -1;
   for (var i = 0; i < log.length; i++) {
     final entry = log[i];
     if (entry is SliceEntry &&
@@ -205,12 +205,8 @@ RescueReturnedContent rescueReturned({
         entry.kind == LogKind.sliceRequested) {
       activationIndex = i;
     }
-    if (entry is ItemActEntry &&
-        entry.itemId == itemId &&
-        entry.kind == LogKind.cardDone) {
-      doneIndex = i;
-    }
   }
+  final doneIndex = latestDoneIndex(log, itemId);
   if (doneIndex > activationIndex) {
     return (
       facts: const [],
