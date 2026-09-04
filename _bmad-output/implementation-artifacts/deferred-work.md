@@ -215,3 +215,8 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/4-6-rescue-mode.md`
   summary: Every Dispenser read now walks the lifetime log multiple times (rescueWarranted's decline fold, plus _resolveDay's dissolved-chain scan), so read-path cost multiplies even for users who never touch rescue.
   evidence: Story 4-6's review (blind-hunter, 2026-09-04): `DispenserController.read()` derives `rescueWarranted` → a second full `walkLog` plus per-declined-day eligible-day scans, and each `_resolveDay` runs the dissolution fold over the whole log — the same derivation-over-log family as the existing eligible-day quadratic debt (deferred-work.md:196-197), inherited by the FR-5 counter now that it has a production consumer. Negligible at validation-build log sizes; a single shared walk/index belongs to a focused perf pass.
+
+## Deferred from: code review of 4-6-rescue-mode (2026-09-04)
+
+- Rescue landing is a non-atomic multi-append (`lib/dispenser/dispenser_controller.dart:649`): facts then log rows, each a single `StorePort` insert. A crash after the first `appendPoolFact` leaves a live chain while the parent still stands and `rescueRequested` refuses. Same store-wide sequential-append contract already deferred from 1-9 and 3-2; a batch/transaction API is the fix, not a one-story wrapper.
+- Manual Local-Slicer emulator pass is listed in the story Verification section and not recorded: end-to-end rescue, `Hecho` × N, airplane-mode degrade, 200% fold of the unsplit control. The CLI gate (`make gate` / CI `test-core`) is green; the device pass is the story's own "if no CLI" checklist, not a code defect in this diff.

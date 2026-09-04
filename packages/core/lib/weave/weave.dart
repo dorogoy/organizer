@@ -220,6 +220,19 @@ List<Candidate> shippedCandidates(
   ];
 }
 
+/// The parents a chain stands behind (Story 4.6, FR-5): every id some
+/// pool fact's `rescueOf` names — live, completed or dissolved alike.
+/// THE one fold behind both retirement sites (`captureCandidates`'
+/// source-side exclusion and `_resolveDay`'s catalogue-side filter),
+/// extracted so the two cannot drift: from activation onward the
+/// parent never returns as a candidate, its chain in its place — a
+/// FAILED rescue mints no fact, so its parent stays dealable by
+/// construction.
+Set<String> supersededParentIds(List<PoolFact> poolFacts) => {
+  for (final fact in poolFacts)
+    if (fact.rescueOf != null) fact.rescueOf!,
+};
+
 /// The manual pool facts as a candidate source (Story 3.3, FR-27,
 /// AD-20, AD-25): origin-`manual` facts become `Origin.manual` items —
 /// id the fact's own id, name the fact's Origin Context (its own
@@ -239,20 +252,6 @@ List<Candidate> shippedCandidates(
 /// parent whose chain exists is not offered here either: from
 /// activation onward the parent never returns as a candidate, its
 /// chain in its place.
-///
-/// The parents a chain stands behind (Story 4.6, FR-5): every id some
-/// pool fact's `rescueOf` names — live, completed or dissolved alike.
-/// THE one fold behind both retirement sites (`captureCandidates`'
-/// source-side exclusion and `_resolveDay`'s catalogue-side filter),
-/// extracted so the two cannot drift: from activation onward the
-/// parent never returns as a candidate, its chain in its place — a
-/// FAILED rescue mints no fact, so its parent stays dealable by
-/// construction.
-Set<String> supersededParentIds(List<PoolFact> poolFacts) => {
-  for (final fact in poolFacts)
-    if (fact.rescueOf != null) fact.rescueOf!,
-};
-
 List<Candidate> captureCandidates(
   List<PoolFact> poolFacts,
   Set<String> answeredItemIds,

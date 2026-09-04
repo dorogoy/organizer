@@ -256,3 +256,12 @@ Chunk: groups 5b/5c/5d + original block — 2026-09-04, all applied de golpe, ga
 - [x] [Review][Patch] `rescueFailed` pins one cause and one null column [`packages/core/test/rescue_commands_test.dart:479`] — loop all seven causes + assert the full null payload like the sibling test
 - [x] [Review][Patch] No 3-step accept case [`packages/core/test/slicer/rescue_steps_test.dart:49`] — span pins 2 and 4; add 3
 - [x] [Review][Patch] Dissolution union same-day + done-step exclusion [`packages/core/test/derive/rescue_test.dart:446`] — add two steps declined the same day counting once, and a chain with one done step dissolving parent+pending only
+
+Full-diff review pass — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor.
+
+- [x] [Review][Patch] Set `_autoRescueFiredForDeal` when auto-heuristic receives `DispenserRescueDeclined` to prevent repeated re-triggers [`lib/ui/dispenser/dispenser_screen.dart:501`]
+- [x] [Review][Patch] Secondary action tap on normal card must guard `_writeInFlight` [`lib/ui/dispenser/dispenser_screen.dart:414`]
+- [x] [Review][Patch] Anchor Slicer threading check to `DispenserController` in `app_test.dart` [`test/ui/app_test.dart:245`]
+- [x] [Review][Patch] Move `supersededParentIds` above `captureCandidates`' docblock so doc comments attach correctly [`packages/core/lib/weave/weave.dart:223`]
+- [x] [Review][Defer] Non-atomic multi-append in rescue landing leaves intermediate state on crash [`lib/dispenser/dispenser_controller.dart:649`] — deferred, pre-existing
+

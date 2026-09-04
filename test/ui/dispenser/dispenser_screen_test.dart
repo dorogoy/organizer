@@ -276,6 +276,24 @@ class _GatedBundledDealStore implements StorePort {
       _inner.readLogEntries();
 }
 
+class _CountingDecliningController extends DispenserController {
+  _CountingDecliningController({
+    required super.store,
+    required super.strings,
+    super.bundle,
+    super.nowOf,
+    super.slicer,
+  });
+
+  int rescueCalls = 0;
+
+  @override
+  Future<DispenserRescueOutcome> rescue(DispenserDealt dealt) async {
+    rescueCalls++;
+    return const DispenserRescueDeclined();
+  }
+}
+
 /// A store whose next append after [failNextAppend] is set throws once
 /// — the declare's write-failure row at the surface: the batch's first
 /// row fails, nothing lands, and the quiet empty frame is the whole
@@ -2883,6 +2901,141 @@ void main() {
           're-warranted fire is the counter\'s alone',
     );
     expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+  });
+
+  testWidgets(
+    'the auto-heuristic receiving DispenserRescueDeclined sets '
+    '_autoRescueFiredForDeal and does not re-fire on lifecycle resume (FR-5)',
+    (tester) async {
+      const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+      PoolFactRecord captureFact(DateTime at) => (
+        id: captureId,
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros: at.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
+      );
+      LogEntryRecord seedRow(
+        String kind,
+        DateTime at,
+        String id, {
+        String? itemId,
+      }) => (
+        id: id,
+        kind: kind,
+        instantUtcMicros: at.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: itemId,
+        itemOrigin: itemId == null ? null : Origin.manual,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      );
+
+      List<LogEntryRecord> decline(int day) => [
+        seedRow('session_started', DateTime.utc(2026, 8, day, 10), 's$day'),
+        seedRow(
+          'card_dealt',
+          DateTime.utc(2026, 8, day, 10, 0, 1),
+          'd$day',
+          itemId: captureId,
+        ),
+        seedRow(
+          'card_skipped',
+          DateTime.utc(2026, 8, day, 10, 0, 2),
+          'k$day',
+          itemId: captureId,
+        ),
+        seedRow('session_ended', DateTime.utc(2026, 8, day, 10, 0, 3), 'e$day'),
+      ];
+
+      final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+        ..entries.addAll([...decline(26), ...decline(27), ...decline(28)]);
+
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+
+      final counting = _CountingDecliningController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+        slicer: offlineSlicer(),
+      );
+
+      await tester.pumpWidget(_harness(counting));
+      await tester.pumpAndSettle();
+
+      expect(counting.rescueCalls, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        counting.rescueCalls,
+        1,
+        reason:
+            'DispenserRescueDeclined sets _autoRescueFiredForDeal, so the '
+            'resumed commit does not re-trigger auto-rescue',
+      );
+    },
+  );
+
+  testWidgets('secondary action tap while a write is in flight returns '
+      'early on a normal card with an active Slicer (FR-3, FR-5)', (
+    tester,
+  ) async {
+    final doneFirst = _RecordingStore();
+    final doneGate = Completer<void>();
+    final doneStore = _GatedBundledDealStore(doneFirst, doneGate.future);
+    await SessionController(
+      store: doneStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    final slicer = _StubSlicer(
+      const SlicerFailed(SlicerFailureCause.networkUnreachable),
+    );
+    await tester.pumpWidget(
+      _harness(buildController(doneStore, slicer: slicer)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pump();
+    await tester.tap(cardSecondaryFinder);
+    await tester.pump();
+
+    doneGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(slicer.requests, isEmpty, reason: 'secondary action returned early');
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(
+      doneFirst.entries.where((entry) => entry.kind == 'slice_requested'),
+      isEmpty,
+    );
   });
 
   testWidgets('a seven-day absence opens like any day plus the one '

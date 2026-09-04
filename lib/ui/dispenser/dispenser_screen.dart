@@ -412,6 +412,9 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// (`Otra más fácil / Ahora no`, FR-3 + FR-5's one unsplit control)
   /// — only the resolution moves.
   Future<void> _onSecondaryAction(DispenserDealt dealt) async {
+    if (_writeInFlight) {
+      return;
+    }
     if (dealt.rescueStep || _degradedRescueDealId == dealt.card.id) {
       return _onSkip(dealt);
     }
@@ -502,6 +505,7 @@ class _DispenserScreenState extends State<DispenserScreen>
             await _onSkip(dealt);
             return;
           }
+          _autoRescueFiredForDeal = dealt.card.id;
           break;
       }
     } catch (_) {
