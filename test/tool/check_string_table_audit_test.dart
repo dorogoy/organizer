@@ -41,6 +41,34 @@ void main() {
       expect(result.findings, contains(contains('lacks an x-signoff')));
     });
 
+    test('the pinned exit lacking x-signoff is a finding too (4-5)', () {
+      final arb = _pinnedSigned();
+      arb['@noSlicerExit'] = {'description': 'the single exit'};
+      expect(
+        auditStringTable(arb).findings,
+        contains(contains('@noSlicerExit: pinned no-Slicer key lacks')),
+      );
+    });
+
+    test('a placeholder-shaped pinned exit is a finding too (4-5)', () {
+      final arb = _pinnedSigned();
+      arb['noSlicerExit'] = 'TODO: label the exit';
+      expect(
+        auditStringTable(arb).findings,
+        contains(contains('missing or a placeholder')),
+      );
+    });
+
+    test('the pinned exit absent from the ARB is a finding too (4-5)', () {
+      final arb = _pinnedSigned()
+        ..remove('noSlicerExit')
+        ..remove('@noSlicerExit');
+      expect(
+        auditStringTable(arb).findings,
+        contains(contains('noSlicerExit: pinned no-Slicer key is absent')),
+      );
+    });
+
     test('a malformed x-signoff shape is a finding', () {
       final arb = _pinnedSigned();
       arb['@noSlicerOffline']['x-signoff'] = 'Sergio';

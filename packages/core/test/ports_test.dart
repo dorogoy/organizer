@@ -76,10 +76,14 @@ void main() {
           ..sort();
     // The two Epic-1 ports, the recognizer port Story 3.4 adds
     // (FR-32), the files port Story 4.3 adds (AD-22), and the slicer
-    // port Story 4-4 adds (AD-9): one file each.
+    // port Story 4-4 adds (AD-9): one file each — plus the no-Slicer
+    // cause vocabulary Story 4-5 lands beside them (FR-29): pure
+    // enum-plus-map vocabulary, not an interface, but the ports
+    // library is its decided home.
     expect(names, [
       'clock_port.dart',
       'files_port.dart',
+      'no_slicer_cause.dart',
       'recognizer_port.dart',
       'slicer_port.dart',
       'store_port.dart',
