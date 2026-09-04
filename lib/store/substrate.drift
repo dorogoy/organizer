@@ -48,6 +48,14 @@
 -- exactly one of `setting_value`/`text_value`; the shape is the core
 -- read boundary's to check, not the schema's (below).
 --
+-- Schema v9 (Story 4.6) adds the one nullable log-entry payload column
+-- `slice_cause` — a `slice_failed` row's cause wire name, riding only
+-- that kind (FR-5, AD-23) — and the two nullable pool-fact columns
+-- `rescue_of` (the parent item a rescue step rescues) and
+-- `estimate_seconds` (the Slicer's verbatim duration tag) — the same
+-- additive-only ALTER TABLE path, so a v8 install upgrades in place
+-- with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -62,7 +70,9 @@ CREATE TABLE pool_facts (
   instant_utc_micros INTEGER NOT NULL,
   offset_seconds INTEGER NOT NULL,
   origin_context TEXT NULL,
-  dictated BOOL NULL
+  dictated BOOL NULL,
+  rescue_of TEXT NULL,
+  estimate_seconds INTEGER NULL
 );
 
 CREATE TABLE log_entries (
@@ -80,7 +90,8 @@ CREATE TABLE log_entries (
   energy_level INTEGER NULL,
   report_value INTEGER NULL,
   report_week INTEGER NULL,
-  permission TEXT NULL
+  permission TEXT NULL,
+  slice_cause TEXT NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

@@ -57,6 +57,8 @@ final class PoolFact {
     required this.offsetSeconds,
     this.originContext,
     this.dictated,
+    this.rescueOf,
+    this.estimateSeconds,
   });
 
   /// The shell-minted UUIDv7 id (conventions: ids are minted in the shell,
@@ -93,4 +95,22 @@ final class PoolFact {
   /// `null`, deriving as not-dictated — and readable on the validator
   /// surface only (AD-26): no card anywhere marks a capture as spoken.
   final bool? dictated;
+
+  /// The parent item this fact rescues (Story 4.6, FR-5): non-null
+  /// exactly on a rescue step, naming the stuck parent whose re-slice
+  /// minted it. A step's origin inherits the parent's (AD-14), its
+  /// size is the fixed `instant` band, and the depth cap — no rescue
+  /// of a rescue step — reads this field. Written once at the step's
+  /// genesis, never updated; the parent itself may be a pool fact or
+  /// a shipped catalogue entry (the id is either shape's own).
+  final String? rescueOf;
+
+  /// The Slicer's own duration tag, verbatim (Story 4.6, FR-5):
+  /// non-null exactly on a rescue step, 1–60 seconds as parsed in
+  /// core against the rescue contract. Every duration-consuming rule
+  /// — the 🔴 ceiling, the pocket — reads the estimate; the taxonomy
+  /// size governs only same-size precedence and shape counting, so an
+  /// estimate never re-bands a size and a size never re-derives an
+  /// estimate.
+  final int? estimateSeconds;
 }

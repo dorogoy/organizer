@@ -427,6 +427,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     await launch(tester, store);
 
@@ -463,6 +464,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
         (
           id: 'seed-invalid',
@@ -485,6 +487,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
       ]);
     await launch(tester, store);
@@ -600,6 +603,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ));
       await launch(tester, store);
       await openSettings(tester);
@@ -801,6 +805,8 @@ void main() {
       offsetSeconds: 0,
       originContext: 'llamar al dentista',
       dictated: dictated,
+      rescueOf: null,
+      estimateSeconds: null,
     );
 
     testWidgets('the dictated-count line counts the pool\'s dictated '
@@ -855,6 +861,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: 'microphone',
+        sliceCause: null,
       );
 
       // The IA y voz label now names the group header (Story 4-4), so
@@ -999,6 +1006,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: 'microphone',
+        sliceCause: null,
       );
 
       // The row stands: refused and not granted — the label renders

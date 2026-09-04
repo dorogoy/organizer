@@ -51,6 +51,7 @@ List<LogEntryContent> reportAnswered({required int value, required int week}) {
       reportValue: value,
       reportWeek: week,
       permission: null,
+      sliceCause: null,
     ),
   ];
 }

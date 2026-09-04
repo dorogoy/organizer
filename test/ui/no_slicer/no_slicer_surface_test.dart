@@ -506,46 +506,56 @@ void main() {
     expect(store.entries, isEmpty);
   });
 
-  test(
-    'no reachable path opens the surface — nothing in lib/ outside its '
-    'own file names NoSlicerSurface; the callers arrive in 4-6 and Epic 5',
-    () {
-      final libDir = Directory('lib');
-      expect(libDir.existsSync(), isTrue, reason: 'the scan must see a lib/');
-      var files = 0;
-      final referers = <String>[];
-      void collect(Directory dir) {
-        for (final entity in dir.listSync(followLinks: false)) {
-          if (entity is Directory) {
-            collect(entity);
-          } else if (entity is File && entity.path.endsWith('.dart')) {
-            files++;
-            final masked = maskCommentsAndStrings(entity.readAsStringSync());
-            if (masked.contains('NoSlicerSurface')) {
-              referers.add(entity.path);
-            }
-          } else if (entity is Link) {
-            // A symlinked entry would fall through both census arms
-            // and escape the scan silently — fail loudly instead of
-            // passing vacuously.
-            fail('symlink in lib/: ${entity.path}');
+  test('the surface\'s callers are frozen — its own file names the widget, '
+      'and the Dispenser screen (Story 4-6\'s rescue failure) is the one '
+      'push site; Epic 5\'s callers renegotiate this census when they '
+      'arrive', () {
+    final libDir = Directory('lib');
+    expect(libDir.existsSync(), isTrue, reason: 'the scan must see a lib/');
+    var files = 0;
+    final referers = <String>[];
+    void collect(Directory dir) {
+      for (final entity in dir.listSync(followLinks: false)) {
+        if (entity is Directory) {
+          collect(entity);
+        } else if (entity is File && entity.path.endsWith('.dart')) {
+          files++;
+          final masked = maskCommentsAndStrings(entity.readAsStringSync());
+          if (masked.contains('NoSlicerSurface')) {
+            referers.add(entity.path);
           }
+        } else if (entity is Link) {
+          // A symlinked entry would fall through both census arms
+          // and escape the scan silently — fail loudly instead of
+          // passing vacuously.
+          fail('symlink in lib/: ${entity.path}');
         }
       }
+    }
 
-      collect(libDir);
-      // Vacuous-pass guards: a real tree was scanned, and the surface's
-      // own file is in it (the census saw what it claims to pin).
-      expect(files, greaterThan(30), reason: 'a non-trivial lib/ was scanned');
-      expect(
-        referers,
-        hasLength(1),
-        reason: 'only the surface\'s own file may name it',
-      );
-      expect(
-        referers.single.endsWith('lib/ui/no_slicer/no_slicer_surface.dart'),
-        isTrue,
-      );
-    },
-  );
+    collect(libDir);
+    // Vacuous-pass guards: a real tree was scanned, and the surface's
+    // own file is in it (the census saw what it claims to pin).
+    expect(files, greaterThan(30), reason: 'a non-trivial lib/ was scanned');
+    expect(
+      referers,
+      hasLength(2),
+      reason:
+          'only the surface\'s own file and the Dispenser\'s rescue '
+          'failure push may name it',
+    );
+    expect(
+      referers.any(
+        (path) => path.endsWith('lib/ui/no_slicer/no_slicer_surface.dart'),
+      ),
+      isTrue,
+    );
+    expect(
+      referers.any(
+        (path) => path.endsWith('lib/ui/dispenser/dispenser_screen.dart'),
+      ),
+      isTrue,
+      reason: 'the 4-6 rescue failure push is the surface\'s one caller',
+    );
+  });
 }

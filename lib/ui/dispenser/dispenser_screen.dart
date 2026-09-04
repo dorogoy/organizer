@@ -113,6 +113,7 @@ import 'dart:async';
 
 import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
+import 'package:core/ports/no_slicer_cause.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -124,6 +125,7 @@ import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
 import '../capture/capture_screen.dart';
 import '../glyphs/pencil_glyph.dart';
+import '../no_slicer/no_slicer_surface.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
 import 'ambient_strip.dart';
@@ -275,6 +277,11 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      // The answered deal is over (Story 4.6): whatever deal the
+      // rescue markers keyed themselves to ended here too — a
+      // completion ends a deal exactly as a skip does.
+      _degradedRescueDealId = null;
+      _autoRescueFiredForDeal = null;
       _completionAckWaiting = true;
       _refresh();
       // The old card remains in the render tree until this refresh's frame.
@@ -327,6 +334,12 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      // The skipped deal is over (Story 4.6): whatever deal the rescue
+      // markers keyed themselves to ended here, so a later deal — even
+      // a later deal of the same item, fresh from the resolver —
+      // starts clean, and a re-warranted one can auto-fire again.
+      _degradedRescueDealId = null;
+      _autoRescueFiredForDeal = null;
       _refresh();
       // The old card remains in the render tree until this refresh's frame.
       // Keep the shared guard through it so its stale callbacks cannot act.
@@ -354,6 +367,157 @@ class _DispenserScreenState extends State<DispenserScreen>
     });
   }
 
+  /// The deal whose failed rescue degraded the one control to its skip
+  /// half (Story 4.6, FR-5): ephemeral shell state keyed by the dealt
+  /// card's id — skip-only for the rest of THAT deal, nothing
+  /// persisted, no counter, no row. The deal's every end clears it —
+  /// a skip, a completion, a supersede, a session close, or a
+  /// different card committing — so a fresh deal of the same item,
+  /// days later or right after a close, starts clean; the failure
+  /// itself already reset the item's refusal counter through its
+  /// activation row.
+  String? _degradedRescueDealId;
+
+  /// The deal the auto-heuristic already fired for and the activation
+  /// committed (Story 4.6, FR-5): the belt to the counter's braces —
+  /// the activation row is the real reset (a fresh read derives
+  /// `autoRescueDue` false once `slice_requested` is in the log), and
+  /// this marker holds the line only for the refreshes that can
+  /// interleave before that row lands or after its write failed. It
+  /// is set when — and only when — the controller reports the
+  /// activation committed (the success and failure outcomes; a
+  /// decline or a failed write left no row, so the warrant stays
+  /// derivable and a retry may fire), and it clears with the deal's
+  /// every end exactly like the degrade's, so a re-warranted deal of
+  /// the same item days later auto-fires again.
+  String? _autoRescueFiredForDeal;
+
+  /// The deal whose rescue is between its ask and its landing (Story
+  /// 4.6, FR-5): the FLIGHT guard — one rescue per deal, so a double
+  /// tap inside one flight returns early (the core's pending
+  /// activation refusal is the same line held at the command
+  /// boundary). Deliberately NOT the shared write guard: the network
+  /// await may last a provider's whole latency, and a real user act
+  /// on the still-standing card — a Hecho, a skip — must land
+  /// normally through it; the controller's queue serializes the
+  /// actual writes, and the core discards a landing whose deal ended
+  /// in flight (done or skipped alike).
+  String? _rescueFlightDealId;
+
+  /// The one control's tap resolution (Story 4.6, FR-5): a step
+  /// card's tap skips — the depth cap, no ask, no refusal surface, no
+  /// error; a deal whose rescue already failed this deal skips too —
+  /// the control stated its cause once and degrades; any other dealt
+  /// card, any moment, asks. The string never changes
+  /// (`Otra más fácil / Ahora no`, FR-3 + FR-5's one unsplit control)
+  /// — only the resolution moves.
+  Future<void> _onSecondaryAction(DispenserDealt dealt) async {
+    if (dealt.rescueStep || _degradedRescueDealId == dealt.card.id) {
+      return _onSkip(dealt);
+    }
+    return _onRescue(dealt);
+  }
+
+  /// The rescue ask (Story 4.6, FR-5, FR-29): tap-first on a normal
+  /// card — one tap requests the re-slice through the Origin Context
+  /// and the FR-28 path. The ask holds the flight guard alone: the
+  /// card still stands through the provider's whole latency, so a
+  /// Hecho or a skip on it lands normally (the controller's log queue
+  /// serializes the writes; the core discards a landing whose deal
+  /// ended in flight — done or skipped alike — so nothing dangles);
+  /// only the outcome's commit borrows the shared write guard for the
+  /// one frame the replaced card's stale callbacks could act in.
+  /// Success supersedes: the head step stands. Failure states the
+  /// cause ONCE through the 4-5 calm surface — pushed with both
+  /// capture seams threaded, the push idiom's isCurrent guard held —
+  /// and degrades this deal's control to its skip half; the card
+  /// stands dealable behind the surface, and the system back gesture
+  /// is the OS pop. A failed write is absorbed by the empty frame,
+  /// quietly, degrades nothing and arms no auto marker — nothing
+  /// landed, so the warrant stays derivable for a retry.
+  Future<void> _onRescue(DispenserDealt dealt) async {
+    if (_rescueFlightDealId == dealt.card.id) {
+      return;
+    }
+    _rescueFlightDealId = dealt.card.id;
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not overwrite this rescue's landing after it
+    // lands.
+    _readGeneration++;
+    try {
+      await widget.sessionSettled?.call();
+      final outcome = await widget.controller.rescue(dealt);
+      if (!mounted) {
+        return;
+      }
+      switch (outcome) {
+        case DispenserRescueSucceeded(:final view):
+          // The activation committed: the counter is reset, and the
+          // deal it reset is over — a superseded deal needs neither
+          // marker, and a later deal of anything starts clean.
+          _autoRescueFiredForDeal = null;
+          _degradedRescueDealId = null;
+          _writeInFlight = true;
+          setState(() => _view = view);
+          // The old card remains in the render tree until this
+          // refresh's frame. Keep the shared guard through it so its
+          // stale callbacks cannot act.
+          _releaseWriteAfterRefreshFrame();
+        case DispenserRescueFailed(:final cause, :final view):
+          // The activation committed here too — the marker holds the
+          // auto line while the degraded deal stands. The control is
+          // skip-only for the rest of this deal: the failure stated
+          // its cause, and the second tap passes the card (FR-3 stays
+          // reachable everywhere).
+          _autoRescueFiredForDeal = dealt.card.id;
+          _degradedRescueDealId = dealt.card.id;
+          _writeInFlight = true;
+          setState(() => _view = view);
+          _releaseWriteAfterRefreshFrame();
+          _openNoSlicerSurface(cause);
+        case DispenserRescueDeclined():
+          // The command boundary refused (a step, an existing chain,
+          // a pending activation, or no Slicer behind the test seam):
+          // nothing landed, nothing is owed, no marker is armed — a
+          // refused ask left the warrant exactly as it stood — and no
+          // surface exists for a refusal that cannot reach it.
+          break;
+      }
+    } catch (_) {
+      // The write failed: quiet and deliberate — the empty frame
+      // stands, nothing surfaced, and a real return to the foreground
+      // re-reads. No degradation and no auto marker: nothing stated a
+      // cause and nothing landed, so both the tap and the heuristic
+      // stay live for a retry.
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (_rescueFlightDealId == dealt.card.id) {
+        _rescueFlightDealId = null;
+      }
+    }
+  }
+
+  /// The 4-5 calm surface's push (Story 4-6 over 4-5, FR-29): the
+  /// failure's mapped cause, both Manual Capture seams threaded
+  /// exactly as the Lápiz entry threads them, the same rapid-tap
+  /// guard every push this surface owns. Nothing is queued on the
+  /// push or the pop; the card stands dealable behind the route.
+  void _openNoSlicerSurface(NoSlicerCause cause) {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => NoSlicerSurface(
+            cause: cause,
+            controller: widget.capture,
+            dictation: widget.dictation,
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _readAfterSessionSettles(int generation) async {
     try {
       // The lifecycle mints and appends the launch/resume deal first. A
@@ -379,9 +543,34 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
+  /// Ends the rescue markers when the committed view is no longer the
+  /// dealt card they key to (Story 4.6): both are per-DEAL state, and
+  /// a different card standing — or no card at all, the closed
+  /// surface, a rest offer — is not that deal. Every commit site calls
+  /// this with the view it commits (`_commitView` for the read path,
+  /// each write path for its own), so a deal ended by a session close
+  /// or any crossing ends them exactly as an answer does, and a fresh
+  /// deal of the same item starts clean.
+  void _endRescueMarkersIfDealEnded(DispenserView view) {
+    if (_degradedRescueDealId != null &&
+        (view is! DispenserDealt || view.card.id != _degradedRescueDealId)) {
+      _degradedRescueDealId = null;
+    }
+    if (_autoRescueFiredForDeal != null &&
+        (view is! DispenserDealt || view.card.id != _autoRescueFiredForDeal)) {
+      _autoRescueFiredForDeal = null;
+    }
+  }
+
   /// Commits a resolved read: the view renders, and a completion waiting
   /// on this commit shows its ack above it — the fixed window starts
   /// (or restarts, for a later completion) at the commit, never before.
+  /// Since Story 4.6 the commit is also the auto-heuristic's moment
+  /// (FR-5): a committed standing card whose item is declined on
+  /// ≥ 3 eligible days since its last activation fires the rescue
+  /// while the card stands — the same ask the tap makes, never a
+  /// second path — once per deal (the marker) and once per activation
+  /// (the counter the activation row resets).
   void _commitView(DispenserView view) {
     final ackWaiting = _completionAckWaiting;
     _completionAckWaiting = false;
@@ -401,6 +590,26 @@ class _DispenserScreenState extends State<DispenserScreen>
         }
       });
     }
+    if (view is DispenserDealt &&
+        view.autoRescueDue &&
+        !view.rescueStep &&
+        _autoRescueFiredForDeal != view.card.id) {
+      // The flight guard (not the marker) holds the pre-activation
+      // window: a re-commit racing the activation's landing returns
+      // early inside `_onRescue`, and once the row has landed the
+      // counter itself derives `autoRescueDue` false — the marker is
+      // armed only by the outcome, when the landing is known.
+      unawaited(_onRescue(view));
+    }
+    // A committed deal the markers no longer key to ends them (Story
+    // 4.6): both are per-DEAL state, and a different card standing —
+    // or no card at all, the closed surface, a rest offer, a failed
+    // read's empty frame — is not that deal. The answer paths clear
+    // them at their own deal's end; this covers the lifecycle-driven
+    // changes (a crossing, a resumed foreground, a session close with
+    // the card standing) so a fresh deal of the same item starts
+    // clean and a re-warranted one auto-fires again.
+    _endRescueMarkersIfDealEnded(view);
   }
 
   @override
@@ -460,7 +669,7 @@ class _DispenserScreenState extends State<DispenserScreen>
           TaskCard(
             card: dealt.card,
             onDone: () => _onDone(dealt),
-            onSkip: () => _onSkip(dealt),
+            onSkip: () => _onSecondaryAction(dealt),
           ),
         ),
       ),
@@ -555,6 +764,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      _endRescueMarkersIfDealEnded(view);
       setState(() => _view = view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks
@@ -569,6 +779,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       try {
         final view = await widget.controller.read();
         if (mounted) {
+          _endRescueMarkersIfDealEnded(view);
           setState(() => _view = view);
         }
       } catch (_) {
@@ -608,6 +819,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       await widget.sessionSettled?.call();
       final view = await widget.controller.dismissCheckIn(tapTime: tapTime);
       if (mounted) {
+        _endRescueMarkersIfDealEnded(view);
         setState(() => _view = view);
         releaseAfterRefresh = true;
         _releaseWriteAfterRefreshFrame();
@@ -654,6 +866,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      _endRescueMarkersIfDealEnded(view);
       setState(() => _view = view);
       // The old surface remains in the render tree until this
       // refresh's frame. Keep the shared guard through it so its
@@ -668,6 +881,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       try {
         final view = await widget.controller.read();
         if (mounted) {
+          _endRescueMarkersIfDealEnded(view);
           setState(() => _view = view);
         }
       } catch (_) {
@@ -708,6 +922,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       await widget.sessionSettled?.call();
       final view = await widget.controller.dismissReport(tapTime: tapTime);
       if (mounted) {
+        _endRescueMarkersIfDealEnded(view);
         setState(() => _view = view);
         releaseAfterRefresh = true;
         _releaseWriteAfterRefreshFrame();
@@ -881,6 +1096,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      _endRescueMarkersIfDealEnded(view);
       setState(() => _view = view);
       // The old card remains in the render tree until this refresh's frame.
       // Keep the shared guard through it so its stale callbacks cannot act.
@@ -927,6 +1143,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      _endRescueMarkersIfDealEnded(view);
       setState(() => _view = view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks
@@ -977,6 +1194,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
+      _endRescueMarkersIfDealEnded(view);
       setState(() => _view = view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks

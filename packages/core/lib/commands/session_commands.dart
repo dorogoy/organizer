@@ -86,6 +86,7 @@ typedef LogEntryContent = ({
   int? reportValue,
   int? reportWeek,
   Permission? permission,
+  String? sliceCause,
 });
 
 LogEntryContent _moment(LogKind kind) => (
@@ -101,6 +102,7 @@ LogEntryContent _moment(LogKind kind) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryContent _start({int? pocketMinutes}) => (
@@ -116,6 +118,7 @@ LogEntryContent _start({int? pocketMinutes}) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryContent _deal(Card card) => (
@@ -131,6 +134,7 @@ LogEntryContent _deal(Card card) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryContent _extend() => (
@@ -146,6 +150,7 @@ LogEntryContent _extend() => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -488,6 +493,7 @@ List<LogEntryContent> _answered({
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     ),
     if (deal != null) _deal(deal),
   ];

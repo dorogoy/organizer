@@ -72,6 +72,8 @@ class CaptureController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         originContext: captured.fact.originContext,
         dictated: captured.fact.dictated,
+        rescueOf: null,
+        estimateSeconds: null,
       ));
       final content = captured.entry;
       await store.appendLogEntry((
@@ -90,6 +92,7 @@ class CaptureController {
         reportValue: content.reportValue,
         reportWeek: content.reportWeek,
         permission: content.permission?.name,
+        sliceCause: content.sliceCause,
       ));
     });
   }

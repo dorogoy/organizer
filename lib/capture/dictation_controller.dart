@@ -357,6 +357,7 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
               reportValue: content.reportValue,
               reportWeek: content.reportWeek,
               permission: content.permission?.name,
+              sliceCause: content.sliceCause,
             ));
           }
         })

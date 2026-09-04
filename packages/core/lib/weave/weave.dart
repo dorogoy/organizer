@@ -29,6 +29,7 @@ library;
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/curation/curation.dart';
 import 'package:core/day/calendar.dart';
+import 'package:core/derive/rescue.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
@@ -127,12 +128,17 @@ final class Card {
       '${zone?.name ?? '-'}, ${estimateSeconds}s)';
 }
 
-/// Where a candidate stands in AD-20's arbitration. Two members since
-/// Story 3.3 — a manual capture's pool fact ahead of the shipped
-/// catalogue (same-size captures take precedence over Evergreen
-/// material); later sources (rescue steps, purge injection) join as
+/// Where a candidate stands in AD-20's arbitration. Three members since
+/// Story 4.6 — a live rescue chain's head step (the first
+/// not-yet-answered one) AHEAD of manual captures, which stay ahead of
+/// the shipped catalogue; later sources (purge injection) join as
 /// members, never as flags on these.
 enum CandidatePrecedence {
+  /// A live rescue chain's head step (Story 4.6, FR-5) — ahead of every
+  /// other source: the chain is the conversion of a card the user
+  /// already faced, and no new chunk may bury its next step.
+  rescue,
+
   /// A manual capture's pool fact (Story 3.3, FR-27) — ahead of the
   /// catalogue: the index is the arbitration.
   capture,
@@ -153,6 +159,7 @@ final class Candidate {
     required this.zone,
     required this.precedence,
     this.createdInstantUtcMicros,
+    this.estimateSeconds,
   });
 
   final String itemId;
@@ -172,8 +179,17 @@ final class Candidate {
   /// it (AD-3: recorded act instants, never id bit patterns, and a
   /// skip keeps the place because deal history never re-orders
   /// captures). Absent for sources with no recorded genesis — the
-  /// shipped catalogue, whose ordering reads deals, never births.
+  /// shipped catalogue, whose ordering reads deals, never births. A
+  /// rescue step's own fact creation is its FIFO key too (Story 4.6):
+  /// the oldest live chain's head stands first.
   final int? createdInstantUtcMicros;
+
+  /// The candidate's duration estimate in seconds — a rescue step's
+  /// own verbatim Slicer tag (Story 4.6, FR-5); absent for every other
+  /// source, whose estimate is its taxonomy size's. The
+  /// duration-consuming rules (the 🔴 ceiling, the pocket) read the
+  /// estimate, never the size's default, on a step.
+  final int? estimateSeconds;
 }
 
 /// The shipped catalogue as a candidate source (AD-16, AD-20): entries
@@ -215,17 +231,38 @@ List<Candidate> shippedCandidates(
 /// nothing. No cap and no expiry: an unanswered capture is absent
 /// rows, never a deleted fact, and the three capture sizes ARE the
 /// 1-3-5 taxonomy — the fact's [Size] rides straight through, no
+/// The parents a chain stands behind (Story 4.6, FR-5): every id some
+/// pool fact's `rescueOf` names — live, completed or dissolved alike.
+/// THE one fold behind both retirement sites (`captureCandidates`'
+/// source-side exclusion and `_resolveDay`'s catalogue-side filter),
+/// extracted so the two cannot drift: from activation onward the
+/// parent never returns as a candidate, its chain in its place — a
+/// FAILED rescue mints no fact, so its parent stays dealable by
+/// construction.
+Set<String> supersededParentIds(List<PoolFact> poolFacts) => {
+  for (final fact in poolFacts)
+    if (fact.rescueOf != null) fact.rescueOf!,
+};
+
 /// conversion. A duplicate fact id offers once — the snapshot's
 /// first, replay order being the one order the store guarantees
 /// (AD-3) — so two facts sharing an id cannot fill two draw slots.
+/// Since Story 4.6 a rescue step is not offered here — steps belong
+/// to the rescue source alone, head-only, one at a time — and a
+/// parent whose chain exists is not offered here either: from
+/// activation onward the parent never returns as a candidate, its
+/// chain in its place.
 List<Candidate> captureCandidates(
   List<PoolFact> poolFacts,
   Set<String> answeredItemIds,
 ) {
   final offered = <String>{};
+  final supersededParents = supersededParentIds(poolFacts);
   return [
     for (final fact in poolFacts)
       if (fact.origin == Origin.manual &&
+          fact.rescueOf == null &&
+          !supersededParents.contains(fact.id) &&
           !answeredItemIds.contains(fact.id) &&
           offered.add(fact.id))
         Candidate(
@@ -237,6 +274,54 @@ List<Candidate> captureCandidates(
           precedence: CandidatePrecedence.capture,
           createdInstantUtcMicros: fact.instantUtcMicros,
         ),
+  ];
+}
+
+/// The live rescue chains' head steps as a candidate source (Story
+/// 4.6, FR-5, AD-20): for each chain — the pool facts sharing one
+/// `rescueOf` parent, in snapshot order — exactly the FIRST
+/// not-yet-answered step is offered, at [CandidatePrecedence.rescue],
+/// ahead of captures: the chain is the conversion of a card the user
+/// already faced, its next step never buried behind new work. A chain
+/// whose steps are all answered is complete — the parent is retired
+/// done-by-derivation and nothing from it is offered again (AD-25);
+/// a dissolved chain ([dissolvedParentIds], the caller's fold over
+/// the log) offers nothing either — parent and pending steps retire
+/// atomically, and the head rule is how "one at a time" reads here:
+/// the next step becomes the head only when this one is answered.
+List<Candidate> rescueCandidates(
+  List<PoolFact> poolFacts,
+  Set<String> answeredItemIds,
+  Set<String> dissolvedParentIds,
+) {
+  // One head per chain: the first not-yet-answered step in snapshot
+  // order — a chain's later steps stand behind it, one at a time
+  // (FR-5's weaving), and a duplicate fact id offers once, the
+  // snapshot's first (AD-3).
+  final headsByParent = <String, PoolFact>{};
+  for (final fact in poolFacts) {
+    final parent = fact.rescueOf;
+    if (parent == null || dissolvedParentIds.contains(parent)) {
+      continue;
+    }
+    if (headsByParent.containsKey(parent) ||
+        answeredItemIds.contains(fact.id)) {
+      continue;
+    }
+    headsByParent[parent] = fact;
+  }
+  return [
+    for (final fact in headsByParent.values)
+      Candidate(
+        itemId: fact.id,
+        size: fact.size,
+        name: fact.originContext ?? '',
+        origin: fact.origin,
+        zone: null,
+        precedence: CandidatePrecedence.rescue,
+        createdInstantUtcMicros: fact.instantUtcMicros,
+        estimateSeconds: fact.estimateSeconds,
+      ),
   ];
 }
 
@@ -285,7 +370,9 @@ final class DayComposition {
 /// Same-precedence captures order instead by their source's recorded
 /// creation instant, oldest-first (FIFO, Story 3.3): deal history
 /// never re-orders them, which is exactly why a skip keeps a
-/// capture's place. Never id bit patterns, on either branch.
+/// capture's place. Rescue heads read the same FIFO key (Story 4.6):
+/// the oldest live chain's head stands first, a chain never leapfrogs
+/// a chain. Never id bit patterns, on any branch.
 int _resolverOrder(
   Candidate a,
   Candidate b,
@@ -295,10 +382,12 @@ int _resolverOrder(
   if (byPrecedence != 0) {
     return byPrecedence;
   }
-  if (a.precedence == CandidatePrecedence.capture) {
-    // Same-size captures, oldest fact first — the FIFO key is the
-    // fact's recorded creation instant, tie stable id. A capture
-    // absent its instant (no source mints one) still orders totally.
+  if (a.precedence == CandidatePrecedence.capture ||
+      a.precedence == CandidatePrecedence.rescue) {
+    // Same-size fact-backed candidates, oldest fact first — the FIFO
+    // key is the fact's recorded creation instant, tie stable id. A
+    // candidate absent its instant (no source mints one) still orders
+    // totally.
     final byCreation = (a.createdInstantUtcMicros ?? 0).compareTo(
       b.createdInstantUtcMicros ?? 0,
     );
@@ -338,7 +427,10 @@ Card _cardOf(Candidate candidate) => Card(
   name: candidate.name,
   origin: candidate.origin,
   zone: candidate.zone,
-  estimateSeconds: estimateSecondsOf(candidate.size),
+  // A rescue step's own verbatim estimate; every other source's
+  // taxonomy size default (Story 4.6 — the estimate is the estimate).
+  estimateSeconds:
+      candidate.estimateSeconds ?? estimateSecondsOf(candidate.size),
 );
 
 List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
@@ -415,7 +507,8 @@ bool _chunkComposes(
 ) =>
     bagMinutes >= focusChunkLeastBagMinutes &&
     energy != EnergyLevel.low &&
-    !facts.focusSlotClosedDays.contains(day);
+    !facts.focusSlotClosedDays.contains(day) &&
+    !facts.focusSlotCarriedDays.contains(day);
 
 /// The one policy pipeline behind both surfaces of the weave (1.6's
 /// deferred unification): eligibility, cluster filtering, the chunk
@@ -427,6 +520,7 @@ bool _chunkComposes(
 typedef _DayPolicy = ({
   LogFacts facts,
   Card? chunk,
+  List<Card> rescueHeads,
   List<Card> maintenance,
   List<Card> instantHabits,
   Map<Size, int> dealtOnDay,
@@ -462,18 +556,35 @@ _DayPolicy _resolveDay({
   // arrive. Captures meet it like anyone (Story 3.3): a focus or
   // maintenance capture reaches no draw on a 🔴 day, an instant
   // capture (30 s) stands with the habits.
-  bool lowEnergyAdmits(Size size) =>
+  bool lowEnergyAdmits(Candidate candidate) =>
       energy != EnergyLevel.low ||
-      estimateSecondsOf(size) <= lowEnergyMaxEstimateSeconds;
+      (candidate.estimateSeconds ?? estimateSecondsOf(candidate.size)) <=
+          lowEnergyMaxEstimateSeconds;
+  // The superseded parents (Story 4.6): a parent whose chain exists
+  // never returns as a candidate from activation onward — the chain
+  // stands in its place (live, completed or dissolved alike), and a
+  // FAILED rescue leaves no chain, so its parent stays dealable. The
+  // one fold, shared with `captureCandidates`' source-side exclusion.
+  final supersededParents = supersededParentIds(poolFacts);
+  final dissolvedParents = dissolvedChainParentIds(
+    entries: log,
+    poolFacts: poolFacts,
+    instantUtcMicros: instantUtcMicros,
+  );
   final candidates = [
     for (final candidate in [
-      // The candidate sources in precedence order (AD-20): manual
-      // captures first (Story 3.3 — done-once retirement already
-      // applied at the source), the shipped catalogue behind them.
+      // The candidate sources in precedence order (AD-20): the live
+      // chains' head steps first (Story 4.6 — the conversion of a
+      // card the user already faced), manual captures behind them
+      // (Story 3.3 — done-once retirement already applied at the
+      // source), the shipped catalogue behind both.
+      ...rescueCandidates(poolFacts, facts.answeredItemIds, dissolvedParents),
       ...captureCandidates(poolFacts, facts.answeredItemIds),
       ...shippedCandidates(catalogue, activeClusters: clusters),
     ])
-      if (lowEnergyAdmits(candidate.size)) candidate,
+      if (lowEnergyAdmits(candidate) &&
+          !supersededParents.contains(candidate.itemId))
+        candidate,
   ];
   Card? chunk;
   if (_chunkComposes(bagMinutes, energy, facts, day) &&
@@ -521,6 +632,17 @@ _DayPolicy _resolveDay({
   return (
     facts: facts,
     chunk: chunk,
+    rescueHeads: [
+      for (final candidate in _orderedByResolver(
+        candidates
+            .where(
+              (candidate) => candidate.precedence == CandidatePrecedence.rescue,
+            )
+            .toList(),
+        facts,
+      ))
+        _cardOf(candidate),
+    ],
     maintenance: _draw(
       candidates
           .where((candidate) => candidate.size == Size.maintenance)
@@ -657,13 +779,18 @@ Card? _guardedTierDealOf(_DayPolicy policy, bool Function(Card card) allows) {
     // — or closing the session — clears the fact and frees the resolver.
     return null;
   }
-  // The tiers (AD-20): the chunk while it composes, then the day's
+  // The tiers (AD-20): a live chain's head first (Story 4.6 — the
+  // conversion stands ahead of everything, no new chunk may bury the
+  // next step), then the chunk while it composes, then the day's
   // remaining maintenance draws, then the instant draws — each tier's
   // head offered only when [allows] admits it. When nothing does, the
   // deal is absent and the read model presents the warm close. No
   // eager `session_ended` exists here or anywhere: the close row lands
   // at backgrounding, the declare tap, the reveal, or the pause tap —
   // AD-19's three closing causes at their four emission sites.
+  if (policy.rescueHeads.isNotEmpty && allows(policy.rescueHeads[0])) {
+    return policy.rescueHeads[0];
+  }
   final chunk = policy.chunk;
   if (chunk != null && allows(chunk)) {
     return chunk;
@@ -754,7 +881,10 @@ Card? cardForItem({
         name: fact.originContext ?? '',
         origin: origin,
         zone: null,
-        estimateSeconds: estimateSecondsOf(fact.size),
+        // A rescue step's own verbatim estimate stands on its standing
+        // card exactly as on its deal (Story 4.6) — the pocket reads
+        // the same number either way.
+        estimateSeconds: fact.estimateSeconds ?? estimateSecondsOf(fact.size),
       );
     }
   }

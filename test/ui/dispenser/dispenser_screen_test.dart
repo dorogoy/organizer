@@ -13,6 +13,15 @@
 // double skip — and a skip racing Hecho — lands exactly one row, a
 // failed skip heals through the empty frame, and the 200% fold still
 // carries the tap — the I/O matrix's rows, pinned.
+//
+// Since Story 4.6 the one control is resolved by card state (FR-5): a
+// normal card's tap ASKS (the failing-stub grammar — ask, calm
+// surface, back, then the degraded skip), a step card's tap skips
+// first (the depth cap's shell reading — the chain-seeded harness
+// deals the head step at launch), and the auto-heuristic fires at the
+// deal of a warranted item, once per activation. The skip-mechanics
+// rows above run on step cards where the catalogue semantics do not
+// matter, and on the ask-then-degrade grammar where they do.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -21,6 +30,7 @@ import 'dart:ui' as ui;
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
 import 'package:core/weave/weave.dart';
@@ -47,20 +57,62 @@ import 'package:organizer/ui/tokens.dart';
 /// The recording store (the session suite's own contract): appends land
 /// in order and every read replays them.
 class _RecordingStore implements StorePort {
+  _RecordingStore([List<PoolFactRecord> facts = const []])
+    : facts = List.of(facts);
+
   final List<LogEntryRecord> entries = [];
 
+  /// Since Story 4.6: the seeded pool-fact snapshot, and the fact
+  /// appends the rescue landing mints land in it — the store the
+  /// chain-seeded harness reads its steps back through.
+  final List<PoolFactRecord> facts;
+
   @override
-  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+  Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
 
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
       List.unmodifiable(entries);
+}
+
+/// The Slicer seam's steerable stub (Story 4.6): one outcome per
+/// construction, every request recorded — the port's own contract,
+/// nothing provider-shaped anywhere near the surface.
+class _StubSlicer implements SlicerPort {
+  _StubSlicer(this.outcome);
+
+  final SlicerOutcome outcome;
+  final List<RescueSliceRequest> requests = [];
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) async {
+    requests.add(request as RescueSliceRequest);
+    return outcome;
+  }
+}
+
+/// A slicer whose one ask parks behind a held completer — the
+/// provider-latency shape (Story 4.6): the rescue's network await is
+/// genuinely in flight while the dealt card still stands and still
+/// answers, and the test releases the outcome when it chooses.
+class _GatedSlicer implements SlicerPort {
+  final List<RescueSliceRequest> requests = [];
+  final Completer<SlicerOutcome> _outcome = Completer<SlicerOutcome>();
+
+  void complete(SlicerOutcome outcome) => _outcome.complete(outcome);
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) {
+    requests.add(request as RescueSliceRequest);
+    return _outcome.future;
+  }
 }
 
 /// A store whose first `card_done` append throws — the write-failure
@@ -85,7 +137,7 @@ class _FailFirstDoneStore implements StorePort {
   }
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -114,7 +166,37 @@ class _FailFirstSkippedStore implements StorePort {
   }
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose first `slice_requested` append throws — the rescue
+/// ask's write-failure row (Story 4.6): the controller rethrows, the
+/// screen absorbs it into the empty frame, and the log stays consistent
+/// (nothing landed — no activation, so no counter reset either).
+class _FailFirstSliceRequestedStore implements StorePort {
+  _FailFirstSliceRequestedStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'slice_requested') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -139,7 +221,7 @@ class _FailReadAfterDoneStore implements StorePort {
       _inner.appendLogEntry(entry);
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async {
@@ -186,7 +268,7 @@ class _GatedBundledDealStore implements StorePort {
   }
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -216,7 +298,7 @@ class _FailNextAppendStore implements StorePort {
   }
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -405,7 +487,7 @@ class _FailLaterDoneStore implements StorePort {
   }
 
   @override
-  Future<List<PoolFactRecord>> readPoolFacts() async => const [];
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
@@ -551,13 +633,114 @@ Widget _harness(
 void main() {
   final shipped = File(catalogueAssetPath).readAsStringSync();
 
-  DispenserController buildController(StorePort store, {AssetBundle? bundle}) =>
-      DispenserController(
-        store: store,
-        strings: AppStringsEs(),
-        bundle: bundle ?? _FakeBundle({catalogueAssetPath: shipped}),
-        nowOf: _fixedClock,
-      );
+  DispenserController buildController(
+    StorePort store, {
+    AssetBundle? bundle,
+    SlicerPort? slicer,
+  }) => DispenserController(
+    store: store,
+    strings: AppStringsEs(),
+    bundle: bundle ?? _FakeBundle({catalogueAssetPath: shipped}),
+    nowOf: _fixedClock,
+    slicer: slicer,
+  );
+
+  /// The card's own unsplit secondary — the skip control inside the
+  /// TaskCard, distinct from the bottom footer's `Nuevo proyecto`
+  /// affordance (Story 2.1) since both share the SecondaryTextAction
+  /// grammar.
+  final cardSecondaryFinder = find.descendant(
+    of: find.byType(TaskCard),
+    matching: find.byType(SecondaryTextAction),
+  );
+
+  /// The 4-6 failing stub: the airplane-mode shape — every ask fails
+  /// offline, the calm surface's own manual-check row. Fresh per call:
+  /// the recorded requests are one test's own, never a neighbour's.
+  _StubSlicer offlineSlicer() =>
+      _StubSlicer(const SlicerFailed(SlicerFailureCause.networkUnreachable));
+
+  /// A chain-seeded store (Story 4.6): a rescued focus capture and its
+  /// two live steps, standing in the pool before any launch — so the
+  /// launch deal itself is the head step, exactly the standing card
+  /// the depth cap's shell reading skips.
+  List<PoolFactRecord> chainFacts() => [
+    (
+      id: 'step-parent',
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: DateTime.utc(2026, 8, 29, 9).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Limpiar la campana de la cocina',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
+    ),
+    (
+      id: 'step-s1',
+      origin: Origin.manual,
+      size: Size.instant,
+      instantUtcMicros: DateTime.utc(2026, 8, 29, 9).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Buscar el desengrasante bajo el fregadero',
+      dictated: null,
+      rescueOf: 'step-parent',
+      estimateSeconds: 45,
+    ),
+    (
+      id: 'step-s2',
+      origin: Origin.manual,
+      size: Size.instant,
+      instantUtcMicros: DateTime.utc(2026, 8, 29, 9).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Rociar la campana y dejar actuar',
+      dictated: null,
+      rescueOf: 'step-parent',
+      estimateSeconds: 60,
+    ),
+  ];
+
+  /// The chain-seeded launch: the same sitting-and-commit shape as
+  /// [launchAndCommit], over a store whose pool holds a live chain —
+  /// the committed card is the head step `step-s1`.
+  Future<void> launchStepDealAndCommit(
+    WidgetTester tester,
+    StorePort store, {
+    SlicerPort? slicer,
+  }) async {
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    await tester.pumpWidget(_harness(buildController(store, slicer: slicer)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    final rows = await store.readLogEntries();
+    expect(
+      rows.firstWhere((entry) => entry.kind == 'card_dealt').itemId,
+      'step-s1',
+      reason:
+          'the launch deal is the chain\'s head — rescue '
+          'precedence above the chunk and every capture',
+    );
+  }
+
+  /// The 4-6 two-tap grammar's halves (FR-5): the first tap on a
+  /// normal card ASKS — with the offline stub it appends the
+  /// activation and the failure row and pushes the calm surface —
+  /// and the system back gesture is the OS pop that leaves the card
+  /// standing, degraded to its skip half for the rest of that deal.
+  Future<void> askAndFail(WidgetTester tester) async {
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> popNoSlicer(WidgetTester tester) async {
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  }
 
   /// The session's dealt row, found by kind — never by append position:
   /// a new fact landing between the open and the deal must not move the
@@ -984,6 +1167,7 @@ void main() {
             reportValue: null,
             reportWeek: null,
             permission: null,
+            sliceCause: null,
           ),
           (
             id: 'seed-deal',
@@ -1008,6 +1192,7 @@ void main() {
             reportValue: null,
             reportWeek: null,
             permission: null,
+            sliceCause: null,
           ),
         ]);
       final controller = DispenserController(
@@ -1043,25 +1228,20 @@ void main() {
     );
   });
 
-  /// The card's own unsplit secondary — the skip control inside the
-  /// TaskCard, distinct from the bottom footer's `Nuevo proyecto`
-  /// affordance (Story 2.1) since both share the SecondaryTextAction
-  /// grammar.
-  final cardSecondaryFinder = find.descendant(
-    of: find.byType(TaskCard),
-    matching: find.byType(SecondaryTextAction),
-  );
-
   /// The shared Story 1.9 harness: a launched session over the shipped
   /// catalogue, the screen committed on the launch deal, ready to tap.
-  Future<void> launchAndCommit(WidgetTester tester, StorePort store) async {
+  Future<void> launchAndCommit(
+    WidgetTester tester,
+    StorePort store, {
+    SlicerPort? slicer,
+  }) async {
     await SessionController(
       store: store,
       strings: AppStringsEs(),
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
       nowOf: _fixedClock,
     ).handleAppOpen();
-    await tester.pumpWidget(_harness(buildController(store)));
+    await tester.pumpWidget(_harness(buildController(store, slicer: slicer)));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
   }
@@ -1561,7 +1741,10 @@ void main() {
 
     await tester.pumpWidget(_harness(controller));
     await tester.pump();
-    first.complete(const DispenserDealt(_testCard));
+    // Since Story 4.6 the skip this race exercises is a STEP card's
+    // tap — the depth cap's own routing, the one card whose secondary
+    // still skips first.
+    first.complete(const DispenserDealt(_testCard, rescueStep: true));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
     final calls = _mockPlatformCalls(tester);
@@ -1588,19 +1771,40 @@ void main() {
     expect(find.text('¡Buen trabajo!'), findsNothing);
   });
 
-  testWidgets('tapping the secondary skips with no haptic and no ack — '
-      'the answer records once and the next candidate commits (FR-3, '
-      'Story 1.10)', (tester) async {
+  testWidgets('tapping the secondary on a normal card asks first — the '
+      'failed ask states its cause once through the calm surface, and '
+      'the second tap skips with no haptic and no ack — the answer '
+      'records once and the next candidate commits (FR-3 + FR-5, '
+      'Story 4-6 over 1.10)', (tester) async {
     final store = _RecordingStore();
-    await launchAndCommit(tester, store);
+    final slicer = offlineSlicer();
+    await launchAndCommit(tester, store, slicer: slicer);
     final firstDealtId = dealtEntryOf(store)!.itemId!;
     final calls = _mockPlatformCalls(tester);
+
+    // The first tap asks: the activation and the failure land, and the
+    // 4-5 calm surface states the mapped cause once — never styled as
+    // an error, the single exit beside it.
+    await askAndFail(tester);
+    expect(store.entries.map((entry) => entry.kind).toList().sublist(3), [
+      'slice_requested',
+      'slice_failed',
+    ]);
+    expect(store.entries.last.sliceCause, 'networkUnreachable');
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+    expect(find.text(AppStringsEs().noSlicerExit), findsOneWidget);
+    expect(slicer.requests.single.originContext, isNotEmpty);
+
+    // The system back gesture is the OS pop: the card stands dealable
+    // behind the route, degraded to its skip half for this deal.
+    await popNoSlicer(tester);
+    expect(find.byType(TaskCard), findsOneWidget);
 
     await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
     // Exactly one card_skipped, naming the dealt card, with the bundled
-    // next deal beside it.
+    // next deal beside it — nothing queued, nothing retried.
     expect(
       store.entries.where((entry) => entry.kind == 'card_skipped'),
       hasLength(1),
@@ -1630,12 +1834,18 @@ void main() {
 
   testWidgets('skipping the Focus Chunk leaves the day\'s slot open: a '
       'different candidate commits and the day\'s chunk remains available '
-      '(AD-20)', (tester) async {
+      '(AD-20 — since 4-6 through the ask-then-degrade grammar)', (
+    tester,
+  ) async {
     final store = _RecordingStore();
-    await launchAndCommit(tester, store);
+    await launchAndCommit(tester, store, slicer: offlineSlicer());
     final firstDealtId = dealtEntryOf(store)!.itemId!;
     final calls = _mockPlatformCalls(tester);
 
+    // The ask fails once, the surface states it, the back leaves the
+    // card standing — then the degraded tap is the plain skip.
+    await askAndFail(tester);
+    await popNoSlicer(tester);
     await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
@@ -1682,7 +1892,7 @@ void main() {
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
       nowOf: _fixedClock,
     ).handleAppOpen();
-    final controller = buildController(store);
+    final controller = buildController(store, slicer: offlineSlicer());
     // The screen renders the ninth card; its secondary closes the day.
     for (var i = 0; i < 8; i++) {
       final view = await controller.read();
@@ -1694,6 +1904,11 @@ void main() {
     expect(find.byType(TaskCard), findsOneWidget);
     final calls = _mockPlatformCalls(tester);
 
+    // The ask fails once (the offline stub), the surface states it,
+    // the back leaves the ninth card standing — then the degraded tap
+    // is the plain skip that closes the day.
+    await askAndFail(tester);
+    await popNoSlicer(tester);
     await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
@@ -1713,7 +1928,11 @@ void main() {
   testWidgets('a rapid double skip appends exactly one card_skipped — the '
       'in-flight guard returns early and the serialization guard reads the '
       'answered log', (tester) async {
-    final inner = _RecordingStore();
+    // Since Story 4.6 the double-tap race is a STEP card's tap (the
+    // launch deal over a chain-seeded pool) — the one card whose
+    // secondary still skips first, so the skip is genuinely in flight
+    // when the second tap lands.
+    final inner = _RecordingStore(chainFacts());
     final gate = Completer<void>();
     final store = _GatedBundledDealStore(
       inner,
@@ -1730,6 +1949,7 @@ void main() {
     await tester.pumpWidget(_harness(buildController(store)));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
+    expect(dealtEntryOf(inner)!.itemId, 'step-s1');
     final calls = _mockPlatformCalls(tester);
 
     // The first skip's write parks behind the gate — the batch is
@@ -1752,6 +1972,11 @@ void main() {
       hasLength(2),
       reason: 'the launch deal plus the one bundled next deal',
     );
+    expect(
+      inner.entries.where((entry) => entry.kind.startsWith('slice_')),
+      isEmpty,
+      reason: 'a step\'s tap never asks — no rescue row exists',
+    );
     expect(find.byType(TaskCard), findsOneWidget);
     expect(find.text('¡Buen trabajo!'), findsNothing);
     expect(_hapticImpacts(calls), isEmpty);
@@ -1763,7 +1988,9 @@ void main() {
   ) async {
     // Skip first, Hecho second: the skip lands, the Hecho appends
     // nothing and fired no haptic (the guard returns before one would).
-    final skipFirst = _RecordingStore();
+    // Since 4-6 the racing skip is a STEP card's tap — the chain-seeded
+    // launch deal, whose secondary skips first.
+    final skipFirst = _RecordingStore(chainFacts());
     final skipGate = Completer<void>();
     final skipStore = _GatedBundledDealStore(
       skipFirst,
@@ -1842,9 +2069,12 @@ void main() {
       'haptic, no ack, nothing surfaced — and the healed retry skips', (
     tester,
   ) async {
-    final inner = _RecordingStore();
+    // Since Story 4.6 the failing skip is a STEP card's tap (the
+    // chain-seeded launch deal) — the one card whose secondary still
+    // skips first, so the write-failure row keeps its original shape.
+    final inner = _RecordingStore(chainFacts());
     final store = _FailFirstSkippedStore(inner);
-    await launchAndCommit(tester, store);
+    await launchStepDealAndCommit(tester, store);
     final calls = _mockPlatformCalls(tester);
 
     await tester.tap(cardSecondaryFinder);
@@ -1870,7 +2100,7 @@ void main() {
 
     // The guard's finally released the write: the secondary is not
     // bricked. The retried skip lands — the store already spent its one
-    // failure — and the different card commits, still feedback-free.
+    // failure — and the card commits, still feedback-free.
     await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
@@ -1894,8 +2124,11 @@ void main() {
     await tester.binding.setSurfaceSize(const ui.Size(320, 480));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final store = _RecordingStore();
-    await launchAndCommit(tester, store);
+    // Since Story 4.6 the folded skip is a STEP card's tap (the
+    // chain-seeded launch deal) — the depth cap's routing reaches the
+    // fold exactly as the plain skip did.
+    final store = _RecordingStore(chainFacts());
+    await launchStepDealAndCommit(tester, store);
     final calls = _mockPlatformCalls(tester);
 
     // The grown card pushes the control below the fold — the screen
@@ -1915,14 +2148,15 @@ void main() {
     );
     // The next candidate is on screen, and its control is still the
     // one-piece string — whole or folded, never split into pieces.
-    final catalogue = await loadEvergreenCatalogue(
-      AppStringsEs(),
-      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    // The declined step is still the chain's head (skips never
+    // exclude), so the re-dealt card is the step itself.
+    expect(
+      find.text('Buscar el desengrasante bajo el fregadero'),
+      findsOneWidget,
+      reason:
+          'the anti-wall rule: the declined head re-deals, never '
+          'an empty card',
     );
-    final next = catalogue.entries.firstWhere(
-      (entry) => entry.id == latestDealtEntryOf(store)!.itemId,
-    );
-    expect(find.text(next.name), findsOneWidget);
     expect(find.text('Otra más fácil / Ahora no'), findsOneWidget);
     expect(_hapticImpacts(calls), isEmpty);
   });
@@ -1930,8 +2164,13 @@ void main() {
   testWidgets('a skip under a visible completion ack commits the '
       'alternative with the ack still standing above it — the original '
       'window, never a restarted one, clears it', (tester) async {
-    final store = _RecordingStore();
-    await launchAndCommit(tester, store);
+    // Since Story 4.6 the under-ack skip is a STEP card's tap: the
+    // chain-seeded launch deals the head step, its Hecho completes with
+    // the second step bundled beside the ack — and the timing
+    // arithmetic below stays exact because the step's tap skips first,
+    // no ask in between.
+    final store = _RecordingStore(chainFacts());
+    await launchStepDealAndCommit(tester, store);
     final calls = _mockPlatformCalls(tester);
 
     // The completion lands: zero-duration pumps commit its read without
@@ -1980,9 +2219,12 @@ void main() {
   testWidgets('a failed skip under a visible completion ack leaves the ack '
       'standing — the healed commit carries it, the original window clears '
       'it', (tester) async {
-    final inner = _RecordingStore();
+    // Since Story 4.6 the failing skip is a STEP card's tap (the
+    // chain-seeded second step standing under the ack) — the one card
+    // whose secondary still skips first.
+    final inner = _RecordingStore(chainFacts());
     final store = _FailFirstSkippedStore(inner);
-    await launchAndCommit(tester, store);
+    await launchStepDealAndCommit(tester, store);
     final calls = _mockPlatformCalls(tester);
 
     // The completion lands: the ack is mid-window and visible above the
@@ -2022,6 +2264,496 @@ void main() {
     expect(find.text('¡Buen trabajo!'), findsNothing);
     expect(find.byType(TaskCard), findsOneWidget);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('the one control on a step card IS its skip half — one tap '
+      'passes, no ask rows exist, quiet (FR-5\'s depth cap at the surface)', (
+    tester,
+  ) async {
+    final store = _RecordingStore(chainFacts());
+    final slicer = offlineSlicer();
+    await launchStepDealAndCommit(tester, store, slicer: slicer);
+    final calls = _mockPlatformCalls(tester);
+    final before = store.entries.length;
+
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+
+    expect(
+      store.entries.skip(before).map((entry) => entry.kind).toList(),
+      ['card_skipped', 'card_dealt'],
+      reason:
+          'a step\'s tap is the plain skip — no refusal surface, no '
+          'error, no slice row anywhere',
+    );
+    expect(store.entries[before].itemId, 'step-s1');
+    expect(slicer.requests, isEmpty, reason: 'the ask never happened');
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(_hapticImpacts(calls), isEmpty);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+  });
+
+  testWidgets('a delivered re-slice at the tap lands whole — the steps '
+      'arrive, the head step deals, and no surface opens: the superseded '
+      'card is gone and the chain stands in its place (FR-5)', (tester) async {
+    const body =
+        '{"steps":['
+        '{"text":"Buscar el desengrasante bajo el fregadero","duration_seconds":45},'
+        '{"text":"Rociar la campana y dejar actuar","duration_seconds":60}]}';
+    final slicer = _StubSlicer(const SlicerDelivered(body));
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: slicer);
+    final chunkId = dealtEntryOf(store)!.itemId!;
+    final calls = _mockPlatformCalls(tester);
+
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+
+    // The landing: the activation, the supersede pair, and the step
+    // facts beside them — the request rode the card's own name.
+    expect(store.entries.map((entry) => entry.kind).toList().sublist(3), [
+      'slice_requested',
+      'slice_returned',
+      'card_dealt',
+    ]);
+    expect(store.facts, hasLength(2));
+    expect(store.facts.every((fact) => fact.rescueOf == chunkId), isTrue);
+    expect(
+      store.entries.last.itemId,
+      store.facts.first.id,
+      reason: 'the head step is the deal the landing bundled',
+    );
+    // The head step stands where the stuck card stood — its own text,
+    // its own estimate — and the superseded card is gone entirely.
+    expect(
+      find.text('Buscar el desengrasante bajo el fregadero'),
+      findsOneWidget,
+    );
+    expect(find.text('45\u00A0s'), findsOneWidget);
+    final catalogue = await loadEvergreenCatalogue(
+      AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+    );
+    expect(
+      find.text(
+        catalogue.entries.firstWhere((entry) => entry.id == chunkId).name,
+      ),
+      findsNothing,
+    );
+    // No surface opened: a success states nothing.
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(_hapticImpacts(calls), isEmpty);
+    expect(find.text('¡Buen trabajo!'), findsNothing);
+  });
+
+  testWidgets('a Hecho during the rescue\'s provider latency lands '
+      'normally — the flight guard is not the write guard, so the user\'s '
+      'act is never swallowed — and the landing discards quietly: the row '
+      'logs, nothing mints, no supersede pair, the answered card\'s '
+      'successor still standing (FR-5)', (tester) async {
+    const body =
+        '{"steps":['
+        '{"text":"Buscar el desengrasante bajo el fregadero","duration_seconds":45},'
+        '{"text":"Rociar la campana y dejar actuar","duration_seconds":60}]}';
+    final slicer = _GatedSlicer();
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: slicer);
+    final stuckId = dealtEntryOf(store)!.itemId!;
+    final calls = _mockPlatformCalls(tester);
+
+    // The ask: the activation lands, then the flight parks on the
+    // provider's latency — the card still stands and still answers.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pump();
+    await tester.pump();
+    expect(store.entries.last.kind, 'slice_requested');
+
+    // The user answers the still-standing card mid-flight: the Hecho
+    // is a real act on a real card, and the shared write guard is
+    // free through the whole await — only a second rescue of the same
+    // deal would return early.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    final successor = latestDealtEntryOf(store)!;
+    expect(successor.itemId, isNot(stuckId));
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(_hapticImpacts(calls), hasLength(1));
+    expect(find.text('¡Buen trabajo!'), findsOneWidget);
+
+    // The delivery arrives into an ended deal: the discard is quiet —
+    // one slice_returned row, no fact, no bundled step deal — and the
+    // successor the Hecho committed still stands.
+    slicer.complete(const SlicerDelivered(body));
+    await tester.pumpAndSettle();
+
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'slice_requested',
+      'card_done',
+      'card_dealt',
+      'slice_returned',
+    ]);
+    expect(
+      store.facts,
+      isEmpty,
+      reason:
+          'the core discarded the steps: the parent was answered in '
+          'flight, and the row alone logs the landing',
+    );
+    expect(latestDealtEntryOf(store)!.itemId, successor.itemId);
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failing rescue-ask append is absorbed by the empty '
+      'frame — no calm surface opens, no degradation is keyed, no auto '
+      'marker is armed — and the healed tap asks again while the guard '
+      'still lets a Hecho land (the rescue family\'s write-failure row)', (
+    tester,
+  ) async {
+    final inner = _RecordingStore();
+    final store = _FailFirstSliceRequestedStore(inner);
+    await launchAndCommit(tester, store, slicer: offlineSlicer());
+    final calls = _mockPlatformCalls(tester);
+
+    // The ask's activation write fails: nothing landed, so the frame
+    // empties quietly — no cause was stated, no surface may open, and
+    // nothing degraded (nothing landed to degrade on).
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(
+      inner.entries.where((entry) => entry.kind.startsWith('slice_')),
+      isEmpty,
+      reason: 'the log stayed consistent: nothing landed',
+    );
+    expect(_hapticImpacts(calls), isEmpty);
+
+    // The foreground heal re-reads: the still-unanswered card returns.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    // No degradation was keyed: the healed secondary ASKS again — a
+    // degraded control would have skipped — and this time the write
+    // lands (the failure was the store's one throw).
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(inner.entries.map((entry) => entry.kind).toList().sublist(3), [
+      'slice_requested',
+      'slice_failed',
+    ]);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+    await popNoSlicer(tester);
+
+    // The flight guard released on the failure: a Hecho still lands.
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    expect(
+      inner.entries.where((entry) => entry.kind == 'card_done'),
+      hasLength(1),
+    );
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(_hapticImpacts(calls), hasLength(1));
+  });
+
+  testWidgets('the degrade is per-deal: a session close ends it — the '
+      'card stands unanswered through the close, and the fresh deal of '
+      'the same item asks again, never skip-only (FR-5\'s "the rest of '
+      'that deal")', (tester) async {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    final store = _RecordingStore([
+      (
+        id: captureId,
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros: DateTime.utc(2026, 8, 25).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
+      ),
+    ]);
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    await tester.pumpWidget(
+      _harness(buildController(store, slicer: offlineSlicer())),
+    );
+    await tester.pumpAndSettle();
+    expect(dealtEntryOf(store)!.itemId, captureId);
+
+    // The ask fails once: the control degrades for the rest of THIS
+    // deal — skip-only, the cause already stated.
+    await askAndFail(tester);
+    await popNoSlicer(tester);
+
+    // The session close ends the deal with the card still standing:
+    // the warm close commits, and the degrade died with the deal.
+    await tester.tap(find.text('Quiero parar'));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+    // A fresh opening deals the same never-answered capture again...
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('Llamar al dentista'), findsOneWidget);
+
+    // ...and its control asks again — a stale degrade keyed past its
+    // deal's end would have skipped here, FR-3's exit unreachable.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(2),
+    );
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      isEmpty,
+      reason: 'the degrade is skip-only for the rest of THAT deal alone',
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+  });
+
+  testWidgets('the auto-heuristic fires at the deal of a warranted item — '
+      'once, while the card stands, and the activation\'s reset keeps '
+      'later refreshes quiet (FR-5)', (tester) async {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    PoolFactRecord captureFact(DateTime at) => (
+      id: captureId,
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Llamar al dentista',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
+    );
+    LogEntryRecord seedRow(
+      String kind,
+      DateTime at,
+      String id, {
+      String? itemId,
+    }) => (
+      id: id,
+      kind: kind,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.manual,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+    );
+
+    // Three eligible days of declines, each its own closed sitting.
+    List<LogEntryRecord> decline(int day) => [
+      seedRow('session_started', DateTime.utc(2026, 8, day, 10), 's$day'),
+      seedRow(
+        'card_dealt',
+        DateTime.utc(2026, 8, day, 10, 0, 1),
+        'd$day',
+        itemId: captureId,
+      ),
+      seedRow(
+        'card_skipped',
+        DateTime.utc(2026, 8, day, 10, 0, 2),
+        'k$day',
+        itemId: captureId,
+      ),
+      seedRow('session_ended', DateTime.utc(2026, 8, day, 10, 0, 3), 'e$day'),
+    ];
+
+    final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+      ..entries.addAll([...decline(26), ...decline(27), ...decline(28)]);
+    // The launch: today's sitting deals the warranted capture itself.
+    await SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    await tester.pumpWidget(
+      _harness(buildController(store, slicer: offlineSlicer())),
+    );
+    await tester.pumpAndSettle();
+
+    // The auto path fired at the deal: the activation and the failure
+    // landed while the card stood, and the calm surface states the
+    // cause — the same ask the tap makes, never a second path.
+    expect(store.entries.skip(12).map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'slice_requested',
+      'slice_failed',
+    ]);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+
+    await popNoSlicer(tester);
+    final afterFire = store.entries.length;
+
+    // A foreground refresh re-reads — the activation already reset the
+    // counter, so no second fire exists (a failed rescue cannot
+    // re-trigger on every deal).
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(store.entries.length, afterFire);
+    expect(
+      find.byType(TaskCard),
+      findsOneWidget,
+      reason: 'the warranted card still stands behind it all',
+    );
+  });
+
+  testWidgets('the auto-heuristic\'s marker is per-deal: the close ends '
+      'it, and a re-warranted deal of the same item days later '
+      'auto-fires again — the counter alone decides (FR-5)', (tester) async {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    var now = DateTime.utc(2026, 8, 29, 12);
+    DateTime mutableClock() => now;
+    PoolFactRecord captureFact(DateTime at) => (
+      id: captureId,
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Llamar al dentista',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
+    );
+    LogEntryRecord seedRow(
+      String kind,
+      DateTime at,
+      String id, {
+      String? itemId,
+    }) => (
+      id: id,
+      kind: kind,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.manual,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+    );
+
+    // An eligible decline day: its own closed sitting around the item.
+    List<LogEntryRecord> decline(int day) => [
+      seedRow('session_started', DateTime.utc(2026, 8, day, 10), 's$day'),
+      seedRow(
+        'card_dealt',
+        DateTime.utc(2026, 8, day, 10, 0, 1),
+        'd$day',
+        itemId: captureId,
+      ),
+      seedRow(
+        'card_skipped',
+        DateTime.utc(2026, 8, day, 10, 0, 2),
+        'k$day',
+        itemId: captureId,
+      ),
+      seedRow('session_ended', DateTime.utc(2026, 8, day, 10, 0, 3), 'e$day'),
+    ];
+
+    final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+      ..entries.addAll([...decline(26), ...decline(27), ...decline(28)]);
+    final session = SessionController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: mutableClock,
+    );
+    await session.handleAppOpen();
+    final controller = DispenserController(
+      store: store,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: mutableClock,
+      slicer: offlineSlicer(),
+    );
+
+    await tester.pumpWidget(_harness(controller));
+    await tester.pumpAndSettle();
+
+    // Fired once at the deal of the warranted item.
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(1),
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+    await popNoSlicer(tester);
+
+    // The session close ends the deal with the card standing — the
+    // marker (and the degrade) died with it.
+    await tester.tap(find.text('Quiero parar'));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+
+    // Days later, three more decline days re-warrant the same item...
+    now = now.add(const Duration(days: 4));
+    store.entries.addAll([...decline(30), ...decline(31), ...decline(32)]);
+
+    // ...and the fresh opening deals the same capture again: the auto
+    // path fires a SECOND time. A marker that outlived its deal would
+    // hold this fire — only the counter may decide.
+    await session.handleAppOpen();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(2),
+      reason:
+          'the per-deal marker cleared at the deal\'s end — the '
+          're-warranted fire is the counter\'s alone',
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
   });
 
   testWidgets('a seven-day absence opens like any day plus the one '
@@ -2067,6 +2799,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     );
 
     final gapStore = _RecordingStore()
@@ -2260,6 +2993,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -2336,6 +3070,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -2365,6 +3100,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
       ]);
 
@@ -2552,6 +3288,7 @@ void main() {
             reportValue: null,
             reportWeek: null,
             permission: null,
+            sliceCause: null,
           ));
         }
         await SessionController(
@@ -2629,6 +3366,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     }
 
@@ -2945,6 +3683,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       await SessionController(
         store: store,
@@ -3076,6 +3815,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     }
 
@@ -3617,6 +4357,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1389,
         permission: null,
+        sliceCause: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -3635,6 +4376,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     }
 
@@ -3780,6 +4522,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));

@@ -7,11 +7,13 @@ import 'dart:io';
 
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/slicer_port.dart';
+import 'package:core/slicer/rescue_steps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:organizer/egress/byok_slicer.dart';
 import 'package:organizer/egress/byok_wire.dart';
+import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/egress/provider_allowlist.dart';
 import 'package:organizer/egress/rescue_contract.dart';
 import 'package:organizer/platform/credentials/credentials_cipher.dart';
@@ -918,6 +920,88 @@ void main() {
             geminiSchemaFrom('{"type":"object","properties":{"steps":"oops"}}'),
         throwsStateError,
       );
+    });
+  });
+
+  group('the 4-6 parity pin — the shell contract and the core parse agree', () {
+    // The contract of record lives here (rescue_contract.dart); the
+    // parse of record lives in core (rescue_steps.dart, AD-5) and
+    // cannot import it. This group is the pin: a drift in either
+    // direction — a renamed wire field, a stub outside the bounds —
+    // fails the gate.
+    test('the canonical schema\'s derived field names ARE the core '
+        'parser\'s wire names — the two statements of the three '
+        'cannot drift', () {
+      final names = rescueSchemaFieldNames();
+      expect(rescueWireStepsField, names.steps);
+      expect(rescueWireTextField, names.text);
+      expect(rescueWireDurationField, names.durationSeconds);
+    });
+
+    test('the Local stub\'s canned body parses in core — the debug '
+        'stub stays inside the runtime contract', () async {
+      const stub = LocalSlicer(cannedMarker: 'rebanada enlatada');
+      final outcome = await stub.slice(rescue);
+      final steps = parseRescueSteps((outcome as SlicerDelivered).responseBody);
+      expect(steps, isNotNull);
+      expect(steps!.length, cannedSliceStepCount);
+      expect(steps.first.durationSeconds, cannedSliceFirstStepSeconds);
+      expect(steps.last.durationSeconds, cannedSliceLaterStepSeconds);
+      expect(steps.first.text, 'rebanada enlatada');
+    });
+
+    test('a gemini-dialect extraction — the joined text parts of the '
+        'happy path — parses in core against the same contract', () async {
+      await seedKey('gemini', 'g-key-1');
+      final client = recording(
+        (request) => jsonResponse({
+          candidatesKey: [
+            {
+              contentKey: {
+                partsKey: [
+                  {textKey: '{"steps":['},
+                  {textKey: '{"text":"x","duration_seconds":30}]}'},
+                ],
+              },
+            },
+          ],
+        }),
+      );
+      final outcome = await slicerWith(client, 'gemini').slice(rescue);
+      final steps = parseRescueSteps((outcome as SlicerDelivered).responseBody);
+      // One step is under the contract's least count: the parse is
+      // where the bounds hold, whatever a wire dropped on the way out
+      // (the extraction itself was sound JSON).
+      expect(
+        steps,
+        isNull,
+        reason:
+            'a body the core cannot weave as work reads '
+            'malformedResponse downstream — no repair exists',
+      );
+    });
+
+    test('the prompt\'s own JSON-shape example round-trips as '
+        'structure — a provider answering the shape it was shown '
+        'parses', () {
+      final names = rescueSchemaFieldNames();
+      final body = jsonEncode(<String, Object?>{
+        names.steps: <Map<String, Object?>>[
+          {
+            names.text: 'Sacar todo lo de encima de la mesa',
+            names.durationSeconds: 60,
+          },
+          {
+            names.text: 'Pasarlo a su sitio con una pasada',
+            names.durationSeconds: 45,
+          },
+          {names.text: 'Repasar con un trapo', names.durationSeconds: 20},
+        ],
+      });
+      final steps = parseRescueSteps(body);
+      expect(steps, isNotNull);
+      expect(steps!.length, 3);
+      expect(steps[1].durationSeconds, 45);
     });
   });
 }

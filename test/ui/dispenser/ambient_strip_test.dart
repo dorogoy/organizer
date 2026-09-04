@@ -239,6 +239,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1389,
         permission: null,
+        sliceCause: null,
       ));
     final session = SessionController(
       store: store,
@@ -513,6 +514,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1389,
         permission: null,
+        sliceCause: null,
       ))
       ..entries.add((
         id: 'seed-offer',
@@ -536,6 +538,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     final controller = DispenserController(
       store: store,

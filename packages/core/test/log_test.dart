@@ -1,5 +1,6 @@
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:test/test.dart';
@@ -17,6 +18,7 @@ LogEntryRecord _record(
   int? reportValue,
   int? reportWeek,
   String? permission,
+  String? sliceCause,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -33,11 +35,12 @@ LogEntryRecord _record(
   reportValue: reportValue,
   reportWeek: reportWeek,
   permission: permission,
+  sliceCause: sliceCause,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s thirteen kinds', () {
+    test('holds exactly the build\'s sixteen kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -52,6 +55,9 @@ void main() {
         LogKind.reportAnswered,
         LogKind.captureCreated,
         LogKind.permissionRefused,
+        LogKind.sliceRequested,
+        LogKind.sliceReturned,
+        LogKind.sliceFailed,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -67,8 +73,11 @@ void main() {
         'session_extended',
         'session_started',
         'setting_changed',
+        'slice_failed',
+        'slice_requested',
+        'slice_returned',
       ]);
-      expect(LogKind.knownByName, hasLength(13));
+      expect(LogKind.knownByName, hasLength(16));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1274,5 +1283,105 @@ void main() {
         expect(entries[2].kind, LogKind.cardDealt);
       },
     );
+  });
+
+  group('the slice payload path (Story 4.6, FR-5, AD-21, AD-23)', () {
+    test('a valid slice_requested and slice_returned convert whole — '
+        'the full item pair and nothing else', () {
+      for (final wire in ['slice_requested', 'slice_returned']) {
+        final conversion = convertLogEntryRecord(
+          _record(wire, itemId: 'cap-a', itemOrigin: Origin.manual),
+        );
+        expect(conversion.flaw, isNull, reason: wire);
+        final entry = conversion.entry as SliceEntry;
+        expect(entry.kind.name, wire);
+        expect(entry.itemId, 'cap-a');
+        expect(entry.itemOrigin, Origin.manual);
+        expect(entry.cause, isNull, reason: 'the content kinds carry none');
+      }
+    });
+
+    test('a valid slice_failed converts with its cause — one of the '
+        'seven the port\'s enum names', () {
+      final conversion = convertLogEntryRecord(
+        _record(
+          'slice_failed',
+          itemId: 'cap-a',
+          itemOrigin: Origin.manual,
+          sliceCause: 'quotaExhausted',
+        ),
+      );
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry as SliceEntry;
+      expect(entry.cause, SlicerFailureCause.quotaExhausted);
+    });
+
+    test('a slice_failed without a cause this build can read is '
+        'sliceCauseAbsent — the column absent, empty, or naming an '
+        'unknown cause alike', () {
+      for (final cause in [null, '', 'futureCause']) {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'slice_failed',
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+          ),
+        );
+        expect(conversion.entry, isNull);
+        expect(
+          conversion.flaw,
+          LogRecordFlaw.sliceCauseAbsent,
+          reason: 'cause=$cause',
+        );
+      }
+    });
+
+    test('a cause riding a kind that is not slice_failed is '
+        'causeOnNonFailedKind — the slice content kinds and a plain '
+        'card_dealt alike', () {
+      for (final record in [
+        _record(
+          'slice_requested',
+          itemId: 'cap-a',
+          itemOrigin: Origin.manual,
+          sliceCause: 'invalidKey',
+        ),
+        _record(
+          'slice_returned',
+          itemId: 'cap-a',
+          itemOrigin: Origin.manual,
+          sliceCause: 'invalidKey',
+        ),
+        _record(
+          'card_dealt',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          sliceCause: 'invalidKey',
+        ),
+      ]) {
+        final conversion = convertLogEntryRecord(record);
+        expect(conversion.entry, isNull, reason: record.kind);
+        expect(conversion.flaw, LogRecordFlaw.causeOnNonFailedKind);
+      }
+    });
+
+    test('a half item pair on a slice kind reads like any act\'s — '
+        'halfItemPair, and the absent pair itemPairAbsent', () {
+      expect(
+        convertLogEntryRecord(_record('slice_requested', itemId: 'cap-a')).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      expect(
+        convertLogEntryRecord(
+          _record('slice_requested', itemOrigin: Origin.manual),
+        ).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      expect(
+        convertLogEntryRecord(_record('slice_returned')).flaw,
+        LogRecordFlaw.itemPairAbsent,
+      );
+    });
   });
 }

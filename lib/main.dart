@@ -56,8 +56,8 @@ void main() {
   // The Slicer (Story 4-4, AD-9): the factory composes it inside the
   // egress module — the one place an HTTP client may be constructed
   // — over the vault and the settings derivation's per-call reader.
-  // Threaded into the shell root like the vault, and equally unread:
-  // no surface calls it until 4-6 wires Rescue Mode.
+  // Threaded into the shell root for the Dispenser's rescue path
+  // (Story 4-6), the port's one production call site.
   final slicer = buildSlicer(
     vault: vault,
     readSelectedProvider: settings.readSelectedProvider,
@@ -85,6 +85,13 @@ void main() {
           store: store,
           strings: AppStringsEs(),
           writeQueue: logWrites,
+          // The Slicer (Story 4-6, AD-9): the Dispenser's rescue path
+          // is the port's one production call site — the same instance
+          // main composed through the egress factory, threaded here so
+          // the one control's ask and the auto-heuristic's fire reach
+          // the BYOK path without the surface ever naming a provider,
+          // a key or a network.
+          slicer: slicer,
         ),
         sessionSettled: () => session.settled,
         settings: settings,

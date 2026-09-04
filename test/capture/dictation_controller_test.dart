@@ -156,6 +156,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: 'microphone',
+          sliceCause: null,
         ),
       ];
       return entries;

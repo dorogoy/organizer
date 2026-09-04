@@ -152,6 +152,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -170,6 +171,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -247,6 +249,8 @@ void main() {
         offsetSeconds: 0,
         originContext: 'Llamar al dentista',
         dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
       ),
     ]);
     await buildController(store).handleAppOpen();
@@ -574,6 +578,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
         _act(
           'card_dealt',
@@ -636,6 +641,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
       ]);
     await buildController(within).handleAppOpen();

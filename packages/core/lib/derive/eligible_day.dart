@@ -66,6 +66,26 @@ import 'package:core/weave/weave.dart';
 /// resolver consults.
 const int captureDealWindowEligibleDays = 3;
 
+/// The item half of the one predicate as an anchor (Story 4.6's
+/// refactor): the taxonomy size the energy clause reads, and the
+/// creation instant no eligible day's witness start may precede. A
+/// pool fact is one anchor — its own size, its own creation; a shipped
+/// catalogue entry is the fact-less one, its size off the entry and
+/// its start unbounded ([eligibleDayUnboundedStart]) — the same
+/// single predicate, AD-24's law, never a second copy of it.
+typedef EligibleDayAnchor = ({Size size, int noEarlierThanUtcMicros});
+
+/// The fact-less anchor's start: no instant a session start could name
+/// precedes it, so a catalogue item's days are bounded by the log
+/// alone — "no earlier than" = ever (Story 4.6, FR-5).
+const int eligibleDayUnboundedStart = -1;
+
+/// The anchor of a pool fact — its own size, its own creation instant
+/// (Story 3.3's original item half, now one adapter beside the
+/// catalogue's).
+EligibleDayAnchor eligibleDayAnchorOfFact(PoolFact fact) =>
+    (size: fact.size, noEarlierThanUtcMicros: fact.instantUtcMicros);
+
 /// Whether [size] survives the energy derived at [start]'s own start
 /// (AD-24's retrospective per-session reading of the one low-energy
 /// ceiling): the last `energy_set` row of the start's own domestic
@@ -116,19 +136,37 @@ bool eligibleDay({
   required Day day,
   required int instantUtcMicros,
 }) {
+  return eligibleDayOfAnchor(
+    entries: entries,
+    anchor: eligibleDayAnchorOfFact(fact),
+    day: day,
+    instantUtcMicros: instantUtcMicros,
+  );
+}
+
+/// The same one predicate over any anchor (Story 4.6, FR-5): a pool
+/// fact's, or a shipped entry's fact-less one. This is the predicate
+/// itself — [eligibleDay] above is its fact adapter, and no second
+/// copy of the law exists (AD-24).
+bool eligibleDayOfAnchor({
+  required List<LogEntry> entries,
+  required EligibleDayAnchor anchor,
+  required Day day,
+  required int instantUtcMicros,
+}) {
   const calendar = Calendar();
   for (final entry in entries) {
     if (entry is! SessionStartEntry) {
       continue;
     }
     if (entry.instantUtcMicros > instantUtcMicros ||
-        entry.instantUtcMicros < fact.instantUtcMicros) {
+        entry.instantUtcMicros < anchor.noEarlierThanUtcMicros) {
       continue;
     }
     if (calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds) != day) {
       continue;
     }
-    if (_sizeNotExcludedAtStart(entries, entry, fact.size, day, calendar)) {
+    if (_sizeNotExcludedAtStart(entries, entry, anchor.size, day, calendar)) {
       return true;
     }
   }
