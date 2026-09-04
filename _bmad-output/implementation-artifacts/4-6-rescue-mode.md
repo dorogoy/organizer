@@ -265,3 +265,21 @@ Full-diff review pass — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Ve
 - [x] [Review][Patch] Move `supersededParentIds` above `captureCandidates`' docblock so doc comments attach correctly [`packages/core/lib/weave/weave.dart:223`]
 - [x] [Review][Defer] Non-atomic multi-append in rescue landing leaves intermediate state on crash [`lib/dispenser/dispenser_controller.dart:649`] — deferred, pre-existing
 
+
+## Manual Verification
+
+Run of 2026-09-04 — headless emulator `organizer36` (android-36 google_apis x86_64, Pixel 6 profile, KVM), debug builds installed via adb, UI verified by screencap + OCR, substrate read with sqlite3 (`adb root` + pull). Screenshots: `01`–`09` (session record; deterministic fresh-install deal order made both scenarios deal `fregar-el-suelo-del-bano` first).
+
+**A — rescue end-to-end, canned Local Slicer** (`--dart-define=ORGANIZER_LOCAL_SLICER=true`):
+
+- Tap on `Otra más fácil / Ahora no` over the dealt `Fregar el suelo del baño` (15 min) → in-place swap: the head step deals as `Paso local de ejemplo — este plan no es real`, chip `30 s` — canned register visible, tonally an ordinary card (screenshots 02–03).
+- `Hecho` × 2 → after the last step the next deal is a different task (`Barrer bajo la mesa del comedor`, 3 min): the parent never returns (04–05).
+- Substrate truth: `slice_requested` + `slice_returned` for the parent; two pool facts `origin=shipped` (inherited), `size=instant`, `rescue_of=<parent>`, `estimate_seconds=30/45` verbatim; `card_done` rows name the two step ids only — **no synthetic parent completion**; step 2 is dealt only after step 1 is answered (one at a time).
+
+**B — honest degradation, BYOK with no key** (plain debug build, fresh data):
+
+- Tap → the 4-5 calm surface renders the `noKey` string verbatim (`No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.`) with the single `Anotarlo` exit; no error styling (06–07).
+- OS back → the dealt card stands unchanged (08). Second tap on the control → plain skip: next card deals (`Limpiar la ducha o la bañera`) (09).
+- Substrate truth: `slice_requested` → `slice_failed(credentialUnavailable)` → `card_skipped` (the degraded control's decline) → next `card_dealt`; **zero pool facts** — nothing queued, original stayed dealable by derivation of its skip.
+
+Product observation (by design, recorded): the `noKey` string's copy names the photo→project flow (authored for Epic 5's callers); rescue reuses it verbatim per 4-5's one-string-per-cause surface. If rescue-specific wording is ever wanted, that is a string-table authoring decision, not a code change.
