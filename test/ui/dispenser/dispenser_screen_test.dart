@@ -45,6 +45,7 @@ import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/session/session_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
+import 'package:organizer/ui/capture/capture_screen.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
@@ -1800,9 +1801,22 @@ void main() {
     await popNoSlicer(tester);
     expect(find.byType(TaskCard), findsOneWidget);
 
+    // A foreground refresh re-commits the same standing deal: the
+    // degrade survives it — the second tap still skips, never re-asks.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
     await tester.tap(cardSecondaryFinder);
     await tester.pumpAndSettle();
 
+    // The refresh never re-fired the ask on the degraded deal.
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(1),
+    );
     // Exactly one card_skipped, naming the dealt card, with the bundled
     // next deal beside it — nothing queued, nothing retried.
     expect(
@@ -2409,6 +2423,121 @@ void main() {
     expect(latestDealtEntryOf(store)!.itemId, successor.itemId);
     expect(find.byType(TaskCard), findsOneWidget);
     expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a Hecho during a FAILED rescue\'s latency lands quietly '
+      '— no markers for the answered id, no surface over the successor, '
+      'and the successor\'s control still asks (FR-5, D1)', (tester) async {
+    final slicer = _GatedSlicer();
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: slicer);
+    final stuckId = dealtEntryOf(store)!.itemId!;
+
+    // The ask parks on the provider's latency; the Hecho lands first.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pump();
+    await tester.pump();
+    expect(store.entries.last.kind, 'slice_requested');
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+    final successor = latestDealtEntryOf(store)!;
+    expect(successor.itemId, isNot(stuckId));
+
+    // The failure lands into the ended deal: one `slice_failed` row of
+    // history, the successor still standing — no markers for the dead
+    // id, no calm surface over the new card.
+    slicer.complete(const SlicerFailed(SlicerFailureCause.networkUnreachable));
+    await tester.pumpAndSettle();
+    expect(store.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+      'slice_requested',
+      'card_done',
+      'card_dealt',
+      'slice_failed',
+    ]);
+    expect(latestDealtEntryOf(store)!.itemId, successor.itemId);
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+
+    // The successor starts clean: its secondary asks, never skips —
+    // a stale degrade would have passed it without a second ask.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(2),
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a non-offline failure pushes its own cause string — an '
+      'invalid key states Ajustes, and its exit reaches Manual Capture '
+      '(FR-29)', (tester) async {
+    final store = _RecordingStore();
+    final slicer = _StubSlicer(
+      const SlicerFailed(SlicerFailureCause.invalidKey),
+    );
+    await launchAndCommit(tester, store, slicer: slicer);
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(store.entries.last.sliceCause, 'invalidKey');
+    expect(find.text(AppStringsEs().noSlicerInvalidKey), findsOneWidget);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    await tester.tap(find.text(AppStringsEs().noSlicerExit));
+    await tester.pumpAndSettle();
+    expect(find.byType(CaptureScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a second tap inside one flight passes the card — one '
+      'provider call, the landing then goes quiet (FR-3)', (tester) async {
+    final slicer = _GatedSlicer();
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: slicer);
+    await tester.tap(cardSecondaryFinder);
+    await tester.pump();
+    await tester.pump();
+    expect(store.entries.last.kind, 'slice_requested');
+    // The second tap while parked skips — never a second ask.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(slicer.requests, hasLength(1));
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(1),
+    );
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    // The late failure meets the ended deal: quiet, no surface.
+    slicer.complete(const SlicerFailed(SlicerFailureCause.networkUnreachable));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a tap with no Slicer threaded passes the card — the '
+      'seam skips, never a dead tap, never a surface', (tester) async {
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: null);
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      isEmpty,
+    );
+    expect(
+      store.entries.where((entry) => entry.kind == 'card_skipped'),
+      hasLength(1),
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+    expect(find.byType(TaskCard), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

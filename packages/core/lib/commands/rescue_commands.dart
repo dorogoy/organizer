@@ -34,7 +34,6 @@ import 'package:core/pool/pool_fact.dart';
 import 'package:core/settings/settings.dart';
 import 'package:core/slicer/rescue_steps.dart';
 import 'package:core/ports/slicer_port.dart';
-import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
 
 /// The step-fact payload of one delivered re-slice: the step's own
@@ -133,9 +132,21 @@ List<LogEntryContent> rescueRequested({
   // still in flight (or one whose landing never landed), and a second
   // activation beside it would reset the counter a rescue is already
   // holding at zero. Append order is the one order the log guarantees
-  // (AD-3), so "latest" reads by position, never by instant.
+  // (AD-3), so "latest" reads by position, never by instant. The
+  // scan starts at the log's last `session_started`: a request whose
+  // sitting is over can never land (its flight died with the
+  // process, or the live landing already matched it), so a killed
+  // flight never bricks the item's tap path — the in-memory flight
+  // guard holds the live double-tap shut instead.
+  var sessionStart = -1;
+  for (var i = 0; i < log.length; i++) {
+    if (log[i].kind == LogKind.sessionStarted) {
+      sessionStart = i;
+    }
+  }
   LogKind? latestSliceKind;
-  for (final entry in log) {
+  for (var i = sessionStart + 1; i < log.length; i++) {
+    final entry = log[i];
     if (entry is SliceEntry && entry.itemId == itemId) {
       latestSliceKind = entry.kind;
     }
@@ -162,8 +173,8 @@ typedef RescueStepSeed = ({String id, RescueStep step});
 /// over the log as it will be once the rows append, with the fresh
 /// step facts in the pool — so the head step is the deal (rescue
 /// precedence, nothing buries it). A parent whose deal ended during
-/// the flight — a `card_done` naming it anywhere in the handed-in
-/// log, or a `card_skipped` naming it since the activation — discards
+/// the flight — a `card_done` naming it after its activation, or a
+/// `card_skipped` naming it since the activation — discards
 /// the steps: the row still logs, nothing supersedes, no fact mints
 /// (the frozen matrix's own row, the skip its interleaving twin). A
 /// session closed during flight simply deals nothing: the steps stand
@@ -179,20 +190,14 @@ RescueReturnedContent rescueReturned({
   int? bagMinutes,
   required List<PoolFact> poolFacts,
 }) {
-  final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
-  if (facts.answeredItemIds.contains(itemId)) {
-    return (
-      facts: const [],
-      entries: [_slice(LogKind.sliceReturned, itemId, origin)],
-    );
-  }
-  // The skip's own discard half: the activation located first (the
-  // latest `slice_requested` naming the item, append order being the
-  // one order the log guarantees), then any decline of the parent at
-  // or after it — the deal the rescue was converting is gone, and a
-  // supersede against a card that no longer stands would mint a chain
-  // behind the resolver's back.
+  // The activation located first (the latest `slice_requested`
+  // naming the item, append order being the one order the log
+  // guarantees), beside the item's latest answer: only a done after
+  // the activation ends the deal the rescue was converting — a done
+  // predating it is a previous life (a catalogue repetition
+  // re-dealt), and the live deal's landing proceeds.
   var activationIndex = -1;
+  var doneIndex = -1;
   for (var i = 0; i < log.length; i++) {
     final entry = log[i];
     if (entry is SliceEntry &&
@@ -200,7 +205,22 @@ RescueReturnedContent rescueReturned({
         entry.kind == LogKind.sliceRequested) {
       activationIndex = i;
     }
+    if (entry is ItemActEntry &&
+        entry.itemId == itemId &&
+        entry.kind == LogKind.cardDone) {
+      doneIndex = i;
+    }
   }
+  if (doneIndex > activationIndex) {
+    return (
+      facts: const [],
+      entries: [_slice(LogKind.sliceReturned, itemId, origin)],
+    );
+  }
+  // The skip's own discard half: any decline of the parent at
+  // or after it — the deal the rescue was converting is gone, and a
+  // supersede against a card that no longer stands would mint a chain
+  // behind the resolver's back.
   for (var i = activationIndex + 1; i < log.length; i++) {
     final entry = log[i];
     if (entry is ItemActEntry &&

@@ -55,6 +55,13 @@ void main() {
       );
       expect(
         parseRescueSteps(
+          body([step('Uno', 30), step('Dos', 30), step('Tres', 30)]),
+        ),
+        isNotNull,
+        reason: 'the middle count parses too',
+      );
+      expect(
+        parseRescueSteps(
           body([
             step('Uno', 30),
             step('Dos', 30),

@@ -944,9 +944,11 @@ void main() {
       final outcome = await stub.slice(rescue);
       final steps = parseRescueSteps((outcome as SlicerDelivered).responseBody);
       expect(steps, isNotNull);
-      expect(steps!.length, cannedSliceStepCount);
-      expect(steps.first.durationSeconds, cannedSliceFirstStepSeconds);
-      expect(steps.last.durationSeconds, cannedSliceLaterStepSeconds);
+      // Literals, deliberately not the stub's own constants: a paired
+      // stub-plus-constant change must fail here, not stay green.
+      expect(steps!.length, 2);
+      expect(steps.first.durationSeconds, 30);
+      expect(steps.last.durationSeconds, 45);
       expect(steps.first.text, 'rebanada enlatada');
     });
 
@@ -1002,6 +1004,44 @@ void main() {
       expect(steps, isNotNull);
       expect(steps!.length, 3);
       expect(steps[1].durationSeconds, 45);
+    });
+
+    test('the contract edges hold through the shell shape — 2 and 4 '
+        'steps admit, 0 s, 61 s and empty text reject', () {
+      final names = rescueSchemaFieldNames();
+      String edgeBody(List<Map<String, Object?>> steps) =>
+          jsonEncode(<String, Object?>{names.steps: steps});
+      Map<String, Object?> edgeStep(String text, int seconds) => {
+        names.text: text,
+        names.durationSeconds: seconds,
+      };
+      expect(
+        parseRescueSteps(edgeBody([edgeStep('Uno', 30), edgeStep('Dos', 30)])),
+        isNotNull,
+      );
+      expect(
+        parseRescueSteps(
+          edgeBody([
+            edgeStep('Uno', 30),
+            edgeStep('Dos', 30),
+            edgeStep('Tres', 30),
+            edgeStep('Cuatro', 30),
+          ]),
+        ),
+        isNotNull,
+      );
+      expect(
+        parseRescueSteps(edgeBody([edgeStep('Uno', 0), edgeStep('Dos', 30)])),
+        isNull,
+      );
+      expect(
+        parseRescueSteps(edgeBody([edgeStep('Uno', 61), edgeStep('Dos', 30)])),
+        isNull,
+      );
+      expect(
+        parseRescueSteps(edgeBody([edgeStep('', 30), edgeStep('Dos', 30)])),
+        isNull,
+      );
     });
   });
 }

@@ -3461,9 +3461,15 @@ void main() {
         store.facts.every((fact) => fact.rescueOf == dealt.card.id),
         isTrue,
       );
-      expect(
-        store.facts.first.originContext,
+      expect(store.facts.map((fact) => fact.originContext).toList(), [
         'Buscar el desengrasante bajo el fregadero',
+        'Rociar la campana y dejar actuar',
+        'Secar con un trapo limpio',
+      ], reason: 'each step\'s own text rides its own fact');
+      expect(
+        store.facts.every((fact) => fact.dictated == null),
+        isTrue,
+        reason: 'the Slicer authors no dictation flag',
       );
 
       // The bundled deal names the fact the same landing minted — the
@@ -3482,6 +3488,41 @@ void main() {
       expect(view.rescueStep, isTrue);
       expect(view.autoRescueDue, isFalse);
     });
+
+    test(
+      'a capture parent\'s re-slice rides its own line — the Origin '
+      'Context is the capture\'s single line, steps inherit manual',
+      () async {
+        const line = 'Llamar al dentista';
+        final store = _RecordingStore([
+          (
+            id: 'cap-manual',
+            origin: Origin.manual,
+            size: Size.focus,
+            instantUtcMicros: DateTime.utc(2026, 8, 25).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            originContext: line,
+            dictated: null,
+            rescueOf: null,
+            estimateSeconds: null,
+          ),
+        ]);
+        final dealt = await openSessionAndReadFirstDeal(store);
+        expect(
+          dealt.card.origin,
+          Origin.manual,
+          reason: 'the pre-condition: the standing card is the seeded capture',
+        );
+        expect(dealt.card.name, line);
+        final slicer = _StubSlicer(const SlicerDelivered(deliveredBody));
+        final outcome = await controllerFor(store, slicer).rescue(dealt);
+        // The request carries the capture's own line in both slots —
+        // no catalogue field anywhere near a manual parent.
+        expect(slicer.requests.single.originContext, line);
+        expect(slicer.requests.single.task, line);
+        expect(outcome, isA<DispenserRescueSucceeded>());
+      },
+    );
 
     test('a failed re-slice lands one cause row — nothing queued, the '
         'original stays dealable exactly as it stood, and the mapped '
@@ -3670,10 +3711,10 @@ void main() {
           ),
         ]);
 
-      final withSlicer = controllerFor(
-        store,
-        _StubSlicer(const SlicerFailed(SlicerFailureCause.invalidKey)),
+      final stub = _StubSlicer(
+        const SlicerFailed(SlicerFailureCause.invalidKey),
       );
+      final withSlicer = controllerFor(store, stub);
       final warranted = await withSlicer.read();
       expect(warranted, isA<DispenserDealt>());
       expect((warranted as DispenserDealt).card.id, captureId);
@@ -3690,6 +3731,7 @@ void main() {
       // failure's landing included) derives false: a failed rescue
       // cannot re-fire on every deal.
       await withSlicer.rescue(warranted);
+      expect(stub.requests.single.originContext, 'Llamar al dentista');
       final afterFailure = await withSlicer.read();
       expect((afterFailure as DispenserDealt).autoRescueDue, isFalse);
 
@@ -3717,6 +3759,137 @@ void main() {
       );
       final bare = await withoutSlicer.read();
       expect((bare as DispenserDealt).autoRescueDue, isFalse);
+    });
+
+    test('the auto-heuristic succeeds the same way — a warranted card '
+        'auto-fires through delivery into the head step, then goes '
+        'quiet', () async {
+      const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+      PoolFactRecord captureFact(DateTime at) => (
+        id: captureId,
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros: at.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
+      );
+      List<LogEntryRecord> decline(int day) {
+        final at = DateTime.utc(2026, 8, day, 10);
+        return [
+          _moment('session_started', at, 'start-$day'),
+          _act(
+            'card_dealt',
+            at.add(const Duration(seconds: 1)),
+            'deal-$day',
+            captureId,
+          ),
+          _act(
+            'card_skipped',
+            at.add(const Duration(seconds: 2)),
+            'skip-$day',
+            captureId,
+          ),
+          _moment(
+            'session_ended',
+            at.add(const Duration(seconds: 3)),
+            'end-$day',
+          ),
+        ];
+      }
+
+      final store = _FactRecordingStore()
+        ..facts.add(captureFact(DateTime.utc(2026, 8, 25)))
+        ..entries.addAll([
+          ...decline(26),
+          ...decline(27),
+          ...decline(28),
+          // Today's sitting opens ten minutes before the read: no
+          // checkpoint crossing elapses, so no rest offer preempts
+          // either read.
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 11, 50),
+            'start-today',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 50, 1),
+            'deal-today',
+            captureId,
+          ),
+        ]);
+      final stub = _StubSlicer(const SlicerDelivered(deliveredBody));
+      final controller = controllerFor(store, stub);
+      final warranted = await controller.read();
+      expect((warranted as DispenserDealt).autoRescueDue, isTrue);
+      final outcome = await controller.rescue(warranted);
+      expect(outcome, isA<DispenserRescueSucceeded>());
+      expect(stub.requests.single.originContext, 'Llamar al dentista');
+      expect(store.entries.map((entry) => entry.kind).toList().sublist(14), [
+        'slice_requested',
+        'slice_returned',
+        'card_dealt',
+      ]);
+      final view = (outcome as DispenserRescueSucceeded).view as DispenserDealt;
+      expect(view.rescueStep, isTrue);
+      final after = await controller.read();
+      expect((after as DispenserDealt).autoRescueDue, isFalse);
+    });
+
+    test('a shipped catalogue entry declined on 3 eligible days '
+        'warrants too — the fact-less anchor through read()', () async {
+      List<LogEntryRecord> decline(int day) {
+        final at = DateTime.utc(2026, 8, day, 10);
+        return [
+          _moment('session_started', at, 'start-$day'),
+          _act(
+            'card_dealt',
+            at.add(const Duration(seconds: 1)),
+            'deal-$day',
+            chunkSeedId,
+          ),
+          _act(
+            'card_skipped',
+            at.add(const Duration(seconds: 2)),
+            'skip-$day',
+            chunkSeedId,
+          ),
+          _moment(
+            'session_ended',
+            at.add(const Duration(seconds: 3)),
+            'end-$day',
+          ),
+        ];
+      }
+
+      final store = _RecordingStore()
+        ..entries.addAll([
+          ...decline(26),
+          ...decline(27),
+          ...decline(28),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 11),
+            'start-today',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 0, 1),
+            'deal-today',
+            chunkSeedId,
+          ),
+        ]);
+      final view = await controllerFor(
+        store,
+        _StubSlicer(const SlicerFailed(SlicerFailureCause.networkUnreachable)),
+      ).read();
+      expect((view as DispenserDealt).card.id, chunkSeedId);
+      expect(view.card.origin, Origin.shipped);
+      expect(view.autoRescueDue, isTrue);
+      expect(view.rescueStep, isFalse);
     });
   });
 }

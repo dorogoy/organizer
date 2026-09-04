@@ -59,18 +59,12 @@ const Map<String, Permission> permissionByName = {
 };
 
 /// Every [SlicerFailureCause] this build knows, keyed by wire name
-/// (Story 4.6) — the `slice_failed` row's cause identity, read at this
-/// boundary the same way [permissionByName] reads a permission's: a row
-/// naming a cause this build does not know is excluded, never coerced
-/// (AD-23).
-const Map<String, SlicerFailureCause> slicerFailureCauseByName = {
-  'credentialUnavailable': SlicerFailureCause.credentialUnavailable,
-  'invalidKey': SlicerFailureCause.invalidKey,
-  'quotaExhausted': SlicerFailureCause.quotaExhausted,
-  'providerUnreachable': SlicerFailureCause.providerUnreachable,
-  'networkUnreachable': SlicerFailureCause.networkUnreachable,
-  'malformedResponse': SlicerFailureCause.malformedResponse,
-  'managedUnavailable': SlicerFailureCause.managedUnavailable,
+/// (Story 4.6) — the `slice_failed` row's cause identity, derived from
+/// the enum so a new member cannot write a name this map does not
+/// know. A row naming a cause this build does not know is excluded,
+/// never coerced (AD-23).
+final Map<String, SlicerFailureCause> slicerFailureCauseByName = {
+  for (final cause in SlicerFailureCause.values) cause.name: cause,
 };
 
 /// One entry kind, as a past-tense `snake_case` verb phrase. Instances are

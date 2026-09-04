@@ -182,6 +182,16 @@ void main() {
         }
       });
 
+      test('a lone half survives as stored — halves normalize '
+          'independently, never as a pair', () {
+        final parentOnly = poolFactsOf([record(rescueOf: 'cap-a')]).single;
+        expect(parentOnly.rescueOf, 'cap-a');
+        expect(parentOnly.estimateSeconds, isNull);
+        final estimateOnly = poolFactsOf([record(estimateSeconds: 45)]).single;
+        expect(estimateOnly.rescueOf, isNull);
+        expect(estimateOnly.estimateSeconds, 45);
+      });
+
       test('an ordinary fact\'s null pair passes as null — the '
           'pre-4-6 shape is unchanged', () {
         final fact = poolFactsOf([record()]).single;

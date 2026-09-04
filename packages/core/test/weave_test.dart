@@ -3023,6 +3023,66 @@ void main() {
       );
     });
 
+    test('a completed capture chain stays retired on a later open-slot '
+        'day — the parent never re-deals and the new day composes '
+        'freely (AD-25)', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+        _stepFact(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso dos',
+        ),
+      ];
+      // Friday's completion, the sitting closed, Monday's sitting
+      // opened: the completion charged Friday and only Friday.
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _sliceRow(
+          LogKind.sliceReturned,
+          utcMicros(2026, 8, 28, 10, 0, 1),
+          'cap-focus',
+        ),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 3), 's1'),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 5), 's2'),
+        _sessionEnded(utcMicros(2026, 8, 28, 10, 0, 6)),
+        _sessionStarted(_day(7, 10)),
+      ];
+      final facts = walkLog(
+        log,
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(facts.focusSlotClosedDays, {
+        const Calendar().dayOf(utcMicros(2026, 8, 28, 12), 0),
+      });
+      final monday = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: _day(7, 12),
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(monday.focus, isNotNull);
+      final card = deal(log, [parent, ...steps], at: _day(7, 10));
+      expect(card!.id, isNot('cap-focus'));
+      expect(card.id, isNot('s1'));
+      expect(card.id, isNot('s2'));
+    });
+
     test('a focus-parent chain\'s completion closes the slot on the '
         'day of the session that dealt its last card_done — and no '
         'other day; the crossed-into day stays free', () {
@@ -3174,6 +3234,167 @@ void main() {
         poolFacts: [parent, ...steps],
       );
       expect(facts.focusSlotClosedDays, isEmpty);
+      final friday = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 28, 11),
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(
+        friday.focus,
+        isNotNull,
+        reason: 'a maintenance chain never spends the chunk slot',
+      );
+    });
+
+    test('a non-focus conversion carries nothing — slice_returned on a '
+        'maintenance parent leaves focusSlotCarriedDays empty and the '
+        'day\'s chunk still composes', () {
+      final parent = _captureFact(
+        'cap-maint',
+        Size.maintenance,
+        utcMicros(2026, 8, 27, 8),
+        line: 'Cosas del garaje',
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-maint',
+          line: 'Paso uno',
+        ),
+        _stepFact(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'cap-maint',
+          line: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'cap-maint'),
+        _sliceRow(
+          LogKind.sliceReturned,
+          utcMicros(2026, 8, 28, 10, 0, 2),
+          'cap-maint',
+        ),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's1'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 4), 's1'),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 5), 's2'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 6), 's2'),
+      ];
+      final facts = walkLog(
+        log,
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(facts.focusSlotCarriedDays, isEmpty);
+      expect(facts.focusSlotClosedDays, isEmpty);
+      final friday = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 28, 11),
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(friday.focus, isNotNull);
+    });
+
+    test('an intermediate focus-chain card_done closes nothing — the '
+        'day keeps its chunk until the last step lands', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+        _stepFact(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+      ];
+      final facts = walkLog(
+        log,
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(
+        facts.focusSlotClosedDays,
+        isNot(contains(const Calendar().dayOf(utcMicros(2026, 8, 28, 12), 0))),
+      );
+      final friday = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 28, 11),
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(friday.focus, isNotNull);
+      // The live head is still the next deal, chain unbroken.
+      expect(deal(log, [parent, ...steps])!.id, 's2');
+    });
+
+    test('a pocket miss on the live head falls through — upkeep/habits '
+        'that fit still deal and composeDay never lists the head as a '
+        'habit', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          estimateSeconds: 30,
+          line: 'Paso uno',
+        ),
+        _stepFact(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          estimateSeconds: 50,
+          line: 'Paso dos',
+        ),
+      ];
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _sessionStarted(start, pocketMinutes: 1),
+        _captureDealt(start + 1, 's1'),
+        _captureDone(start + 2, 's1'),
+      ];
+      // 30 s answered, 30 s left: the 50 s head misses, the 30 s
+      // catalogue habit fits — the ladder falls through to it.
+      final card = deal(log, [parent, ...steps], at: start + 3);
+      expect(card, isNotNull);
+      expect(card!.id, 'hab-a');
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 3,
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(
+        composition.instantHabits.any((c) => c.id == 's2'),
+        isFalse,
+        reason: 'rescue heads never join the size-based draws',
+      );
     });
 
     test('a rescue activation on the day\'s dealt focus card satisfies '
@@ -3220,6 +3441,8 @@ void main() {
       expect(facts.focusSlotCarriedDays, {
         const Calendar().dayOf(utcMicros(2026, 8, 28, 12), 0),
       });
+      // Conversion, never closure: the carried day spends no slot.
+      expect(facts.focusSlotClosedDays, isEmpty);
       // No unanswered card stands, the slot was never closed by a
       // card_done — and still Friday composes no new chunk: the chain
       // carries the day's "1".
@@ -3239,6 +3462,20 @@ void main() {
       );
       // The next deal is the chain's second step, never a new chunk.
       expect(deal(log, [parent, ...steps])!.id, 's2');
+      // Saturday sits fresh: Friday's carry never leaks forward.
+      final saturdayLog = [
+        ...log,
+        _sessionEnded(utcMicros(2026, 8, 28, 12)),
+        _sessionStarted(utcMicros(2026, 8, 29, 10)),
+      ];
+      final saturday = composeDay(
+        catalogue: _catalogue,
+        log: saturdayLog,
+        instantUtcMicros: utcMicros(2026, 8, 29, 11),
+        offsetSeconds: 0,
+        poolFacts: [parent, ...steps],
+      );
+      expect(saturday.focus, isNotNull);
     });
 
     test('a FAILED rescue carries nothing — the card stands dealable '
@@ -3352,6 +3589,71 @@ void main() {
       expect(card.estimateSeconds, 60);
     });
 
+    test('a conversion carries its day even at low energy — the chain '
+        'is the advance, never a new chunk', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+      ];
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'cap-focus'),
+        _sliceRow(
+          LogKind.sliceReturned,
+          utcMicros(2026, 8, 28, 10, 0, 2),
+          'cap-focus',
+        ),
+      ];
+      final facts = walkLog(
+        log,
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(facts.focusSlotCarriedDays, {
+        const Calendar().dayOf(utcMicros(2026, 8, 28, 12), 0),
+      });
+      final card = deal(log, [parent, ...steps], energy: EnergyLevel.low);
+      expect(card!.id, 's1');
+    });
+
+    test('a live head deals under a sub-threshold bag — the conversion '
+        'stands ahead of the chunk gate', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          estimateSeconds: 45,
+          line: 'Paso uno',
+        ),
+      ];
+      final log = [_sessionStarted(utcMicros(2026, 8, 28, 10))];
+      final card = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 5,
+        poolFacts: [parent, ...steps],
+      );
+      expect(card!.id, 's1');
+      expect(card.estimateSeconds, 45);
+    });
+
     test('the dissolution retires the chain and its parent atomically '
         '— three decline days of chain steps, and nothing from the '
         'chain or the parent ever deals again (no tombstone, AD-25)', () {
@@ -3390,6 +3692,15 @@ void main() {
       final log = [...decline(2), ...decline(3), ...decline(4)];
       final card = deal(log, [parent, ...steps], at: _day(5, 10));
       expect(card!.id, isNot('s1'));
+      expect(card.id, isNot('s2'));
+      // Dissolution spends no slot and carries no day.
+      final slotFacts = walkLog(
+        log,
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(slotFacts.focusSlotClosedDays, isEmpty);
+      expect(slotFacts.focusSlotCarriedDays, isEmpty);
       expect(card.id, isNot('s2'));
       expect(
         card.id,
@@ -3441,6 +3752,11 @@ void main() {
             'the shipped chunk\'s own focus size resolved through '
             'the walk\'s catalogue arm — the day\'s "1" is carried',
       );
+      expect(
+        facts.focusSlotClosedDays,
+        isEmpty,
+        reason: 'conversion carries, never closes',
+      );
       // And behind the standing head step, Friday composes no new
       // chunk.
       final friday = composeDay(
@@ -3451,6 +3767,165 @@ void main() {
         poolFacts: steps,
       );
       expect(friday.focus, isNull);
+    });
+
+    test('a slice_returned naming another card, or no standing card, '
+        'carries nothing — the supersede matches id and origin both', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+      ];
+      // Wrong id: the standing card is untouched, the day uncarried.
+      final foreign = walkLog(
+        [
+          _sessionStarted(utcMicros(2026, 8, 28, 10)),
+          _captureDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'cap-focus'),
+          _sliceRow(
+            LogKind.sliceReturned,
+            utcMicros(2026, 8, 28, 10, 0, 2),
+            'cap-other',
+          ),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(foreign.dealtUnanswered?.itemId, 'cap-focus');
+      expect(foreign.focusSlotCarriedDays, isEmpty);
+      // Right id, wrong origin: still no supersede.
+      final crossed = walkLog([
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _dealt(utcMicros(2026, 8, 28, 10, 0, 1), 'zona-a'),
+        _sliceRow(
+          LogKind.sliceReturned,
+          utcMicros(2026, 8, 28, 10, 0, 2),
+          'zona-a',
+        ),
+      ], catalogue: _catalogue);
+      expect(crossed.dealtUnanswered?.itemId, 'zona-a');
+      expect(crossed.focusSlotCarriedDays, isEmpty);
+      // No standing card at all: a stray row carries nothing either.
+      final stray = walkLog(
+        [
+          _sessionStarted(utcMicros(2026, 8, 28, 10)),
+          _sliceRow(
+            LogKind.sliceReturned,
+            utcMicros(2026, 8, 28, 10, 0, 1),
+            'cap-focus',
+          ),
+        ],
+        catalogue: _catalogue,
+        poolFacts: [parent, ...steps],
+      );
+      expect(stray.dealtUnanswered, isNull);
+      expect(stray.focusSlotCarriedDays, isEmpty);
+    });
+
+    test('a dangling slice_requested changes nothing at the weave — '
+        'the head still deals on the next sitting', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+      ];
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _sliceRow(
+          LogKind.sliceRequested,
+          utcMicros(2026, 8, 28, 10, 0, 1),
+          'cap-focus',
+        ),
+        _sessionEnded(utcMicros(2026, 8, 28, 10, 0, 2)),
+        _sessionStarted(utcMicros(2026, 8, 29, 10)),
+      ];
+      final card = deal(log, [
+        parent,
+        ...steps,
+      ], at: utcMicros(2026, 8, 29, 10, 0, 1));
+      expect(card!.id, 's1');
+    });
+
+    test('two decline days leave the head standing — dissolution '
+        'needs three', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+      ];
+      List<LogEntry> decline(int days) => [
+        _sessionStarted(_day(days, 10)),
+        _captureDealt(
+          utcMicros(2026, 8, 24, 10, 0, 1) + days * _microsPerDay,
+          's1',
+        ),
+        _captureSkipped(
+          utcMicros(2026, 8, 24, 10, 0, 2) + days * _microsPerDay,
+          's1',
+        ),
+      ];
+      final log = [...decline(2), ...decline(3), _sessionStarted(_day(5, 10))];
+      expect(deal(log, [parent, ...steps], at: _day(5, 10))!.id, 's1');
+    });
+
+    test('a three-step chain promotes twice — s3 deals once s1 and '
+        's2 answer', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final steps = [
+        _stepFact(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso uno',
+        ),
+        _stepFact(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso dos',
+        ),
+        _stepFact(
+          's3',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso tres',
+        ),
+      ];
+      final log = [
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+        _captureDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's2'),
+        _captureDone(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+      ];
+      expect(deal(log, [parent, ...steps])!.id, 's3');
     });
 
     test('a SHIPPED parent whose chain completed never re-deals — the '
@@ -3529,6 +4004,9 @@ void main() {
       final log = [...decline(2), ...decline(3), ...decline(4)];
       final card = deal(log, steps, at: _day(5, 10));
       expect(card!.id, isNot('s1'));
+      final slotFacts = walkLog(log, catalogue: _catalogue, poolFacts: steps);
+      expect(slotFacts.focusSlotClosedDays, isEmpty);
+      expect(slotFacts.focusSlotCarriedDays, isEmpty);
       expect(
         card.id,
         isNot('zona-z1-a'),

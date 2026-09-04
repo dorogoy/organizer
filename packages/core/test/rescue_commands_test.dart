@@ -156,6 +156,37 @@ void main() {
       expect(contents.single.itemOrigin, Origin.shipped);
     });
 
+    test('a shipped parent\'s steps inherit shipped — transient facts, '
+        'nothing enters the catalogue', () {
+      final now = utcMicros(2026, 8, 25, 10, 0, 30);
+      final returned = rescueReturned(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        seeds: _seeds,
+        catalogue: _catalogue,
+        log: [
+          _started(utcMicros(2026, 8, 25, 10)),
+          ItemActEntry(
+            id: 'dealt-zona-a',
+            instantUtcMicros: utcMicros(2026, 8, 25, 10, 0, 1),
+            offsetSeconds: 0,
+            kind: LogKind.cardDealt,
+            itemId: 'zona-a',
+            itemOrigin: Origin.shipped,
+          ),
+        ],
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 25,
+        poolFacts: const [],
+      );
+      expect(returned.facts, hasLength(3));
+      for (final fact in returned.facts) {
+        expect(fact.origin, Origin.shipped);
+        expect(fact.rescueOf, 'zona-a');
+      }
+    });
+
     test('the depth cap lives here: a rescue step is refused outright '
         '— nothing appends, no refusal row exists, no error state is '
         'reachable', () {
@@ -255,6 +286,66 @@ void main() {
       );
     });
 
+    test('activations are item-scoped: another item\'s pending request '
+        'does not refuse this ask, and two declines do not gate it — '
+        'the tap never waits for a counter', () {
+      // A pending activation for cap-b leaves cap-a askable.
+      expect(
+        rescueRequested(
+          itemId: 'cap-a',
+          origin: Origin.manual,
+          poolFacts: [parentFact],
+          log: [
+            _slice(LogKind.sliceRequested, utcMicros(2026, 8, 24, 10), 'cap-b'),
+          ],
+        ),
+        hasLength(1),
+      );
+      // Two declines (below warrant) still append.
+      expect(
+        rescueRequested(
+          itemId: 'cap-a',
+          origin: Origin.manual,
+          poolFacts: [parentFact],
+          log: [
+            _started(utcMicros(2026, 8, 24, 10)),
+            _dealt(utcMicros(2026, 8, 24, 10, 0, 1), 'cap-a'),
+            _skipped(utcMicros(2026, 8, 24, 10, 0, 2), 'cap-a'),
+          ],
+        ),
+        hasLength(1),
+      );
+    });
+
+    test('a previous sitting\'s unmatched activation does not brick '
+        'the tap — pending expires with its session', () {
+      expect(
+        rescueRequested(
+          itemId: 'cap-a',
+          origin: Origin.manual,
+          poolFacts: [parentFact],
+          log: [
+            // Yesterday's ask never landed (the flight died with its
+            // process); today's sitting asks freely.
+            _started(utcMicros(2026, 8, 24, 10)),
+            _slice(
+              LogKind.sliceRequested,
+              utcMicros(2026, 8, 24, 10, 0, 1),
+              'cap-a',
+            ),
+            MomentEntry(
+              id: 'ended-24',
+              instantUtcMicros: utcMicros(2026, 8, 24, 10, 0, 2),
+              offsetSeconds: 0,
+              kind: LogKind.sessionEnded,
+            ),
+            _started(utcMicros(2026, 8, 25, 10)),
+          ],
+        ),
+        hasLength(1),
+      );
+    });
+
     test('a matched activation re-arms: after slice_returned (no '
         'chain minted) or slice_failed, the next ask appends — a '
         'failed rescue never bricks the tap path', () {
@@ -348,6 +439,44 @@ void main() {
       expect(returned.entries, hasLength(1));
       expect(returned.entries.single.kind, LogKind.sliceReturned);
       expect(returned.entries.single.itemId, 'cap-a');
+    });
+
+    test('a done predating the activation does not discard — only a '
+        'done after it ends the deal', () {
+      final now = utcMicros(2026, 8, 25, 10, 0, 30);
+      final log = [
+        // A previous life, closed: dealt, answered, sitting ended.
+        _started(utcMicros(2026, 8, 24, 10)),
+        _dealt(utcMicros(2026, 8, 24, 10, 0, 1), 'cap-a'),
+        _done(utcMicros(2026, 8, 24, 10, 0, 2), 'cap-a'),
+        MomentEntry(
+          id: 'ended-24',
+          instantUtcMicros: utcMicros(2026, 8, 24, 10, 0, 3),
+          offsetSeconds: 0,
+          kind: LogKind.sessionEnded,
+        ),
+        ...standingLog(),
+        _slice(
+          LogKind.sliceRequested,
+          utcMicros(2026, 8, 25, 10, 0, 2),
+          'cap-a',
+        ),
+      ];
+      final returned = rescueReturned(
+        itemId: 'cap-a',
+        origin: Origin.manual,
+        seeds: _seeds,
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        bagMinutes: 25,
+        poolFacts: [parentFact],
+      );
+      expect(returned.facts, hasLength(3));
+      expect(returned.entries, hasLength(2));
+      expect(returned.entries[0].kind, LogKind.sliceReturned);
+      expect(returned.entries[1].kind, LogKind.cardDealt);
     });
 
     test('a parent SKIPPED in flight discards the steps the same way: '
@@ -479,17 +608,25 @@ void main() {
   group('rescueFailed — the terminal failure (FR-5, FR-29)', () {
     test('appends exactly one slice_failed row carrying the cause '
         'wire name — the kind\'s single sanctioned minter', () {
-      final contents = rescueFailed(
-        itemId: 'cap-a',
-        origin: Origin.manual,
-        cause: SlicerFailureCause.networkUnreachable,
-      );
-      expect(contents, hasLength(1));
-      final row = contents.single;
-      expect(row.kind, LogKind.sliceFailed);
-      expect(row.itemId, 'cap-a');
-      expect(row.sliceCause, 'networkUnreachable');
-      expect(row.permission, isNull);
+      for (final cause in SlicerFailureCause.values) {
+        final contents = rescueFailed(
+          itemId: 'cap-a',
+          origin: Origin.manual,
+          cause: cause,
+        );
+        expect(contents, hasLength(1), reason: cause.name);
+        final row = contents.single;
+        expect(row.kind, LogKind.sliceFailed);
+        expect(row.itemId, 'cap-a');
+        expect(row.itemOrigin, Origin.manual);
+        expect(row.sliceCause, cause.name);
+        expect(row.stack, isNull, reason: cause.name);
+        expect(row.settingKey, isNull, reason: cause.name);
+        expect(row.pocketMinutes, isNull, reason: cause.name);
+        expect(row.energyLevel, isNull, reason: cause.name);
+        expect(row.reportValue, isNull, reason: cause.name);
+        expect(row.permission, isNull, reason: cause.name);
+      }
     });
   });
 }

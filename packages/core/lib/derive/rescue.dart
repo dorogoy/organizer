@@ -12,18 +12,20 @@
 /// counter iff it is an eligible day of the item (the ONE
 /// `EligibleDay` predicate, `eligible_day.dart`'s anchor form — a
 /// catalogue item's fact-less adapter anchored unbounded, "no earlier
-/// than" = ever) AND a `card_skipped` for the item is charged to that
-/// day. Absence days, non-dealt days and energy filtering neither
-/// increment nor reset it: they are simply not eligible days, and the
-/// count freezes across them exactly as the capture window's does.
+/// than" = ever; a pool fact's, its own creation) AND a `card_skipped`
+/// for the item is charged to that day. Absence days, non-dealt days
+/// and energy filtering neither increment nor reset it: they are
+/// simply not eligible days, and the count freezes across them exactly
+/// as the capture window's does.
 ///
-/// The anchor is the item's last activation — the latest
-/// `slice_requested` naming it — which RESETS the counter whatever
-/// follows: success, failure or no-Slicer degradation alike, so a
-/// failed rescue cannot re-fire on every deal. A never-activated item
-/// anchors at its own genesis: the pool fact's creation, or nothing at
-/// all for a shipped entry (ever). The tap path never consults the
-/// counter — it is the auto-heuristic's threshold alone.
+/// Activation RESETS the counter without rewriting that genesis: the
+/// latest `slice_requested` naming the item (append order, AD-3)
+/// drops every earlier skip of it, whatever follows — success,
+/// failure or no-Slicer degradation alike — so a failed rescue cannot
+/// re-fire on every deal, and the skip of that same sitting still
+/// charges the fresh cycle (the session started before the tap). A
+/// never-activated item counts from genesis. The tap path never
+/// consults the counter — it is the auto-heuristic's threshold alone.
 ///
 /// Dissolution is chain-level: declines of any of a chain's steps on
 /// ≥ 3 distinct eligible days retire the whole chain — the rescue,
@@ -42,29 +44,18 @@ import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/session.dart';
 
-/// The item's counter anchor (Story 4.6): the taxonomy size the
+/// The item's EligibleDay genesis (Story 4.6): the taxonomy size the
 /// predicate's energy clause reads, and the instant no eligible day's
-/// witness start may precede — the latest activation's own instant,
-/// falling back to the item's genesis (a fact's creation, or the
-/// unbounded start for a shipped entry). A step has no counter at all:
-/// its declines feed dissolution, never rescue (the depth cap).
+/// witness start may precede — a pool fact's creation, or the
+/// unbounded start for a shipped entry. Activation is not a second
+/// genesis; it filters skips in [rescueDeclineDays]. A step has no
+/// counter at all: its declines feed dissolution, never rescue (the
+/// depth cap).
 EligibleDayAnchor? _anchorOf({
-  required List<LogEntry> entries,
   required List<PoolFact> poolFacts,
   required Catalogue catalogue,
   required String itemId,
-  required int instantUtcMicros,
 }) {
-  var latestActivation = eligibleDayUnboundedStart;
-  for (final entry in entries) {
-    if (entry is SliceEntry &&
-        entry.kind == LogKind.sliceRequested &&
-        entry.itemId == itemId &&
-        entry.instantUtcMicros <= instantUtcMicros &&
-        entry.instantUtcMicros >= latestActivation) {
-      latestActivation = entry.instantUtcMicros;
-    }
-  }
   for (final fact in poolFacts) {
     if (fact.id == itemId) {
       // A rescue step has no counter: the depth cap's own reading,
@@ -73,31 +64,63 @@ EligibleDayAnchor? _anchorOf({
       if (fact.rescueOf != null) {
         return null;
       }
-      return (
-        size: fact.size,
-        noEarlierThanUtcMicros: latestActivation > fact.instantUtcMicros
-            ? latestActivation
-            : fact.instantUtcMicros,
-      );
+      return (size: fact.size, noEarlierThanUtcMicros: fact.instantUtcMicros);
     }
   }
   for (final entry in catalogue.entries) {
     if (entry.id == itemId) {
-      return (size: entry.size, noEarlierThanUtcMicros: latestActivation);
+      return (
+        size: entry.size,
+        noEarlierThanUtcMicros: eligibleDayUnboundedStart,
+      );
     }
   }
   return null;
 }
 
+/// Index of the latest `slice_requested` naming [itemId] in [entries]
+/// (append order, AD-3 — the one order the log guarantees, the same
+/// reading `rescueRequested` uses). `-1` when the item has never been
+/// activated in this slice of the log.
+int _latestActivationIndex(List<LogEntry> entries, String itemId) {
+  var index = -1;
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    if (entry is SliceEntry &&
+        entry.kind == LogKind.sliceRequested &&
+        entry.itemId == itemId) {
+      index = i;
+    }
+  }
+  return index;
+}
+
+bool _isPreActivationSkip(
+  LogEntry entry,
+  String itemId,
+  int index,
+  int activationIndex,
+) {
+  if (activationIndex < 0) {
+    return false;
+  }
+  return entry is ItemActEntry &&
+      entry.kind == LogKind.cardSkipped &&
+      entry.itemId == itemId &&
+      index <= activationIndex;
+}
+
 /// How many distinct eligible days the log shows the item declined on
 /// (FR-5, AD-24): one per day that is an eligible day of the item AND
 /// holds a `card_skipped` for it charged to that day — the walk's own
-/// session-day attribution, never a second copy of the rule. Since the
-/// item's last activation when one exists, else since its genesis (a
-/// pool fact's creation; a shipped entry's "ever"). A rescue step
-/// answers nothing (no counter — the depth cap); an id no source knows
-/// answers nothing either. Rows after [instantUtcMicros] are skipped,
-/// the readers' convention.
+/// session-day attribution, never a second copy of the rule. Skips
+/// from before the item's last activation (append order) are dropped
+/// so the counter resets without rebinding EligibleDay's genesis; a
+/// never-activated item counts from genesis (a pool fact's creation;
+/// a shipped entry's "ever"). A rescue step answers nothing (no
+/// counter — the depth cap); an id no source knows answers nothing
+/// either. Rows after [instantUtcMicros] are skipped, the readers'
+/// convention.
 int rescueDeclineDays({
   required List<LogEntry> entries,
   required List<PoolFact> poolFacts,
@@ -106,11 +129,9 @@ int rescueDeclineDays({
   required int instantUtcMicros,
 }) {
   final anchor = _anchorOf(
-    entries: entries,
     poolFacts: poolFacts,
     catalogue: catalogue,
     itemId: itemId,
-    instantUtcMicros: instantUtcMicros,
   );
   if (anchor == null) {
     return 0;
@@ -119,8 +140,14 @@ int rescueDeclineDays({
     for (final entry in entries)
       if (entry.instantUtcMicros <= instantUtcMicros) entry,
   ];
+  final activationIndex = _latestActivationIndex(bounded, itemId);
+  final skipLog = [
+    for (var i = 0; i < bounded.length; i++)
+      if (!_isPreActivationSkip(bounded[i], itemId, i, activationIndex))
+        bounded[i],
+  ];
   final declinedDays =
-      walkLog(bounded).skippedDaysByItemId[itemId] ?? const <Day>{};
+      walkLog(skipLog).skippedDaysByItemId[itemId] ?? const <Day>{};
   var count = 0;
   for (final day in declinedDays) {
     if (eligibleDayOfAnchor(

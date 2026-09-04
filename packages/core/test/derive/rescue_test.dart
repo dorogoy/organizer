@@ -159,6 +159,49 @@ void main() {
       expect(warranted(entries, 'cap-a', facts: [fact]), isTrue);
     });
 
+    test('dealt-but-never-skipped days count zero — answers are not '
+        'refusals, and a bare deal is not a decline', () {
+      final fact = _fact('cap-a', Size.focus, _at(0, 9));
+      List<LogEntry> answered(int days) => [
+        _started(_at(days, 10)),
+        _row(LogKind.cardDealt, _at(days, 10, 0, 1), 'cap-a'),
+        _row(LogKind.cardDone, _at(days, 10, 0, 2), 'cap-a'),
+        _ended(_at(days, 10, 0, 3)),
+      ];
+      // Two answered days plus a dealt-only day: neither shape feeds
+      // the skipped map a counter reading the dealt map would see.
+      final entries = [
+        ...answered(1),
+        ...answered(2),
+        _started(_at(3, 10)),
+        _row(LogKind.cardDealt, _at(3, 10, 0, 1), 'cap-a'),
+        _ended(_at(3, 10, 0, 2)),
+      ];
+      expect(declineDays(entries, 'cap-a', facts: [fact]), 0);
+      expect(warranted(entries, 'cap-a', facts: [fact]), isFalse);
+      expect(
+        dissolvedChainParentIds(
+          entries: entries,
+          poolFacts: [fact],
+          instantUtcMicros: _now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('another item\'s activation leaves this counter alone — '
+        'resets are item-scoped', () {
+      final fact = _fact('cap-a', Size.focus, _at(0, 9));
+      final entries = [
+        ..._decline(1, 'cap-a'),
+        ..._decline(2, 'cap-a'),
+        _started(_at(3, 10)),
+        _slice(LogKind.sliceRequested, _at(3, 10, 0, 1), 'cap-b'),
+        _ended(_at(3, 10, 0, 2)),
+      ];
+      expect(declineDays(entries, 'cap-a', facts: [fact]), 2);
+    });
+
     test('two eligible days do not warrant — the width is the capture '
         'window\'s own named three', () {
       final fact = _fact('cap-a', Size.focus, _at(0, 9));
@@ -267,6 +310,76 @@ void main() {
       expect(warranted(entries, 'cap-a', facts: [fact]), isFalse);
     });
 
+    test('the skip after a failed rescue on that sitting counts '
+        'toward the fresh cycle — EligibleDay keeps the item\'s '
+        'genesis, and activation only filters earlier skips', () {
+      final fact = _fact('cap-a', Size.focus, _at(0, 9));
+      final entries = [
+        ..._decline(1, 'cap-a'),
+        _started(_at(2, 10)),
+        _row(LogKind.cardDealt, _at(2, 10, 0, 1), 'cap-a'),
+        _slice(LogKind.sliceRequested, _at(2, 10, 0, 2), 'cap-a'),
+        _slice(LogKind.sliceFailed, _at(2, 10, 0, 3), 'cap-a'),
+        _row(LogKind.cardSkipped, _at(2, 10, 0, 4), 'cap-a'),
+        _ended(_at(2, 10, 0, 5)),
+        ..._decline(3, 'cap-a'),
+        ..._decline(4, 'cap-a'),
+      ];
+      expect(
+        declineDays(entries, 'cap-a', facts: [fact]),
+        3,
+        reason:
+            'day 1 precedes the activation; the sitting\'s own skip '
+            'plus days 3 and 4 are the fresh cycle — the I/O row '
+            '"Second tap after failure"',
+      );
+      expect(warranted(entries, 'cap-a', facts: [fact]), isTrue);
+    });
+
+    test('a skip from before the activation does not leak back when '
+        'a later session starts on the same domestic day', () {
+      final fact = _fact('cap-a', Size.focus, _at(0, 9));
+      final entries = [
+        _started(_at(2, 9)),
+        _row(LogKind.cardDealt, _at(2, 9, 0, 1), 'cap-a'),
+        _row(LogKind.cardSkipped, _at(2, 9, 0, 2), 'cap-a'),
+        _ended(_at(2, 9, 0, 3)),
+        _started(_at(2, 14)),
+        _row(LogKind.cardDealt, _at(2, 14, 0, 1), 'cap-a'),
+        _slice(LogKind.sliceRequested, _at(2, 14, 0, 2), 'cap-a'),
+        _slice(LogKind.sliceFailed, _at(2, 14, 0, 3), 'cap-a'),
+        _ended(_at(2, 14, 0, 4)),
+        _started(_at(2, 18)),
+        _ended(_at(2, 18, 0, 1)),
+      ];
+      expect(
+        declineDays(entries, 'cap-a', facts: [fact]),
+        0,
+        reason:
+            'the morning skip precedes the activation; an evening '
+            'session start does not revive it',
+      );
+    });
+
+    test('the latest activation is the last slice_requested in append '
+        'order, even when an earlier row carries a later instant', () {
+      final fact = _fact('cap-a', Size.focus, _at(0, 9));
+      final entries = [
+        ..._decline(1, 'cap-a'),
+        _slice(LogKind.sliceRequested, _at(4, 12), 'cap-a'),
+        _slice(LogKind.sliceRequested, _at(2, 10), 'cap-a'),
+        ..._decline(3, 'cap-a'),
+      ];
+      expect(
+        declineDays(entries, 'cap-a', facts: [fact]),
+        1,
+        reason:
+            'the position-latest request is the day-2 row; day 3\'s '
+            'skip follows it in the log and counts, whatever the '
+            'day-4 instant on the earlier row',
+      );
+    });
+
     test('a delivered rescue resets the same way — slice_returned '
         'names no fresh decline, and the counter reads from the '
         'activation', () {
@@ -325,6 +438,25 @@ void main() {
       expect(declineDays(const [], 'nobody'), 0);
       expect(warranted(const [], 'nobody'), isFalse);
     });
+
+    test('energy filtering on a shipped focus entry neither '
+        'increments nor resets — the catalogue adapter reads the '
+        'entry\'s size into the one EligibleDay energy clause', () {
+      final entries = [
+        ..._decline(1, 'zona-z1-a'),
+        _energySet(_at(2, 9), EnergyLevel.low),
+        ..._decline(2, 'zona-z1-a'),
+        ..._decline(3, 'zona-z1-a'),
+      ];
+      expect(
+        declineDays(entries, 'zona-z1-a'),
+        2,
+        reason:
+            'day 2\'s 🔴 start excludes the focus size, so the '
+            'shipped entry\'s skip that sitting does not count',
+      );
+      expect(warranted(entries, 'zona-z1-a'), isFalse);
+    });
   });
 
   group('the depth cap\'s derivation half (FR-5)', () {
@@ -365,6 +497,62 @@ void main() {
       final entries = [
         ..._decline(2, 'step-1'),
         ..._decline(3, 'step-1'),
+        ..._decline(4, 'step-2'),
+      ];
+      expect(
+        dissolvedChainParentIds(
+          entries: entries,
+          poolFacts: facts,
+          instantUtcMicros: _now,
+        ),
+        {'cap-a'},
+      );
+    });
+
+    test('same-day declines across steps count once — the union '
+        'counts days, not steps', () {
+      final facts = [
+        _fact('cap-a', Size.focus, _at(0, 9)),
+        _fact('step-1', Size.instant, _at(1, 9), rescueOf: 'cap-a'),
+        _fact('step-2', Size.instant, _at(1, 9), rescueOf: 'cap-a'),
+      ];
+      // Day 2 declines two steps in two sittings, day 3 one: two
+      // distinct days, no dissolution.
+      final entries = [
+        ..._decline(2, 'step-1'),
+        _started(_at(2, 11)),
+        _row(LogKind.cardDealt, _at(2, 11, 0, 1), 'step-2'),
+        _row(LogKind.cardSkipped, _at(2, 11, 0, 2), 'step-2'),
+        _ended(_at(2, 11, 0, 3)),
+        ..._decline(3, 'step-1'),
+      ];
+      expect(
+        dissolvedChainParentIds(
+          entries: entries,
+          poolFacts: facts,
+          instantUtcMicros: _now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a completed step neither joins the union nor blocks it — '
+        'parent and pending dissolve, the done step stays done', () {
+      final facts = [
+        _fact('cap-a', Size.focus, _at(0, 9)),
+        _fact('step-1', Size.instant, _at(1, 9), rescueOf: 'cap-a'),
+        _fact('step-2', Size.instant, _at(1, 9), rescueOf: 'cap-a'),
+      ];
+      List<LogEntry> doneStep(int days) => [
+        _started(_at(days, 10)),
+        _row(LogKind.cardDealt, _at(days, 10, 0, 1), 'step-1'),
+        _row(LogKind.cardDone, _at(days, 10, 0, 2), 'step-1'),
+        _ended(_at(days, 10, 0, 3)),
+      ];
+      final entries = [
+        ...doneStep(2),
+        ..._decline(2, 'step-2'),
+        ..._decline(3, 'step-2'),
         ..._decline(4, 'step-2'),
       ];
       expect(

@@ -97,6 +97,22 @@ context:
 - Given no reachable Slicer, when a rescue is attempted, then the original stays dealable as-is, nothing is queued, and the 4-5 calm surface states the cause plainly.
 - Given any skip, when storage is inspected, then skips feed only this counter and no cumulative skip total exists anywhere.
 
+### Review Findings
+
+- [x] [Review][Decision] Focus slot spent on both the activation day and the completion day when they differ — resolved 2026-09-04: **keep both** (no code change). Each day advanced (conversion on the dealing day per FR-7, closure on the completion day per ADV-10); dropping either would contradict frozen text, and the rules are stated independently.
+- [x] [Review][Decision] Auto-heuristic on a Warm Return opening — resolved 2026-09-04: **keep firing** (no code change). The frozen spec conditions the trigger on the dealt card alone; the tap path stays available either way, and suppressing would weaken the heuristic for exactly the returning users who need it most.
+
+- [x] [Review][Patch] Unmatched `slice_requested` bricks `Otra más fácil` — pending is now session-scoped (a killed flight never bricks the next sitting) + test [`packages/core/lib/commands/rescue_commands.dart`]
+- [x] [Review][Patch] Historical `card_done` discards a later rescue of a re-dealt item — discard is now done-after-activation (index-based); a pre-activation done lands normally + test [`packages/core/lib/commands/rescue_commands.dart`]
+- [x] [Review][Patch] Same-sitting skip after a failed rescue does not count as a decline day — SUPERSEDED by the group-1 counter rework (activation filters by append order; same-sitting skip counts) [`packages/core/lib/derive/rescue.dart:58`]
+- [x] [Review][Patch] Mid-flight secondary tap cannot skip — tap inside a flight now skips, and tap-path `Declined` falls back to skip (also fixes the null-seam dead tap and stale-step decline) + 2 widget tests [`lib/ui/dispenser/dispenser_screen.dart:439`]
+- [x] [Review][Patch] Completed parent is untested on a later open-slot day — added capture-completion Monday test (closedDays direct, chunk composes, parent never re-deals) [`packages/core/test/weave_test.dart:2961`]
+- [x] [Review][Patch] Non-focus conversion is not checked against the day's Focus Chunk — covered by the group-2 P2.3 conversion test + the completion compose check [`packages/core/test/weave_test.dart:3142`]
+- [x] [Review][Patch] Capture Origin Context is untested on the success path — added capture-parent delivery test (both request slots carry the line, steps inherit manual) [`test/dispenser/dispenser_controller_test.dart`]
+
+- [x] [Review][Defer] Rescue landing is a non-atomic multi-append [`lib/dispenser/dispenser_controller.dart:649`] — deferred, pre-existing
+- [x] [Review][Defer] Manual Local-Slicer emulator pass is listed and not recorded [`_bmad-output/implementation-artifacts/4-6-rescue-mode.md:117`] — deferred, pre-existing
+
 ## Spec Change Log
 
 ## Design Notes
@@ -198,3 +214,45 @@ context:
 
 - The v8→v9 additive-only migration group.
   [`substrate_test.dart:2153`](../../test/store/substrate_test.dart#L2153)
+
+### Review Findings
+
+Paused 2026-09-04 — resume from `_bmad-output/implementation-artifacts/4-6-rescue-mode-review-resume.md`. Group 1 applied; group 2 reviewed (fall-through decided); four group-2 patches unchecked; groups 3–5 not started.
+
+Chunk: group 1 (core) — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor.
+
+- [x] [Review][Patch] Activation reset rebinds EligibleDay's genesis, so the skip after a failed rescue on that sitting never counts toward the fresh cycle, and a pre-activation skip on the same domestic day can leak back in [`packages/core/lib/derive/rescue.dart:51`]
+- [x] [Review][Patch] `slicerFailureCauseByName` is a hand-copied map; a new `SlicerFailureCause` writes a `slice_failed` that the read boundary drops as `sliceCauseAbsent`, and the in-flight `rescueRequested` guard then refuses every later ask [`packages/core/lib/log/log_entry.dart:66`]
+- [x] [Review][Patch] Slice kinds' "own payload and nothing else" extra-column exclusions are untested [`packages/core/lib/log/log_entry.dart:1013`]
+- [x] [Review][Patch] Catalogue-anchor size never hits EligibleDay's energy clause in tests — a shipped focus entry on a 🔴 sitting is unpinned [`packages/core/lib/derive/rescue.dart:84`]
+
+Chunk: group 2 (weave / session) — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor.
+
+- [x] [Review][Patch] Exclude rescue heads from size-based draws so a pocket miss falls through to upkeep/habits that fit; `composeDay` no longer lists the head as a habit [`packages/core/lib/weave/weave.dart:653`]
+- [x] [Review][Patch] `supersededParentIds` is spliced into the middle of `captureCandidates`' dartdoc, so both contracts are unreadable [`packages/core/lib/weave/weave.dart:223`]
+- [x] [Review][Patch] Non-focus conversion does not pin that `focusSlotCarriedDays` stays empty and that day's chunk still composes [`packages/core/lib/weave/session.dart:415`]
+- [x] [Review][Patch] An intermediate focus-chain `card_done` does not pin that `focusSlotClosedDays` stays empty for that session day [`packages/core/lib/weave/session.dart:372`]
+
+Chunk: group 3 (store) — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor. ✅ Clean — 13 findings triaged, all dismissed (sliceCause/kind-affinity handled at the core read boundary; half-pair/trim/write-asymmetry unreachable at real call sites; v9 tests + codegen-check verified; rest pre-existing pattern or design-consistent).
+
+Chunk: group 4 (shell) — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor. 35 findings → 2 decision, 3 patch, 21 dismissed, 2 duplicates of tracked items (mid-flight tap = patch :439 below; warm-return overlap = decision below).
+
+- [x] [Review][Decision] Stale-deal failure: push the calm surface over the successor or discard quietly — resolved 2026-09-04: **quiet** (option 1). If the landed view is no longer the dealt card, commit it silently; the `slice_failed` row stays as history. Folded into the patch below.
+- [x] [Review][Decision] Per-deal markers keyed by item id leak into a same-item re-deal — resolved 2026-09-04: **keep id-keying** (option 2). Accepted as tolerable: narrow interleaving, self-heals on the skip, cause was stated.
+- [x] [Review][Patch] Stale failure must land quietly for an ended deal [`lib/ui/dispenser/dispenser_screen.dart:472`] — when the landed view is no longer the dealt card, arm neither marker and push no surface, only commit the view; verify with a gated-failure Hecho-during-flight test (no stale markers, successor stands, no surface)
+- [x] [Review][Patch] Production slicer threading has no wiring pin [`lib/main.dart:94`] — `app_test` never mentions `slicer`; deleting the threading keeps the suite green while Rescue dies in prod; pin `slicer: slicer` beside `DispenserController(store: store)`
+- [x] [Review][Patch] Degrade-persistence across a same-deal foreground refresh is unasserted [`lib/ui/dispenser/dispenser_screen.dart:554`] — insert paused/resumed between pop and the second tap; assert one `slice_requested` + one `card_skipped`
+
+Chunk: group 5a (core tests) — 2026-09-04. Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor. ~40 findings → 9 patch (all test-only), rest dismissed (same-branch/same-path pins, unreachable-via-shell, corrupt-only rows, or covered in 5b/5c batches). Duplicates of tracked items noted, not re-added (historical-`card_done` over-discard = patch :183 below).
+
+Chunk: groups 5b/5c/5d + original block — 2026-09-04, all applied de golpe, gate green (828 tests + format + analyze) plus `make check` green. Behavior changes: tap-path `Declined`→skip (+ flight-first skip), session-scoped pending, index-based historical-done discard. Decisions D1-dual-day and D2-warm resolved KEEP (rationale in bullets). 5d clean.
+
+- [x] [Review][Patch] Dealt/done-only days must count zero toward the refusal counter and dissolution [`packages/core/test/derive/rescue_test.dart`] — every fixture pairs deal+skip, so reading the dealt map instead of the skipped map keeps the suite green; add deal-only and done-only days asserting 0/empty
+- [x] [Review][Patch] Activation isolation is item-scoped only by unread code [`packages/core/test/derive/rescue_test.dart`, `packages/core/test/rescue_commands_test.dart`] — add: `cap-b` activation leaves `cap-a` at 2 decline-days; `cap-a`-pending does not refuse `cap-b`; activation at 2 declines appends (no counter gate)
+- [x] [Review][Patch] Half-pair null combos unpinned [`packages/core/test/ports_test.dart:118`] — add valid-parent+null-estimate (parent survives) and null-parent+45 (orphan estimate kept), the file's own stated independence
+- [x] [Review][Patch] Foreign-payload offender loop omits `slice_returned` [`packages/core/test/log_test.dart:1388`] — extend to all three slice kinds
+- [x] [Review][Patch] Landing test never asserts size or seed-id linkage — DROPPED: `RescueReturnedContent.facts` are id-less step records by design (the shell mints ids from the same seed list, AD-3); size/estimate/rescueOf already pinned shell-side (`dispenser_controller_test.dart:3454-3461`) and head-deal linkage core-side (`entries[1].itemId == seeds.first.id`)
+- [x] [Review][Patch] Shipped-parent landing inheritance unpinned [`packages/core/test/rescue_commands_test.dart:145`] — activation-only exists; add `rescueReturned` with a shipped parent asserting steps inherit `shipped`
+- [x] [Review][Patch] `rescueFailed` pins one cause and one null column [`packages/core/test/rescue_commands_test.dart:479`] — loop all seven causes + assert the full null payload like the sibling test
+- [x] [Review][Patch] No 3-step accept case [`packages/core/test/slicer/rescue_steps_test.dart:49`] — span pins 2 and 4; add 3
+- [x] [Review][Patch] Dissolution union same-day + done-step exclusion [`packages/core/test/derive/rescue_test.dart:446`] — add two steps declined the same day counting once, and a chain with one done step dissolving parent+pending only

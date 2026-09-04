@@ -231,6 +231,15 @@ List<Candidate> shippedCandidates(
 /// nothing. No cap and no expiry: an unanswered capture is absent
 /// rows, never a deleted fact, and the three capture sizes ARE the
 /// 1-3-5 taxonomy — the fact's [Size] rides straight through, no
+/// conversion. A duplicate fact id offers once — the snapshot's
+/// first, replay order being the one order the store guarantees
+/// (AD-3) — so two facts sharing an id cannot fill two draw slots.
+/// Since Story 4.6 a rescue step is not offered here — steps belong
+/// to the rescue source alone, head-only, one at a time — and a
+/// parent whose chain exists is not offered here either: from
+/// activation onward the parent never returns as a candidate, its
+/// chain in its place.
+///
 /// The parents a chain stands behind (Story 4.6, FR-5): every id some
 /// pool fact's `rescueOf` names — live, completed or dissolved alike.
 /// THE one fold behind both retirement sites (`captureCandidates`'
@@ -244,14 +253,6 @@ Set<String> supersededParentIds(List<PoolFact> poolFacts) => {
     if (fact.rescueOf != null) fact.rescueOf!,
 };
 
-/// conversion. A duplicate fact id offers once — the snapshot's
-/// first, replay order being the one order the store guarantees
-/// (AD-3) — so two facts sharing an id cannot fill two draw slots.
-/// Since Story 4.6 a rescue step is not offered here — steps belong
-/// to the rescue source alone, head-only, one at a time — and a
-/// parent whose chain exists is not offered here either: from
-/// activation onward the parent never returns as a candidate, its
-/// chain in its place.
 List<Candidate> captureCandidates(
   List<PoolFact> poolFacts,
   Set<String> answeredItemIds,
@@ -645,13 +646,23 @@ _DayPolicy _resolveDay({
     ],
     maintenance: _draw(
       candidates
-          .where((candidate) => candidate.size == Size.maintenance)
+          .where(
+            (candidate) =>
+                candidate.size == Size.maintenance &&
+                candidate.precedence != CandidatePrecedence.rescue,
+          )
           .toList(),
       facts,
       maintenanceDrawsPerDay,
     ),
     instantHabits: _draw(
-      candidates.where((candidate) => candidate.size == Size.instant).toList(),
+      candidates
+          .where(
+            (candidate) =>
+                candidate.size == Size.instant &&
+                candidate.precedence != CandidatePrecedence.rescue,
+          )
+          .toList(),
       facts,
       instantDrawsPerDay,
     ),

@@ -2155,7 +2155,7 @@ void main() {
     /// plus the log's setting text column, `user_version` 8 — seeded
     /// over a memory executor so drift's runner sees version 8 and
     /// upgrades.
-    Future<void> takeOverWithV8() async {
+    Future<void> takeOverWithV8({bool seedRows = true}) async {
       await db.close();
       db = SubstrateDatabase(
         NativeDatabase.memory(
@@ -2197,13 +2197,15 @@ void main() {
               'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
                   "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
                   "insert-only (AD-2)'); END",
-              "INSERT INTO pool_facts VALUES ('v8-fact', 'manual', "
-                  "'maintenance', 100, 3600, 'Vaciar la caja de la entrada', "
-                  'NULL)',
-              "INSERT INTO log_entries VALUES ('v8-provider', "
-                  "'setting_changed', 200, 3600, NULL, NULL, NULL, "
-                  "'selected_provider', NULL, 'openai', NULL, NULL, NULL, "
-                  "NULL, NULL)",
+              if (seedRows)
+                "INSERT INTO pool_facts VALUES ('v8-fact', 'manual', "
+                    "'maintenance', 100, 3600, 'Vaciar la caja de la entrada', "
+                    'NULL)',
+              if (seedRows)
+                "INSERT INTO log_entries VALUES ('v8-provider', "
+                    "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                    "'selected_provider', NULL, 'openai', NULL, NULL, NULL, "
+                    "NULL, NULL)",
               'PRAGMA user_version = 8',
             ]) {
               rawDb.execute(statement);
@@ -2213,6 +2215,26 @@ void main() {
       );
       store = DriftStore(db);
     }
+
+    test('an empty v8 database upgrades too — no rows, same three '
+        'ALTERs, same version bump, appends work', () async {
+      await takeOverWithV8(seedRows: false);
+      expect(db.schemaVersion, 9);
+      expect(await store.readLogEntries(), isEmpty);
+      expect(await store.readPoolFacts(), isEmpty);
+      await store.appendPoolFact((
+        id: 'v9-first',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        originContext: 'Paso primero',
+        dictated: null,
+        rescueOf: 'v8-gone',
+        estimateSeconds: 45,
+      ));
+      expect((await store.readPoolFacts()).single.id, 'v9-first');
+    });
 
     test('a seeded v8 database upgrades in place: three ALTERs add the '
         'slice-cause column and the pool\'s rescue pair, the v8 rows '
@@ -2345,6 +2367,54 @@ void main() {
       expect(
         (conversion.entry as SliceEntry).cause,
         SlicerFailureCause.networkUnreachable,
+      );
+      // The sibling slice rows round-trip beside the failure one.
+      for (final row in [
+        (
+          id: 'v9-requested',
+          kind: LogKind.sliceRequested.name,
+          instantUtcMicros: 500,
+          offsetSeconds: 3600,
+          itemId: 'v8-fact',
+          itemOrigin: Origin.manual,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+        ),
+        (
+          id: 'v9-returned',
+          kind: LogKind.sliceReturned.name,
+          instantUtcMicros: 501,
+          offsetSeconds: 3600,
+          itemId: 'v8-fact',
+          itemOrigin: Origin.manual,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+        ),
+      ]) {
+        await store.appendLogEntry(row);
+        expect(convertLogEntryRecord(row).flaw, isNull);
+      }
+      expect(
+        (await store.readLogEntries()).where(
+          (entry) => entry.kind.startsWith('slice_'),
+        ),
+        hasLength(3),
       );
     });
 

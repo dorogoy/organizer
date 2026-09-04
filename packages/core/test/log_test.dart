@@ -1316,6 +1316,22 @@ void main() {
       expect(entry.cause, SlicerFailureCause.quotaExhausted);
     });
 
+    test('each of the seven failure causes names its own slice_failed '
+        'row', () {
+      for (final cause in SlicerFailureCause.values) {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'slice_failed',
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause.name,
+          ),
+        );
+        expect(conversion.flaw, isNull, reason: cause.name);
+        expect((conversion.entry as SliceEntry).cause, cause);
+      }
+    });
+
     test('a slice_failed without a cause this build can read is '
         'sliceCauseAbsent — the column absent, empty, or naming an '
         'unknown cause alike', () {
@@ -1363,6 +1379,67 @@ void main() {
         final conversion = convertLogEntryRecord(record);
         expect(conversion.entry, isNull, reason: record.kind);
         expect(conversion.flaw, LogRecordFlaw.causeOnNonFailedKind);
+      }
+    });
+
+    test('a stack, setting, pocket, energy, report or permission on a '
+        'slice kind is excluded — the row rides its pair (and on '
+        'slice_failed, its cause) and nothing else', () {
+      for (final wire in [
+        'slice_requested',
+        'slice_returned',
+        'slice_failed',
+      ]) {
+        final cause = wire == 'slice_failed' ? 'quotaExhausted' : null;
+        final offenders = <LogRecordFlaw, LogEntryRecord>{
+          LogRecordFlaw.stackOffCrashKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            stack: '#0      build',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            energyLevel: 2,
+          ),
+          LogRecordFlaw.reportOnNonReportKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            reportValue: 3,
+          ),
+          LogRecordFlaw.permissionOnNonPermissionKind: _record(
+            wire,
+            itemId: 'cap-a',
+            itemOrigin: Origin.manual,
+            sliceCause: cause,
+            permission: 'microphone',
+          ),
+        };
+        offenders.forEach((flaw, record) {
+          final conversion = convertLogEntryRecord(record);
+          expect(conversion.entry, isNull, reason: '$wire $flaw');
+          expect(conversion.flaw, flaw, reason: '$wire $flaw');
+        });
       }
     });
 

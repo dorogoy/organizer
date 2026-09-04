@@ -415,7 +415,14 @@ class _DispenserScreenState extends State<DispenserScreen>
     if (dealt.rescueStep || _degradedRescueDealId == dealt.card.id) {
       return _onSkip(dealt);
     }
-    return _onRescue(dealt);
+    // A tap inside a pending flight passes the card too (FR-3 stays
+    // reachable everywhere, even through provider latency): the
+    // landing then meets an ended deal and goes quiet, by the stale
+    // rule below and the core's own in-flight discard.
+    if (_rescueFlightDealId == dealt.card.id) {
+      return _onSkip(dealt);
+    }
+    return _onRescue(dealt, fromTap: true);
   }
 
   /// The rescue ask (Story 4.6, FR-5, FR-29): tap-first on a normal
@@ -435,7 +442,7 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// is the OS pop. A failed write is absorbed by the empty frame,
   /// quietly, degrades nothing and arms no auto marker — nothing
   /// landed, so the warrant stays derivable for a retry.
-  Future<void> _onRescue(DispenserDealt dealt) async {
+  Future<void> _onRescue(DispenserDealt dealt, {bool fromTap = false}) async {
     if (_rescueFlightDealId == dealt.card.id) {
       return;
     }
@@ -468,19 +475,33 @@ class _DispenserScreenState extends State<DispenserScreen>
           // auto line while the degraded deal stands. The control is
           // skip-only for the rest of this deal: the failure stated
           // its cause, and the second tap passes the card (FR-3 stays
-          // reachable everywhere).
-          _autoRescueFiredForDeal = dealt.card.id;
-          _degradedRescueDealId = dealt.card.id;
+          // reachable everywhere). But only while the deal still
+          // stands: a Hecho or a skip that landed mid-flight ended it,
+          // and a dead deal gets neither markers nor surface — the
+          // `slice_failed` row stands as history, quietly (D1).
+          final dealStands =
+              view is DispenserDealt && view.card.id == dealt.card.id;
+          if (dealStands) {
+            _autoRescueFiredForDeal = dealt.card.id;
+            _degradedRescueDealId = dealt.card.id;
+          }
           _writeInFlight = true;
           setState(() => _view = view);
           _releaseWriteAfterRefreshFrame();
-          _openNoSlicerSurface(cause);
+          if (dealStands) {
+            _openNoSlicerSurface(cause);
+          }
         case DispenserRescueDeclined():
           // The command boundary refused (a step, an existing chain,
           // a pending activation, or no Slicer behind the test seam):
-          // nothing landed, nothing is owed, no marker is armed — a
-          // refused ask left the warrant exactly as it stood — and no
-          // surface exists for a refusal that cannot reach it.
+          // nothing landed. On the tap path the card still passes —
+          // a refused ask degrades to its skip half, exactly like a
+          // step's tap (no refusal surface, no error, no dead tap).
+          // The auto path stays silent: a heuristic never answers.
+          if (fromTap) {
+            await _onSkip(dealt);
+            return;
+          }
           break;
       }
     } catch (_) {
