@@ -1,18 +1,24 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/energy_commands.dart';
 import 'package:core/commands/report_commands.dart';
+import 'package:core/commands/rescue_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/derive/checkpoint.dart';
+import 'package:core/derive/rescue.dart';
 import 'package:core/derive/strip.dart';
 import 'package:core/derive/warm_return.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/ports/no_slicer_cause.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/pool/pool_fact.dart' as pool;
 import 'package:core/settings/settings.dart';
+import 'package:core/slicer/rescue_steps.dart';
 import 'package:core/weave/session.dart';
 import 'package:core/weave/weave.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide Size;
 import 'package:uuid/uuid.dart';
 
 import '../catalogue/loader.dart';
@@ -76,11 +82,19 @@ sealed class DispenserView {
 /// session's first `card_dealt` before the first frame needs it.
 /// Carries the standing declared pocket (Story 2.2): the open session's
 /// own pocket fact, absent when the sitting is unbounded — the trigger
-/// chip's data, never session state held as truth (AD-19).
+/// chip's data, never session state held as truth (AD-19). Since Story
+/// 4.6 it carries the one control's own two facts (FR-5):
+/// [rescueStep] — the card IS a rescue step, so its `Otra más fácil`
+/// tap is its skip half (the depth cap's shell reading, never a
+/// refusal surface) — and [autoRescueDue] — the standing card's item
+/// is declined on ≥ 3 eligible days since its last activation, so the
+/// auto-heuristic's request fires while the card stands.
 final class DispenserDealt extends DispenserView {
   const DispenserDealt(
     this.card, {
     this.pocketMinutes,
+    this.rescueStep = false,
+    this.autoRescueDue = false,
     super.stripResident,
     super.reportWeekOrdinal,
     super.warmReturnDue,
@@ -89,6 +103,20 @@ final class DispenserDealt extends DispenserView {
   final Card card;
 
   final int? pocketMinutes;
+
+  /// Whether the dealt card is a rescue step (Story 4.6, FR-5): a fact
+  /// whose `rescueOf` names a parent. The control's rescue half is
+  /// unreachable on such a card — the tap skips, one tap still passes
+  /// the step, no error, no refusal surface, nothing half-wired.
+  final bool rescueStep;
+
+  /// Whether the auto-heuristic's re-slice is warranted for the
+  /// standing card's item (Story 4.6, FR-5): the derived refusal
+  /// counter over the one EligibleDay predicate, at or past the named
+  /// three-day width since the item's last activation. The tap path
+  /// never reads it; the auto path fires once per warranted deal and
+  /// the activation itself resets the counter.
+  final bool autoRescueDue;
 }
 
 /// `nextCard` returned nothing: the warm close surface, quiet, never an
@@ -132,6 +160,54 @@ final class DispenserRestOffer extends DispenserView {
   final int? pocketMinutes;
 }
 
+/// One rescue attempt's whole outcome (Story 4.6, FR-5): the tap — or
+/// the auto-heuristic — ran, and the shell states what became of it.
+/// Sealed so no fourth state (no pending, no queued, no retrying) can
+/// exist as a type: egress never queues, and a fresh rescue is a fresh
+/// tap by construction.
+sealed class DispenserRescueOutcome {
+  const DispenserRescueOutcome();
+}
+
+/// The re-slice delivered and landed: the step facts, the supersede
+/// pair and the bundled head-step deal are appended, and [view] is the
+/// fresh read — the head step standing where the stuck card stood.
+/// The activation row landed before any of it — this outcome is the
+/// screen's signal that the refusal counter is reset.
+final class DispenserRescueSucceeded extends DispenserRescueOutcome {
+  const DispenserRescueSucceeded(this.view);
+
+  final DispenserView view;
+}
+
+/// The re-slice failed terminally: the activation row landed, then
+/// one `slice_failed` row with the cause, nothing queued, the
+/// original dealable exactly as it stood, and [cause] is the
+/// renderable vocabulary the calm surface states once — the control
+/// is skip-only for the rest of that deal (the shell's ephemeral
+/// state, never a row). The activation's landing makes this outcome,
+/// like the success, a counter reset the screen can key on.
+final class DispenserRescueFailed extends DispenserRescueOutcome {
+  const DispenserRescueFailed(this.cause, this.view);
+
+  final NoSlicerCause cause;
+
+  /// The fresh read — the card stands; committing it keeps the surface
+  /// and the log one truth.
+  final DispenserView view;
+}
+
+/// The request was refused at the command boundary (a rescue step —
+/// the depth cap; an item whose chain already stands, or whose
+/// activation is still pending — one chain, one in-flight request):
+/// nothing landed, nothing is owed, and no surface exists for this
+/// outcome by design. Unreachable from a correctly wired control's
+/// first tap, which routes a step's tap to its skip half before the
+/// ask; a double tap inside one flight arrives here quietly.
+final class DispenserRescueDeclined extends DispenserRescueOutcome {
+  const DispenserRescueDeclined();
+}
+
 /// The Dispenser's read and write surface (Stories 1.8–1.10, 2.2–2.5): the
 /// app's home surface derives its card and standing pocket from one log snapshot,
 /// and answers it through the two core answer commands, each appending its
@@ -168,6 +244,7 @@ class DispenserController {
     this.bundle,
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
+    this.slicer,
     LogWriteQueue? writeQueue,
   }) : writeQueue = writeQueue ?? LogWriteQueue();
 
@@ -177,6 +254,14 @@ class DispenserController {
   final Uuid idMinter;
   final DateTime Function() nowOf;
   final LogWriteQueue writeQueue;
+
+  /// The Slicer seam (Story 4.6, AD-9): the port main composes through
+  /// the egress factory, threaded here from the shell root — the
+  /// Dispenser's rescue path is its one production call site. Absent
+  /// (the test seam), the rescue asks decline quietly and the
+  /// auto-heuristic's fact derives false: nothing half-wired exists
+  /// anywhere.
+  final SlicerPort? slicer;
   Future<Catalogue>? _catalogue;
 
   /// The day whose check-in the ✕ dismissed (Story 2.5, UX-DR22) —
@@ -357,9 +442,35 @@ class DispenserController {
         warmReturnDue: warm,
       );
     }
+    // The one control's own facts (Story 4.6, FR-5): a standing card
+    // that IS a rescue step skips on the secondary tap (the depth
+    // cap's shell reading), and a standing normal card whose item is
+    // declined on ≥ 3 eligible days since its last activation carries
+    // the auto-heuristic's fact — derived here in the same
+    // queue-consistent read, never held in memory as truth. A read
+    // that proposes a fresh deal (no unanswered card standing) carries
+    // neither: no card stands to convert.
+    final rescueStep =
+        unanswered != null &&
+        poolFacts.any(
+          (fact) => fact.id == unanswered.itemId && fact.rescueOf != null,
+        );
+    final autoRescueDue =
+        slicer != null &&
+        unanswered != null &&
+        !rescueStep &&
+        rescueWarranted(
+          entries: log,
+          poolFacts: poolFacts,
+          catalogue: catalogue,
+          itemId: unanswered.itemId,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+        );
     return DispenserDealt(
       card,
       pocketMinutes: pocket,
+      rescueStep: rescueStep,
+      autoRescueDue: autoRescueDue,
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
       warmReturnDue: warm,
@@ -394,23 +505,7 @@ class DispenserController {
         poolFacts: poolFacts,
       );
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
   }
@@ -446,25 +541,177 @@ class DispenserController {
         poolFacts: poolFacts,
       );
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
+  }
+
+  /// Asks for a re-slice of the dealt card (Story 4.6, FR-5, FR-28):
+  /// the tap on a normal card, or the auto-heuristic's fire at the
+  /// deal of a warranted item — one flow either way, in three
+  /// queue-serialized steps with the Slicer's own await held OUTSIDE
+  /// the queue (egress never queues, and nothing behind the shell's
+  /// writes may block on a provider). First the activation — the
+  /// `slice_requested` row, minted at entry so it describes the tap,
+  /// the row that resets the refusal counter whatever follows; the
+  /// core refuses a rescue step outright (the depth cap), answering
+  /// [DispenserRescueDeclined] and appending nothing. Then the call
+  /// itself: the dealt card's own name rides both request slots — the
+  /// capture's single line or the shipped entry's Spanish catalogue
+  /// name, already resolved on the Card, no catalogue field, no new
+  /// loader machinery, no photo, no per-call dialog. Then the landing:
+  /// a delivered body parses IN CORE against the 2–4 × 1–60 s
+  /// contract — an unparsable body is `malformedResponse` — and
+  /// `rescueReturned` appends the step facts, the supersede pair and
+  /// the bundled head-step deal at the landing's own minted instant;
+  /// a failure appends exactly one `slice_failed` row with the cause.
+  /// Nothing is queued on failure, nothing retries, the original stays
+  /// dealable — and the returned view is the fresh read either way.
+  Future<DispenserRescueOutcome> rescue(DispenserDealt dealt) async {
+    final slicer = this.slicer;
+    if (slicer == null) {
+      // The test seam: no Slicer stands behind the shell, so no ask
+      // exists — the quiet refusal, never a surface (nothing was
+      // half-wired to begin with).
+      return const DispenserRescueDeclined();
+    }
+    final activationNow = nowOf();
+    final requested = await writeQueue.enqueue(() async {
+      final poolFacts = poolFactsOf(await store.readPoolFacts());
+      final log = logEntriesOf(await store.readLogEntries());
+      final contents = rescueRequested(
+        itemId: dealt.card.id,
+        origin: dealt.card.origin,
+        poolFacts: poolFacts,
+        log: log,
+      );
+      for (final content in contents) {
+        await _appendContent(content, activationNow);
+      }
+      return contents.isNotEmpty;
+    });
+    if (!requested) {
+      return const DispenserRescueDeclined();
+    }
+    // The port promises outcomes only — but that promise is the BYOK
+    // wire's own, and a third implementation (or a stub) may not keep
+    // it: any throw folds to `providerUnreachable`, exactly as the
+    // BYOK folds its own throwing provider reader, so no activation
+    // ever dangles and the failure path stays the one calm surface.
+    SlicerOutcome outcome;
+    try {
+      outcome = await slicer.slice(
+        RescueSliceRequest(
+          originContext: dealt.card.name,
+          task: dealt.card.name,
+        ),
+      );
+    } catch (_) {
+      outcome = const SlicerFailed(SlicerFailureCause.providerUnreachable);
+    }
+    final failureCause = await writeQueue.enqueue(() async {
+      final landingNow = nowOf();
+      switch (outcome) {
+        case SlicerDelivered(:final responseBody):
+          final steps = parseRescueSteps(responseBody);
+          if (steps == null) {
+            await _appendRescueFailure(
+              dealt,
+              SlicerFailureCause.malformedResponse,
+              landingNow,
+            );
+            return SlicerFailureCause.malformedResponse;
+          }
+          final catalogue = await _loadCatalogue();
+          final log = logEntriesOf(await store.readLogEntries());
+          final poolFacts = poolFactsOf(await store.readPoolFacts());
+          // Minted ONCE, before the core sees them: each id travels
+          // with its own step — one seed per step, both halves of the
+          // landing reading the same list, so the bundled head-step
+          // `card_dealt` names the step exactly as the store will hold
+          // it and no parallel list can truncate the batch (AD-3: the
+          // deal names the fact the same write mints, never a second
+          // mint's stranger).
+          final seeds = <RescueStepSeed>[
+            for (final step in steps) (id: idMinter.v7(), step: step),
+          ];
+          final returned = rescueReturned(
+            itemId: dealt.card.id,
+            origin: dealt.card.origin,
+            seeds: seeds,
+            catalogue: catalogue,
+            log: log,
+            instantUtcMicros: landingNow.microsecondsSinceEpoch,
+            offsetSeconds: landingNow.timeZoneOffset.inSeconds,
+            bagMinutes: deriveTimeBagMinutes(log),
+            poolFacts: poolFacts,
+          );
+          for (var i = 0; i < returned.facts.length; i++) {
+            final fact = returned.facts[i];
+            await store.appendPoolFact((
+              id: seeds[i].id,
+              origin: fact.origin,
+              size: pool.Size.instant,
+              instantUtcMicros: landingNow.microsecondsSinceEpoch,
+              offsetSeconds: landingNow.timeZoneOffset.inSeconds,
+              originContext: fact.originContext,
+              dictated: null,
+              rescueOf: fact.rescueOf,
+              estimateSeconds: fact.estimateSeconds,
+            ));
+          }
+          for (final content in returned.entries) {
+            await _appendContent(content, landingNow);
+          }
+          return null;
+        case SlicerFailed(:final cause):
+          await _appendRescueFailure(dealt, cause, landingNow);
+          return cause;
+      }
+    });
+    final view = await read();
+    return failureCause == null
+        ? DispenserRescueSucceeded(view)
+        : DispenserRescueFailed(noSlicerCauseFromFailure(failureCause), view);
+  }
+
+  Future<void> _appendRescueFailure(
+    DispenserDealt dealt,
+    SlicerFailureCause cause,
+    DateTime now,
+  ) async {
+    final contents = rescueFailed(
+      itemId: dealt.card.id,
+      origin: dealt.card.origin,
+      cause: cause,
+    );
+    for (final content in contents) {
+      await _appendContent(content, now);
+    }
+  }
+
+  /// Appends one minted content row — the write paths' shared copier,
+  /// the `_appendAll` idiom: one minted instant per batch (the caller's
+  /// [now]), a v7 id per row, the offset in force at the mint.
+  Future<void> _appendContent(LogEntryContent content, DateTime now) async {
+    await store.appendLogEntry((
+      id: idMinter.v7(),
+      kind: content.kind.name,
+      instantUtcMicros: now.microsecondsSinceEpoch,
+      offsetSeconds: now.timeZoneOffset.inSeconds,
+      itemId: content.itemId,
+      itemOrigin: content.itemOrigin,
+      stack: content.stack,
+      settingKey: content.settingKey,
+      settingValue: content.settingValue,
+      settingTextValue: null,
+      pocketMinutes: content.pocketMinutes,
+      energyLevel: content.energyLevel,
+      reportValue: content.reportValue,
+      reportWeek: content.reportWeek,
+      permission: content.permission?.name,
+      sliceCause: content.sliceCause,
+    ));
   }
 
   /// Declares a pocket (Story 2.2, FR-8): runs the core `sessionDeclare`
@@ -494,23 +741,7 @@ class DispenserController {
         poolFacts: poolFacts,
       );
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
     return write.then((_) => read());
@@ -533,23 +764,7 @@ class DispenserController {
       final log = logEntriesOf(await store.readLogEntries());
       final contents = sessionEnd(log: log);
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
     return write.then((_) => read());
@@ -590,23 +805,7 @@ class DispenserController {
         poolFacts: poolFacts,
       );
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
     return write.then((_) => read());
@@ -630,23 +829,7 @@ class DispenserController {
       // deal — so the write path reads nothing: the row is the tap.
       final contents = energySet(level: level);
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
     return write.then((_) => read());
@@ -697,23 +880,7 @@ class DispenserController {
       }
       final contents = reportAnswered(value: value, week: askedWeek);
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: null,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-        ));
+        await _appendContent(content, now);
       }
     });
     return write.then((_) => read());

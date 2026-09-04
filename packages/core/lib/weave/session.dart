@@ -46,11 +46,13 @@ final class LogFacts {
     required this.focusSlotClosedDays,
     required this.dealtCountsByDay,
     required this.dealtDaysByItemId,
+    required this.skippedDaysByItemId,
     required this.answeredItemIds,
     required this.openSessionStart,
     required this.dealtUnanswered,
     required this.openSessionPocketMinutes,
     required this.openSessionAnsweredSeconds,
+    required this.focusSlotCarriedDays,
   });
 
   /// Per item id, the instant of its latest recorded `card_dealt` —
@@ -60,7 +62,12 @@ final class LogFacts {
 
   /// The domestic days whose Focus Chunk slot a focus-size `card_done`
   /// closed — occupancy is once per domestic day, and only a
-  /// `card_done` closes it (AD-20).
+  /// `card_done` closes it (AD-20). Since Story 4.6 a completed
+  /// focus-parent rescue chain closes the slot on the day of the
+  /// session that dealt its LAST step's `card_done` — the session-day
+  /// rule's own day, crossing-safe and energy-override, never a
+  /// synthetic `card_done` row (AD-25: the derivation, not the
+  /// vocabulary, states the completion).
   final Set<Day> focusSlotClosedDays;
 
   /// Per domestic day, how many `card_dealt` rows were charged to it by
@@ -75,6 +82,15 @@ final class LogFacts {
   /// the same rule [dealtCountsByDay] charges by).
   final Map<String, Set<Day>> dealtDaysByItemId;
 
+  /// Per item id, the domestic days a `card_skipped` was charged to —
+  /// the rescue refusal counter's input (Story 4.6, FR-5, AD-24's
+  /// predicate over the same session-day attribution): a day lands
+  /// here exactly when the item was declined on it, and the counter
+  /// reads these days without re-deriving attribution. Same-day
+  /// re-skips stay one day — the set semantics [dealtDaysByItemId]
+  /// already holds.
+  final Map<String, Set<Day>> skippedDaysByItemId;
+
   /// Every item id with a recorded `card_done`, all-time: an answered
   /// deal, the only thing that consumes (AD-20 — FR-31's floor counts
   /// answered deals, not calendar days, and a skip consumes nothing).
@@ -87,8 +103,11 @@ final class LogFacts {
 
   /// The open session's dealt-but-unanswered card, if any: the last
   /// `card_dealt` inside it with no answering `card_done` or
-  /// `card_skipped` on the same (itemId, itemOrigin) since. An
-  /// unanswered card never produces a second deal (AD-3).
+  /// `card_skipped` on the same (itemId, itemOrigin) since — and,
+  /// since Story 4.6, no answering `slice_returned` either: a
+  /// successful rescue supersedes the standing card exactly as an
+  /// answer does, the supersede pair's first half. An unanswered card
+  /// never produces a second deal (AD-3).
   final ({String itemId, Origin itemOrigin})? dealtUnanswered;
 
   /// The open session's declared pocket in minutes — the start row's
@@ -107,9 +126,21 @@ final class LogFacts {
   /// The open session's answered estimate, in seconds: the per-size
   /// estimate of every `card_done` charged to it — upkeep included,
   /// a dealt-unanswered card consumes nothing, and a skip releases
-  /// its estimate (Story 2.2, FR-8, FR-12). Session-scoped, never
-  /// day-scoped: a superseding declaration restarts it at zero.
+  /// its estimate (Story 2.2, FR-8, FR-12). Since Story 4.6 a rescue
+  /// step charges its OWN verbatim estimate, the fact's recorded tag
+  /// — the duration-consuming rules read the estimate, never the
+  /// size's default, on a step. Session-scoped, never day-scoped: a
+  /// superseding declaration restarts it at zero.
   final int openSessionAnsweredSeconds;
+
+  /// The domestic days whose dealt Focus Chunk a rescue conversion
+  /// carried (Story 4.6, FR-7, ADV-10): the day a `slice_returned`
+  /// superseded a standing focus-size card — the activation converted
+  /// the day's "1" into its rescue steps, so no new chunk composes
+  /// that day and the chain holds the advance. A FAILED rescue lands
+  /// nothing here: the card stands dealable and a plain skip still
+  /// re-resolves a new chunk (AD-20's recorded override).
+  final Set<Day> focusSlotCarriedDays;
 }
 
 /// The domestic day an act at [instantUtcMicros] / [offsetSeconds] is
@@ -202,15 +233,37 @@ LogFacts walkLog(
     sizeByItemId.putIfAbsent(fact.id, () => fact.size);
   }
 
+  // The rescue chains (Story 4.6): a step fact names its parent through
+  // `rescueOf`, and the chains group by that id in snapshot order — the
+  // head step of a chain is its first fact, the completion check reads
+  // them all. A step whose estimate the fact carries charges that
+  // estimate, never its size's default (the duration-consuming rules
+  // read the estimate).
+  final rescueParentOfByStepId = <String, String>{};
+  final chainStepIdsByParent = <String, List<String>>{};
+  final estimateByItemId = <String, int>{};
+  for (final fact in poolFacts) {
+    final parent = fact.rescueOf;
+    if (parent != null) {
+      rescueParentOfByStepId.putIfAbsent(fact.id, () => parent);
+      chainStepIdsByParent.putIfAbsent(parent, () => []).add(fact.id);
+    }
+    if (fact.estimateSeconds != null) {
+      estimateByItemId.putIfAbsent(fact.id, () => fact.estimateSeconds!);
+    }
+  }
+
   final lastDealtInstantByItemId = <String, int>{};
   final focusSlotClosedDays = <Day>{};
   final dealtCountsByDay = <Day, Map<Size, int>>{};
   final dealtDaysByItemId = <String, Set<Day>>{};
+  final skippedDaysByItemId = <String, Set<Day>>{};
   final answeredItemIds = <String>{};
   ({int instantUtcMicros, int offsetSeconds})? openSessionStart;
   ({String itemId, Origin itemOrigin})? dealtUnanswered;
   int? openSessionPocketMinutes;
   var openSessionAnsweredSeconds = 0;
+  final focusSlotCarriedDays = <Day>{};
 
   void chargeDealToDay(Day day, Size? size) {
     if (size == null) {
@@ -296,15 +349,41 @@ LogFacts walkLog(
             dealtUnanswered = (itemId: itemId, itemOrigin: itemOrigin);
           }
         } else {
+          if (kind == LogKind.cardSkipped) {
+            // The decline's own charge (Story 4.6): a skip lands on its
+            // session's day exactly as a deal does — the refusal
+            // counter's input, unconditional in the item's id.
+            skippedDaysByItemId
+                .putIfAbsent(itemId, () => {})
+                .add(dayOfOpenOrOwnSession(entry));
+          }
           if (kind == LogKind.cardDone) {
             answeredItemIds.add(itemId);
             if (sizeByItemId[itemId] == Size.focus) {
               focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
             }
+            // The chain's completion (Story 4.6, ADV-10): the LAST
+            // step's `card_done` closes the slot on its own session's
+            // day when the parent is focus-sized — the only day the
+            // completion charges, crossing-safe through the
+            // session-day rule and regardless of that day's energy.
+            // No synthetic `card_done` exists: this IS the derivation
+            // AD-25 names.
+            final parent = rescueParentOfByStepId[itemId];
+            if (parent != null) {
+              final chain = chainStepIdsByParent[parent] ?? const [];
+              final allAnswered = chain.every(answeredItemIds.contains);
+              if (allAnswered && sizeByItemId[parent] == Size.focus) {
+                focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
+              }
+            }
             if (openSessionStart != null) {
               final size = sizeByItemId[itemId];
               if (size != null) {
-                openSessionAnsweredSeconds += estimateSecondsOf(size);
+                // A step's own estimate charges, verbatim; anything
+                // else its size's default (Story 4.6).
+                openSessionAnsweredSeconds +=
+                    estimateByItemId[itemId] ?? estimateSecondsOf(size);
               }
             }
           }
@@ -313,6 +392,29 @@ LogFacts walkLog(
               unanswered.itemId == itemId &&
               unanswered.itemOrigin == itemOrigin) {
             dealtUnanswered = null;
+          }
+        }
+      case SliceEntry(:final kind, :final itemId, :final itemOrigin):
+        // The supersede pair's rescue half (Story 4.6): only a
+        // `slice_returned` naming the standing dealt-but-unanswered
+        // card clears it — the bundled head-step deal that follows in
+        // the same batch is the pair's second half, exactly the
+        // `_answered` grammar. A `slice_requested` clears nothing:
+        // the card stands while the request is in flight, and a
+        // `slice_failed` leaves it standing for good.
+        if (kind == LogKind.sliceReturned) {
+          final unanswered = dealtUnanswered;
+          if (unanswered != null &&
+              unanswered.itemId == itemId &&
+              unanswered.itemOrigin == itemOrigin) {
+            dealtUnanswered = null;
+            // FR-7's conversion (ADV-10): the superseded card was the
+            // day's dealt Focus Chunk, so the chain carries the
+            // advance — no new chunk composes that day. The charge is
+            // the session-day rule's own, the entry's.
+            if (sizeByItemId[itemId] == Size.focus) {
+              focusSlotCarriedDays.add(dayOfOpenOrOwnSession(entry));
+            }
           }
         }
       case CrashEntry():
@@ -330,11 +432,13 @@ LogFacts walkLog(
     focusSlotClosedDays: focusSlotClosedDays,
     dealtCountsByDay: dealtCountsByDay,
     dealtDaysByItemId: dealtDaysByItemId,
+    skippedDaysByItemId: skippedDaysByItemId,
     answeredItemIds: answeredItemIds,
     openSessionStart: openSessionStart,
     dealtUnanswered: dealtUnanswered,
     openSessionPocketMinutes: openSessionPocketMinutes,
     openSessionAnsweredSeconds: openSessionAnsweredSeconds,
+    focusSlotCarriedDays: focusSlotCarriedDays,
   );
 }
 
@@ -351,3 +455,20 @@ Day anchorDayOf(LogFacts facts, int instantUtcMicros, int offsetSeconds) =>
       instantUtcMicros,
       offsetSeconds,
     );
+
+/// The latest index of a `card_done` naming [itemId], append order, or
+/// -1 — the walk home reads the answer kind so a command file stays a
+/// minter that never reads what it mints (Story 4.6's discard: only a
+/// done after the activation ends the deal the rescue was converting).
+int latestDoneIndex(List<LogEntry> log, String itemId) {
+  var index = -1;
+  for (var i = 0; i < log.length; i++) {
+    final entry = log[i];
+    if (entry is ItemActEntry &&
+        entry.itemId == itemId &&
+        entry.kind == LogKind.cardDone) {
+      index = i;
+    }
+  }
+  return index;
+}

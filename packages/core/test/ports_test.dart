@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/clock_port.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/slicer_port.dart';
@@ -111,6 +112,92 @@ void main() {
         ),
         isA<SlicerFailed>(),
       );
+    },
+  );
+
+  group(
+    'the pool-fact read boundary\'s rescue sanitation (Story 4.6, AD-23)',
+    () {
+      PoolFactRecord record({String? rescueOf, int? estimateSeconds}) => (
+        id: '019123ab-cdef-7abc-8def-0123456789ab',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 1758900000123456,
+        offsetSeconds: 0,
+        originContext: 'Buscar el desengrasante',
+        dictated: null,
+        rescueOf: rescueOf,
+        estimateSeconds: estimateSeconds,
+      );
+
+      test('a well-formed rescue pair passes verbatim — the band\'s own '
+          'edges included', () {
+        for (final estimate in [1, 45, 60]) {
+          final fact = poolFactsOf([
+            record(rescueOf: 'cap-a', estimateSeconds: estimate),
+          ]).single;
+          expect(fact.rescueOf, 'cap-a');
+          expect(fact.estimateSeconds, estimate);
+        }
+      });
+
+      test('an out-of-band estimate reads as absent — a corrupt 0, '
+          'negative or absurd tag never reaches the pocket, the 🔴 '
+          'ceiling or the retirement arithmetic; the size default '
+          'charges exactly as a pre-4-6 fact\'s did', () {
+        for (final estimate in [0, -5, 61, 999999]) {
+          final fact = poolFactsOf([
+            record(rescueOf: 'cap-a', estimateSeconds: estimate),
+          ]).single;
+          expect(
+            fact.estimateSeconds,
+            isNull,
+            reason: 'estimate=$estimate is outside the 1–60 band',
+          );
+          expect(
+            fact.rescueOf,
+            'cap-a',
+            reason:
+                'the parent half is untouched by the estimate\'s '
+                'own corruption',
+          );
+        }
+      });
+
+      test('an empty or whitespace rescueOf reads as absent — a mangled '
+          'row derives as an ordinary fact, never the head of a chain '
+          'named by nothing', () {
+        for (final parent in ['', '   ']) {
+          final fact = poolFactsOf([
+            record(rescueOf: parent, estimateSeconds: 45),
+          ]).single;
+          expect(fact.rescueOf, isNull, reason: 'rescueOf="$parent"');
+          expect(
+            fact.estimateSeconds,
+            45,
+            reason:
+                'the estimate half is untouched by the parent\'s '
+                'own corruption',
+          );
+        }
+      });
+
+      test('a lone half survives as stored — halves normalize '
+          'independently, never as a pair', () {
+        final parentOnly = poolFactsOf([record(rescueOf: 'cap-a')]).single;
+        expect(parentOnly.rescueOf, 'cap-a');
+        expect(parentOnly.estimateSeconds, isNull);
+        final estimateOnly = poolFactsOf([record(estimateSeconds: 45)]).single;
+        expect(estimateOnly.rescueOf, isNull);
+        expect(estimateOnly.estimateSeconds, 45);
+      });
+
+      test('an ordinary fact\'s null pair passes as null — the '
+          'pre-4-6 shape is unchanged', () {
+        final fact = poolFactsOf([record()]).single;
+        expect(fact.rescueOf, isNull);
+        expect(fact.estimateSeconds, isNull);
+      });
     },
   );
 }

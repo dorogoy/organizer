@@ -471,8 +471,9 @@ List<String> _classOwnFieldsOf(String className, String source) {
   return names;
 }
 
-/// The record typedef's field names in declaration order, one per line
-/// as `dart format` writes them.
+/// The record typedef's field names in declaration order — one per
+/// comma, so both shapes `dart format` writes (one field per line, or
+/// a short typedef collapsed to a single line) read the same.
 List<String> _recordFields(String path, String name) {
   final source = _withoutComments(_source(path));
   final decl = RegExp('typedef $name = \\(\\{').firstMatch(source);
@@ -480,9 +481,8 @@ List<String> _recordFields(String path, String name) {
   final end = source.indexOf('});', decl!.end);
   final body = _withoutComments(source.substring(decl.end, end));
   return [
-    for (final line in body.split('\n'))
-      if (line.trim().isNotEmpty && !line.trim().startsWith('///'))
-        line.trim().replaceFirst(RegExp(r',$'), '').split(RegExp(r'\s+')).last,
+    for (final field in body.split(','))
+      if (field.trim().isNotEmpty) field.trim().split(RegExp(r'\s+')).last,
   ];
 }
 
@@ -605,7 +605,9 @@ final class KitchenSink {
       // single line, never a deadline any derivation could read. Since
       // Story 3.4 the nullable dictation boolean: a provenance fact
       // (who authored the line), outside origin arithmetic and never
-      // an obligation.
+      // an obligation. Since Story 4.6 the nullable rescue pair: the
+      // parent a step rescues and the step's verbatim estimate — a
+      // genesis fact and a duration, never a deferral.
       expect(
         _classOwnFields('PoolFact', 'pool/pool_fact.dart'),
         equals([
@@ -616,6 +618,8 @@ final class KitchenSink {
           'offsetSeconds',
           'originContext',
           'dictated',
+          'rescueOf',
+          'estimateSeconds',
         ]),
       );
     });
@@ -745,6 +749,20 @@ final class KitchenSink {
       );
     });
 
+    test('SliceEntry', () {
+      // The rescue channel's payload is the rescued item's pair, the
+      // pinned kind and — on `slice_failed` alone — the port's closed
+      // failure cause (Story 4.6, FR-5, AD-21): no prompt, no
+      // delivered body, no provider and no pending state ride the row,
+      // so no retry or queue writer can grow from the shape. `kind`
+      // extracts after the constructor parameters because it is an
+      // initialized override.
+      expect(
+        _classOwnFields('SliceEntry', 'log/log_entry.dart'),
+        equals(['kind', 'itemId', 'itemOrigin', 'cause']),
+      );
+    });
+
     test('LogFacts', () {
       // The derived session states facts the log makes true — no
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
@@ -753,7 +771,10 @@ final class KitchenSink {
       // owed: a spent pocket reads as a warm close, nothing else. The
       // charged dealt days (Story 3.3) are the deal window's only
       // input — statements about where deals charged, never about a
-      // window's remainder.
+      // window's remainder. The charged skipped days and the carried
+      // focus days (Story 4.6) are the refusal counter's input and the
+      // rescue conversion's statement — where a decline landed and
+      // which day's "1" a chain carries, never anything owed.
       expect(
         _classOwnFields('LogFacts', 'weave/session.dart'),
         equals([
@@ -761,11 +782,13 @@ final class KitchenSink {
           'focusSlotClosedDays',
           'dealtCountsByDay',
           'dealtDaysByItemId',
+          'skippedDaysByItemId',
           'answeredItemIds',
           'openSessionStart',
           'dealtUnanswered',
           'openSessionPocketMinutes',
           'openSessionAnsweredSeconds',
+          'focusSlotCarriedDays',
         ]),
       );
     });
@@ -791,9 +814,10 @@ final class KitchenSink {
     test('Candidate', () {
       // A work source's offering: identity, size, origin, zone,
       // precedence and — since Story 3.3 — the source's own creation
-      // instant, the capture FIFO key. No field may name a
-      // rescheduling role (AD-20), and the instant is a recorded
-      // birth, never a target.
+      // instant, the capture FIFO key. Since Story 4.6 a rescue step's
+      // own verbatim estimate rides along, the duration-consuming
+      // rules' number. No field may name a rescheduling role (AD-20),
+      // and the instant is a recorded birth, never a target.
       expect(
         _classOwnFields('Candidate', 'weave/weave.dart'),
         equals([
@@ -804,6 +828,7 @@ final class KitchenSink {
           'zone',
           'precedence',
           'createdInstantUtcMicros',
+          'estimateSeconds',
         ]),
       );
     });
@@ -871,7 +896,8 @@ final class KitchenSink {
       // The persisted pool DTO is field-identical to the domain fact —
       // the schema's exact columns, no more (AD-1, AD-5). The nullable
       // Origin Context column is schema v6's additive change (3.2);
-      // the nullable dictation boolean is schema v7's (3.4).
+      // the nullable dictation boolean is schema v7's (3.4); the
+      // nullable rescue pair is schema v9's (4.6).
       expect(
         _recordFields('ports/store_port.dart', 'PoolFactRecord'),
         equals([
@@ -882,6 +908,8 @@ final class KitchenSink {
           'offsetSeconds',
           'originContext',
           'dictated',
+          'rescueOf',
+          'estimateSeconds',
         ]),
       );
     });
@@ -894,7 +922,8 @@ final class KitchenSink {
       // energy level column is schema v4's (2.5); the two nullable
       // report columns are schema v5's additive pair (2.6); the
       // nullable permission column is schema v7's (3.4); the nullable
-      // setting text column is schema v8's (4.3).
+      // setting text column is schema v8's (4.3); the nullable slice
+      // cause column is schema v9's (4.6).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -913,6 +942,7 @@ final class KitchenSink {
           'reportValue',
           'reportWeek',
           'permission',
+          'sliceCause',
         ]),
       );
     });
@@ -924,7 +954,7 @@ final class KitchenSink {
       // (2.2); the energy level field grows it once more (2.5); the
       // two report fields grow it a last time (2.6); the permission
       // field grows it once (3.4); the setting text field grows it
-      // once more (4.3).
+      // once more (4.3); the slice cause field grows it once (4.6).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -940,6 +970,7 @@ final class KitchenSink {
           'reportValue',
           'reportWeek',
           'permission',
+          'sliceCause',
         ]),
       );
     });
@@ -952,6 +983,61 @@ final class KitchenSink {
       expect(
         _recordFields('commands/capture_commands.dart', 'CaptureFactContent'),
         equals(['origin', 'size', 'originContext', 'dictated']),
+      );
+    });
+
+    test('RescueStepFactContent', () {
+      // The rescue step's fact payload (Story 4.6, FR-5): the
+      // inherited origin, the step's own text, the parent it rescues
+      // and its verbatim estimate — a genesis fact and a duration,
+      // never a deadline or a deferral (AD-1, AD-14). The size is law
+      // (`instant`), never data.
+      expect(
+        _recordFields('commands/rescue_commands.dart', 'RescueStepFactContent'),
+        equals(['origin', 'originContext', 'rescueOf', 'estimateSeconds']),
+      );
+    });
+
+    test('RescueReturnedContent', () {
+      // One delivered rescue's whole write (Story 4.6): the step-fact
+      // payloads and the entry contents — the row plus the bundled
+      // head-step deal. Nothing queued, nothing pending, nothing owed
+      // rides the shape (AD-21).
+      expect(
+        _recordFields('commands/rescue_commands.dart', 'RescueReturnedContent'),
+        equals(['facts', 'entries']),
+      );
+    });
+
+    test('RescueStepSeed', () {
+      // The landing's unit of work (Story 4.6): the shell-minted id
+      // travelling with the parsed step, so the lists cannot diverge.
+      // An identifier and a duration-bearing step — never a deadline
+      // or a deferral (AD-1, AD-3).
+      expect(
+        _recordFields('commands/rescue_commands.dart', 'RescueStepSeed'),
+        equals(['id', 'step']),
+      );
+    });
+
+    test('EligibleDayAnchor', () {
+      // The one predicate's item half (Story 4.6): a size and a
+      // no-earlier-than instant — a recorded birth, never a target
+      // (AD-24).
+      expect(
+        _recordFields('derive/eligible_day.dart', 'EligibleDayAnchor'),
+        equals(['size', 'noEarlierThanUtcMicros']),
+      );
+    });
+
+    test('RescueStep', () {
+      // One parsed rescue step (Story 4.6, FR-5): its non-empty text
+      // and its verbatim duration — the contract's whole yield, never
+      // a deadline or an ordering field (the chain orders by fact
+      // creation, not by step data).
+      expect(
+        _recordFields('slicer/rescue_steps.dart', 'RescueStep'),
+        equals(['text', 'durationSeconds']),
       );
     });
 
@@ -1024,6 +1110,7 @@ final class KitchenSink {
       'log/log_entry.dart:EnergySetEntry',
       'log/log_entry.dart:ReportAnsweredEntry',
       'log/log_entry.dart:PermissionRefusedEntry',
+      'log/log_entry.dart:SliceEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1039,6 +1126,11 @@ final class KitchenSink {
       'commands/session_commands.dart:LogEntryContent',
       'commands/capture_commands.dart:CaptureFactContent',
       'commands/capture_commands.dart:CaptureContent',
+      'commands/rescue_commands.dart:RescueStepFactContent',
+      'commands/rescue_commands.dart:RescueReturnedContent',
+      'commands/rescue_commands.dart:RescueStepSeed',
+      'derive/eligible_day.dart:EligibleDayAnchor',
+      'slicer/rescue_steps.dart:RescueStep',
       'ports/recognizer_port.dart:RecognizerOutcome',
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',
@@ -1195,18 +1287,22 @@ final class KitchenSink {
     );
   });
 
-  test('card_done and card_dealt are minted in exactly one file and read in '
-      'exactly one, as identifiers and as wire-name literals — no second '
+  test('card_done and card_dealt are minted in exactly two files and read '
+      'in exactly one, as identifiers and as wire-name literals — no third '
       'minter, so no synthetic-completion writer can appear silently '
       '(AD-3, AD-25)', () {
-    // The three homes the vocabulary allows: the definition, the one
-    // walk that reads the kinds, and the one command file that mints
-    // them. An identifier or wire-name reference anywhere else in
-    // core lib is a finding.
+    // The four homes the vocabulary allows: the definition, the one
+    // walk that reads the kinds, and the two command files that mint
+    // them — the answer commands (`_answered`'s bundled deal) and,
+    // since Story 4.6, the rescue commands (`rescueReturned`'s
+    // supersede pair, the same grammar over the head step). An
+    // identifier or wire-name reference anywhere else in core lib is
+    // a finding.
     const allowed = {
       'log/log_entry.dart',
       'weave/session.dart',
       'commands/session_commands.dart',
+      'commands/rescue_commands.dart',
     };
     final files = _coreLibFiles();
     final identifierOffenders = [
@@ -1221,7 +1317,7 @@ final class KitchenSink {
       isEmpty,
       reason:
           'kind identifiers outside the definition, the walk and '
-          'the command file',
+          'the two command files',
     );
 
     // The wire-name string literals are the definition's and the
@@ -1267,31 +1363,52 @@ final class KitchenSink {
           'in the definition home',
     );
 
-    // The one mint site: every reference in the command file names a
-    // row being written — both kinds, never a comparison.
-    final commands = _withoutComments(
+    // The mint sites: every reference in a command file names a row
+    // being written — the answer commands mint both kinds, the rescue
+    // commands mint the bundled head-step deal alone (`slice_returned`
+    // owns its own row), and neither file ever reads what it mints.
+    for (final commandPath in [
+      'commands/session_commands.dart',
+      'commands/rescue_commands.dart',
+    ]) {
+      final commands = _withoutComments(_source(commandPath));
+      final commandRefs = RegExp(r'LogKind\.card(Dealt|Done)\b')
+          .allMatches(commands)
+          .length;
+      final commandMints = RegExp(r'kind:\s*LogKind\.card(Dealt|Done)\b')
+          .allMatches(commands)
+          .length;
+      expect(commandMints, greaterThan(0), reason: commandPath);
+      expect(commandMints, commandRefs, reason: commandPath);
+      expect(
+        RegExp(r'==\s*LogKind\.card(Dealt|Done)\b').allMatches(commands),
+        isEmpty,
+        reason: '$commandPath mints rows, it never reads them',
+      );
+    }
+    final answerCommands = _withoutComments(
       _source('commands/session_commands.dart'),
     );
-    final commandRefs = RegExp(r'LogKind\.card(Dealt|Done)\b')
-        .allMatches(commands)
-        .length;
-    final commandMints = RegExp(r'kind:\s*LogKind\.card(Dealt|Done)\b')
-        .allMatches(commands)
-        .length;
-    expect(commandMints, greaterThan(0));
-    expect(commandMints, commandRefs);
     expect(
-      RegExp(r'==\s*LogKind\.card(Dealt|Done)\b').allMatches(commands),
+      RegExp(r'kind:\s*LogKind\.cardDealt\b').allMatches(answerCommands),
+      isNotEmpty,
+    );
+    expect(
+      RegExp(r'kind:\s*LogKind\.cardDone\b').allMatches(answerCommands),
+      isNotEmpty,
+    );
+    final rescueCommands = _withoutComments(
+      _source('commands/rescue_commands.dart'),
+    );
+    expect(
+      RegExp(r'kind:\s*LogKind\.cardDealt\b').allMatches(rescueCommands),
+      isNotEmpty,
+      reason: 'the supersede pair bundles the head-step deal',
+    );
+    expect(
+      RegExp(r'kind:\s*LogKind\.cardDone\b').allMatches(rescueCommands),
       isEmpty,
-      reason: 'the command file mints rows, it never reads them',
-    );
-    expect(
-      RegExp(r'kind:\s*LogKind\.cardDealt\b').allMatches(commands),
-      isNotEmpty,
-    );
-    expect(
-      RegExp(r'kind:\s*LogKind\.cardDone\b').allMatches(commands),
-      isNotEmpty,
+      reason: 'a rescue never completes a card — no synthetic writer',
     );
 
     // The one read site: every reference in the walk is a comparison

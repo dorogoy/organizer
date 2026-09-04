@@ -119,6 +119,15 @@ UnknownEntry _unknown(int micros, {String id = 'unknown'}) => UnknownEntry(
   kind: LogKind.parse('future_kind'),
 );
 
+SliceEntry _slice(LogKind kind, int micros) => SliceEntry(
+  id: 'slice-${kind.name}-$micros',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: kind,
+  itemId: 'cap-a',
+  itemOrigin: Origin.manual,
+);
+
 void main() {
   // "Now" for every read — Saturday 2026-08-29 12:00 UTC, the house
   // matrix clock. The 48 h boundary lands Thursday 2026-08-27 12:00.
@@ -234,6 +243,37 @@ void main() {
               'act\'s own instant, under the threshold',
         );
       }
+    });
+
+    test('the rescue channel splits exactly (Story 4.6, AD-21): '
+        '`slice_requested` and `slice_returned` are the user\'s ask '
+        'and its delivery — contact — while `slice_failed` is a '
+        'system event that must not reset the absence clock', () {
+      final openBefore = _opened(before(const Duration(hours: 49)));
+      // The ask and the delivery move the anchor: not due.
+      for (final kind in [LogKind.sliceRequested, LogKind.sliceReturned]) {
+        expect(
+          due([
+            openBefore,
+            _slice(kind, before(const Duration(hours: 47))),
+            _opened(now),
+          ]),
+          isFalse,
+          reason: '${kind.name} is contact — the anchor moved',
+        );
+      }
+      // The failure does not: an auto-heuristic that found no Slicer,
+      //with no user act beside it, leaves a deserved Warm Return
+      // standing — still due.
+      expect(
+        due([
+          openBefore,
+          _slice(LogKind.sliceFailed, before(const Duration(hours: 47))),
+          _opened(now),
+        ]),
+        isTrue,
+        reason: 'a system event never resets the 48 h clock',
+      );
     });
 
     test('a crash row is never contact: excluded after the last contact — '

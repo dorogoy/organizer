@@ -52,6 +52,7 @@ void main() {
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
           permission: null,
+          sliceCause: null,
         ));
         expect(conversion.flaw, isNull);
         expect((conversion.entry as ReportAnsweredEntry).value, value);
@@ -84,6 +85,7 @@ void main() {
         reportValue: content.reportValue,
         reportWeek: content.reportWeek,
         permission: null,
+        sliceCause: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ReportAnsweredEntry;

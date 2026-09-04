@@ -35,6 +35,8 @@ class DriftStore implements StorePort {
             offsetSeconds: fact.offsetSeconds,
             originContext: Value(fact.originContext),
             dictated: Value(fact.dictated),
+            rescueOf: Value(fact.rescueOf),
+            estimateSeconds: Value(fact.estimateSeconds),
           ),
         );
   }
@@ -63,6 +65,7 @@ class DriftStore implements StorePort {
             reportValue: Value(entry.reportValue),
             reportWeek: Value(entry.reportWeek),
             permission: Value(entry.permission),
+            sliceCause: Value(entry.sliceCause),
           ),
         );
   }
@@ -88,6 +91,8 @@ class DriftStore implements StorePort {
             offsetSeconds: row.offsetSeconds,
             originContext: row.originContext,
             dictated: row.dictated,
+            rescueOf: row.rescueOf,
+            estimateSeconds: row.estimateSeconds,
           ),
     ];
   }
@@ -121,6 +126,7 @@ class DriftStore implements StorePort {
           reportValue: row.reportValue,
           reportWeek: row.reportWeek,
           permission: row.permission,
+          sliceCause: row.sliceCause,
         ),
     ];
   }

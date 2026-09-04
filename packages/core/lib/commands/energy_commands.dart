@@ -40,6 +40,7 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     ),
   ];
 }

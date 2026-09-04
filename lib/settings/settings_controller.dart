@@ -161,6 +161,7 @@ class SettingsController {
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
           permission: content.permission?.name,
+          sliceCause: content.sliceCause,
         ));
       }
     });
@@ -210,6 +211,7 @@ class SettingsController {
           reportValue: content.reportValue,
           reportWeek: content.reportWeek,
           permission: content.permission?.name,
+          sliceCause: content.sliceCause,
         ));
       }
     });

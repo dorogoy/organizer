@@ -1,5 +1,6 @@
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
@@ -19,6 +20,8 @@ PoolFactRecord _fact({String? id, String? originContext, bool? dictated}) => (
   offsetSeconds: 7200,
   originContext: originContext,
   dictated: dictated,
+  rescueOf: null,
+  estimateSeconds: null,
 );
 
 LogEntryRecord _entry({
@@ -43,6 +46,7 @@ LogEntryRecord _entry({
   reportValue: reportValue,
   reportWeek: reportWeek,
   permission: null,
+  sliceCause: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -321,6 +325,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -349,6 +354,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     );
 
     test(
@@ -374,6 +380,8 @@ void main() {
           offsetSeconds: 7200,
           originContext: null,
           dictated: null,
+          rescueOf: null,
+          estimateSeconds: null,
         ));
 
         await fact('zz-fact-appended-first');
@@ -424,6 +432,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -442,6 +451,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -460,6 +470,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -503,6 +514,8 @@ void main() {
         offsetSeconds: 7200,
         originContext: null,
         dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
       ));
 
       await fact('late', 300);
@@ -525,6 +538,8 @@ void main() {
         offsetSeconds: 0,
         originContext: null,
         dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
       ));
       await db.customInsert(
         'INSERT INTO pool_facts '
@@ -545,32 +560,38 @@ void main() {
               rows.map((row) => row.read<String>('name')).toList()..sort(),
         );
 
-    test('pool_facts holds exactly its seven declared columns — the five '
+    test('pool_facts holds exactly its nine declared columns — the five '
         'originals plus the nullable Origin Context column schema v6 '
-        'adds (Story 3.2, AD-14, AD-23) and the nullable dictation '
-        'boolean schema v7 adds (Story 3.4, FR-32, AD-26)', () async {
+        'adds (Story 3.2, AD-14, AD-23), the nullable dictation '
+        'boolean schema v7 adds (Story 3.4, FR-32, AD-26) and the '
+        'nullable rescue pair schema v9 adds (Story 4.6, FR-5, AD-23: '
+        'the rescue parent id and the verbatim estimate seconds, '
+        'non-null exactly on a rescue step)', () async {
       await store.appendPoolFact(_fact());
       expect(await columns('pool_facts'), [
         'dictated',
+        'estimate_seconds',
         'id',
         'instant_utc_micros',
         'offset_seconds',
         'origin',
         'origin_context',
+        'rescue_of',
         'size',
       ]);
     });
 
-    test('log_entries holds exactly its fifteen declared columns — the two '
+    test('log_entries holds exactly its sixteen declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
         '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
         'AD-23), the nullable energy level column is schema v4\'s '
         '(Story 2.5), the two nullable report columns are schema '
         'v5\'s additive pair (Story 2.6), the nullable permission '
-        'column is schema v7\'s (Story 3.4, AD-17) and the nullable '
-        'setting text column is schema v8\'s (Story 4.3, AD-22) — '
-        'asserted on a brand-new database, so a fresh create that '
-        'dropped it fails here', () async {
+        'column is schema v7\'s (Story 3.4, AD-17), the nullable '
+        'setting text column is schema v8\'s (Story 4.3, AD-22) and '
+        'the nullable slice-cause column is schema v9\'s (Story 4.6, '
+        'FR-5, AD-23) — asserted on a brand-new database, so a fresh '
+        'create that dropped it fails here', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
         'energy_level',
@@ -586,6 +607,7 @@ void main() {
         'report_week',
         'setting_key',
         'setting_value',
+        'slice_cause',
         'stack',
         'text_value',
       ]);
@@ -630,6 +652,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -664,6 +687,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -698,6 +722,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // An out-of-range level stays stored verbatim too — the entry
       // stays in the log and the core's read boundary excludes it,
@@ -742,6 +767,7 @@ void main() {
         reportValue: 9,
         reportWeek: 1394,
         permission: null,
+        sliceCause: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -776,6 +802,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1394,
         permission: null,
+        sliceCause: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -853,7 +880,7 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -873,6 +900,7 @@ void main() {
           'report_week',
           'setting_key',
           'setting_value',
+          'slice_cause',
           'stack',
           'text_value',
         ],
@@ -935,6 +963,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -952,6 +981,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       await store.appendLogEntry((
         id: 'new-energy',
@@ -969,6 +999,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       await store.appendLogEntry((
         id: 'new-report',
@@ -986,6 +1017,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1394,
         permission: null,
+        sliceCause: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(5));
@@ -999,7 +1031,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1081,7 +1113,7 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 8);
+        expect(db.schemaVersion, 9);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1101,6 +1133,7 @@ void main() {
             'report_week',
             'setting_key',
             'setting_value',
+            'slice_cause',
             'stack',
             'text_value',
           ],
@@ -1153,6 +1186,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ));
         // ...and a v5 answer row lands beside them just the same.
         await store.appendLogEntry((
@@ -1171,6 +1205,7 @@ void main() {
           reportValue: 4,
           reportWeek: 1394,
           permission: null,
+          sliceCause: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(4));
@@ -1243,7 +1278,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1263,6 +1298,7 @@ void main() {
           'report_week',
           'setting_key',
           'setting_value',
+          'slice_cause',
           'stack',
           'text_value',
         ],
@@ -1320,6 +1356,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // ...and a v5 answer row lands beside them just the same.
       await store.appendLogEntry((
@@ -1338,6 +1375,7 @@ void main() {
         reportValue: 4,
         reportWeek: 1394,
         permission: null,
+        sliceCause: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(4));
@@ -1410,7 +1448,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1430,6 +1468,7 @@ void main() {
           'report_week',
           'setting_key',
           'setting_value',
+          'slice_cause',
           'stack',
           'text_value',
         ],
@@ -1489,6 +1528,7 @@ void main() {
         reportValue: 3,
         reportWeek: 1394,
         permission: null,
+        sliceCause: null,
       ));
       await db.customInsert(
         'INSERT INTO log_entries '
@@ -1576,7 +1616,7 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -1584,11 +1624,13 @@ void main() {
           ..sort(),
         [
           'dictated',
+          'estimate_seconds',
           'id',
           'instant_utc_micros',
           'offset_seconds',
           'origin',
           'origin_context',
+          'rescue_of',
           'size',
         ],
       );
@@ -1708,7 +1750,7 @@ void main() {
         'null boolean, and both new shapes append beside them', () async {
       await takeOverWithV6();
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1728,6 +1770,7 @@ void main() {
           'report_week',
           'setting_key',
           'setting_value',
+          'slice_cause',
           'stack',
           'text_value',
         ],
@@ -1739,11 +1782,13 @@ void main() {
           ..sort(),
         [
           'dictated',
+          'estimate_seconds',
           'id',
           'instant_utc_micros',
           'offset_seconds',
           'origin',
           'origin_context',
+          'rescue_of',
           'size',
         ],
       );
@@ -1810,6 +1855,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: 'microphone',
+        sliceCause: null,
       ));
 
       final factsAfter = await store.readPoolFacts();
@@ -1848,6 +1894,8 @@ void main() {
       offsetSeconds: 7200,
       originContext: 'llamar cinco minutos al dentista',
       dictated: true,
+      rescueOf: null,
+      estimateSeconds: null,
     ));
     await store.appendPoolFact((
       id: 'typed',
@@ -1857,6 +1905,8 @@ void main() {
       offsetSeconds: 7200,
       originContext: 'llamar al dentista',
       dictated: false,
+      rescueOf: null,
+      estimateSeconds: null,
     ));
 
     final snapshot = await store.readPoolFacts();
@@ -1939,7 +1989,7 @@ void main() {
         'text, and a selected_provider row appends beside them', () async {
       await takeOverWithV7();
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1959,6 +2009,7 @@ void main() {
           'report_week',
           'setting_key',
           'setting_value',
+          'slice_cause',
           'stack',
           'text_value',
         ],
@@ -2013,6 +2064,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
 
       final logAfter = await store.readLogEntries();
@@ -2089,12 +2141,493 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 8);
+        expect(db.schemaVersion, 9);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingValue, 15);
         expect(log.single.settingTextValue, isNull);
       },
     );
+  });
+
+  group('the v8→v9 upgrade (Story 4.6, AD-23 — additive, ALTER-only)', () {
+    /// The v8 schema exactly as a v8 install presents it: the v7 shape
+    /// plus the log's setting text column, `user_version` 8 — seeded
+    /// over a memory executor so drift's runner sees version 8 and
+    /// upgrades.
+    Future<void> takeOverWithV8({bool seedRows = true}) async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'text_value TEXT NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              if (seedRows)
+                "INSERT INTO pool_facts VALUES ('v8-fact', 'manual', "
+                    "'maintenance', 100, 3600, 'Vaciar la caja de la entrada', "
+                    'NULL)',
+              if (seedRows)
+                "INSERT INTO log_entries VALUES ('v8-provider', "
+                    "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                    "'selected_provider', NULL, 'openai', NULL, NULL, NULL, "
+                    "NULL, NULL)",
+              'PRAGMA user_version = 8',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('an empty v8 database upgrades too — no rows, same three '
+        'ALTERs, same version bump, appends work', () async {
+      await takeOverWithV8(seedRows: false);
+      expect(db.schemaVersion, 9);
+      expect(await store.readLogEntries(), isEmpty);
+      expect(await store.readPoolFacts(), isEmpty);
+      await store.appendPoolFact((
+        id: 'v9-first',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        originContext: 'Paso primero',
+        dictated: null,
+        rescueOf: 'v8-gone',
+        estimateSeconds: 45,
+      ));
+      expect((await store.readPoolFacts()).single.id, 'v9-first');
+    });
+
+    test('a seeded v8 database upgrades in place: three ALTERs add the '
+        'slice-cause column and the pool\'s rescue pair, the v8 rows '
+        'read back unchanged with null rescue fields, and both new '
+        'shapes append beside them', () async {
+      await takeOverWithV8();
+
+      expect(db.schemaVersion, 9);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'permission',
+          'pocket_minutes',
+          'report_value',
+          'report_week',
+          'setting_key',
+          'setting_value',
+          'slice_cause',
+          'stack',
+          'text_value',
+        ],
+      );
+      expect(
+        (await db.customSelect('PRAGMA table_info(pool_facts)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'dictated',
+          'estimate_seconds',
+          'id',
+          'instant_utc_micros',
+          'offset_seconds',
+          'origin',
+          'origin_context',
+          'rescue_of',
+          'size',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v8 rows ride the migration untouched: the provider setting
+      // keeps its text, the capture keeps its context, and both read
+      // as carrying no rescue field at all.
+      final logBefore = await store.readLogEntries();
+      expect(logBefore, hasLength(1));
+      expect(logBefore.single.settingTextValue, 'openai');
+      expect(logBefore.single.sliceCause, isNull);
+      final factsBefore = await store.readPoolFacts();
+      expect(factsBefore, hasLength(1));
+      expect(factsBefore.single.originContext, 'Vaciar la caja de la entrada');
+      expect(factsBefore.single.rescueOf, isNull);
+      expect(factsBefore.single.estimateSeconds, isNull);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE pool_facts SET rescue_of = 'x' WHERE id = 'v8-fact'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a rescue step beside the old facts,
+      // and it round-trips through the boundary with its pair intact.
+      await store.appendPoolFact((
+        id: 'v9-step',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        originContext: 'Buscar el limpiador específico',
+        dictated: null,
+        rescueOf: 'v8-fact',
+        estimateSeconds: 45,
+      ));
+      final factsAfter = await store.readPoolFacts();
+      expect(factsAfter, hasLength(2));
+      expect(factsAfter.last.id, 'v9-step');
+      expect(factsAfter.last.rescueOf, 'v8-fact');
+      expect(factsAfter.last.estimateSeconds, 45);
+      expect(factsAfter.last.size, Size.instant);
+
+      // And a slice_failed row appends with its cause, converting
+      // through the core's read boundary whole.
+      await store.appendLogEntry((
+        id: 'v9-failed',
+        kind: LogKind.sliceFailed.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: 'v8-fact',
+        itemOrigin: Origin.manual,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: 'networkUnreachable',
+      ));
+      final logAfter = await store.readLogEntries();
+      expect(logAfter, hasLength(2));
+      expect(logAfter.last.sliceCause, 'networkUnreachable');
+      final conversion = convertLogEntryRecord(logAfter.last);
+      expect(conversion.flaw, isNull);
+      expect(
+        (conversion.entry as SliceEntry).cause,
+        SlicerFailureCause.networkUnreachable,
+      );
+      // The sibling slice rows round-trip beside the failure one.
+      for (final row in [
+        (
+          id: 'v9-requested',
+          kind: LogKind.sliceRequested.name,
+          instantUtcMicros: 500,
+          offsetSeconds: 3600,
+          itemId: 'v8-fact',
+          itemOrigin: Origin.manual,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+        ),
+        (
+          id: 'v9-returned',
+          kind: LogKind.sliceReturned.name,
+          instantUtcMicros: 501,
+          offsetSeconds: 3600,
+          itemId: 'v8-fact',
+          itemOrigin: Origin.manual,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+        ),
+      ]) {
+        await store.appendLogEntry(row);
+        expect(convertLogEntryRecord(row).flaw, isNull);
+      }
+      expect(
+        (await store.readLogEntries()).where(
+          (entry) => entry.kind.startsWith('slice_'),
+        ),
+        hasLength(3),
+      );
+    });
+
+    test(
+      'a v8 install that died between the v9 ALTERs and the version bump '
+      're-opens idempotently — a half-upgraded column is not re-added',
+      () async {
+        // The crash window, seeded exactly: the first v9 ALTER landed
+        // (the log's slice_cause), the rest and the version bump did
+        // not (user_version still 8), so drift's runner re-runs the
+        // v9 step over the already-added column — `_addColumnIfAbsent`
+        // must see it and skip, not fail.
+        await db.close();
+        db = SubstrateDatabase(
+          NativeDatabase.memory(
+            setup: (rawDb) {
+              for (final statement in [
+                'CREATE TABLE pool_facts ('
+                    'id TEXT NOT NULL PRIMARY KEY, '
+                    'origin TEXT NOT NULL, '
+                    'size TEXT NOT NULL, '
+                    'instant_utc_micros INTEGER NOT NULL, '
+                    'offset_seconds INTEGER NOT NULL, '
+                    'origin_context TEXT NULL, '
+                    'dictated BOOL NULL)',
+                'CREATE TABLE log_entries ('
+                    'id TEXT NOT NULL PRIMARY KEY, '
+                    'kind TEXT NOT NULL, '
+                    'instant_utc_micros INTEGER NOT NULL, '
+                    'offset_seconds INTEGER NOT NULL, '
+                    'item_id TEXT NULL, '
+                    'item_origin TEXT NULL, '
+                    'stack TEXT NULL, '
+                    'setting_key TEXT NULL, '
+                    'setting_value INTEGER NULL, '
+                    'text_value TEXT NULL, '
+                    'slice_cause TEXT NULL, '
+                    'pocket_minutes INTEGER NULL, '
+                    'energy_level INTEGER NULL, '
+                    'report_value INTEGER NULL, '
+                    'report_week INTEGER NULL, '
+                    'permission TEXT NULL)',
+                'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                    "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                    "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                    "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                    "insert-only (AD-2)'); END",
+                'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                    "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                    "insert-only (AD-2)'); END",
+                "INSERT INTO log_entries VALUES ('v8-provider', "
+                    "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                    "'selected_provider', NULL, 'openai', NULL, NULL, "
+                    "NULL, NULL, NULL, NULL)",
+                'PRAGMA user_version = 8',
+              ]) {
+                rawDb.execute(statement);
+              }
+            },
+          ),
+        );
+        store = DriftStore(db);
+
+        expect(db.schemaVersion, 9);
+        final log = await store.readLogEntries();
+        expect(log, hasLength(1));
+        expect(log.single.settingTextValue, 'openai');
+        expect(log.single.sliceCause, isNull);
+      },
+    );
+
+    // The migration's statements run in one fixed order — slice_cause
+    // (log), rescue_of (pool), estimate_seconds (pool) — so the real
+    // crash windows are the prefixes: each partial state below re-opens
+    // idempotently, `_addColumnIfAbsent` skipping what already landed.
+    Future<void> takeOverWithV8Partial({
+      bool sliceCause = false,
+      bool rescueOf = false,
+    }) async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL'
+                  '${rescueOf ? ', rescue_of TEXT NULL' : ''})',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'text_value TEXT NULL'
+                  '${sliceCause ? ', slice_cause TEXT NULL' : ''}, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL)',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'PRAGMA user_version = 8',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    Future<List<String>> columnsOf(String table) async =>
+        (await db.customSelect('PRAGMA table_info($table)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort();
+
+    test('a v8 install that died after the FIRST v9 ALTER alone '
+        '(slice_cause) re-opens idempotently — the pool\'s pair is '
+        'still added, the already-added log column is not', () async {
+      await takeOverWithV8Partial(sliceCause: true);
+      expect(db.schemaVersion, 9);
+      expect(
+        await columnsOf('log_entries'),
+        containsAll(['slice_cause', 'text_value']),
+      );
+      expect(
+        await columnsOf('log_entries'),
+        hasLength(16),
+        reason: 'slice_cause once, never twice',
+      );
+      expect(
+        await columnsOf('pool_facts'),
+        containsAll(['rescue_of', 'estimate_seconds']),
+      );
+      expect(await columnsOf('pool_facts'), hasLength(9));
+      // And the upgraded schema works: a rescue step round-trips.
+      await store.appendPoolFact((
+        id: 'v9-step',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        originContext: 'Paso parcial',
+        dictated: null,
+        rescueOf: 'v8-fact',
+        estimateSeconds: 30,
+      ));
+      expect((await store.readPoolFacts()).single.rescueOf, 'v8-fact');
+    });
+
+    test('a v8 install that died after slice_cause AND rescue_of — '
+        'estimate_seconds still missing — re-opens idempotently, the '
+        'half-upgraded pool columns are not re-added', () async {
+      await takeOverWithV8Partial(sliceCause: true, rescueOf: true);
+      expect(db.schemaVersion, 9);
+      expect(await columnsOf('log_entries'), hasLength(16));
+      expect(await columnsOf('pool_facts'), hasLength(9));
+      expect(
+        await columnsOf('pool_facts'),
+        containsAll(['rescue_of', 'estimate_seconds']),
+        reason: 'the missing column landed; the present ones skipped',
+      );
+      // The triggers survive the re-run, insert-only as ever —
+      // asserted against a row that really stands.
+      await store.appendPoolFact((
+        id: 'v9-step',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        originContext: 'Paso parcial',
+        dictated: null,
+        rescueOf: 'v8-fact',
+        estimateSeconds: 30,
+      ));
+      await expectLater(
+        db.customUpdate(
+          "UPDATE pool_facts SET estimate_seconds = 1 WHERE id = 'v9-step'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+    });
   });
 }

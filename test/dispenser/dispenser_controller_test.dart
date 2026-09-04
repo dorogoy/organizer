@@ -20,6 +20,8 @@ import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/no_slicer_cause.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -288,6 +290,7 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   reportValue: 3,
   reportWeek: week,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
@@ -306,6 +309,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -324,9 +328,59 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   reportValue: null,
   reportWeek: null,
   permission: null,
+  sliceCause: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
+
+/// A store that records what the rescue path mints (Story 4.6): the
+/// step facts beside the rows — the recording contract the story-3.3
+/// store grew for exactly this landing.
+class _FactRecordingStore implements StorePort {
+  final List<LogEntryRecord> entries = [];
+  final List<PoolFactRecord> facts = [];
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      List.unmodifiable(entries);
+}
+
+/// The Slicer seam's steerable stub (Story 4.6): one outcome per
+/// construction, every request recorded — the port's own contract, no
+/// provider named anywhere near the Dispenser.
+class _StubSlicer implements SlicerPort {
+  _StubSlicer(this.outcome);
+
+  final SlicerOutcome outcome;
+  final List<RescueSliceRequest> requests = [];
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) async {
+    requests.add(request as RescueSliceRequest);
+    return outcome;
+  }
+}
+
+/// A slicer that breaks the port's outcome-only promise and throws —
+/// the fold's own test seam (Story 4.6's review round).
+class _ThrowingSlicer implements SlicerPort {
+  _ThrowingSlicer(this.error);
+
+  final Object error;
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) => throw error;
+}
 
 void main() {
   final v7 = RegExp(
@@ -999,6 +1053,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1131,6 +1186,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1576,6 +1632,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
     }
 
@@ -1619,6 +1676,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1647,6 +1705,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1671,6 +1730,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1688,6 +1748,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ));
       }
 
@@ -1734,6 +1795,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       final view = await buildFor(
         store,
@@ -2309,6 +2371,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2329,6 +2392,7 @@ void main() {
         reportValue: null,
         reportWeek: null,
         permission: null,
+        sliceCause: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2518,6 +2582,7 @@ void main() {
             reportValue: null,
             reportWeek: null,
             permission: null,
+            sliceCause: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3109,6 +3174,7 @@ void main() {
           reportValue: null,
           reportWeek: null,
           permission: null,
+          sliceCause: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -3131,6 +3197,8 @@ void main() {
       offsetSeconds: 0,
       originContext: line,
       dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
     );
 
     test('read deals the standing capture by its own line — the '
@@ -3252,6 +3320,7 @@ void main() {
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     );
 
     test('declarePocket mints the capture as the fresh sitting\'s '
@@ -3313,6 +3382,514 @@ void main() {
       expect(view, isA<DispenserDealt>());
       expect((view as DispenserDealt).card.id, captureId);
       expect(view.card.name, 'Llamar al dentista');
+    });
+  });
+
+  group('Rescue Mode (Story 4.6, FR-5)', () {
+    const deliveredBody =
+        '{"steps":['
+        '{"text":"Buscar el desengrasante bajo el fregadero","duration_seconds":45},'
+        '{"text":"Rociar la campana y dejar actuar","duration_seconds":60},'
+        '{"text":"Secar con un trapo limpio","duration_seconds":30}]}';
+
+    DispenserController controllerFor(StorePort store, SlicerPort? slicer) =>
+        DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+          slicer: slicer,
+        );
+
+    test('a delivered re-slice lands whole: the activation row, the '
+        'step facts (origin inherited, instant size, the tag verbatim, '
+        'the shipped parent\'s Spanish name on the request), the '
+        'supersede pair and the head-step deal — one id per step on '
+        'both halves of the landing', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      expect(
+        dealt.card.origin,
+        Origin.shipped,
+        reason:
+            'the pre-condition: the standing card is the shipped '
+            'chunk the launch dealt',
+      );
+      final slicer = _StubSlicer(const SlicerDelivered(deliveredBody));
+      final controller = controllerFor(store, slicer);
+
+      final outcome = await controller.rescue(dealt);
+
+      // The request rode the Origin Context path: both slots hold the
+      // Card's own resolved name — the Spanish catalogue name, no
+      // catalogue field, no new loader machinery.
+      expect(slicer.requests, hasLength(1));
+      expect(slicer.requests.single.originContext, dealt.card.name);
+      expect(slicer.requests.single.task, dealt.card.name);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'slice_requested',
+        'slice_returned',
+        'card_dealt',
+      ]);
+      final activation = store.entries[3];
+      expect(activation.itemId, dealt.card.id);
+      expect(activation.itemOrigin, Origin.shipped);
+      expect(activation.id, matches(v7));
+      final returned = store.entries[4];
+      final headDeal = store.entries[5];
+      expect(returned.itemId, dealt.card.id);
+      // One minted instant for the landing batch.
+      expect(returned.instantUtcMicros, headDeal.instantUtcMicros);
+
+      // The step facts: transient pool facts, nothing enters the
+      // catalogue (FR-31) — origin inherited shipped, size the fixed
+      // instant band, the Slicer's tag verbatim, each step's own text
+      // as its Origin Context.
+      expect(store.facts, hasLength(3));
+      expect(store.facts.map((fact) => fact.origin).toSet(), {Origin.shipped});
+      expect(store.facts.map((fact) => fact.size).toSet(), {Size.instant});
+      expect(store.facts.map((fact) => fact.estimateSeconds).toList(), [
+        45,
+        60,
+        30,
+      ]);
+      expect(
+        store.facts.every((fact) => fact.rescueOf == dealt.card.id),
+        isTrue,
+      );
+      expect(store.facts.map((fact) => fact.originContext).toList(), [
+        'Buscar el desengrasante bajo el fregadero',
+        'Rociar la campana y dejar actuar',
+        'Secar con un trapo limpio',
+      ], reason: 'each step\'s own text rides its own fact');
+      expect(
+        store.facts.every((fact) => fact.dictated == null),
+        isTrue,
+        reason: 'the Slicer authors no dictation flag',
+      );
+
+      // The bundled deal names the fact the same landing minted — the
+      // head step, not a second mint's stranger.
+      expect(headDeal.itemId, store.facts.first.id);
+      expect(headDeal.itemOrigin, Origin.shipped);
+
+      // The outcome's view is the fresh read: the head step standing,
+      // a step card (its tap skips — the depth cap's shell reading),
+      // never warranted.
+      expect(outcome, isA<DispenserRescueSucceeded>());
+      final view = (outcome as DispenserRescueSucceeded).view;
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, store.facts.first.id);
+      expect(view.card.estimateSeconds, 45);
+      expect(view.rescueStep, isTrue);
+      expect(view.autoRescueDue, isFalse);
+    });
+
+    test(
+      'a capture parent\'s re-slice rides its own line — the Origin '
+      'Context is the capture\'s single line, steps inherit manual',
+      () async {
+        const line = 'Llamar al dentista';
+        final store = _RecordingStore([
+          (
+            id: 'cap-manual',
+            origin: Origin.manual,
+            size: Size.focus,
+            instantUtcMicros: DateTime.utc(2026, 8, 25).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            originContext: line,
+            dictated: null,
+            rescueOf: null,
+            estimateSeconds: null,
+          ),
+        ]);
+        final dealt = await openSessionAndReadFirstDeal(store);
+        expect(
+          dealt.card.origin,
+          Origin.manual,
+          reason: 'the pre-condition: the standing card is the seeded capture',
+        );
+        expect(dealt.card.name, line);
+        final slicer = _StubSlicer(const SlicerDelivered(deliveredBody));
+        final outcome = await controllerFor(store, slicer).rescue(dealt);
+        // The request carries the capture's own line in both slots —
+        // no catalogue field anywhere near a manual parent.
+        expect(slicer.requests.single.originContext, line);
+        expect(slicer.requests.single.task, line);
+        expect(outcome, isA<DispenserRescueSucceeded>());
+      },
+    );
+
+    test('a failed re-slice lands one cause row — nothing queued, the '
+        'original stays dealable exactly as it stood, and the mapped '
+        'cause rides the outcome', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = controllerFor(
+        store,
+        _StubSlicer(const SlicerFailed(SlicerFailureCause.networkUnreachable)),
+      );
+
+      final outcome = await controller.rescue(dealt);
+
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'slice_requested',
+        'slice_failed',
+      ]);
+      final failed = store.entries.last;
+      expect(failed.itemId, dealt.card.id);
+      expect(failed.sliceCause, 'networkUnreachable');
+      expect(
+        store.facts,
+        isEmpty,
+        reason: 'nothing was queued and nothing was minted',
+      );
+      expect(outcome, isA<DispenserRescueFailed>());
+      final failure = outcome as DispenserRescueFailed;
+      expect(failure.cause, NoSlicerCause.offline);
+      expect(failure.view, isA<DispenserDealt>());
+      expect(
+        (failure.view as DispenserDealt).card.id,
+        dealt.card.id,
+        reason: 'the original stands behind the calm surface',
+      );
+    });
+
+    test('an unparsable body folds to malformedResponse — the parse '
+        'is in core, and the recorded unreachable fold rides the '
+        'outcome', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = controllerFor(
+        store,
+        _StubSlicer(
+          const SlicerDelivered(
+            '{"steps":[{"text":"x","duration_seconds":30}]}',
+          ),
+        ),
+      );
+
+      final outcome = await controller.rescue(dealt);
+
+      expect(store.entries.last.kind, 'slice_failed');
+      expect(store.entries.last.sliceCause, 'malformedResponse');
+      expect(store.facts, isEmpty);
+      expect(
+        (outcome as DispenserRescueFailed).cause,
+        NoSlicerCause.unreachable,
+      );
+    });
+
+    test('the depth cap: a rescue of a rescue step declines quietly — '
+        'no row, no fact, no surface state', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = controllerFor(
+        store,
+        _StubSlicer(const SlicerDelivered(deliveredBody)),
+      );
+      final succeeded = await controller.rescue(dealt);
+      final headStep =
+          (succeeded as DispenserRescueSucceeded).view as DispenserDealt;
+      final rowsAfterLanding = store.entries.length;
+
+      final declined = await controller.rescue(headStep);
+
+      expect(declined, isA<DispenserRescueDeclined>());
+      expect(
+        store.entries.length,
+        rowsAfterLanding,
+        reason: 'the refusal appends nothing — no row exists for it',
+      );
+      expect(store.facts, hasLength(3));
+    });
+
+    test('no Slicer threaded declines quietly too — the test seam is '
+        'not half of a control', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = controllerFor(store, null);
+
+      expect(await controller.rescue(dealt), isA<DispenserRescueDeclined>());
+      expect(
+        store.entries.where((entry) => entry.kind.startsWith('slice_')),
+        isEmpty,
+      );
+    });
+
+    test('a THROWING slicer folds to providerUnreachable — the port '
+        'promises outcomes only for the BYOK wire, and a third '
+        'implementation that breaks the promise can dangle no '
+        'activation: the failure path is the one calm surface, the '
+        'cause the no-answer bucket', () async {
+      final store = _FactRecordingStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = controllerFor(
+        store,
+        _ThrowingSlicer(StateError('the stub broke the port')),
+      );
+
+      final outcome = await controller.rescue(dealt);
+
+      expect(store.entries.map((entry) => entry.kind).toList().sublist(3), [
+        'slice_requested',
+        'slice_failed',
+      ]);
+      expect(store.entries.last.sliceCause, 'providerUnreachable');
+      expect(store.facts, isEmpty);
+      expect(outcome, isA<DispenserRescueFailed>());
+      expect(
+        (outcome as DispenserRescueFailed).cause,
+        NoSlicerCause.unreachable,
+      );
+    });
+
+    test('the auto-heuristic\'s fact derives from the log — three '
+        'decline days warrant the standing card, the activation '
+        'resets it, and no Slicer threaded derives nothing', () async {
+      const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+      PoolFactRecord captureFact(DateTime at) => (
+        id: captureId,
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros: at.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
+      );
+
+      // Three eligible days of declines, each its own closed sitting.
+      List<LogEntryRecord> decline(int day) {
+        final at = DateTime.utc(2026, 8, day, 10);
+        return [
+          _moment('session_started', at, 'start-$day'),
+          _act(
+            'card_dealt',
+            at.add(const Duration(seconds: 1)),
+            'deal-$day',
+            captureId,
+          ),
+          _act(
+            'card_skipped',
+            at.add(const Duration(seconds: 2)),
+            'skip-$day',
+            captureId,
+          ),
+          _moment(
+            'session_ended',
+            at.add(const Duration(seconds: 3)),
+            'end-$day',
+          ),
+        ];
+      }
+
+      // The read's own sitting: the warranted item dealt, standing.
+      final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+        ..entries.addAll([
+          ...decline(26),
+          ...decline(27),
+          ...decline(28),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 11),
+            'start-today',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 0, 1),
+            'deal-today',
+            captureId,
+          ),
+        ]);
+
+      final stub = _StubSlicer(
+        const SlicerFailed(SlicerFailureCause.invalidKey),
+      );
+      final withSlicer = controllerFor(store, stub);
+      final warranted = await withSlicer.read();
+      expect(warranted, isA<DispenserDealt>());
+      expect((warranted as DispenserDealt).card.id, captureId);
+      expect(
+        warranted.autoRescueDue,
+        isTrue,
+        reason:
+            'declined on 3 different eligible days — the '
+            'auto-heuristic fires while the card stands',
+      );
+      expect(warranted.rescueStep, isFalse);
+
+      // The activation resets the counter — the very next read (the
+      // failure's landing included) derives false: a failed rescue
+      // cannot re-fire on every deal.
+      await withSlicer.rescue(warranted);
+      expect(stub.requests.single.originContext, 'Llamar al dentista');
+      final afterFailure = await withSlicer.read();
+      expect((afterFailure as DispenserDealt).autoRescueDue, isFalse);
+
+      // And the same log behind a slicer-less controller derives
+      // nothing — no half-wired heuristic exists.
+      final withoutSlicer = controllerFor(
+        _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+          ..entries.addAll([
+            ...decline(26),
+            ...decline(27),
+            ...decline(28),
+            _moment(
+              'session_started',
+              DateTime.utc(2026, 8, 29, 11),
+              'start-today',
+            ),
+            _act(
+              'card_dealt',
+              DateTime.utc(2026, 8, 29, 11, 0, 1),
+              'deal-today',
+              captureId,
+            ),
+          ]),
+        null,
+      );
+      final bare = await withoutSlicer.read();
+      expect((bare as DispenserDealt).autoRescueDue, isFalse);
+    });
+
+    test('the auto-heuristic succeeds the same way — a warranted card '
+        'auto-fires through delivery into the head step, then goes '
+        'quiet', () async {
+      const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+      PoolFactRecord captureFact(DateTime at) => (
+        id: captureId,
+        origin: Origin.manual,
+        size: Size.focus,
+        instantUtcMicros: at.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'Llamar al dentista',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: null,
+      );
+      List<LogEntryRecord> decline(int day) {
+        final at = DateTime.utc(2026, 8, day, 10);
+        return [
+          _moment('session_started', at, 'start-$day'),
+          _act(
+            'card_dealt',
+            at.add(const Duration(seconds: 1)),
+            'deal-$day',
+            captureId,
+          ),
+          _act(
+            'card_skipped',
+            at.add(const Duration(seconds: 2)),
+            'skip-$day',
+            captureId,
+          ),
+          _moment(
+            'session_ended',
+            at.add(const Duration(seconds: 3)),
+            'end-$day',
+          ),
+        ];
+      }
+
+      final store = _FactRecordingStore()
+        ..facts.add(captureFact(DateTime.utc(2026, 8, 25)))
+        ..entries.addAll([
+          ...decline(26),
+          ...decline(27),
+          ...decline(28),
+          // Today's sitting opens ten minutes before the read: no
+          // checkpoint crossing elapses, so no rest offer preempts
+          // either read.
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 11, 50),
+            'start-today',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 50, 1),
+            'deal-today',
+            captureId,
+          ),
+        ]);
+      final stub = _StubSlicer(const SlicerDelivered(deliveredBody));
+      final controller = controllerFor(store, stub);
+      final warranted = await controller.read();
+      expect((warranted as DispenserDealt).autoRescueDue, isTrue);
+      final outcome = await controller.rescue(warranted);
+      expect(outcome, isA<DispenserRescueSucceeded>());
+      expect(stub.requests.single.originContext, 'Llamar al dentista');
+      expect(store.entries.map((entry) => entry.kind).toList().sublist(14), [
+        'slice_requested',
+        'slice_returned',
+        'card_dealt',
+      ]);
+      final view = (outcome as DispenserRescueSucceeded).view as DispenserDealt;
+      expect(view.rescueStep, isTrue);
+      final after = await controller.read();
+      expect((after as DispenserDealt).autoRescueDue, isFalse);
+    });
+
+    test('a shipped catalogue entry declined on 3 eligible days '
+        'warrants too — the fact-less anchor through read()', () async {
+      List<LogEntryRecord> decline(int day) {
+        final at = DateTime.utc(2026, 8, day, 10);
+        return [
+          _moment('session_started', at, 'start-$day'),
+          _act(
+            'card_dealt',
+            at.add(const Duration(seconds: 1)),
+            'deal-$day',
+            chunkSeedId,
+          ),
+          _act(
+            'card_skipped',
+            at.add(const Duration(seconds: 2)),
+            'skip-$day',
+            chunkSeedId,
+          ),
+          _moment(
+            'session_ended',
+            at.add(const Duration(seconds: 3)),
+            'end-$day',
+          ),
+        ];
+      }
+
+      final store = _RecordingStore()
+        ..entries.addAll([
+          ...decline(26),
+          ...decline(27),
+          ...decline(28),
+          _moment(
+            'session_started',
+            DateTime.utc(2026, 8, 29, 11),
+            'start-today',
+          ),
+          _act(
+            'card_dealt',
+            DateTime.utc(2026, 8, 29, 11, 0, 1),
+            'deal-today',
+            chunkSeedId,
+          ),
+        ]);
+      final view = await controllerFor(
+        store,
+        _StubSlicer(const SlicerFailed(SlicerFailureCause.networkUnreachable)),
+      ).read();
+      expect((view as DispenserDealt).card.id, chunkSeedId);
+      expect(view.card.origin, Origin.shipped);
+      expect(view.autoRescueDue, isTrue);
+      expect(view.rescueStep, isFalse);
     });
   });
 }

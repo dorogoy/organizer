@@ -77,6 +77,7 @@ List<LogEntryContent> settingChanged({
       reportValue: null,
       reportWeek: null,
       permission: null,
+      sliceCause: null,
     ),
   ];
 }

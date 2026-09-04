@@ -67,6 +67,7 @@ LogEntryRecord _record(
   reportValue: reportValue,
   reportWeek: reportWeek,
   permission: null,
+  sliceCause: null,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,
@@ -692,6 +693,8 @@ void main() {
       offsetSeconds: 0,
       originContext: line,
       dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
     );
 
     test('a standing capture precedes same-size catalogue work — the '

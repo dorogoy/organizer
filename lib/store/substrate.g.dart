@@ -79,6 +79,28 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _rescueOfMeta = const VerificationMeta(
+    'rescueOf',
+  );
+  late final GeneratedColumn<String> rescueOf = GeneratedColumn<String>(
+    'rescue_of',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
+  static const VerificationMeta _estimateSecondsMeta = const VerificationMeta(
+    'estimateSeconds',
+  );
+  late final GeneratedColumn<int> estimateSeconds = GeneratedColumn<int>(
+    'estimate_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -88,6 +110,8 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     offsetSeconds,
     originContext,
     dictated,
+    rescueOf,
+    estimateSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -159,6 +183,21 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         dictated.isAcceptableOrUnknown(data['dictated']!, _dictatedMeta),
       );
     }
+    if (data.containsKey('rescue_of')) {
+      context.handle(
+        _rescueOfMeta,
+        rescueOf.isAcceptableOrUnknown(data['rescue_of']!, _rescueOfMeta),
+      );
+    }
+    if (data.containsKey('estimate_seconds')) {
+      context.handle(
+        _estimateSecondsMeta,
+        estimateSeconds.isAcceptableOrUnknown(
+          data['estimate_seconds']!,
+          _estimateSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -196,6 +235,14 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         DriftSqlType.bool,
         data['${effectivePrefix}dictated'],
       ),
+      rescueOf: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rescue_of'],
+      ),
+      estimateSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}estimate_seconds'],
+      ),
     );
   }
 
@@ -216,6 +263,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
   final int offsetSeconds;
   final String? originContext;
   final bool? dictated;
+  final String? rescueOf;
+  final int? estimateSeconds;
   const PoolFact({
     required this.id,
     required this.origin,
@@ -224,6 +273,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     required this.offsetSeconds,
     this.originContext,
     this.dictated,
+    this.rescueOf,
+    this.estimateSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -238,6 +289,12 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     }
     if (!nullToAbsent || dictated != null) {
       map['dictated'] = Variable<bool>(dictated);
+    }
+    if (!nullToAbsent || rescueOf != null) {
+      map['rescue_of'] = Variable<String>(rescueOf);
+    }
+    if (!nullToAbsent || estimateSeconds != null) {
+      map['estimate_seconds'] = Variable<int>(estimateSeconds);
     }
     return map;
   }
@@ -255,6 +312,12 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       dictated: dictated == null && nullToAbsent
           ? const Value.absent()
           : Value(dictated),
+      rescueOf: rescueOf == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rescueOf),
+      estimateSeconds: estimateSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(estimateSeconds),
     );
   }
 
@@ -271,6 +334,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       offsetSeconds: serializer.fromJson<int>(json['offset_seconds']),
       originContext: serializer.fromJson<String?>(json['origin_context']),
       dictated: serializer.fromJson<bool?>(json['dictated']),
+      rescueOf: serializer.fromJson<String?>(json['rescue_of']),
+      estimateSeconds: serializer.fromJson<int?>(json['estimate_seconds']),
     );
   }
   @override
@@ -284,6 +349,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       'offset_seconds': serializer.toJson<int>(offsetSeconds),
       'origin_context': serializer.toJson<String?>(originContext),
       'dictated': serializer.toJson<bool?>(dictated),
+      'rescue_of': serializer.toJson<String?>(rescueOf),
+      'estimate_seconds': serializer.toJson<int?>(estimateSeconds),
     };
   }
 
@@ -295,6 +362,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     int? offsetSeconds,
     Value<String?> originContext = const Value.absent(),
     Value<bool?> dictated = const Value.absent(),
+    Value<String?> rescueOf = const Value.absent(),
+    Value<int?> estimateSeconds = const Value.absent(),
   }) => PoolFact(
     id: id ?? this.id,
     origin: origin ?? this.origin,
@@ -305,6 +374,10 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
         ? originContext.value
         : this.originContext,
     dictated: dictated.present ? dictated.value : this.dictated,
+    rescueOf: rescueOf.present ? rescueOf.value : this.rescueOf,
+    estimateSeconds: estimateSeconds.present
+        ? estimateSeconds.value
+        : this.estimateSeconds,
   );
   PoolFact copyWithCompanion(PoolFactsCompanion data) {
     return PoolFact(
@@ -321,6 +394,10 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           ? data.originContext.value
           : this.originContext,
       dictated: data.dictated.present ? data.dictated.value : this.dictated,
+      rescueOf: data.rescueOf.present ? data.rescueOf.value : this.rescueOf,
+      estimateSeconds: data.estimateSeconds.present
+          ? data.estimateSeconds.value
+          : this.estimateSeconds,
     );
   }
 
@@ -333,7 +410,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           ..write('instantUtcMicros: $instantUtcMicros, ')
           ..write('offsetSeconds: $offsetSeconds, ')
           ..write('originContext: $originContext, ')
-          ..write('dictated: $dictated')
+          ..write('dictated: $dictated, ')
+          ..write('rescueOf: $rescueOf, ')
+          ..write('estimateSeconds: $estimateSeconds')
           ..write(')'))
         .toString();
   }
@@ -347,6 +426,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     offsetSeconds,
     originContext,
     dictated,
+    rescueOf,
+    estimateSeconds,
   );
   @override
   bool operator ==(Object other) =>
@@ -358,7 +439,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           other.instantUtcMicros == this.instantUtcMicros &&
           other.offsetSeconds == this.offsetSeconds &&
           other.originContext == this.originContext &&
-          other.dictated == this.dictated);
+          other.dictated == this.dictated &&
+          other.rescueOf == this.rescueOf &&
+          other.estimateSeconds == this.estimateSeconds);
 }
 
 class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
@@ -369,6 +452,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
   final Value<int> offsetSeconds;
   final Value<String?> originContext;
   final Value<bool?> dictated;
+  final Value<String?> rescueOf;
+  final Value<int?> estimateSeconds;
   final Value<int> rowid;
   const PoolFactsCompanion({
     this.id = const Value.absent(),
@@ -378,6 +463,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     this.offsetSeconds = const Value.absent(),
     this.originContext = const Value.absent(),
     this.dictated = const Value.absent(),
+    this.rescueOf = const Value.absent(),
+    this.estimateSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PoolFactsCompanion.insert({
@@ -388,6 +475,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     required int offsetSeconds,
     this.originContext = const Value.absent(),
     this.dictated = const Value.absent(),
+    this.rescueOf = const Value.absent(),
+    this.estimateSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        origin = Value(origin),
@@ -402,6 +491,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Expression<int>? offsetSeconds,
     Expression<String>? originContext,
     Expression<bool>? dictated,
+    Expression<String>? rescueOf,
+    Expression<int>? estimateSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -412,6 +503,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       if (offsetSeconds != null) 'offset_seconds': offsetSeconds,
       if (originContext != null) 'origin_context': originContext,
       if (dictated != null) 'dictated': dictated,
+      if (rescueOf != null) 'rescue_of': rescueOf,
+      if (estimateSeconds != null) 'estimate_seconds': estimateSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -424,6 +517,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Value<int>? offsetSeconds,
     Value<String?>? originContext,
     Value<bool?>? dictated,
+    Value<String?>? rescueOf,
+    Value<int?>? estimateSeconds,
     Value<int>? rowid,
   }) {
     return PoolFactsCompanion(
@@ -434,6 +529,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       offsetSeconds: offsetSeconds ?? this.offsetSeconds,
       originContext: originContext ?? this.originContext,
       dictated: dictated ?? this.dictated,
+      rescueOf: rescueOf ?? this.rescueOf,
+      estimateSeconds: estimateSeconds ?? this.estimateSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -462,6 +559,12 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     if (dictated.present) {
       map['dictated'] = Variable<bool>(dictated.value);
     }
+    if (rescueOf.present) {
+      map['rescue_of'] = Variable<String>(rescueOf.value);
+    }
+    if (estimateSeconds.present) {
+      map['estimate_seconds'] = Variable<int>(estimateSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -478,6 +581,8 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
           ..write('offsetSeconds: $offsetSeconds, ')
           ..write('originContext: $originContext, ')
           ..write('dictated: $dictated, ')
+          ..write('rescueOf: $rescueOf, ')
+          ..write('estimateSeconds: $estimateSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -646,6 +751,17 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _sliceCauseMeta = const VerificationMeta(
+    'sliceCause',
+  );
+  late final GeneratedColumn<String> sliceCause = GeneratedColumn<String>(
+    'slice_cause',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -663,6 +779,7 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     reportValue,
     reportWeek,
     permission,
+    sliceCause,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -789,6 +906,12 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         permission.isAcceptableOrUnknown(data['permission']!, _permissionMeta),
       );
     }
+    if (data.containsKey('slice_cause')) {
+      context.handle(
+        _sliceCauseMeta,
+        sliceCause.isAcceptableOrUnknown(data['slice_cause']!, _sliceCauseMeta),
+      );
+    }
     return context;
   }
 
@@ -858,6 +981,10 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.string,
         data['${effectivePrefix}permission'],
       ),
+      sliceCause: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}slice_cause'],
+      ),
     );
   }
 
@@ -886,6 +1013,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final int? reportValue;
   final int? reportWeek;
   final String? permission;
+  final String? sliceCause;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -902,6 +1030,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.reportValue,
     this.reportWeek,
     this.permission,
+    this.sliceCause,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -942,6 +1071,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || permission != null) {
       map['permission'] = Variable<String>(permission);
+    }
+    if (!nullToAbsent || sliceCause != null) {
+      map['slice_cause'] = Variable<String>(sliceCause);
     }
     return map;
   }
@@ -985,6 +1117,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       permission: permission == null && nullToAbsent
           ? const Value.absent()
           : Value(permission),
+      sliceCause: sliceCause == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sliceCause),
     );
   }
 
@@ -1009,6 +1144,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       reportValue: serializer.fromJson<int?>(json['report_value']),
       reportWeek: serializer.fromJson<int?>(json['report_week']),
       permission: serializer.fromJson<String?>(json['permission']),
+      sliceCause: serializer.fromJson<String?>(json['slice_cause']),
     );
   }
   @override
@@ -1030,6 +1166,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'report_value': serializer.toJson<int?>(reportValue),
       'report_week': serializer.toJson<int?>(reportWeek),
       'permission': serializer.toJson<String?>(permission),
+      'slice_cause': serializer.toJson<String?>(sliceCause),
     };
   }
 
@@ -1049,6 +1186,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<int?> reportValue = const Value.absent(),
     Value<int?> reportWeek = const Value.absent(),
     Value<String?> permission = const Value.absent(),
+    Value<String?> sliceCause = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -1067,6 +1205,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     reportValue: reportValue.present ? reportValue.value : this.reportValue,
     reportWeek: reportWeek.present ? reportWeek.value : this.reportWeek,
     permission: permission.present ? permission.value : this.permission,
+    sliceCause: sliceCause.present ? sliceCause.value : this.sliceCause,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -1105,6 +1244,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       permission: data.permission.present
           ? data.permission.value
           : this.permission,
+      sliceCause: data.sliceCause.present
+          ? data.sliceCause.value
+          : this.sliceCause,
     );
   }
 
@@ -1125,7 +1267,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('energyLevel: $energyLevel, ')
           ..write('reportValue: $reportValue, ')
           ..write('reportWeek: $reportWeek, ')
-          ..write('permission: $permission')
+          ..write('permission: $permission, ')
+          ..write('sliceCause: $sliceCause')
           ..write(')'))
         .toString();
   }
@@ -1147,6 +1290,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     reportValue,
     reportWeek,
     permission,
+    sliceCause,
   );
   @override
   bool operator ==(Object other) =>
@@ -1166,7 +1310,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.energyLevel == this.energyLevel &&
           other.reportValue == this.reportValue &&
           other.reportWeek == this.reportWeek &&
-          other.permission == this.permission);
+          other.permission == this.permission &&
+          other.sliceCause == this.sliceCause);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1185,6 +1330,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<int?> reportValue;
   final Value<int?> reportWeek;
   final Value<String?> permission;
+  final Value<String?> sliceCause;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1202,6 +1348,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.reportValue = const Value.absent(),
     this.reportWeek = const Value.absent(),
     this.permission = const Value.absent(),
+    this.sliceCause = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1220,6 +1367,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.reportValue = const Value.absent(),
     this.reportWeek = const Value.absent(),
     this.permission = const Value.absent(),
+    this.sliceCause = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1241,6 +1389,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<int>? reportValue,
     Expression<int>? reportWeek,
     Expression<String>? permission,
+    Expression<String>? sliceCause,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1259,6 +1408,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (reportValue != null) 'report_value': reportValue,
       if (reportWeek != null) 'report_week': reportWeek,
       if (permission != null) 'permission': permission,
+      if (sliceCause != null) 'slice_cause': sliceCause,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1279,6 +1429,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<int?>? reportValue,
     Value<int?>? reportWeek,
     Value<String?>? permission,
+    Value<String?>? sliceCause,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1297,6 +1448,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       reportValue: reportValue ?? this.reportValue,
       reportWeek: reportWeek ?? this.reportWeek,
       permission: permission ?? this.permission,
+      sliceCause: sliceCause ?? this.sliceCause,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1349,6 +1501,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (permission.present) {
       map['permission'] = Variable<String>(permission.value);
     }
+    if (sliceCause.present) {
+      map['slice_cause'] = Variable<String>(sliceCause.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1373,6 +1528,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('reportValue: $reportValue, ')
           ..write('reportWeek: $reportWeek, ')
           ..write('permission: $permission, ')
+          ..write('sliceCause: $sliceCause, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1453,6 +1609,8 @@ typedef $PoolFactsCreateCompanionBuilder = PoolFactsCompanion Function({
   required int offsetSeconds,
   Value<String?> originContext,
   Value<bool?> dictated,
+  Value<String?> rescueOf,
+  Value<int?> estimateSeconds,
   Value<int> rowid,
 });
 typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
@@ -1463,6 +1621,8 @@ typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
   Value<int> offsetSeconds,
   Value<String?> originContext,
   Value<bool?> dictated,
+  Value<String?> rescueOf,
+  Value<int?> estimateSeconds,
   Value<int> rowid,
 });
 
@@ -1507,6 +1667,16 @@ class $PoolFactsFilterComposer
 
   ColumnFilters<bool> get dictated => $composableBuilder(
     column: $table.dictated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rescueOf => $composableBuilder(
+    column: $table.rescueOf,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get estimateSeconds => $composableBuilder(
+    column: $table.estimateSeconds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1554,6 +1724,16 @@ class $PoolFactsOrderingComposer
     column: $table.dictated,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get rescueOf => $composableBuilder(
+    column: $table.rescueOf,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get estimateSeconds => $composableBuilder(
+    column: $table.estimateSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $PoolFactsAnnotationComposer
@@ -1591,6 +1771,14 @@ class $PoolFactsAnnotationComposer
 
   GeneratedColumn<bool> get dictated =>
       $composableBuilder(column: $table.dictated, builder: (column) => column);
+
+  GeneratedColumn<String> get rescueOf =>
+      $composableBuilder(column: $table.rescueOf, builder: (column) => column);
+
+  GeneratedColumn<int> get estimateSeconds => $composableBuilder(
+    column: $table.estimateSeconds,
+    builder: (column) => column,
+  );
 }
 
 class $PoolFactsTableManager
@@ -1628,6 +1816,8 @@ class $PoolFactsTableManager
                 Value<int> offsetSeconds = const Value.absent(),
                 Value<String?> originContext = const Value.absent(),
                 Value<bool?> dictated = const Value.absent(),
+                Value<String?> rescueOf = const Value.absent(),
+                Value<int?> estimateSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion(
                 id: id,
@@ -1637,6 +1827,8 @@ class $PoolFactsTableManager
                 offsetSeconds: offsetSeconds,
                 originContext: originContext,
                 dictated: dictated,
+                rescueOf: rescueOf,
+                estimateSeconds: estimateSeconds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1648,6 +1840,8 @@ class $PoolFactsTableManager
                 required int offsetSeconds,
                 Value<String?> originContext = const Value.absent(),
                 Value<bool?> dictated = const Value.absent(),
+                Value<String?> rescueOf = const Value.absent(),
+                Value<int?> estimateSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion.insert(
                 id: id,
@@ -1657,6 +1851,8 @@ class $PoolFactsTableManager
                 offsetSeconds: offsetSeconds,
                 originContext: originContext,
                 dictated: dictated,
+                rescueOf: rescueOf,
+                estimateSeconds: estimateSeconds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -1697,6 +1893,7 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> reportValue,
   Value<int?> reportWeek,
   Value<String?> permission,
+  Value<String?> sliceCause,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -1715,6 +1912,7 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> reportValue,
   Value<int?> reportWeek,
   Value<String?> permission,
+  Value<String?> sliceCause,
   Value<int> rowid,
 });
 
@@ -1799,6 +1997,11 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<String> get permission => $composableBuilder(
     column: $table.permission,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sliceCause => $composableBuilder(
+    column: $table.sliceCause,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1886,6 +2089,11 @@ class $LogEntriesOrderingComposer
     column: $table.permission,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sliceCause => $composableBuilder(
+    column: $table.sliceCause,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -1961,6 +2169,11 @@ class $LogEntriesAnnotationComposer
     column: $table.permission,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get sliceCause => $composableBuilder(
+    column: $table.sliceCause,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -2006,6 +2219,7 @@ class $LogEntriesTableManager
                 Value<int?> reportValue = const Value.absent(),
                 Value<int?> reportWeek = const Value.absent(),
                 Value<String?> permission = const Value.absent(),
+                Value<String?> sliceCause = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -2023,6 +2237,7 @@ class $LogEntriesTableManager
                 reportValue: reportValue,
                 reportWeek: reportWeek,
                 permission: permission,
+                sliceCause: sliceCause,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2042,6 +2257,7 @@ class $LogEntriesTableManager
                 Value<int?> reportValue = const Value.absent(),
                 Value<int?> reportWeek = const Value.absent(),
                 Value<String?> permission = const Value.absent(),
+                Value<String?> sliceCause = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -2059,6 +2275,7 @@ class $LogEntriesTableManager
                 reportValue: reportValue,
                 reportWeek: reportWeek,
                 permission: permission,
+                sliceCause: sliceCause,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

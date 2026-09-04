@@ -222,6 +222,7 @@ bool _firstOpeningUnderway(
       case ReportAnsweredEntry():
       case PermissionRefusedEntry():
       case UnknownEntry():
+      case SliceEntry():
         break;
     }
   }

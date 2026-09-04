@@ -238,6 +238,15 @@ void main() {
         isTrue,
         reason: 'the Dispenser home receives the dictation seam',
       );
+      // The rescue seam (Story 4.6) rides the same composed slicer —
+      // a null here would quietly decline every ask and suppress the
+      // auto-heuristic with the suite green.
+      expect(
+        RegExp(r'DispenserController\([\s\S]*?slicer:\s*slicer')
+            .hasMatch(source),
+        isTrue,
+        reason: 'the Dispenser rescue path must hold the composed slicer',
+      );
     },
   );
 }

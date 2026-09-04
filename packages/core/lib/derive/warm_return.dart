@@ -55,11 +55,16 @@ const int warmReturnThresholdMicros = 48 * 60 * 60 * 1000 * 1000;
 /// the system events. Today the system events are `app_opened` (the
 /// opening delimiter, counted as contact by the derivation itself),
 /// `crash_recorded` and `permission_refused` (Story 3.4 — a refusal is
-/// the user turning the app away, not the user using it);
-/// `session_ended` is the user's own stop, and the payload-carrying
-/// kinds are all acts. An `UnknownEntry` is not an act — a tolerated
-/// row asserts nothing — and a future kind joins exactly one set in
-/// the pass that adds it.
+/// the user turning the app away, not the user using it), and
+/// `slice_failed` (Story 4.6 — the no-Slicer family's own register: a
+/// rescue that found no Slicer states a system's absence, and a
+/// system event must not reset the absence clock);
+/// `session_ended` is the user's own stop, the payload-carrying kinds
+/// are all acts — `slice_requested` and `slice_returned` included
+/// (Story 4.6: the user's ask and its delivery ride the user's own
+/// dealt card, the `capture_created` precedent). An `UnknownEntry` is
+/// not an act — a tolerated row asserts nothing — and a future kind
+/// joins exactly one set in the pass that adds it.
 bool _isUserAct(LogEntry entry) {
   switch (entry) {
     case ItemActEntry():
@@ -69,6 +74,15 @@ bool _isUserAct(LogEntry entry) {
     case EnergySetEntry():
     case ReportAnsweredEntry():
       return true;
+    case SliceEntry():
+      // The rescue channel splits (Story 4.6, AD-21's own
+      // enumeration): `slice_requested` and `slice_returned` are the
+      // user's ask and its delivery — contact, the `capture_created`
+      // precedent — while `slice_failed` is a system event (the
+      // no-Slicer family's own register): an auto-heuristic failure
+      // with no user act beside it must not reset the 48 h absence
+      // clock and suppress a deserved Warm Return.
+      return entry.kind != LogKind.sliceFailed;
     case MomentEntry(:final kind):
       // `session_ended` is the user's stop — the one moment that is an
       // act. A future moment kind defaults to NOT contact (mirroring

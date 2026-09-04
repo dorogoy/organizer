@@ -151,6 +151,7 @@ void main() {
         reportValue: content.entry.reportValue,
         reportWeek: content.entry.reportWeek,
         permission: null,
+        sliceCause: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ItemActEntry;

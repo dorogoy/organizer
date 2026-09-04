@@ -192,12 +192,13 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, twelve wire names wide: every user-act and
+    // The absolute ban, fifteen wire names wide: every user-act and
     // moment kind — and, since Story 3.4, the `permission_refused`
-    // system event — exists in the shell only inside the core's own
-    // constants: a quoted wire name in lib/ is a minter that
-    // bypasses the vocabulary. (crash_recorded is not banned here:
-    // the crash channel's constant idiom is pinned below.)
+    // system event, since Story 4.6 the three `slice_*` rescue rows —
+    // exists in the shell only inside the core's own constants: a
+    // quoted wire name in lib/ is a minter that bypasses the
+    // vocabulary. (crash_recorded is not banned here: the crash
+    // channel's constant idiom is pinned below.)
     const bannedWireNames = [
       'card_done',
       'card_dealt',
@@ -211,6 +212,9 @@ void main() {
       'report_answered',
       'capture_created',
       'permission_refused',
+      'slice_requested',
+      'slice_returned',
+      'slice_failed',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -310,6 +314,27 @@ void main() {
           'exactly one core reportAnswered command invocation — the '
           'report answer\'s LogEntryContent path (Story 2.6)',
     );
+    expect(
+      RegExp(r'\brescueRequested\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core rescueRequested command invocation — the '
+          'rescue activation\'s LogEntryContent path (Story 4.6)',
+    );
+    expect(
+      RegExp(r'\brescueReturned\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core rescueReturned command invocation — the '
+          'rescue landing\'s LogEntryContent path (Story 4.6)',
+    );
+    expect(
+      RegExp(r'\brescueFailed\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core rescueFailed command invocation — the '
+          'rescue failure\'s LogEntryContent path (Story 4.6)',
+    );
     final capture = sources['lib/capture/capture_controller.dart'];
     expect(capture, isNotNull, reason: 'the capture channel is gone');
     final captureSource = capture ?? '';
@@ -333,17 +358,16 @@ void main() {
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
-    // implementation) are, inside the Dispenser controller, its seven
-    // user-act append sites over core LogEntryContent — the two
-    // answers, the pocket declaration (Story 2.2), the pause
-    // (Story 2.3), the checkpoint extension (Story 2.4), the check-in
-    // answer (Story 2.5) and the report answer (Story 2.6) — beside
-    // the session, settings and capture channels, the dictation
-    // channel's refusal append (Story 3.4) and AD-12's crash
-    // channel, each mapped below; together, the only paths that can
-    // mint user-act and session kinds. The exact counts pin an
-    // unlisted call site even inside a sanctioned file; tear-offs
-    // (`.appendLogEntry` without a call) are zero.
+    // implementation) are, inside the Dispenser controller, its ONE
+    // shared append helper over core LogEntryContent — the seven
+    // user-act write paths of Stories 1.9–2.6 plus, since Story 4.6,
+    // the rescue channel's activation and landing rows, all through
+    // the same copier — beside the session, settings and capture
+    // channels, the dictation channel's refusal append (Story 3.4)
+    // and AD-12's crash channel, each mapped below; together, the
+    // only paths that can mint user-act and session kinds. The exact
+    // counts pin an unlisted call site even inside a sanctioned
+    // file; tear-offs (`.appendLogEntry` without a call) are zero.
     final callCounts = <String, int>{};
     final contentCounts = <String, int>{};
     for (final entry in sources.entries) {
@@ -366,7 +390,7 @@ void main() {
         'lib/capture/capture_controller.dart': 1,
         'lib/capture/dictation_controller.dart': 1,
         'lib/crash.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 7,
+        'lib/dispenser/dispenser_controller.dart': 1,
         'lib/session/session_controller.dart': 1,
         // Story 4-4 grows the settings channel's append sites to
         // two: the Time Bag's int row and the selected provider's
@@ -383,7 +407,7 @@ void main() {
       {
         'lib/capture/capture_controller.dart': 1,
         'lib/capture/dictation_controller.dart': 1,
-        'lib/dispenser/dispenser_controller.dart': 7,
+        'lib/dispenser/dispenser_controller.dart': 1,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 2,
       },
@@ -440,11 +464,14 @@ void main() {
     );
 
     // No pool-fact write path exists in the shell besides the capture
-    // channel: the only `appendPoolFact` call in lib/ is the capture
-    // controller's single sanctioned append (Story 3.2 — the pool's
-    // first writer, one fact then the entry referencing it), the
-    // adapter's own implementation is an override declaration with no
-    // receiver, and zero other call sites or tear-offs reference it.
+    // channel and the rescue landing: the only `appendPoolFact` calls
+    // in lib/ are the capture controller's single sanctioned append
+    // (Story 3.2 — the pool's first writer, one fact then the entry
+    // referencing it) and the Dispenser controller's single sanctioned
+    // append (Story 4.6 — the rescue steps' landing, the facts the
+    // `slice_returned` row names), the adapter's own implementation is
+    // an override declaration with no receiver, and zero other call
+    // sites or tear-offs reference it.
     final poolWrites = <String>[];
     for (final file in _dartFilesUnder('lib')) {
       final source = _withoutComments(file.readAsStringSync());
@@ -456,6 +483,19 @@ void main() {
           reason:
               'the capture channel holds exactly one pool-fact append — '
               'a second would be a silent writer',
+        );
+        continue;
+      }
+      if (_key(file) == 'lib/dispenser/dispenser_controller.dart') {
+        // The rescue channel's own sanctioned call, pinned by count
+        // (Story 4.6): the step facts the landing mints.
+        expect(
+          RegExp(r'\.\s*appendPoolFact\s*\(').allMatches(source),
+          hasLength(1),
+          reason:
+              'the rescue channel holds exactly one pool-fact append — '
+              'the steps'
+              ' landing; a second would be a silent writer',
         );
         continue;
       }

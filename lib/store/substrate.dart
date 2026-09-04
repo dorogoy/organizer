@@ -87,11 +87,36 @@ const String poolFactsDictatedUpgrade =
 /// Schema v8's additive upgrade of `log_entries` (Story 4.3, AD-23):
 /// the one nullable `setting_changed` text column — the selected AI
 /// provider's id (AD-22: never a credential, never an availability
-/// claim) — added by ALTER TABLE only, on the v2→v7 pattern: no table
-/// rebuild, no data migration, refusal triggers untouched. A named
-/// infrastructure identifier on the store module's terms (AD-15).
+/// claim) — added by ALTER TABLE only, on the v2→v7 pattern: no
+/// table rebuild, no data migration, refusal triggers untouched. A
+/// named infrastructure identifier on the store module's terms
+/// (AD-15).
 const String logEntriesTextValueUpgrade =
     'ALTER TABLE log_entries ADD COLUMN text_value TEXT NULL';
+
+/// Schema v9's additive upgrade of `log_entries` (Story 4.6, AD-23):
+/// the one nullable `slice_failed` payload column — the slice
+/// failure's cause wire name — added by ALTER TABLE only, on the same
+/// pattern: no table rebuild, no data migration, refusal triggers
+/// untouched. A named infrastructure identifier on the store module's
+/// terms (AD-15).
+const String logEntriesSliceCauseUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN slice_cause TEXT NULL';
+
+/// Schema v9's additive upgrade of `pool_facts` (Story 4.6, AD-23):
+/// the one nullable rescue-parent column — the item id a rescue step
+/// rescues — added by ALTER TABLE only, on the same pattern. A named
+/// infrastructure identifier on the store module's terms (AD-15).
+const String poolFactsRescueOfUpgrade =
+    'ALTER TABLE pool_facts ADD COLUMN rescue_of TEXT NULL';
+
+/// Schema v9's additive upgrade of `pool_facts` (Story 4.6, AD-23):
+/// the one nullable estimate column — the Slicer's verbatim duration
+/// tag, in seconds — added by ALTER TABLE only, on the same pattern.
+/// A named infrastructure identifier on the store module's terms
+/// (AD-15).
+const String poolFactsEstimateSecondsUpgrade =
+    'ALTER TABLE pool_facts ADD COLUMN estimate_seconds INTEGER NULL';
 
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
@@ -114,8 +139,8 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 8 (Story 4.3): the only change from 7
-/// is the one nullable column above, and every later change is
+/// migration (AD-2). schemaVersion 9 (Story 4.6): the only change from 8
+/// is the three nullable columns above, and every later change is
 /// additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -129,7 +154,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -179,9 +204,13 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// with a null boolean, deriving as not dictated. The v7→v8 step
   /// adds the log's setting text column the same way, so a v7 install
   /// upgrades with its rows unchanged too — old setting rows with a
-  /// null text, deriving exactly as before. Every step runs
-  /// inside the one transaction and adds only an absent column, and
-  /// the mechanism is
+  /// null text, deriving exactly as before. The v8→v9 step adds the
+  /// log's slice-cause column and the pool's two rescue columns the
+  /// same way, so a v8 install upgrades with its rows unchanged too
+  /// — old rows with a null cause, deriving as no slice history, and
+  /// old facts with null rescue fields, deriving as no chain. Every
+  /// step runs inside the one transaction and adds only an absent
+  /// column, and the mechanism is
   /// drift's; the outcomes — triggers present after first open on a
   /// fresh install, old rows intact after upgrade — are pinned by
   /// `test/store/substrate_test.dart`.
@@ -212,6 +241,11 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 8) {
         await _addColumnIfAbsent(logEntriesTextValueUpgrade);
+      }
+      if (from < 9) {
+        await _addColumnIfAbsent(logEntriesSliceCauseUpgrade);
+        await _addColumnIfAbsent(poolFactsRescueOfUpgrade);
+        await _addColumnIfAbsent(poolFactsEstimateSecondsUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

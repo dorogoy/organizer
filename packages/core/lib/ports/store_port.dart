@@ -15,6 +15,7 @@
 library;
 
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/slicer/rescue_steps.dart';
 
 /// An inert pool-fact DTO: a shell-minted UUIDv7 id, the origin set at
 /// genesis, the taxonomy size, and the creation instant plus the local
@@ -23,7 +24,11 @@ import 'package:core/pool/pool_fact.dart';
 /// single line, null for origins whose context lives elsewhere.
 /// Additively since schema v7 (Story 3.4), the nullable dictation
 /// boolean: `true` whenever dictation authored the line, `false` when
-/// the keyboard did, null on old rows. No owner, no date-only value.
+/// the keyboard did, null on old rows. Additively since schema v9
+/// (Story 4.6), the nullable rescue pair: the parent item id a rescue
+/// step rescues, and the Slicer's verbatim duration estimate in
+/// seconds — non-null exactly on rescue steps. No owner, no
+/// date-only value.
 typedef PoolFactRecord = ({
   String id,
   Origin origin,
@@ -32,6 +37,8 @@ typedef PoolFactRecord = ({
   int offsetSeconds,
   String? originContext,
   bool? dictated,
+  String? rescueOf,
+  int? estimateSeconds,
 });
 
 /// An inert log-entry DTO: id, kind (as its wire name — unknown kinds are
@@ -57,6 +64,10 @@ typedef PoolFactRecord = ({
 /// is the refused permission's wire name (one of the three the core's
 /// `Permission` enum names) and is set only on `permission_refused`,
 /// additively since schema v7 (Story 3.4, AD-17, AD-23).
+/// [sliceCause] is the slice failure's cause wire name (one of the
+/// seven the `SlicerFailureCause` enum names) and is set only on
+/// `slice_failed`, additively since schema v9 (Story 4.6, FR-5,
+/// AD-23).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -73,15 +84,26 @@ typedef LogEntryRecord = ({
   int? reportValue,
   int? reportWeek,
   String? permission,
+  String? sliceCause,
 });
 
 /// The pool-fact snapshot's domain objects, in snapshot order — the
 /// records' one-to-one mapping into facts, the pool's own
 /// `logEntriesOf` inverted to live here (`pool_fact.dart` cannot host
 /// it: the fact would have to import its own record, a cycle through
-/// this port). Nothing is validated: the record is field-identical to
-/// the fact (AD-5), and a row this build could not parse never reached
-/// the snapshot (the adapter excluded it at the read).
+/// this port). Nothing is validated beyond the rescue pair's own
+/// AD-23-style tolerance (Story 4.6): the record is field-identical to
+/// the fact (AD-5), a row this build could not parse never reached the
+/// snapshot (the adapter excluded it at the read), and the two rescue
+/// columns — the only ones whose value space the record's types cannot
+/// speak for — normalize here rather than flow raw into the pocket,
+/// the 🔴 ceiling and the retirement arithmetic:
+/// an `estimateSeconds` outside the rescue contract's 1–60 band (a
+/// corrupt 0, negative or absurd tag) reads as absent, so the fact's
+/// size default charges exactly as a pre-4-6 fact's did; a `rescueOf`
+/// that is empty or whitespace reads as absent, so a mangled row
+/// derives as an ordinary fact rather than the head of a chain named
+/// by nothing. Quiet tolerance, never a repair write (AD-23).
 List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
   for (final record in records)
     PoolFact(
@@ -92,6 +114,15 @@ List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
       offsetSeconds: record.offsetSeconds,
       originContext: record.originContext,
       dictated: record.dictated,
+      rescueOf: (record.rescueOf == null || record.rescueOf!.trim().isEmpty)
+          ? null
+          : record.rescueOf,
+      estimateSeconds:
+          (record.estimateSeconds == null ||
+              record.estimateSeconds! < rescueStepSecondsLeast ||
+              record.estimateSeconds! > rescueStepSecondsMost)
+          ? null
+          : record.estimateSeconds,
     ),
 ];
 

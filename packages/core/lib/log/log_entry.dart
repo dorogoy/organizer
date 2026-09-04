@@ -8,10 +8,13 @@
 /// (FR-10, AD-19), since Story 2.5 the tenth kind `energy_set`
 /// (FR-4, AD-4), since Story 2.6 the eleventh kind `report_answered`
 /// (SM-2, AD-21), since Story 3.2 the twelfth kind `capture_created`
-/// (FR-27, AD-14), and since Story 3.4 the thirteenth kind
+/// (FR-27, AD-14), since Story 3.4 the thirteenth kind
 /// `permission_refused` (FR-32, AD-17, AD-21 — one of the system events'
-/// three stated derivation exceptions). A new kind is a new kind, never a
-/// flag on an old one.
+/// three stated derivation exceptions), and since Story 4.6 the
+/// fourteenth–sixteenth kinds `slice_requested` / `slice_returned` /
+/// `slice_failed` (FR-5, AD-21 — the Rescue Mode channel's three rows,
+/// appending on the same terms as a photo scan). A new kind is a new
+/// kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -28,6 +31,7 @@
 library;
 
 import 'package:core/energy/energy.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/pool/pool_fact.dart';
 
@@ -52,6 +56,15 @@ const Map<String, Permission> permissionByName = {
   'microphone': Permission.microphone,
   'camera': Permission.camera,
   'notifications': Permission.notifications,
+};
+
+/// Every [SlicerFailureCause] this build knows, keyed by wire name
+/// (Story 4.6) — the `slice_failed` row's cause identity, derived from
+/// the enum so a new member cannot write a name this map does not
+/// know. A row naming a cause this build does not know is excluded,
+/// never coerced (AD-23).
+final Map<String, SlicerFailureCause> slicerFailureCauseByName = {
+  for (final cause in SlicerFailureCause.values) cause.name: cause,
 };
 
 /// One entry kind, as a past-tense `snake_case` verb phrase. Instances are
@@ -80,6 +93,9 @@ final class LogKind {
   static const reportAnswered = LogKind._('report_answered', known: true);
   static const captureCreated = LogKind._('capture_created', known: true);
   static const permissionRefused = LogKind._('permission_refused', known: true);
+  static const sliceRequested = LogKind._('slice_requested', known: true);
+  static const sliceReturned = LogKind._('slice_returned', known: true);
+  static const sliceFailed = LogKind._('slice_failed', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -96,6 +112,9 @@ final class LogKind {
     'report_answered': reportAnswered,
     'capture_created': captureCreated,
     'permission_refused': permissionRefused,
+    'slice_requested': sliceRequested,
+    'slice_returned': sliceReturned,
+    'slice_failed': sliceFailed,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -407,6 +426,49 @@ final class PermissionRefusedEntry extends LogEntry {
   final Permission permission;
 }
 
+/// A `slice_*` row (Story 4.6, FR-5, AD-21): the Rescue Mode channel's
+/// own shape — a user act naming the rescued pool item, its kind one of
+/// the three (`slice_requested` the activation, `slice_returned` the
+/// delivered re-slice, `slice_failed` the terminal failure), and — on
+/// `slice_failed` alone — the port's closed failure cause. The rows
+/// append on the same terms as a photo scan (the Slicer-call series
+/// closes over the rescue channel), the activation resets the refusal
+/// counter whatever follows, and nothing here queues, retries or
+/// persists a pending state: a fresh rescue is a fresh `slice_requested`
+/// by construction. The type offers no other field, so no prompt, no
+/// delivered body, no provider and no key may ride along — the history
+/// records THAT a slice happened and, on failure, which of the seven
+/// causes it met, never the conversation itself.
+final class SliceEntry extends LogEntry {
+  const SliceEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.kind,
+    required this.itemId,
+    required this.itemOrigin,
+    this.cause,
+  });
+
+  /// One of the three `slice_*` kinds — never any other.
+  @override
+  final LogKind kind;
+
+  /// The rescued pool item's id — the parent, never a step: the depth
+  /// cap lives in the command boundary, so a step's row cannot exist.
+  final String itemId;
+
+  /// The rescued item's origin, which every item-referencing entry
+  /// carries too (AD-14).
+  final Origin itemOrigin;
+
+  /// The port's failure cause — non-null exactly on `slice_failed`
+  /// rows, the whole payload the failure history keeps. A stored name
+  /// this build does not know excludes the row at the read boundary
+  /// (AD-23's quiet tolerance).
+  final SlicerFailureCause? cause;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -522,6 +584,20 @@ enum LogRecordFlaw {
   /// — mirroring the setting, pocket, energy and report rules: every
   /// payload column rides its own kind and no other.
   permissionOnNonPermissionKind,
+
+  /// A `slice_failed` row without a cause this build can read (Story
+  /// 4.6): the column is absent, empty, or names a cause this build
+  /// does not know — either way the row asserts nothing about why the
+  /// slice failed and the derivation reads it as absent from the
+  /// rescue history. Quiet tolerance, never a repair write (AD-23).
+  sliceCauseAbsent,
+
+  /// A cause payload on a kind that is not `slice_failed` (Story
+  /// 4.6) — mirroring the setting, pocket, energy, report and
+  /// permission rules: the failure's cause rides its own kind and no
+  /// other, and the two content kinds (`slice_requested`,
+  /// `slice_returned`) carry none.
+  causeOnNonFailedKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -537,6 +613,12 @@ bool _isItemAct(LogKind kind) =>
 
 bool _isMoment(LogKind kind) =>
     kind == LogKind.sessionEnded || kind == LogKind.appOpened;
+
+/// Whether [kind] is one of the three `slice_*` kinds (Story 4.6).
+bool _isSliceKind(LogKind kind) =>
+    kind == LogKind.sliceRequested ||
+    kind == LogKind.sliceReturned ||
+    kind == LogKind.sliceFailed;
 
 /// Converts one inert store record into a domain entry with shape
 /// validation — the boundary Story 1.3 deferred to this story. Unknown
@@ -558,7 +640,10 @@ bool _isMoment(LogKind kind) =>
 /// the item-act family's own shape, the pair naming the pool fact the
 /// same tap appended), and `permission_refused` its permission — one
 /// of the three the [Permission] enum names — and nothing else
-/// (Story 3.4, the crash shape: no item pair). An
+/// (Story 3.4, the crash shape: no item pair), and a `slice_*` row
+/// (Story 4.6) its full item pair plus — on `slice_failed` alone — a
+/// cause the [slicerFailureCauseByName] map knows, and nothing else.
+/// An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. A known
@@ -597,6 +682,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final permissionIsAbsent =
       record.permission == null || permissionByName[record.permission!] == null;
   final carriesPermission = record.permission != null;
+  // The cause column reads by the same house rule: an empty string is
+  // not a value, so it counts as absent everywhere below (Story 4.6).
+  final sliceCauseIsAbsent =
+      record.sliceCause == null ||
+      slicerFailureCauseByName[record.sliceCause!] == null;
+  final carriesCause = record.sliceCause != null;
 
   if (_isItemAct(kind)) {
     if (itemIdIsAbsent && record.itemOrigin == null) {
@@ -622,6 +713,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
     return (
       entry: ItemActEntry(
@@ -657,6 +751,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
     return (
       entry: CrashEntry(
@@ -702,6 +799,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -738,6 +838,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
     return (
       entry: SessionStartEntry(
         id: record.id,
@@ -772,6 +875,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
@@ -805,6 +911,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
     return (
       entry: EnergySetEntry(
@@ -844,6 +953,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
     return (
       entry: ReportAnsweredEntry(
         id: record.id,
@@ -878,12 +990,67 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
     }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
     return (
       entry: PermissionRefusedEntry(
         id: record.id,
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
         permission: permissionByName[record.permission!]!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (_isSliceKind(kind)) {
+    if (itemIdIsAbsent && record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+    }
+    if (itemIdIsAbsent || record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    var cause = record.sliceCause == null
+        ? null
+        : slicerFailureCauseByName[record.sliceCause!];
+    if (kind == LogKind.sliceFailed) {
+      if (sliceCauseIsAbsent) {
+        return (entry: null, flaw: LogRecordFlaw.sliceCauseAbsent);
+      }
+    } else {
+      cause = null;
+      if (carriesCause) {
+        return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+      }
+    }
+    return (
+      entry: SliceEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        kind: kind,
+        itemId: record.itemId!,
+        itemOrigin: record.itemOrigin!,
+        cause: cause,
       ),
       flaw: null,
     );
@@ -910,6 +1077,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
     return (
       entry: MomentEntry(
