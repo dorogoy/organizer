@@ -71,7 +71,7 @@ development_status:
   4-2-the-egress-chokepoint-sealed-three-ways: done
   4-3-the-credential-vault: done
   4-4-the-slicer-port-byok-and-the-frozen-allowlist: done
-  4-5-honest-degradation-one-calm-surface-seven-strings-one-exit: review
+  4-5-honest-degradation-one-calm-surface-seven-strings-one-exit: done
   4-6-rescue-mode: backlog
   epic-4-retrospective: optional
 
