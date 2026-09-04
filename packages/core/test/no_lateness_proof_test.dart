@@ -1009,6 +1009,17 @@ final class KitchenSink {
       );
     });
 
+    test('RescueStepSeed', () {
+      // The landing's unit of work (Story 4.6): the shell-minted id
+      // travelling with the parsed step, so the lists cannot diverge.
+      // An identifier and a duration-bearing step — never a deadline
+      // or a deferral (AD-1, AD-3).
+      expect(
+        _recordFields('commands/rescue_commands.dart', 'RescueStepSeed'),
+        equals(['id', 'step']),
+      );
+    });
+
     test('EligibleDayAnchor', () {
       // The one predicate's item half (Story 4.6): a size and a
       // no-earlier-than instant — a recorded birth, never a target
@@ -1117,6 +1128,7 @@ final class KitchenSink {
       'commands/capture_commands.dart:CaptureContent',
       'commands/rescue_commands.dart:RescueStepFactContent',
       'commands/rescue_commands.dart:RescueReturnedContent',
+      'commands/rescue_commands.dart:RescueStepSeed',
       'derive/eligible_day.dart:EligibleDayAnchor',
       'slicer/rescue_steps.dart:RescueStep',
       'ports/recognizer_port.dart:RecognizerOutcome',
