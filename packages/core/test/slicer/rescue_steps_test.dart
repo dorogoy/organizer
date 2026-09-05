@@ -14,11 +14,13 @@ Map<String, Object?> step(Object text, Object duration) => {
 
 void main() {
   group('the bounds (FR-5, AD-5)', () {
-    test('the contract\'s own constants — 2–4 steps of 1–60 s each', () {
+    test('the contract\'s own constants — 2–4 steps of 1–60 s each '
+        '— and the parse\'s own text ceiling', () {
       expect(rescueStepsLeast, 2);
       expect(rescueStepsMost, 4);
       expect(rescueStepSecondsLeast, 1);
       expect(rescueStepSecondsMost, 60);
+      expect(rescueStepTextMost, 120);
     });
 
     test('the wire field names — the shell contract\'s three, stated '
@@ -150,6 +152,53 @@ void main() {
       );
     });
 
+    test('step text at the bound parses, one code unit over rejects '
+        '— the bound rides the trimmed text, UTF-16 units, not bytes', () {
+      final atBound = 'p' * 120;
+      final steps = parseRescueSteps(
+        body([step('  $atBound  ', 30), step('Dos', 30)]),
+      );
+      expect(
+        steps,
+        isNotNull,
+        reason:
+            'exactly the bound is not over it, and the measure is '
+            'the trimmed text — the padding does not count',
+      );
+      expect(steps!.first.text, atBound);
+      final acentos = 'á' * 118;
+      final stepsAcentos = parseRescueSteps(
+        body([step('      $acentos      ', 30), step('Dos', 30)]),
+      );
+      expect(
+        stepsAcentos,
+        isNotNull,
+        reason:
+            'the raw wire string runs past the bound but trims under '
+            'it — a Spanish accent is one UTF-16 unit, never two bytes',
+      );
+      expect(stepsAcentos!.first.text, acentos);
+      expect(
+        parseRescueSteps(body([step('p' * 121, 30), step('Dos', 30)])),
+        isNull,
+        reason: 'one code unit over the bound rejects the whole body',
+      );
+      expect(
+        parseRescueSteps(body([step('😀' * 60, 30), step('Dos', 30)])),
+        isNotNull,
+        reason:
+            'sixty surrogate pairs are one hundred twenty UTF-16 '
+            'code units — the bound counts units, not characters',
+      );
+      expect(
+        parseRescueSteps(body([step('😀' * 61, 30), step('Dos', 30)])),
+        isNull,
+        reason:
+            'sixty-one surrogate pairs are one hundred twenty-two '
+            'code units — two over the bound',
+      );
+    });
+
     test('a missing, non-integer or out-of-band duration answers null '
         '— a double is not the contract\'s integer, and neither is a '
         'numeral-shaped string', () {
@@ -196,6 +245,21 @@ void main() {
             step('Bien', 30),
             step('También bien', 45),
             step('Vació', 999),
+          ]),
+        ),
+        isNull,
+      );
+    });
+
+    test('one over-long step among valid ones spoils the body — the '
+        'wall guard refuses whole, it never trims the words into '
+        'shape', () {
+      expect(
+        parseRescueSteps(
+          body([
+            step('Bien', 30),
+            step('También bien', 45),
+            step('p' * 121, 20),
           ]),
         ),
         isNull,
