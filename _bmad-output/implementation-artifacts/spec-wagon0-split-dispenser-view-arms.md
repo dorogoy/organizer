@@ -55,6 +55,13 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/choir-pilot-prot
 - Given tests import `pocketLadderOptions` from `dispenser_screen.dart`, when the ladder UI moves, then that import still resolves.
 - Given `git grep -n NoSlicerSurface lib/`, when the split is done, then the only `lib/ui/dispenser` hit is `dispenser_screen.dart`.
 
+### Review Findings
+
+- [x] [Review][Patch] Keep each new file within the one-or-two-public-widget convention; `dispenser_chrome.dart` exposes two public widgets, `dispenser_strip_layer.dart` one, and the extracted ladder, frame and view-layer files stay within the same limit [lib/ui/dispenser/dispenser_chrome.dart:66,154; lib/ui/dispenser/dispenser_strip_layer.dart:33; lib/ui/dispenser/dispenser_ladder.dart:19; lib/ui/dispenser/dispenser_frame.dart:19; lib/ui/dispenser/dispenser_view_layers.dart:19,60]
+- [x] [Review][Patch] Move the checkpoint provenance header out of the screen now that its view arms were extracted [lib/ui/dispenser/dispenser_screen.dart]
+- [x] [Review][Patch] Refresh the wagon report's stale `dispenser_screen.dart` line-count evidence [wagon0/REPORT-tb.md:103]
+- [x] [Review][Defer] Fix the later-resident fallback that renders the committed child twice [lib/ui/dispenser/dispenser_strip_layer.dart:82-103] â€” deferred, pre-existing; already tracked in `deferred-work.md:238-240`
+
 ## Design Notes
 
 Rationale: the arms are thin by design (the TaskCard `onDone`/`onSkip` model) â€” widgets take data + callbacks; everything asynchronous stays State-bound, so extraction cannot change behavior. Epic 5 then adds each new arm as a new file plus one dispatch line in `_viewContent`. Extraction hazards, in order of bite: the census pin, the per-path literal allowlists, and handler closures over State. Choir note: trozos follow the execution tasks; worker scopes must stay disjoint (sequential integration, gate green after each merge).
@@ -74,13 +81,13 @@ Rationale: the arms are thin by design (the TaskCard `onDone`/`onSkip` model) â€
 **Composition â€” the design**
 
 - Entry point: thin arm dispatch plus the layer order as a pinned contract.
-  [`dispenser_screen.dart:657`](../../lib/ui/dispenser/dispenser_screen.dart#L657)
+  [`dispenser_screen.dart:649`](../../lib/ui/dispenser/dispenser_screen.dart#L649)
 
 - Chrome dispatch: LayoutBuilder picks pinned vs in-frame branches.
-  [`dispenser_screen.dart:609`](../../lib/ui/dispenser/dispenser_screen.dart#L609)
+  [`dispenser_screen.dart:600`](../../lib/ui/dispenser/dispenser_screen.dart#L600)
 
 - The re-export that keeps tests importing `pocketLadderOptions` from the screen.
-  [`dispenser_screen.dart:84`](../../lib/ui/dispenser/dispenser_screen.dart#L84)
+  [`dispenser_screen.dart:76`](../../lib/ui/dispenser/dispenser_screen.dart#L76)
 
 **The arms**
 
@@ -96,13 +103,13 @@ Rationale: the arms are thin by design (the TaskCard `onDone`/`onSkip` model) â€
 **All-arm layers**
 
 - Ambient strip layer: resident switch, four callbacks threaded.
-  [`dispenser_strip_layer.dart:51`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L51)
+  [`dispenser_strip_layer.dart:33`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L33)
 
 - Completion ack â€” moved here at review (wraps every arm, not just dealt).
-  [`dispenser_strip_layer.dart:126`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L126)
+  [`dispenser_view_layers.dart:19`](../../lib/ui/dispenser/dispenser_view_layers.dart#L19)
 
 - Warm return greeting: derivation-driven, no state.
-  [`dispenser_strip_layer.dart:167`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L167)
+  [`dispenser_view_layers.dart:60`](../../lib/ui/dispenser/dispenser_view_layers.dart#L60)
 
 **Chrome**
 
@@ -110,13 +117,13 @@ Rationale: the arms are thin by design (the TaskCard `onDone`/`onSkip` model) â€
   [`dispenser_chrome.dart:73`](../../lib/ui/dispenser/dispenser_chrome.dart#L73)
 
 - Ladder sheet; `pocketLadderOptions` moved here (canonical home).
-  [`dispenser_chrome.dart:159`](../../lib/ui/dispenser/dispenser_chrome.dart#L159)
+  [`dispenser_ladder.dart:19`](../../lib/ui/dispenser/dispenser_ladder.dart#L19)
 
 - Footer band: pinned vs in-frame in one widget.
-  [`dispenser_chrome.dart:203`](../../lib/ui/dispenser/dispenser_chrome.dart#L203)
+  [`dispenser_chrome.dart:154`](../../lib/ui/dispenser/dispenser_chrome.dart#L154)
 
 - The shared frame: scroll/center/max-width bound.
-  [`dispenser_chrome.dart:259`](../../lib/ui/dispenser/dispenser_chrome.dart#L259)
+  [`dispenser_frame.dart:19`](../../lib/ui/dispenser/dispenser_frame.dart#L19)
 
 **Choir evidence (warm-up, aborted by Sergio â€” not counted)**
 

@@ -1,12 +1,9 @@
 // The Dispenser's chrome (Stories 2.1–2.3 and 3.2): the surface's
-// furniture around the view — the pocket-trigger band with the Lápiz
-// entry, the quiet ladder sheet, the footer band, and the one frame
-// every resolved state shares. Extracted from `dispenser_screen.dart`
-// (`_pocketTrigger`, the ladder sheet inside `_openPocketLadder`,
-// `_footerActions`, `_pinnedFooterBand`, `_frame`, `_LapizEntry`,
-// `_PocketLadderOption`), moved output-equivalent — code verbatim
-// where it renders, prose adapted to this home; the rendered output
-// is unchanged.
+// furniture around the view - the pocket-trigger band with the Lápiz
+// entry and the footer band. Extracted from `dispenser_screen.dart`
+// (`_pocketTrigger`, `_footerActions`, `_pinnedFooterBand`, and
+// `_LapizEntry`), moved output-equivalent - code verbatim where it
+// renders, prose adapted to this home; the rendered output is unchanged.
 //
 // The footer (Story 2.1, UX-DR25): `Nuevo proyecto` sits bottom-centred
 // as the surface's one prose departure — ink-secondary text, 48dp
@@ -18,12 +15,8 @@
 // pinned top-centred as chrome above the scroll region — above the card
 // on the dealt surface, standing alone on the warm close — carrying
 // `Tengo {minutes} minutos ahora`, the standing declared pocket while a
-// pocketed session is open, else 15. One tap opens a quiet, titleless
-// ladder sheet of stepped duration pills; choosing one declares the
-// pocket and the surface commits whatever the log now makes true — the
-// carried card, a pocket-bounded deal, or the same warm close as pool
-// exhaustion. No countdown, no remaining minutes, no new session state,
-// and no error surface anywhere on this path.
+// pocketed session is open, else 15. One tap opens the quiet, titleless
+// ladder sheet in `dispenser_ladder.dart`.
 //
 // The stop control (Story 2.3, FR-9, UX-DR43): `Quiero parar` stands in
 // the footer band on BOTH the dealt and closed views — never disabled,
@@ -149,48 +142,6 @@ class PocketTriggerBand extends StatelessWidget {
   }
 }
 
-/// The quiet stepped ladder's content (Story 2.2): the titleless sheet
-/// of duration pills — the `size-option` idiom — every option in the
-/// command's range, [pocketLadderOptions], selected marking the
-/// standing pocket. The sheet wraps and scrolls at 200%; a tap pops
-/// the sheet and declares through [onSelect]. Nothing here shows a
-/// remainder, nothing counts down, and no error state exists for a
-/// refused value to reach.
-class PocketLadderSheet extends StatelessWidget {
-  const PocketLadderSheet({
-    super.key,
-    required this.standingMinutes,
-    required this.onSelect,
-  });
-
-  /// The standing declared pocket the selected pill marks.
-  final int standingMinutes;
-
-  /// A pill's tap calls [onSelect] with that pill's minutes.
-  final void Function(int minutes) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Spacing.cardPadding),
-        child: Wrap(
-          spacing: Spacing.actionGap,
-          runSpacing: Spacing.actionGap,
-          children: [
-            for (final minutes in pocketLadderOptions)
-              _PocketLadderOption(
-                minutes: minutes,
-                selected: standingMinutes == minutes,
-                onTap: () => onSelect(minutes),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The footer band's two prose controls (Stories 2.1, 2.3, UX-DR25,
 /// UX-DR43): `Quiero parar` beside `Nuevo proyecto`, both through the
 /// `action-secondary` grammar — ink-secondary text, 48dp opaque
@@ -251,47 +202,6 @@ class DispenserFooterBand extends StatelessWidget {
   }
 }
 
-/// The one frame every resolved state shares: scroll when the content
-/// outgrows the viewport, center it in the remaining flex otherwise,
-/// with the 48dp minimum air inside the screen margins and the
-/// max-width bound. SafeArea first, so scrolled content never renders
-/// under the status bar or a cutout — the minimum air lives inside it.
-class DispenserFrame extends StatelessWidget {
-  const DispenserFrame({super.key, required this.child});
-
-  /// The resolved content this frame centers, bounds and scrolls.
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-        child: child,
-      ),
-    );
-    return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.screenMargin,
-                // The air around the card: minimum 48 plus flex, carried
-                // here rather than in a token precisely because a token
-                // reads as a fixed value (UX-DR14).
-                vertical: Spacing.touchTargetMin,
-              ),
-              child: content,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance —
 /// the utility glyph in its neutral mass inside a 48dp opaque target,
 /// declared to readers as a button (the battery mark's own grammar).
@@ -317,75 +227,6 @@ class _LapizEntry extends StatelessWidget {
           width: Spacing.touchTargetMin,
           height: Spacing.touchTargetMin,
           child: Center(child: PencilGlyph(Spacing.glyphZoneMarker)),
-        ),
-      ),
-    );
-  }
-}
-
-/// One stepped ladder pill (Story 2.2, the `size-option` idiom): a
-/// duration pill — selected fills `colorScheme.primary` (the theme's
-/// accent-soft mapping, the same pastel `DurationChip` fills), unselected
-/// sits raised with a 1px hairline edge — ink-primary in the duration
-/// role on both, `rounded.full`, 48dp minimum, never a glyph. The label
-/// is the minutes themselves through the duration format; context is the
-/// chip just tapped, so the sheet carries no title and no internal name
-/// renders.
-class _PocketLadderOption extends StatelessWidget {
-  const _PocketLadderOption({
-    required this.minutes,
-    required this.selected,
-    this.onTap,
-  });
-
-  final int minutes;
-
-  final bool selected;
-
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: selected
-          ? theme.colorScheme.primary
-          : theme.colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.radiusFull),
-        side: selected
-            ? BorderSide.none
-            : BorderSide(color: theme.colorScheme.outline, width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        // Absent, the tap stays an accepted no-op — a null onTap would
-        // render a disabled control instead.
-        onTap: onTap ?? () {},
-        child: Semantics(
-          // The affordance reaches screen readers as a button carrying
-          // selection state, never as a different visual grammar: the
-          // spoken label is the minutes value the pill's own text
-          // already carries.
-          button: true,
-          selected: selected,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: Spacing.touchTargetMin,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.chipPaddingHorizontal,
-              ),
-              child: Center(
-                child: Text(
-                  durationLabel(minutes * 60, AppStrings.of(context)),
-                  // titleSmall is the wired duration role (theme.dart).
-                  style: theme.textTheme.titleSmall,
-                ),
-              ),
-            ),
-          ),
         ),
       ),
     );

@@ -34,27 +34,16 @@
 // Completion state — the ack flags and their window — stays
 // completion-only: a skip touches none of it.
 //
-// The checkpoint offer (Story 2.4, FR-10, UX-DR44/51): when the
-// controller's read resolves the permission-to-rest surface, the
-// content arm is the checkpoint's two actions and nothing else —
-// `Nada más por el momento` as the primary permission to stop in the
-// Done button's register, running the same one-tap pause write, and
-// `Quiero seguir` as a `SecondaryTextAction` — silent, never filled,
-// never emphasized, never animated, no haptic — running the extension.
-// No continuation question exists anywhere, and nothing on the offer
-// counts anything (UJ-1). The same silent secondary stands beneath the
-// warm close while the close is the offer — an elapsed pocket whose
-// pool could still deal — so the close and the offer are one grammar
-// with no second surface.
-//
 // The chrome this surface composes around the committed view — the
 // pocket-trigger band with the Lápiz entry, the ladder sheet, the
 // footer band, the shared frame — and the all-arm layers around the
 // view itself — the ambient strip below it, the Warm Return greeting
 // above it, the completion acknowledgement — live in their sibling
-// files (`dispenser_chrome.dart`, `dispenser_strip_layer.dart`,
-// `dispenser_dealt_view.dart`, `dispenser_closed_view.dart`,
-// `dispenser_rest_offer_view.dart`), each carrying its own provenance.
+// files (`dispenser_chrome.dart`, `dispenser_ladder.dart`,
+// `dispenser_frame.dart`, `dispenser_strip_layer.dart`,
+// `dispenser_view_layers.dart`, `dispenser_dealt_view.dart`,
+// `dispenser_closed_view.dart`, `dispenser_rest_offer_view.dart`), each
+// carrying its own provenance.
 import 'dart:async';
 
 import 'package:core/energy/energy.dart';
@@ -74,8 +63,11 @@ import '../tokens.dart';
 import 'dispenser_chrome.dart';
 import 'dispenser_closed_view.dart';
 import 'dispenser_dealt_view.dart';
+import 'dispenser_frame.dart';
+import 'dispenser_ladder.dart';
 import 'dispenser_rest_offer_view.dart';
 import 'dispenser_strip_layer.dart';
+import 'dispenser_view_layers.dart';
 
 // The ladder options' canonical home moved with the ladder UI into
 // `dispenser_chrome.dart`; the widget tests import

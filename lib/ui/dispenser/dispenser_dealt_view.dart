@@ -1,7 +1,7 @@
 // The Dispenser's dealt view arm (FR-1, Stories 1.9–1.10): the one
 // Micro-task card's wiring, nothing else — the completion
 // acknowledgement that can stand above the arm lives with the all-arm
-// layers (`dispenser_strip_layer.dart`). Extracted from
+// layers (`dispenser_view_layers.dart`). Extracted from
 // `dispenser_screen.dart` (the `DispenserDealt` case's TaskCard
 // construction), moved verbatim — the rendered output is unchanged.
 import 'package:core/weave/weave.dart';

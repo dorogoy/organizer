@@ -238,3 +238,7 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/spec-wagon0-split-dispenser-view-arms.md`
   summary: StripLayer's four later-resident fallback arms (`firstRunCuration || quarantineFollowUp || seasonalSuggestion || snowball`) return `child` inside the Column that already contains it — a future eligible resident would render the committed view twice; collapse the arm to a plain `return child` when the residents become reachable.
   evidence: Pre-existing shape preserved verbatim from the old `_withAmbientStrip` (unreachable today — the read cannot hand the switch one of these residents); flagged independently by two review lenses at the 2026-09-05 wagon 0 review. Epic 5's curation strip (Story 5.12) makes these arms reachable — fix before that story ships.
+
+## Deferred from: code review of spec-wagon0-split-dispenser-view-arms (2026-09-05)
+
+- `StripLayer` still duplicates its committed child for the four later residents at `lib/ui/dispenser/dispenser_strip_layer.dart:82-103`; this is pre-existing and already recorded above, so it remains deferred until those residents become reachable.

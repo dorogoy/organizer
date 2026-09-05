@@ -100,7 +100,7 @@ format, analyze) and `devbox run -- make check` both green,
 - `git diff --stat -- test/ tool/` — empty.
 - `git grep -n NoSlicerSurface lib/` — only `dispenser_screen.dart`
   in `lib/ui/dispenser`.
-- `wc -l lib/ui/dispenser/dispenser_screen.dart` — 1,103.
+- `wc -l lib/ui/dispenser/dispenser_screen.dart` — 1,102.
 
 ## Deviations from the brief
 
@@ -111,13 +111,11 @@ format, analyze) and `devbox run -- make check` both green,
   (`dispenser_screen_test.dart:3574`). Design Notes rank the census
   pin as hazard #1; this is the shape that satisfies it. Found via
   red gate, fixed before integration.
-- **"One or two public StatelessWidgets per file":**
-  `dispenser_chrome.dart` carries four (`PocketTriggerBand`,
-  `PocketLadderSheet`, `DispenserFooterBand`, `DispenserFrame`) —
-  the minimum possible while `build()`'s LayoutBuilder stays in the
-  State (Code Map) and all four chrome pieces land in the one named
-  chrome file (spec task 5). Task 6's grouping-shift clause covers
-  this; flagged for review regardless.
+- **"One or two public StatelessWidgets per file" (resolved in review):**
+  the chrome, ladder, frame and view-layer widgets were split across
+  focused sibling files after review, keeping each new file within the
+  convention while leaving the State's LayoutBuilder and dispatch spine
+  in place.
 - `_viewContent` was restructured (early null return, single
   `CompletionAck`/`StripLayer` wrap around the arm switch) instead of
   per-case wrapping — identical widget tree, per the census.
