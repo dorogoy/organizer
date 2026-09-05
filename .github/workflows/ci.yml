@@ -41,3 +41,6 @@ jobs:
 
       - name: Core suite (no emulator)
         run: devbox run -- make test-core
+
+      - name: Android debug build (Kotlin half compiles in CI — epic-4 retro F4)
+        run: devbox run -- make build
