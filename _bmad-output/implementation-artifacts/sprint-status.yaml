@@ -128,8 +128,8 @@ action_items:
   action: 'Epic 4 F3: bound rescue step text length in parseRescueSteps — over-long step text rejects
     as malformed'
   owner: dev-loop
-  status: open
-  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+  status: done
+  ref: _bmad-output/implementation-artifacts/spec-epic4-f3-rescue-step-text-bound.md
 - id: epic-4-retro-item-4-epic-4-f4-add-an-android-debug-build-ste
   epic: 4
   action: 'Epic 4 F4: add an Android debug-build step (make build) to ci.yml so Kotlin compiles in CI;
