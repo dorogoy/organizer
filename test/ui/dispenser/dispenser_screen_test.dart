@@ -3081,6 +3081,255 @@ void main() {
     },
   );
 
+  testWidgets('the auto-heuristic fires at a deal minted by a non-answer '
+      'write — pocket declare (FR-5)', (tester) async {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    PoolFactRecord captureFact(DateTime at) => (
+      id: captureId,
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Llamar al dentista',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
+    );
+    LogEntryRecord seedRow(
+      String kind,
+      DateTime at,
+      String id, {
+      String? itemId,
+      int? pocketMinutes,
+    }) => (
+      id: id,
+      kind: kind,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.manual,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: pocketMinutes,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+    );
+
+    // Three eligible days of declines, each its own closed sitting —
+    // the launch-borne pin's warrant, over a log with nothing
+    // standing: no session is open, so the read resolves the warm
+    // close, and no deal exists to convert until a write mints one.
+    List<LogEntryRecord> decline(int day) => [
+      seedRow('session_started', DateTime.utc(2026, 8, day, 10), 's$day'),
+      seedRow(
+        'card_dealt',
+        DateTime.utc(2026, 8, day, 10, 0, 1),
+        'd$day',
+        itemId: captureId,
+      ),
+      seedRow(
+        'card_skipped',
+        DateTime.utc(2026, 8, day, 10, 0, 2),
+        'k$day',
+        itemId: captureId,
+      ),
+      seedRow('session_ended', DateTime.utc(2026, 8, day, 10, 0, 3), 'e$day'),
+    ];
+
+    final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+      ..entries.addAll([...decline(26), ...decline(27), ...decline(28)]);
+    final slicer = offlineSlicer();
+
+    await tester.pumpWidget(_harness(buildController(store, slicer: slicer)));
+    await tester.pumpAndSettle();
+
+    // The read wrote nothing, nothing stands to convert, and the
+    // heuristic stayed quiet — the close is the whole surface.
+    expect(store.entries, hasLength(12));
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+    expect(find.byType(TaskCard), findsNothing);
+    expect(find.text(AppStringsEs().noSlicerOffline), findsNothing);
+
+    // The ladder's 15-minute declaration mints the pocket-bounded
+    // first deal — of the warranted capture itself.
+    await tester.tap(find.byType(PocketTriggerChip));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('15\u00A0min'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The heuristic fired exactly once at the declared deal: the
+    // session/deal pair the write minted, then the activation and the
+    // offline failure — the same ask the tap makes, at the commit.
+    expect(store.entries.skip(12).map((entry) => entry.kind).toList(), [
+      'session_started',
+      'card_dealt',
+      'slice_requested',
+      'slice_failed',
+    ]);
+    expect(store.entries[13].itemId, captureId);
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(1),
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+
+    await popNoSlicer(tester);
+    final afterFire = store.entries.length;
+
+    // A later lifecycle refresh commits the still-standing deal again
+    // and must not fire a second time — the activation reset the
+    // counter and the per-deal marker holds the line.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(store.entries.length, afterFire);
+    expect(
+      slicer.requests,
+      hasLength(1),
+      reason:
+          'one fire total — a silent re-trigger that lands no rows of '
+          'its own must not pass unobserved',
+    );
+    expect(
+      find.byType(TaskCard),
+      findsOneWidget,
+      reason: 'the warranted card still stands behind it all',
+    );
+  });
+
+  testWidgets('the auto-heuristic fires at a deal minted by a non-answer '
+      'write — the close-continue extension (FR-5)', (tester) async {
+    const captureId = '019123ab-cdef-7abc-8def-0123456789ab';
+    PoolFactRecord captureFact(DateTime at) => (
+      id: captureId,
+      origin: Origin.manual,
+      size: Size.focus,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'Llamar al dentista',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: null,
+    );
+    LogEntryRecord seedRow(
+      String kind,
+      DateTime at,
+      String id, {
+      String? itemId,
+      int? pocketMinutes,
+    }) => (
+      id: id,
+      kind: kind,
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: itemId,
+      itemOrigin: itemId == null ? null : Origin.manual,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: pocketMinutes,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+    );
+
+    List<LogEntryRecord> decline(int day) => [
+      seedRow('session_started', DateTime.utc(2026, 8, day, 10), 's$day'),
+      seedRow(
+        'card_dealt',
+        DateTime.utc(2026, 8, day, 10, 0, 1),
+        'd$day',
+        itemId: captureId,
+      ),
+      seedRow(
+        'card_skipped',
+        DateTime.utc(2026, 8, day, 10, 0, 2),
+        'k$day',
+        itemId: captureId,
+      ),
+      seedRow('session_ended', DateTime.utc(2026, 8, day, 10, 0, 3), 'e$day'),
+    ];
+
+    // The same warrant beneath a pocket elapsed exactly at the fixed
+    // clock: the close is the offer, and the capture is the deal the
+    // lifted pocket mints when the continue lands.
+    final store = _RecordingStore([captureFact(DateTime.utc(2026, 8, 25))])
+      ..entries.addAll([...decline(26), ...decline(27), ...decline(28)])
+      ..entries.add(
+        seedRow(
+          'session_started',
+          DateTime.utc(2026, 8, 29, 11, 45),
+          'seed-pocket',
+          pocketMinutes: 15,
+        ),
+      );
+    final slicer = offlineSlicer();
+
+    await tester.pumpWidget(_harness(buildController(store, slicer: slicer)));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppStringsEs().poolExhaustedClose), findsOneWidget);
+    expect(find.text('Quiero seguir'), findsOneWidget);
+    expect(store.entries, hasLength(13));
+
+    // The checkpoint's silent continue mints the close-continue deal —
+    // of the warranted capture itself — and the heuristic fires at
+    // that commit: one activation, one offline failure.
+    await tester.tap(find.text('Quiero seguir'));
+    await tester.pumpAndSettle();
+
+    expect(store.entries.skip(13).map((entry) => entry.kind).toList(), [
+      'session_extended',
+      'card_dealt',
+      'slice_requested',
+      'slice_failed',
+    ]);
+    expect(store.entries[14].itemId, captureId);
+    expect(
+      store.entries.where((entry) => entry.kind == 'slice_requested'),
+      hasLength(1),
+    );
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+
+    await popNoSlicer(tester);
+    final afterFire = store.entries.length;
+
+    // A later lifecycle refresh commits the still-standing deal again
+    // and must not fire a second time — the activation reset the
+    // counter and the per-deal marker holds the line.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(store.entries.length, afterFire);
+    expect(
+      slicer.requests,
+      hasLength(1),
+      reason:
+          'one fire total — a silent re-trigger that lands no rows of '
+          'its own must not pass unobserved',
+    );
+    expect(
+      find.byType(TaskCard),
+      findsOneWidget,
+      reason: 'the warranted card still stands behind it all',
+    );
+  });
+
   testWidgets('secondary action tap while a write is in flight returns '
       'early on a normal card with an active Slicer (FR-3, FR-5)', (
     tester,
