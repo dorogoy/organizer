@@ -68,3 +68,8 @@ tool/env.local.sh
 # metadata ARE committed)
 eval/corpus/photos/
 eval/results/raw/
+
+# Story 5.1 face gate: corpus photos of people are machine-local evidence,
+# never committed (bar, manifest ground truth, probe copy and results ARE
+# committed)
+face-gate/corpus/photos/

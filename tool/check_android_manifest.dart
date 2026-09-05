@@ -19,7 +19,15 @@
 // enumerated below: AGP's targetSdk-34 dynamic-receiver permission
 // injection and the androidx startup/profileinstaller components
 // that androidx.core (via the Flutter embedding) merges into every
-// modern app. That baseline is named, minimal and version-pinned by
+// modern app, plus — story 5.1's builder ruling of 2026-09-05, after
+// the face-gate seal surgery — the minimal ML Kit init set the bundled
+// detector actually needs (init provider, component-discovery service,
+// the three firebase-components registrars, the gms version marker).
+// Everything else ML Kit merges is stripped by merger rule in the
+// main manifest (network permission, play-services activity,
+// datatransport backends/schedulers/receiver, cct backend metadata,
+// the mlkit-transitive emoji2 initializer): stripped, not
+// baselined. That baseline is named, minimal and version-pinned by
 // this check itself — any other component, in any variant, fails.
 // Findings cite line 1 because merged manifests are machine-
 // generated XML.
@@ -69,6 +77,14 @@ const Map<String, Set<String>> permittedPermissionsByVariant = {
 const Set<String> permittedComponentsAllVariants = {
   'provider androidx.startup.InitializationProvider',
   'receiver androidx.profileinstaller.ProfileInstallReceiver',
+  // Story 5.1's builder ruling (2026-09-05): the two ML Kit init
+  // components the bundled face detector needs at process start —
+  // ML Kit's init provider (firebase-components bootstrap) and its
+  // component-discovery service. Everything network-facing that ML
+  // Kit also merges is stripped in the main manifest instead of
+  // enumerated here; this pair is init machinery, not egress.
+  'provider com.google.mlkit.common.internal.MlKitInitProvider',
+  'service com.google.mlkit.common.internal.MlKitComponentDiscoveryService',
 };
 
 /// The application class in the merged Flutter template. A custom
@@ -85,6 +101,18 @@ const Set<String> permittedMetadataAllVariants = {
   'flutterEmbedding',
   'androidx.lifecycle.ProcessLifecycleInitializer',
   'androidx.profileinstaller.ProfileInstallerInitializer',
+  // Story 5.1's builder ruling (2026-09-05): the three firebase-components
+  // registrars ML Kit's init provider consumes (common, vision-common,
+  // face) and play-services' version marker read by the gms base library
+  // at init. Init machinery, not egress; the datatransport cct backend
+  // metadata is stripped in the main manifest, never enumerated here.
+  // (The pose registrar joined here for the person-gate amendment and
+  // left again with its deferral the same day — face-only is the
+  // interim gate; see face-gate/results/report.md.)
+  'com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar',
+  'com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar',
+  'com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar',
+  'com.google.android.gms.version',
 };
 
 /// The activities each variant's merged manifest may declare: exactly

@@ -1,0 +1,265 @@
+{
+  "probe": "integration_test/face_gate_probe_test.dart (story 5.1)",
+  "startedUtc": "2026-09-05T19:14:30.578412Z",
+  "barConfirmedOn": "2026-09-05",
+  "detectorOptions": {
+    "enableClassification": false,
+    "enableLandmarks": false,
+    "enableContours": false,
+    "enableTracking": false,
+    "minFaceSize": 0.0,
+    "mode": "accurate"
+  },
+  "poseDetectorOptions": {
+    "model": "accurate",
+    "mode": "single"
+  },
+  "floors": {
+    "minPhotosPerHardCaseCategory": 2,
+    "minNoPersonPhotos": 3
+  },
+  "corpus": {
+    "photos": 16,
+    "perCategory": {
+      "partial": 2,
+      "profile": 2,
+      "distance": 2,
+      "low-light": 2,
+      "mirror": 2,
+      "print-on-wall": 2
+    },
+    "noPerson": 4
+  },
+  "rows": [
+    {
+      "id": "p01",
+      "filename": "parcia-1.jpg",
+      "class": "person",
+      "categories": [
+        "partial"
+      ],
+      "faces": 0,
+      "poses": 0,
+      "verdict": "false-negative",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 1168
+    },
+    {
+      "id": "p02",
+      "filename": "parcial-2.jpg",
+      "class": "person",
+      "categories": [
+        "partial"
+      ],
+      "faces": 0,
+      "poses": 0,
+      "verdict": "false-negative",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 570
+    },
+    {
+      "id": "p03",
+      "filename": "perfil-1.jpg",
+      "class": "person",
+      "categories": [
+        "profile"
+      ],
+      "faces": 0,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 608
+    },
+    {
+      "id": "p04",
+      "filename": "perfil-2.jpg",
+      "class": "person",
+      "categories": [
+        "profile"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 608
+    },
+    {
+      "id": "p05",
+      "filename": "distancia-1.jpg",
+      "class": "person",
+      "categories": [
+        "distance"
+      ],
+      "faces": 0,
+      "poses": 0,
+      "verdict": "false-negative",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 556
+    },
+    {
+      "id": "p06",
+      "filename": "distancia-2.jpg",
+      "class": "person",
+      "categories": [
+        "distance"
+      ],
+      "faces": 1,
+      "poses": 0,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 591
+    },
+    {
+      "id": "p07",
+      "filename": "luz-1.jpg",
+      "class": "person",
+      "categories": [
+        "low-light"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 601
+    },
+    {
+      "id": "p08",
+      "filename": "luz-2.jpg",
+      "class": "person",
+      "categories": [
+        "low-light"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 584
+    },
+    {
+      "id": "p09",
+      "filename": "esperjo-1.jpg",
+      "class": "person",
+      "categories": [
+        "mirror"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 565
+    },
+    {
+      "id": "p10",
+      "filename": "espejo-2.jpg",
+      "class": "person",
+      "categories": [
+        "mirror"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 579
+    },
+    {
+      "id": "p11",
+      "filename": "impresa-1.jpg",
+      "class": "person",
+      "categories": [
+        "print-on-wall"
+      ],
+      "faces": 4,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 588
+    },
+    {
+      "id": "p12",
+      "filename": "impresa-2.jpg",
+      "class": "person",
+      "categories": [
+        "print-on-wall"
+      ],
+      "faces": 1,
+      "poses": 1,
+      "verdict": "gate-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 587
+    },
+    {
+      "id": "p13",
+      "filename": "dibujos-infantiles.jpg",
+      "class": "no-person",
+      "categories": [],
+      "faces": 0,
+      "poses": 0,
+      "verdict": "clean-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 570
+    },
+    {
+      "id": "p14",
+      "filename": "mascaras-en-pared.jpg",
+      "class": "no-person",
+      "categories": [],
+      "faces": 0,
+      "poses": 0,
+      "verdict": "clean-pass",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 590
+    },
+    {
+      "id": "p15",
+      "filename": "munecas.jpg",
+      "class": "no-person",
+      "categories": [],
+      "faces": 12,
+      "poses": 1,
+      "verdict": "false-positive",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 596
+    },
+    {
+      "id": "p16",
+      "filename": "tv-dibujo.jpg",
+      "class": "no-person",
+      "categories": [],
+      "faces": 2,
+      "poses": 1,
+      "verdict": "false-positive",
+      "faceAttempts": 1,
+      "poseAttempts": 1,
+      "elapsedMs": 603
+    }
+  ],
+  "summary": {
+    "photos": 16,
+    "scoredPersons": 12,
+    "gatePasses": 9,
+    "faceOnlyPasses": 1,
+    "poseOnlyPasses": 1,
+    "rescuedByPose": 1,
+    "bothPasses": 7,
+    "falseNegatives": 3,
+    "falsePositives": 2,
+    "cleanPasses": 2,
+    "errors": 0
+  },
+  "barPassed": false
+}

@@ -154,14 +154,20 @@ void main() {
     expect(permittedPermissionsByVariant, hasLength(3));
   });
 
-  test('the platform baseline is minimal: one provider, one receiver, one '
-      'launcher activity, no aliases', () {
-    expect(permittedComponentsAllVariants, hasLength(2));
+  test('the platform baseline is minimal: the startup provider, the '
+      'profileinstaller receiver, the launcher activity, no aliases — '
+      'plus story 5.1\'s ML Kit init pair', () {
+    expect(permittedComponentsAllVariants, hasLength(4));
     expect(
       permittedComponentsAllVariants,
       containsAll([
         'provider androidx.startup.InitializationProvider',
         'receiver androidx.profileinstaller.ProfileInstallReceiver',
+        // Story 5.1's builder ruling (2026-09-05): the bundled face
+        // detector's init machinery — baselined; the network-facing
+        // ML Kit entries are stripped in the main manifest instead.
+        'provider com.google.mlkit.common.internal.MlKitInitProvider',
+        'service com.google.mlkit.common.internal.MlKitComponentDiscoveryService',
       ]),
     );
     expect(permittedActivitiesAllVariants, {
@@ -170,6 +176,32 @@ void main() {
     expect(
       permittedActivitiesAllVariants.where(
         (c) => c.startsWith('activity-alias'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('story 5.1\'s ML Kit init metadata is enumerated — the minimal '
+      'set the ruling baselined, nothing network-facing', () {
+    expect(
+      permittedMetadataAllVariants,
+      containsAll([
+        'com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar',
+        'com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar',
+        'com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar',
+        'com.google.android.gms.version',
+      ]),
+    );
+    // The stripped entries stay outside every baseline: datatransport's
+    // cct backend factory and work's startup initializer must never
+    // reappear as enumerated names (the pose registrar left with the
+    // person-gate deferral, 2026-09-05 — face-only is the interim gate).
+    expect(
+      permittedMetadataAllVariants.where(
+        (name) =>
+            name.startsWith('backend:') ||
+            name == 'androidx.work.WorkManagerInitializer' ||
+            name.contains('pose.internal.PoseRegistrar'),
       ),
       isEmpty,
     );
@@ -187,9 +219,16 @@ void main() {
     expect(inventory.components, {
       'provider androidx.startup.InitializationProvider',
       'receiver androidx.profileinstaller.ProfileInstallReceiver',
+      'provider com.google.mlkit.common.internal.MlKitInitProvider',
+      'service com.google.mlkit.common.internal.MlKitComponentDiscoveryService',
     });
     expect(inventory.applicationName, 'android.app.Application');
-    expect(inventory.metadata, isEmpty);
+    expect(inventory.metadata, {
+      'com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar',
+      'com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar',
+      'com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar',
+      'com.google.android.gms.version',
+    });
   });
 
   test('application and startup metadata are enumerated and allowlisted', () {
