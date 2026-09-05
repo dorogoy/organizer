@@ -121,8 +121,8 @@ action_items:
   action: 'Epic 4 F2: funnel non-answer write-path commits (declarePocket/energy/report/pause/extend/dismissals)
     through _commitView so warranted deals auto-rescue per FR-5, plus the missing pin'
   owner: dev-loop
-  status: open
-  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+  status: done
+  ref: _bmad-output/implementation-artifacts/spec-epic4-f2-commitview-funnel.md
 - id: epic-4-retro-item-3-epic-4-f3-bound-rescue-step-text-length
   epic: 4
   action: 'Epic 4 F3: bound rescue step text length in parseRescueSteps — over-long step text rejects
