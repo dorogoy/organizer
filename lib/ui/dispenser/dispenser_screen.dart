@@ -34,35 +34,6 @@
 // Completion state — the ack flags and their window — stays
 // completion-only: a skip touches none of it.
 //
-// The footer (Story 2.1, UX-DR25): `Nuevo proyecto` sits bottom-centred
-// as the surface's one prose departure — ink-secondary text, 48dp
-// opaque target, no glyph, no pastel mass, nothing animated — pinned
-// as chrome below the scroll region. It opens the intermediate surface
-// that carries the `Ajustes` way-out alone (NFR3, AD-26).
-//
-// The pocket trigger (Story 2.2, FR-8, UX-DR18): a `duration-chip` pill
-// pinned top-centred as chrome above the scroll region — above the card
-// on the dealt surface, standing alone on the warm close — carrying
-// `Tengo {minutes} minutos ahora`, the standing declared pocket while a
-// pocketed session is open, else 15. One tap opens a quiet, titleless
-// ladder sheet of stepped duration pills; choosing one declares the
-// pocket and the surface commits whatever the log now makes true — the
-// carried card, a pocket-bounded deal, or the same warm close as pool
-// exhaustion. No countdown, no remaining minutes, no new session state,
-// and no error surface anywhere on this path.
-//
-// The stop control (Story 2.3, FR-9, UX-DR43): `Quiero parar` stands in
-// the footer band on BOTH the dealt and closed views — never disabled,
-// never suggested, one tap, any moment, any reason. The tap is
-// `_onDeclarePocket`'s mechanics verbatim over the controller's pause
-// path — exactly one `session_ended` row, no payload — and the committed
-// view is the standing warm close with the trigger chip back at its 15
-// default: the close is the stop's whole presentation, silent by
-// construction. A tap with nothing open appends nothing — the accepted
-// quiet no-op. The footer band wraps (never truncates) at 200%, and on
-// a body too short to hold the pinned chrome the chip and band join the
-// scroll region together: the accessibility floor outranks UX-DR45's pin.
-//
 // The checkpoint offer (Story 2.4, FR-10, UX-DR44/51): when the
 // controller's read resolves the permission-to-rest surface, the
 // content arm is the checkpoint's two actions and nothing else —
@@ -76,42 +47,16 @@
 // pool could still deal — so the close and the offer are one grammar
 // with no second surface.
 //
-// The ambient strip (Stories 2.5–2.6, FR-4, UX-DR20/22): below the
-// view, inside the scroll region, whenever the read's own fact says a
-// resident is showing — the surface switches on which. The check-in:
-// the question verbatim, three battery marks, the ✕; a tap on any
-// mark answers the day (one write, the strip gone for the day, baja
-// narrowing the next deal only). The weekly self-report (SM-2):
-// hairlined, the question verbatim, the 1–5 numerals, the end labels,
-// the ✕; a tap on any numeral answers the asked week (one write
-// carrying the week, the report gone for the week), and the ✕
-// dismisses with no write, hidden for the rest of the opening only —
-// never for the week. Either resolution hands the slot to the
-// check-in in the same opening when the day still owes it (FR-4's
-// deterministic handoff). The strip inherits the short-surface floor —
-// it grows and scrolls at 200%, nothing truncated, every target at or
-// above 48dp — and after it leaves, nothing on this surface displays
-// the level: the narrower deal is the display (AD-4, UX-DR41).
-//
-// The warm return (Story 2.7, FR-6, AD-24): when the read's own fact
-// says the opening arrives 48 h or more after the latest contact that
-// preceded it, the fixed greeting «Siempre a tu disposición» stands
-// above the committed view — the ack's register, no glyph, no fill, no
-// motion — for the whole opening, on every variant. No timer, no
-// dismissal, no stored state: the derivation alone, so the greeting
-// persists through the session and is gone at the next opening inside
-// 48 h, and nothing on the surface counts the days away (they are not
-// representable).
-//
-// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance
-// joins the top chrome band top-right — the utility glyph inside a 48dp
-// target, beside the centred chip it never displaces, in both chrome
-// branches (pinned and in-frame). One tap, guarded like every push this
-// surface owns, opens the capture surface; nothing here lists, counts
-// or remembers captures — the entry is a way in, never a way back.
+// The chrome this surface composes around the committed view — the
+// pocket-trigger band with the Lápiz entry, the ladder sheet, the
+// footer band, the shared frame — and the all-arm layers around the
+// view itself — the ambient strip below it, the Warm Return greeting
+// above it, the completion acknowledgement — live in their sibling
+// files (`dispenser_chrome.dart`, `dispenser_strip_layer.dart`,
+// `dispenser_dealt_view.dart`, `dispenser_closed_view.dart`,
+// `dispenser_rest_offer_view.dart`), each carrying its own provenance.
 import 'dart:async';
 
-import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:core/settings/settings.dart';
@@ -122,20 +67,21 @@ import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
 import '../../settings/settings_controller.dart';
-import '../../strings/app_strings.dart';
 import '../capture/capture_screen.dart';
-import '../glyphs/pencil_glyph.dart';
 import '../no_slicer/no_slicer_surface.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../tokens.dart';
-import 'ambient_strip.dart';
-import 'duration_chip.dart';
-import 'task_card.dart';
+import 'dispenser_chrome.dart';
+import 'dispenser_closed_view.dart';
+import 'dispenser_dealt_view.dart';
+import 'dispenser_rest_offer_view.dart';
+import 'dispenser_strip_layer.dart';
 
-/// The card's width bound on wide grounds. A layout bound, not a gap: no
-/// DESIGN token exists for it, and the tokenized side rule
-/// (`Spacing.screenMargin`) stays in force below it.
-const double _cardMaxWidth = 480;
+// The ladder options' canonical home moved with the ladder UI into
+// `dispenser_chrome.dart`; the widget tests import
+// `pocketLadderOptions` through this file, so the symbol stays
+// reachable from its old address (the spec's public-surface pin).
+export 'dispenser_chrome.dart' show pocketLadderOptions;
 
 /// The short-surface floor's base decision height (Story 2.3, UX-DR45 vs
 /// NFR6). It scales with the user's text scale: at 200%, the chrome stays
@@ -144,12 +90,6 @@ const double _cardMaxWidth = 480;
 /// than the grown chip itself from overflowing. The 320×220 @200% pin
 /// guards this floor without making 320 a fixed answer at every scale.
 const double _pinnedChromeBaseBodyHeight = 160;
-
-/// The ladder's stepped options (Story 2.2): every offered value is
-/// inside the pocket's command range, so out-of-range is unreachable
-/// from the surface. Swapping the list changes nothing else — the log
-/// payload and the command contract are unaffected.
-const List<int> pocketLadderOptions = [5, 10, 15, 20, 25, 30, 45, 60];
 
 /// The completion acknowledgement's fixed window (UX-DR39): 2000 ms,
 /// calm and far from the 500 ms budget it must never gate — the next
@@ -670,27 +610,43 @@ class _DispenserScreenState extends State<DispenserScreen>
               constraints.maxHeight >=
               _pinnedChromeBaseBodyHeight *
                   MediaQuery.textScalerOf(context).scale(1);
-          final content = _viewContent(context, view);
+          final content = _viewContent(view);
           if (!chromePinned) {
-            return _frame(
-              Column(
+            return DispenserFrame(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _pocketTrigger(context, inFrame: true),
+                  PocketTriggerBand(
+                    minutes: _standingPocketMinutes,
+                    inFrame: true,
+                    onOpenLadder: _openPocketLadder,
+                    onOpenCapture: _openCapture,
+                  ),
                   const SizedBox(height: Spacing.cardPadding),
                   content,
                   const SizedBox(height: Spacing.cardPadding),
-                  _footerActions(context),
+                  DispenserFooterBand(
+                    inFrame: true,
+                    onStop: _onPause,
+                    onNewProject: _openNuevoProyecto,
+                  ),
                 ],
               ),
             );
           }
           return Column(
             children: [
-              _pocketTrigger(context),
-              Expanded(child: _frame(content)),
-              _pinnedFooterBand(context),
+              PocketTriggerBand(
+                minutes: _standingPocketMinutes,
+                onOpenLadder: _openPocketLadder,
+                onOpenCapture: _openCapture,
+              ),
+              Expanded(child: DispenserFrame(child: content)),
+              DispenserFooterBand(
+                onStop: _onPause,
+                onNewProject: _openNuevoProyecto,
+              ),
             ],
           );
         },
@@ -698,81 +654,39 @@ class _DispenserScreenState extends State<DispenserScreen>
     );
   }
 
-  Widget _viewContent(BuildContext context, DispenserView? view) {
-    final content = switch (view) {
-      null => const SizedBox.shrink(),
-      DispenserDealt dealt => _withAmbientStrip(
-        context,
-        view,
-        _withCompletionAck(
-          context,
-          TaskCard(
+  Widget _viewContent(DispenserView? view) {
+    if (view == null) {
+      return const SizedBox.shrink();
+    }
+    // The layer order is a pinned contract — greeting outermost, then
+    // the strip, then the completion ack, then the arm — the nesting
+    // the pre-split wrappers held, which the widget suites pin.
+    final content = StripLayer(
+      resident: view.stripResident,
+      onEnergy: _onSetEnergy,
+      onDismissCheckIn: _onDismissCheckIn,
+      onAnswerReport: _onAnswerReport,
+      onDismissReport: _onDismissReport,
+      child: CompletionAck(
+        visible: _completionAckVisible,
+        child: switch (view) {
+          DispenserDealt dealt => DealtView(
             card: dealt.card,
             onDone: () => _onDone(dealt),
             onSkip: () => _onSecondaryAction(dealt),
           ),
-        ),
-      ),
-      DispenserRestOffer() => _withAmbientStrip(
-        context,
-        view,
-        _withCompletionAck(context, _restOffer(context)),
-      ),
-      DispenserClosed(:final continueOffered) => _withAmbientStrip(
-        context,
-        view,
-        _withCompletionAck(
-          context,
-          continueOffered ? _closeWithContinue(context) : _closeText(context),
-        ),
-      ),
-    };
-    if (view == null || !view.warmReturnDue) {
-      return content;
-    }
-    return _withWarmReturnGreeting(context, content);
-  }
-
-  /// The view with the ambient strip below it (Stories 2.5–2.6,
-  /// UX-DR22): inside the frame's scroll region, beneath whatever the
-  /// read committed — the strip's own resident on the view decides,
-  /// never the surface's memory, and the widget switches on which
-  /// resident it is. Nothing else moves: the card's air, the ack line
-  /// and the pinned chrome keep their geometry, and the strip grows
-  /// into the same scroll at 200%.
-  Widget _withAmbientStrip(
-    BuildContext context,
-    DispenserView view,
-    Widget content,
-  ) {
-    final resident = view.stripResident;
-    if (resident == null) {
-      return content;
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        content,
-        const SizedBox(height: Spacing.cardPadding),
-        switch (resident) {
-          StripResident.energyCheckIn => AmbientStrip(
-            onEnergy: _onSetEnergy,
-            onDismiss: _onDismissCheckIn,
+          DispenserRestOffer() => RestOfferView(
+            onPause: _onPause,
+            onExtend: _onExtend,
           ),
-          StripResident.weeklySelfReport => SelfReportStrip(
-            onAnswer: _onAnswerReport,
-            onDismiss: _onDismissReport,
+          DispenserClosed(:final continueOffered) => ClosedView(
+            continueOffered: continueOffered,
+            onExtend: _onExtend,
           ),
-          // The four later residents are never eligible in this
-          // build — their stories' data does not exist yet — so the
-          // read can never hand this switch one.
-          StripResident.firstRunCuration ||
-          StripResident.quarantineFollowUp ||
-          StripResident.seasonalSuggestion ||
-          StripResident.snowball => content,
         },
-      ],
+      ),
     );
+    return WarmReturnGreeting(visible: view.warmReturnDue, child: content);
   }
 
   /// One tap on a battery mark (Story 2.5, FR-4): `_onDeclarePocket`'s
@@ -992,67 +906,6 @@ class _DispenserScreenState extends State<DispenserScreen>
       } ??
       defaultPocketMinutes;
 
-  /// The top chrome band (Stories 2.2 and 3.2): the pocket trigger pill
-  /// top-centred above the card — and standing on the warm close too,
-  /// because a spent pocket is declared until superseded — with the
-  /// Lápiz entry top-right in the same band, overlaid so the chip keeps
-  /// the exact layout it owned alone: full-band wrap width and the
-  /// screen's x-axis centre, in both chrome branches (pinned and
-  /// in-frame). The carried minutes are log-derived data, never session
-  /// state held in memory as truth.
-  Widget _pocketTrigger(BuildContext context, {bool inFrame = false}) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Spacing.spacingBase),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: inFrame ? 0 : Spacing.screenMargin,
-          ),
-          child: Stack(
-            children: [
-              Center(
-                // On a wide ground, symmetric inner bounds — one glyph
-                // zone wide plus the action gap — keep the chip exactly
-                // screen-centred while it wraps clear of the Lápiz
-                // target: the band reads as two controls, never one
-                // pastel passing beneath a glyph. On a short ground the
-                // accessibility floor outranks the clearance (Story
-                // 2.3's own precedent): the chip keeps the full-band
-                // wrap it owned alone and the glyph overlays the band's
-                // edge, because starving the wrap there would grow the
-                // band past the floor.
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final clearOfGlyph = constraints.maxWidth >= _cardMaxWidth;
-                    return Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: clearOfGlyph
-                            ? Spacing.touchTargetMin + Spacing.actionGap
-                            : 0,
-                      ),
-                      child: PocketTriggerChip(
-                        minutes: _standingPocketMinutes,
-                        onTap: _openPocketLadder,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Positioned.directional(
-                textDirection: Directionality.of(context),
-                end: 0,
-                top: 0,
-                bottom: 0,
-                child: Center(child: _LapizEntry(onTap: _openCapture)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// One tap on the Lápiz entry (Story 3.2, FR-27): Manual Capture, one
   /// hop from the Dispenser. The same rapid-tap guard as every push
   /// this surface owns — a push while another route transitions in
@@ -1071,6 +924,25 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
+  /// The `Nuevo proyecto` way-out's push (Story 2.1, NFR3, AD-26): the
+  /// footer's one prose departure opens the intermediate surface that
+  /// carries the `Ajustes` way-out alone — no confirmation, no writes,
+  /// and the surface below stands exactly as it is until the route
+  /// pops back.
+  void _openNuevoProyecto() {
+    // A rapid second tap during the route transition would stack
+    // a second route: while another route is coming in, this one
+    // is not the navigator's current route, and the push is
+    // refused.
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => NuevoProyectoScreen(settings: widget.settings),
+        ),
+      );
+    }
+  }
+
   /// The quiet stepped ladder (Story 2.2): a titleless modal bottom
   /// sheet of duration pills — the `size-option` idiom — every option
   /// in the command's range, selected marking the standing pocket. The
@@ -1083,22 +955,9 @@ class _DispenserScreenState extends State<DispenserScreen>
       isScrollControlled: true,
       // The sheet's own scroll view keeps the pills whole at 200% — the
       // wrap reflows and the sheet scrolls, nothing truncates.
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(Spacing.cardPadding),
-          child: Wrap(
-            spacing: Spacing.actionGap,
-            runSpacing: Spacing.actionGap,
-            children: [
-              for (final minutes in pocketLadderOptions)
-                _PocketLadderOption(
-                  minutes: minutes,
-                  selected: _standingPocketMinutes == minutes,
-                  onTap: () => _onLadderTap(minutes),
-                ),
-            ],
-          ),
-        ),
+      builder: (_) => PocketLadderSheet(
+        standingMinutes: _standingPocketMinutes,
+        onSelect: _onLadderTap,
       ),
     );
   }
@@ -1247,293 +1106,5 @@ class _DispenserScreenState extends State<DispenserScreen>
         _writeInFlight = false;
       }
     }
-  }
-
-  /// The footer band's two prose controls (Stories 2.1, 2.3, UX-DR25,
-  /// UX-DR43): `Quiero parar` beside `Nuevo proyecto`, both through the
-  /// `action-secondary` grammar — ink-secondary text, 48dp opaque
-  /// targets, no glyph, no pastel mass, nothing animated. The band
-  /// wraps; nothing in it ever truncates.
-  Widget _footerActions(BuildContext context) {
-    final strings = AppStrings.of(context);
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: Spacing.actionGap,
-      runSpacing: Spacing.spacingBase,
-      children: [
-        SecondaryTextAction(label: strings.actionStop, onTap: _onPause),
-        SecondaryTextAction(
-          label: strings.newProjectLink,
-          onTap: () {
-            // A rapid second tap during the route transition would stack
-            // a second route: while another route is coming in, this one
-            // is not the navigator's current route, and the push is
-            // refused.
-            if (ModalRoute.of(context)?.isCurrent ?? false) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) =>
-                      NuevoProyectoScreen(settings: widget.settings),
-                ),
-              );
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  /// The band as pinned chrome below the scroll region (UX-DR45) — the
-  /// common surface. A body below the text-scaled chrome floor never
-  /// reaches here: both chrome controls join the scroll region instead.
-  Widget _pinnedFooterBand(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.screenMargin),
-        child: _footerActions(context),
-      ),
-    );
-  }
-
-  /// The completion acknowledgement (UX-DR51): «¡Buen trabajo!» in the
-  /// quiet support register, centered, inside the scroll column above
-  /// the committed view — the next card or the warm close string — for
-  /// its fixed window. No glyph, no fill, no motion; identical every
-  /// time, and it closes rather than opening a door to another.
-  Widget _withCompletionAck(BuildContext context, Widget view) {
-    if (!_completionAckVisible) {
-      return view;
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          AppStrings.of(context).completionAcknowledgement,
-          // bodySmall is the wired support role (theme.dart).
-          style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: Spacing.actionGap),
-        view,
-      ],
-    );
-  }
-
-  /// The Warm Return greeting (Story 2.7, FR-6, AD-24): the fixed
-  /// string in the completion ack's register — centered, `bodySmall`,
-  /// one `Spacing.actionGap` above the committed view — standing for
-  /// the whole opening on every variant. No glyph, no fill, no motion
-  /// and no dismissal control; no timer owns it (the 2-s
-  /// `_withCompletionAck` window is not this), and no state exists
-  /// anywhere: the read's own `warmReturnDue` fact decides, so the
-  /// greeting persists through the session by derivation and is gone
-  /// at the next opening inside 48 h. Nothing here counts the days
-  /// away — they are not representable.
-  Widget _withWarmReturnGreeting(BuildContext context, Widget view) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          AppStrings.of(context).warmReturnGreeting,
-          // bodySmall is the wired support role (theme.dart).
-          style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: Spacing.actionGap),
-        view,
-      ],
-    );
-  }
-
-  /// The warm close (FR-3): `poolExhaustedClose` verbatim, centered and
-  /// quiet — the secondary action's role and ink, never an error and
-  /// never styled as absence or debt.
-  Widget _closeText(BuildContext context) {
-    return Text(
-      AppStrings.of(context).poolExhaustedClose,
-      // bodyMedium is the wired action-secondary role (theme.dart).
-      style: Theme.of(context).textTheme.bodyMedium,
-      textAlign: TextAlign.center,
-    );
-  }
-
-  /// The permission-to-rest offer (Story 2.4, FR-10, UX-DR44/51): the
-  /// checkpoint's two actions and nothing else. `Nada más por el
-  /// momento` is the primary permission to stop, in the Done button's
-  /// register, running the same one-tap pause write; `Quiero seguir` is
-  /// the silent secondary — plain prose in the unsplit secondary
-  /// grammar, never filled, never emphasized, never animated, no
-  /// haptic. No continuation question exists anywhere, and nothing here
-  /// counts anything: no number that would have been higher if the user
-  /// had kept going (UJ-1).
-  Widget _restOffer(BuildContext context) {
-    final strings = AppStrings.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        HechoButton(label: strings.checkpointStop, onTap: _onPause),
-        const SizedBox(height: Spacing.actionGap),
-        SecondaryTextAction(
-          label: strings.checkpointContinue,
-          onTap: _onExtend,
-        ),
-      ],
-    );
-  }
-
-  /// The close as the offer (Story 2.4, UJ-1): the same warm close
-  /// string with the checkpoint's silent secondary beneath it — offered
-  /// only while one more interval could truthfully reach beyond the
-  /// read and the pool could deal if the pocket had room (the core's
-  /// window and probe decide). A pool-exhausted or long-elapsed close
-  /// carries nothing — the chip is the way back in, never a dead
-  /// action. The same `Quiero seguir`, the same extension, no second
-  /// surface and no manufactured state between them.
-  Widget _closeWithContinue(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _closeText(context),
-        const SizedBox(height: Spacing.actionGap),
-        SecondaryTextAction(
-          label: AppStrings.of(context).checkpointContinue,
-          onTap: _onExtend,
-        ),
-      ],
-    );
-  }
-
-  /// The one frame every resolved state shares: scroll when the content
-  /// outgrows the viewport, center it in the remaining flex otherwise,
-  /// with the 48dp minimum air inside the screen margins and the
-  /// max-width bound. SafeArea first, so scrolled content never renders
-  /// under the status bar or a cutout — the minimum air lives inside it.
-  Widget _frame(Widget child) {
-    final content = Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-        child: child,
-      ),
-    );
-    return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.screenMargin,
-                // The air around the card: minimum 48 plus flex, carried
-                // here rather than in a token precisely because a token
-                // reads as a fixed value (UX-DR14).
-                vertical: Spacing.touchTargetMin,
-              ),
-              child: content,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The Lápiz entry (Story 3.2, FR-27): the Manual Capture affordance —
-/// the utility glyph in its neutral mass inside a 48dp opaque target,
-/// declared to readers as a button (the battery mark's own grammar).
-/// One tap opens the capture surface; no painted label, no fill, no
-/// badge, nothing animated, and nothing about it counts or lists
-/// captures — mass is the visual, `lapizEntry` is the spoken name.
-class _LapizEntry extends StatelessWidget {
-  const _LapizEntry({this.onTap});
-
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: AppStrings.of(context).lapizEntry,
-      child: GestureDetector(
-        // Absent, the tap stays an accepted no-op — a null onTap would
-        // render a disabled control instead.
-        onTap: onTap ?? () {},
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: Spacing.touchTargetMin,
-          height: Spacing.touchTargetMin,
-          child: Center(child: PencilGlyph(Spacing.glyphZoneMarker)),
-        ),
-      ),
-    );
-  }
-}
-
-/// One stepped ladder pill (Story 2.2, the `size-option` idiom): a
-/// duration pill — selected fills `colorScheme.primary` (the theme's
-/// accent-soft mapping, the same pastel `DurationChip` fills), unselected
-/// sits raised with a 1px hairline edge — ink-primary in the duration
-/// role on both, `rounded.full`, 48dp minimum, never a glyph. The label
-/// is the minutes themselves through the duration format; context is the
-/// chip just tapped, so the sheet carries no title and no internal name
-/// renders.
-class _PocketLadderOption extends StatelessWidget {
-  const _PocketLadderOption({
-    required this.minutes,
-    required this.selected,
-    this.onTap,
-  });
-
-  final int minutes;
-
-  final bool selected;
-
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: selected
-          ? theme.colorScheme.primary
-          : theme.colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.radiusFull),
-        side: selected
-            ? BorderSide.none
-            : BorderSide(color: theme.colorScheme.outline, width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        // Absent, the tap stays an accepted no-op — a null onTap would
-        // render a disabled control instead.
-        onTap: onTap ?? () {},
-        child: Semantics(
-          // The affordance reaches screen readers as a button carrying
-          // selection state, never as a different visual grammar: the
-          // spoken label is the minutes value the pill's own text
-          // already carries.
-          button: true,
-          selected: selected,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: Spacing.touchTargetMin,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.chipPaddingHorizontal,
-              ),
-              child: Center(
-                child: Text(
-                  durationLabel(minutes * 60, AppStrings.of(context)),
-                  // titleSmall is the wired duration role (theme.dart).
-                  style: theme.textTheme.titleSmall,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
