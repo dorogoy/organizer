@@ -13,6 +13,21 @@ analyzer:
   exclude:
     - build/**
     - android/**
+    # Story 5.1's banked instruments (2026-09-05 deferral): the v1 and
+    # v2 probes and their unit tests are preserved verbatim as evidence
+    # for the pre-5.5 reopen of gate composition, but their SDK
+    # dependencies left the pubspec with the deferral and the review
+    # follow-up (v2: the pose plugin; both: the integration_test
+    # binding) — the copies are not analyzer-resolvable until those
+    # dependencies return. Restoring an instrument: copy it back to
+    # integration_test/ (its unit test to test/, renaming a _v2_ file
+    # back to face_gate_probe_test.dart — the two versions collide on
+    # filenames and cannot be restored simultaneously), re-add the
+    # dependencies it needs, and drop its exclusion here.
+    - face-gate/probe/face_gate_probe_test.dart
+    - face-gate/probe/face_gate_probe_test_test.dart
+    - face-gate/probe/face_gate_probe_v2_test.dart
+    - face-gate/probe/face_gate_probe_v2_test_test.dart
 
 linter:
   # The lint rules applied to this project can be customized in the

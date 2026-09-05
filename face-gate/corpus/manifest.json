@@ -1,0 +1,29 @@
+{
+  "status": "confirmed — corpus supplied by the builder 2026-09-05; photos are machine-local under face-gate/corpus/photos/ (gitignored); this manifest is the committed ground truth",
+  "schema": {
+    "id": "pseudonymous photo id, never personal data",
+    "filename": "file inside face-gate/corpus/photos/ (filenames carry no identity; the images themselves stay gitignored)",
+    "class": "person | no-person — the ground-truth limb the verdict is defined against",
+    "categories": "hard-case categories: partial, profile, distance, low-light, mirror, print-on-wall (empty for class no-person; a photo may carry several)",
+    "note": "free-text description of the face-like content, no personal data",
+    "sha256": "hex digest of the machine-local file bytes; never the bytes themselves"
+  },
+  "photos": [
+    { "id": "p01", "filename": "parcia-1.jpg", "class": "person", "categories": ["partial"], "sha256": "e697d56a2e80ed560405b07d29942062b796080abded8a8b075adbd48f1391d9" },
+    { "id": "p02", "filename": "parcial-2.jpg", "class": "person", "categories": ["partial"], "sha256": "d7a9ad42746e491182b90dbc739dd364d865e13757a2d2fb0e639994923ccc98" },
+    { "id": "p03", "filename": "perfil-1.jpg", "class": "person", "categories": ["profile"], "sha256": "1d360c9615737bc47d4affa96922a508c64fb9f8c3bb54d15657a08d4bb52ac8" },
+    { "id": "p04", "filename": "perfil-2.jpg", "class": "person", "categories": ["profile"], "sha256": "a1b21a8d87bdfc1318c0770d7cd24a8ecd96d80383ee5d8f0f6627602dd9eb8f" },
+    { "id": "p05", "filename": "distancia-1.jpg", "class": "person", "categories": ["distance"], "sha256": "4fa5552028f85afca75d24f592ee44f3f796d72f4c065ebed35d27056edde77d" },
+    { "id": "p06", "filename": "distancia-2.jpg", "class": "person", "categories": ["distance"], "sha256": "ad7773d60dc991d47a2bf5da1f4bf78406376ea2bafbb5d6cf47535b6e5f5018" },
+    { "id": "p07", "filename": "luz-1.jpg", "class": "person", "categories": ["low-light"], "sha256": "e6574f92b47f2f823bd79bf0b0049fd0f2a564aeb1a6ebeae687e4319ae7c23a" },
+    { "id": "p08", "filename": "luz-2.jpg", "class": "person", "categories": ["low-light"], "sha256": "8013f286b4f4903e315a09c9dd37de09f07fb58820f3a31844bcb522bc96f28d" },
+    { "id": "p09", "filename": "esperjo-1.jpg", "class": "person", "categories": ["mirror"], "sha256": "1a0a0cd8fadc4413a29642bd338091dad6d12d7529581b0275358e100f393410" },
+    { "id": "p10", "filename": "espejo-2.jpg", "class": "person", "categories": ["mirror"], "sha256": "bb8a4530c000d497c1627e2af969c03e4605d7740c1690a89f8aa0937551d575" },
+    { "id": "p11", "filename": "impresa-1.jpg", "class": "person", "categories": ["print-on-wall"], "sha256": "155f548173dfc290080ae77032a9234a067b66b2d411b0d4b29cefb999d3c057" },
+    { "id": "p12", "filename": "impresa-2.jpg", "class": "person", "categories": ["print-on-wall"], "sha256": "fe061455fccb6cd3deda0acdbc1d17834427c9c4817e37f819e02d97ff92473a" },
+    { "id": "p13", "filename": "dibujos-infantiles.jpg", "class": "no-person", "categories": [], "note": "children's drawings of faces", "sha256": "d547b4013cac61b808250191da96a63c381d7e916f5e0dc4c88de5e822cd049c" },
+    { "id": "p14", "filename": "mascaras-en-pared.jpg", "class": "no-person", "categories": [], "note": "masks hanging on a wall", "sha256": "1567ca48d17e6aed07347166a6e6d0df2ba297ce2cf3b58504570a0acc556879" },
+    { "id": "p15", "filename": "munecas.jpg", "class": "no-person", "categories": [], "note": "dolls", "sha256": "c5413611236ba1468eedd651dc5d8050b20580a2deccc82f96f4cc3862843726" },
+    { "id": "p16", "filename": "tv-dibujo.jpg", "class": "no-person", "categories": [], "note": "cartoon on a TV screen", "sha256": "bf516fac7df896653f33b27c25e21ac1129b834f4d4b0f778f341d89f1a8867e" }
+  ]
+}

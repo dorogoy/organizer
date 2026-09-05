@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-05-2026 11:54
+last_updated: 09-05-2026 21:30
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -71,8 +71,8 @@ development_status:
   4-5-honest-degradation-one-calm-surface-seven-strings-one-exit: done
   4-6-rescue-mode: done
   epic-4-retrospective: done
-  epic-5: backlog
-  5-1-the-on-device-face-gate-verified-before-it-is-trusted: backlog
+  epic-5: in-progress
+  5-1-the-on-device-face-gate-verified-before-it-is-trusted: done
   5-2-the-camera-entry-and-shooting-the-frame: backlog
   5-3-the-image-seam-sealed-before-a-payload-ships: backlog
   5-4-the-scan-cache-and-its-single-use-consent-token: backlog

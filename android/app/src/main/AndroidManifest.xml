@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Dictation into the capture line (Story 3.4, FR-32, AD-17): one
          of the three runtime permissions, requested at the moment its
          feature is first used — never at app entry or first run. -->
@@ -9,6 +10,19 @@
          for allowing them at all. Nothing in first run touches the
          network; the permission guards the slice call alone. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The face gate's seal-3 surgery (Story 5.1, builder ruling
+         2026-09-05, option a): ML Kit's merged manifest brings network-
+         facing machinery the app never consented to. Stripped here by
+         merger rule, not baselined — detection needs none of it (the
+         model is bundled in the APK; see face-gate/results/report.md).
+         The minimal ML Kit init set that remains is enumerated, with
+         justification, in tool/check_android_manifest.dart.
+         (The person-gate amendment's wider strip set — work/room/
+         acceleration machinery — was reverted with the deferral of
+         gate composition, 2026-09-05: face-only is the interim gate.) -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove"/>
     <application
         android:label="organizer"
         android:name="${applicationName}"
@@ -35,7 +49,37 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
+    <!-- Face-gate surgery, continued: play-services' account-picker
+         activity, datatransport's upload backends, schedulers and
+         receiver, the cct backend factory metadata, and the emoji2
+         initializer metadata (appcompat via mlkit:common — this
+         story's graph addition, not Flutter embedding noise; the
+         ruling strips what is ML Kit-related). All removed, none
+         baselined; egress stays what 4-4 declared and nothing
+         more. -->
+    <activity
+        android:name="com.google.android.gms.common.api.GoogleApiActivity"
+        tools:node="remove"/>
+    <service
+        android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+        tools:node="remove"/>
+    <service
+        android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+        tools:node="remove"/>
+    <receiver
+        android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+        tools:node="remove"/>
+    <meta-data
+        android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+        tools:node="remove"/>
+    <provider
+        android:name="androidx.startup.InitializationProvider"
+        tools:node="merge">
+        <meta-data
+            android:name="androidx.emoji2.text.EmojiCompatInitializer"
+            tools:node="remove"/>
+    </provider>
+    <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"

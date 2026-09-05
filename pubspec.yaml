@@ -34,6 +34,16 @@ dependencies:
   # every runtime dep (the caret range was the review's finding).
   http: 1.6.0
 
+  # The on-device face gate (story 5.1, FR-25): the spine-pinned community
+  # plugin whose detection 5.2 will refuse frames through. Measured by the
+  # 5.1 probe (run 1: 6 FN / 12 hard cases — face-only is the builder's
+  # deferred interim gate; composition face ∨ pose is banked for the
+  # pre-5.5 reopen, see face-gate/results/report.md); one of the
+  # architecture's three named fragile dependencies — the resolved Gradle
+  # graph change is a deliberate AD-7 seal-2 re-freeze, and the model's
+  # bundled status is recorded in face-gate/results/report.md.
+  google_mlkit_face_detection: 0.15.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

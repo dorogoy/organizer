@@ -12,5 +12,26 @@
             android:name="androidx.profileinstaller.ProfileInstallReceiver"
             android:exported="true"
             android:permission="android.permission.DUMP" />
+        <!-- Story 5.1 (builder ruling 2026-09-05): the minimal ML Kit
+             init set that survives the main manifest's merger-rule
+             strip — everything network-facing is removed, these stay
+             enumerated in the check's baseline. (The pose registrar
+             joined for the person-gate amendment and left again with
+             its deferral the same day.) -->
+        <provider
+            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+            android:authorities="dev.dorogoy.organizer.mlkitinit"
+            android:exported="false" />
+        <service
+            android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
+            android:exported="false" />
+        <meta-data
+            android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar" />
+        <meta-data
+            android:name="com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar" />
+        <meta-data
+            android:name="com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar" />
+        <meta-data
+            android:name="com.google.android.gms.version" />
     </application>
 </manifest>
