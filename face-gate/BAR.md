@@ -19,39 +19,37 @@ Written before the measurement exists. One bar, measured on-device
 through the same plugin story 5.2 will ship — the probe imports
 nothing from `lib/egress/` and has no upload path. The probe refuses
 to score while this file carries no dated confirmation in its Builder
-confirmation section. (The run-2-era text between here and the
-Amendments section describes the superseded person gate; the
-Amendments entries are the authoritative history.)
+confirmation section. The live rule below is the face-only interim
+gate; the pose-detector-config block and the Amendments entries are
+the record of the deferred composition, not the shipped rule.
 
 ## The asymmetric bar
 
 1. **False negatives: target zero.** A false negative is a corpus photo
-   of class `person` on which the gate does not refuse — since the
-   2026-09-05 amendment below, face detection finding zero faces AND
-   pose detection finding zero poses — the frame 5.2 would let
-   through. **Any FN > 0 fails the bar.** Bar failure is the
-   escalation path, not a crash and never silent tuning: the FN is
-   recorded as a finding with the recorded remedy options and the
-   ruling is the builder's.
+   of class `person` on which face detection finds zero faces — the
+   frame 5.2 would let through. **Any FN > 0 fails the bar.** Bar
+   failure is the escalation path, not a crash and never silent
+   tuning. The 2026-09-05 deferral is the recorded exception: the
+   interim face-only gate fails that target (4 FN / 12 at the final
+   tree) and 5.2 still ships it, reopened before 5.5.
 2. **False positives: accepted and recorded.** A false positive is a
-   corpus photo of class `no-person` on which the gate refuses — face
-   detection reporting at least one face OR pose detection reporting at
-   least one pose. The cost is one reframe offer (FR-25) — the
+   corpus photo of class `no-person` on which face detection reports
+   at least one face. The cost is one reframe offer (FR-25) — the
    specified behaviour. FPs are counted and reported, never tuned away
    mid-story.
-3. **The gate rule (amended 2026-09-05): a frame is refused iff
-   face-detection finds ≥ 1 face OR pose-detection finds ≥ 1 pose.**
-   Verdicts are defined against the manifest's ground truth: FN =
-   `person` photo with zero faces and zero poses; FP = `no-person`
-   photo with ≥ 1 face or ≥ 1 pose; `person` refused is a gate-pass
-   (correct refusal); `no-person` not refused is a clean pass.
+3. **The gate rule (deferral close-out, 2026-09-05): a frame is
+   refused iff face-detection finds ≥ 1 face.** Verdicts are defined
+   against the manifest's ground truth: FN = `person` photo with zero
+   faces; FP = `no-person` photo with ≥ 1 face; `person` refused is a
+   gate-pass (correct refusal); `no-person` not refused is a clean
+   pass. (The face ∨ pose composition is deferred — see Amendments.)
 4. **Errors are declared, never dropped.** A detection error on one
-   image (either detector) is retried once; still failing, the row is
-   recorded `error` and excluded from the FN/FP denominators, reported
-   as such in `report.md`. The builder replaces the file or the row
-   stays declared-error. A corpus that cannot be scored at all (missing
-   bar confirmation, floor unmet, missing photos) makes the probe
-   refuse before any image is processed.
+   image is retried once; still failing, the row is recorded `error`
+   and excluded from the FN/FP denominators, reported as such in
+   `report.md`. The builder replaces the file or the row stays
+   declared-error. A corpus that cannot be scored at all (missing bar
+   confirmation, floor unmet, missing photos) makes the probe refuse
+   before any image is processed.
 
 ## Corpus floor
 
@@ -63,16 +61,17 @@ Amendments entries are the authoritative history.)
   something to bite on.
 - Photos are builder-supplied and machine-local forever:
   `face-gate/corpus/photos/` is gitignored; the committed
-  `face-gate/corpus/manifest.json` carries pseudonymous ids and ground
-  truth (class + categories) only, never image bytes (3-1's declared
-  redaction discipline).
+  `face-gate/corpus/manifest.json` carries pseudonymous ids, ground
+  truth (class + categories), and sha256 of the machine-local files —
+  never image bytes (3-1's declared redaction discipline).
 
 ## Pinned detector configuration
 
 Exact values the probe runs — parsed from these blocks, not from its own
 constants, so the bar and the measurement cannot drift apart. The face
 block's `minFaceSize` reads 0.0 since the 2026-09-05 amendment (was
-0.05); the pose block is the amendment's second detector.
+0.05) and is the live config 5.2 copies. The pose block is historical
+(run-2 era, deferred) — banked, not live.
 
 <!-- detector-config: begin -->
 performanceMode: accurate
@@ -88,13 +87,13 @@ model: accurate
 mode: single
 <!-- pose-detector-config: end -->
 
-`accurate` over `fast`, `minFaceSize: 0.0` (the floor: no size
-pre-filter — every candidate head counts) and the **accurate** pose
-model over the base one all widen the net, per the miss-cost asymmetry:
-an FN is the failure that matters, an FP costs one reframe offer. The
-pose detector runs in `single` mode — static images, the corpus's and
-5.2's shoot-time frame's shape. Landmarks, classification, contours and
-tracking are off: pure cost, no count contribution.
+`accurate` over `fast` and `minFaceSize: 0.0` (the floor: no size
+pre-filter — every candidate head counts) widen the net, per the
+miss-cost asymmetry: an FN is the failure that matters, an FP costs
+one reframe offer. Landmarks, classification, contours and tracking
+are off: pure cost, no count contribution. The pose block's accurate /
+`single` values are the deferred composition's banked pin, not part of
+the interim gate.
 
 <!-- bar-facts: begin -->
 minPhotosPerHardCaseCategory: 2
@@ -143,6 +142,12 @@ minNoPersonPhotos: 3
   5.2's real-usage frames plus the banked diagnostic
   (`face-gate/results/diagnostics/`) as inputs. Deferral confirmed in
   session by the builder the same day.
+- **2026-09-05 — review: live bar text rewritten to the face-only
+  rule of record.** The asymmetric-bar and gate-rule sections above
+  now state the shipped interim gate (face-only, `minFaceSize: 0.0`);
+  the pose-detector-config block stays as the deferred composition's
+  banked pin. Confirmed with the Always/AC renegotiation in the
+  story spec the same day.
 
 ## Builder confirmation (Ask-First — required before the first scored run)
 

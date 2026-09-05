@@ -25,7 +25,7 @@ The user photographs a real space — or describes one in writing — and is sho
 ## Requirements & Constraints
 
 - Consent is per scan, every scan; a blanket "always allow" must not exist anywhere, not even as a future convenience.
-- Face detection runs on-device, before any upload path is reachable. The bar is asymmetric: a false negative (a person uploaded) is the failure that matters — target zero across a hard-case corpus (partial frames, profiles, distance, poor light, mirrors, printed photos); false positives are accepted, the cost being one reframe offer.
+- Face detection runs on-device, before any upload path is reachable. The bar is asymmetric: a false negative (a person uploaded) is the failure that matters — target zero across a hard-case corpus (partial frames, profiles, distance, poor light, mirrors, printed photos); false positives are accepted, the cost being one reframe offer. Story 5.1 closed on a builder deferral: 5.2 ships a face-only interim gate (`google_mlkit_face_detection 0.15.1`, accurate, `minFaceSize: 0.0`) with accepted residual risk 4 FN / 12 on that corpus; composition (face ∨ pose ∨ object detection vs minimal) reopens before story 5.5 ships the first scan payload.
 - The scan payload is only the scan image and a prompt — no plan history, album contents, device or location identifiers.
 - Declining consent costs the same number of taps as accepting; no persuasion, no re-ask, no second attempt at the gate.
 - The scan wait is deliberately uncapped: no latency cap, no timeout; leaving the surface or backgrounding cancels and discards, and nothing is queued.
@@ -67,6 +67,6 @@ The user photographs a real space — or describes one in writing — and is sho
 ## Cross-Story Dependencies
 
 - Within the epic: 5.1 → 5.2; 5.3 before 5.5 ships the first payload; 5.4 → 5.5 → 5.6 → 5.7; 5.8 → 5.9; 5.9 → 5.10; 5.11 → 5.12; 5.9 → 5.13.
-- 5.1 gates the camera chain (5.2–5.7): the privacy guarantee must be measured before it is trusted.
+- 5.1 gates the camera chain (5.2–5.7): the privacy guarantee must be measured before it is trusted. Measurement landed; 5.2 is unblocked on the face-only interim gate, with the composition reopen ordered before 5.5.
 - Upstream: the sealed egress, `SlicerPort` (BYOK plus debug-only Local stub), the seven-cause degradation surface and the Files adapter come from Epic 4; the `Nuevo proyecto` affordance, Settings shell and ambient strip from Epic 2; the weave/resolver, Evergreen catalogue and Dispenser from Epic 1. A pre-epic refactor train (Dispenser view-arm split, write-path funnel, rescue-text bound, CI build of the Kotlin half) lands before the epic opens.
 - Downstream: Epic 6's purge injection and detachment flow operate on activated Epic Projects — the `epic_activated` and Origin Context seams built here are what they consume.

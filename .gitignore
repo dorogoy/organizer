@@ -71,5 +71,10 @@ eval/results/raw/
 
 # Story 5.1 face gate: corpus photos of people are machine-local evidence,
 # never committed (bar, manifest ground truth, probe copy and results ARE
-# committed)
+# committed). Directory plus extension globs: a photo dropped beside the
+# manifest, or under a misspelled photos dir, must not stage.
 face-gate/corpus/photos/
+face-gate/**/*.jpg
+face-gate/**/*.jpeg
+face-gate/**/*.png
+face-gate/**/*.webp

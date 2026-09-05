@@ -275,10 +275,10 @@ The scored run read this marker before any image was processed
   lands as a single commit, so git never holds the instrument — the
   sha256s above are the add-time and delete-time identity (the
   working-tree files are content-identical before deletion and after
-  preservation). Commit-level hashes, once landed: add `〈story
-  commit〉` (adds the evidence pack; the instrument exists only as the
-  preserved copy), delete — same commit (the tree carries no
-  `integration_test/`).
+  preservation). Commit-level hashes, once landed: add
+  `c5119af02b71721c7d08f2cd0097999ba83e3115` (adds the evidence pack;
+  the instrument exists only as the preserved copy), delete — same
+  commit (the tree carries no `integration_test/`).
 
 ## Operator recipe for a re-run
 
@@ -308,7 +308,13 @@ Note: `adb root` is **not** needed for the push and actively breaks it
 (root-owned files are invisible to the app's FUSE view) — plain shell
 push into the probe-created dirs works.
 
-## Ruling — ESCALATION (Sergio's decision, 5.2 stays gated)
+## Ruling — ESCALATION (historical; superseded by the final deferral below)
+
+> **Superseded 2026-09-05.** This heading is the first escalation's
+> contemporaneous record ("5.2 stays gated" was true of run 1's 6 FN /
+> 12). The binding close-out is **Final ruling — DEFERRAL**: 5.2 is
+> unblocked on the face-only interim gate. Do not copy this section as
+> 5.2's contract.
 
 The bar's FN target is zero; the measurement found **6**. Both remedy
 options, as the bar and the spec record them, stand for decision:
@@ -326,7 +332,9 @@ tuning written): every miss is a zero-face row on a decoded image
 (no errors); `partial` and `profile` missed both photos each,
 `distance` and `print-on-wall` one of two; `low-light` and `mirror`
 passed clean; the no-person limb produced 2 FPs (accepted by the bar).
-**No remedy was chosen or applied by this story.**
+**No remedy was chosen or applied at this escalation** — true of the
+pause between run 1 and the in-session outcome immediately below;
+superseded by that outcome (composition) and by the final deferral.
 
 **Outcome of this escalation (2026-09-05, in session — Sergio):**
 remedy **outside the two recorded options** — widen the gate's target
@@ -454,6 +462,11 @@ chosen or applied):**
    is the decision basis.
 
 ## Instrument status after the amendment cycle
+
+> **Superseded 2026-09-05 at close-out.** v2 was alive in
+> `integration_test/` at the second escalation; the final tree deletes
+> `integration_test/` and preserves v2 under `face-gate/probe/`. See
+> **Final-state verification and instrument record** below.
 
 - Probe **v2 is alive** in `integration_test/` (with its 20 unit tests
   in `test/`) awaiting the next ruling and the policy-build re-run;
@@ -620,8 +633,9 @@ the builder's.
 ## Known probe defects to fix on restore
 
 The preserved copies stay verbatim (sha256 identity above), so these
-are recorded, not fixed — the edge-case review found them; fix all
-nine before trusting a restored instrument's next scored run:
+are recorded, not fixed — the edge-case review found the first nine;
+a later review added five more. Fix all fourteen before trusting a
+restored instrument's next scored run:
 
 1. An all-error run with zero scored persons reads as `barPassed:
    true` — add a void guard (errors > 0 with an empty FN denominator
@@ -646,3 +660,17 @@ nine before trusting a restored instrument's next scored run:
    sentinel before reading.
 9. No per-photo checkpointing of the run JSON — a timeout or crash
    after N photos loses the whole run; flush incrementally.
+10. `startedUtc` is stamped with `DateTime.now()` after the corpus
+    loop, so the JSON's timestamp is a finish time, not a start.
+11. Empty-string `id` or `filename` in the manifest is accepted —
+    require both non-empty.
+12. Photos themselves are not polled — only `BAR.md` and
+    `manifest.json` wait; an in-flight `adb push` of `corpus/.` can
+    score missing or truncated JPEGs. After the manifest arrives,
+    wait until every listed filename exists (and is size-stable) in
+    `photos/`.
+13. A zero-byte photo can score as a false-negative rather than
+    `error` — refuse empty files before `processImage`.
+14. Two sequential 15-minute push waits can exhaust the 30-minute
+    test timeout before scoring starts — one pack wait, or a timeout
+    of `pushWait * 2 + scoringBudget`.

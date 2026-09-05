@@ -22,8 +22,8 @@ context:
 **Always:**
 - The bar is written and builder-confirmed (dated marker in `face-gate/BAR.md`) before any scored run; mid-story amendments are dated entries, never silent (4-1 `PASS-BAR.md` precedent).
 - Detection runs on-device through the pinned plugin (`google_mlkit_face_detection 0.15.1`, exact pin, spine Stack table) — the instrument measures what 5.2 will ship; the probe contains no upload path and imports nothing from `lib/egress/`.
-- Corpus photos of people are machine-local: `face-gate/corpus/photos/` is gitignored; the committed `manifest.json` carries pseudonymous ids and ground truth only (3-1 declared-redaction discipline). Probe source and results contain no image bytes.
-- False negatives are findings, not tuning: any FN is escalated with the two recorded remedy options (AD-11 platform-channel promotion; tighter detection configuration), decided against the measurement — never absorbed silently.
+- Corpus photos of people are machine-local: `face-gate/corpus/photos/` is gitignored; the committed `manifest.json` carries pseudonymous ids, ground truth, and sha256 of the machine-local files (3-1 declared-redaction discipline — never image bytes). Probe source and results contain no image bytes.
+- False negatives are findings, not tuning: any FN is escalated with the recorded remedy options, decided against the measurement — never absorbed silently. The 2026-09-05 deferral (builder renegotiation at review) is the recorded exception: 5.2 is unblocked to ship the face-only interim gate (`google_mlkit_face_detection 0.15.1`, accurate, `minFaceSize: 0.0`); residual risk 4 FN / 12 on the corpus is accepted in the builder's name; composition reopens before story 5.5 ships the first scan payload.
 - Every resolved-Gradle-graph change is re-frozen deliberately (`dart run tool/check_gradle_dependencies.dart --re-freeze`), and the merged-manifest check stays green or is amended visibly.
 - The instrument is deleted once evidence is captured (hash-level add/delete recorded), with the probe source preserved verbatim at `face-gate/probe/`; the story ends with the completion gate green (`make gate`, `make check`).
 
@@ -45,7 +45,7 @@ context:
 |----------|---------------|----------------------------|----------------|
 | Frame with a person, hard case | Corpus photo, class `person` (partial / profile / distance / low-light / mirror / print-on-wall) | Detector flags a face → correct refusal, counted as gate-pass | Detection error on one image → row recorded `error`, rerun once; still error → declared indeterminate, never silently dropped |
 | Frame without a person, face-like object | Corpus photo, class `no-person` | May flag (false positive — recorded and accepted; cost is one reframe offer, FR-25) or pass | Same as above |
-| Missed person (false negative) | `person` photo the detector passes | FN count > 0 → run fails the bar → escalation finding with remedy options | Bar failure is the escalation path, not a crash |
+| Missed person (false negative) | `person` photo the detector passes | FN count > 0 → run fails the bar → escalation finding with remedy options; the 2026-09-05 deferral then unblocks 5.2 with the face-only interim gate (4 FN / 12 accepted) and a reopen before 5.5 | Bar failure is the escalation path, not a crash |
 | Unconfirmed bar | `face-gate/BAR.md` lacks the dated builder-confirmation marker | Probe refuses to score, exits with marker message | N/A — refusal is correct behaviour |
 | Undecodable image | Corrupt or unsupported bytes in the corpus | Row recorded `error`, excluded from FN/FP denominators, reported in report.md | Builder replaces the file or the row stays declared-error |
 
@@ -80,7 +80,7 @@ context:
 - Given the corpus, when assembled, then it holds with-people photos covering all six hard-case categories and no-people photos with face-like objects, per the BAR floor, images machine-local and ground truth committed.
 - Given the bar, when the probe runs, then it refuses to score unless BAR.md carries the dated builder confirmation, and bar plus exact detector config predate the first scored run.
 - Given a false positive, when one occurs, then it is recorded in report.md and accepted — the offer to reframe is the specified behaviour (FR-25).
-- Given any false negative, when one occurs, then it is escalated as a finding with both remedy options recorded (AD-11 promotion; tighter configuration), decided against the measurement — never absorbed as tuning.
+- Given any false negative, when one occurs, then it is escalated as a finding with both remedy options recorded (AD-11 promotion; tighter configuration), decided against the measurement — never absorbed as tuning. The 2026-09-05 deferral is the recorded exception: residual 4 FN / 12 on the face-only interim gate (`minFaceSize: 0.0`) is accepted, 5.2 is unblocked to ship that gate, and composition reopens before 5.5.
 - Given the detection, when it runs, then it ran on-device (emulator, plugin 0.15.1, pinned config) through an instrument with no upload path, and report.md states both.
 - Given the build, when ABIs are checked, then the built APK ships only `arm64-v8a` and `x86_64` native libs — the existing abiFilters verified, not changed.
 - Given story end, when the instrument is deleted, then the tree carries only the evidence pack plus the dependency/allowlist changes, and `make gate` / `make check` are green.
@@ -91,6 +91,7 @@ context:
 - **2026-09-05 — escalation 2: STOP before run 2's tally.** On the policy build the pose detector errors on every image (`MlKitException: Internal error`) — the run-2 attempt was voided by infrastructure (16/16 error rows, nothing scored; no `runs/2.json`). Diagnostics: stripping the pose closure's work/acceleration entries is the cause (pose works with them lifted, E2); restoring the acceleration service alone does not fix it (E3). A diagnostic run on the lifted build measured the amended gate at 3 FN / 12 (`partial` 0/2, `distance` 1/2) — recorded in `face-gate/results/report.md` → "Amendment cycle". Per the ruling discipline, no remedy chosen or applied; both the seal-policy question and the residual-FN question return to Sergio. The instrument (probe v2) stays in `integration_test/` for the next re-run; spine untouched (the stack-table update is close-out work, gated on FN = 0).
 - **2026-09-05 — escalation 3 ruled: composition DEFERRED; story closed in a coherent face-only state.** Sergio's final ruling (in session): the gate-composition effort is deferred until there is more data — the cost spiral (~22 MB pose on-device, added latency, a second fragile surface, contingent AD-11) outweighs the benefit while nothing uploads until 5.5 (AD-8's compile-time `ScanConsent` precondition), and 5.2 usage will produce better data (real scan frames, real refusal rates) than the 16-photo proxy. **Known-bad state avoided:** an incoherent tree shipping a pose dependency that cannot run under the seal policy its closure requires (E1/E3) — the tree is returned to exactly the face-era state run 1 verified: pose plugin removed, allowlist re-frozen back to the face-only closure, pose-era manifest strips and seal-3 baseline additions reverted (PoseRegistrar out; face registrars/network strips/emoji2 disposition unchanged). **Kept:** the escalation discipline (three builder rulings, all in session, all dated in BAR.md/report.md) and the banked diagnostics (run-1 JSON, lifted-build diagnostic JSON, final-tree smoke JSON, probe v1 + v2 preserved at `face-gate/probe/`). Interim gate: face-only accurate `minFaceSize: 0.0`; risk accepted in Sergio's name; reopen before 5.5 ships the first payload. Recorded in `deferred-work.md`; the spine's stack table correctly still lists no pose dependency.
 - **2026-09-05 — review patch: `integration_test` dev-dependency dropped (deviation from the Code Map's "dev-dep stays" note).** Cause: review finding — the binding's junit/hamcrest/androidx.test closure sat permanently in the debug/profile runtime graphs for inert evidence files; the `analysis_options.yaml` exclusion of the preserved probes achieves the same resolvability story without the graph cost. Allowlist re-frozen accordingly (the instrumentation closure left); `make check` green.
+- **2026-09-05 — review: frozen Always/AC amended to the deferral contract.** Sergio chose (code-review decision) to rewrite the still-binding Always/AC so 5.2 copies one contract: unblocked, face-only @ `minFaceSize: 0.0`, 4 FN / 12 accepted, reopen before 5.5. Companion patches: live BAR sections rewritten to that rule; epic-5-context names the interim; report historical sections marked superseded.
 
 ## Design Notes
 
@@ -166,7 +167,7 @@ context:
 - Preserved instruments (v1 = run 1 + final smoke; v2 = pose era) with sha256 identity
   [`face_gate_probe_test.dart:1`](../../face-gate/probe/face_gate_probe_test.dart#L1)
 
-- Nine known probe defects to fix on restore — recorded, deliberately not patched
+- Fourteen known probe defects to fix on restore — recorded, deliberately not patched
   [`report.md:620`](../../face-gate/results/report.md#L620)
 
 - Operator recipe: which copy restores under which name
@@ -176,3 +177,14 @@ context:
 
 - Composition deferral + the two review-deferred guards (pin check, gitignore check)
   [`deferred-work.md:1`](deferred-work.md#L1)
+
+### Review Findings
+
+- [x] [Review][Patch] Amend frozen Always/AC to the deferral contract (5.2 unblocked; face-only @ `minFaceSize: 0.0`; 4 FN / 12 accepted; reopen before 5.5) [_bmad-output/implementation-artifacts/5-1-the-on-device-face-gate-verified-before-it-is-trusted.md:36]
+- [x] [Review][Patch] BAR.md live bar/gate-rule sections still encode face ∨ pose [face-gate/BAR.md:26]
+- [x] [Review][Patch] epic-5-context still states FN target zero with no interim/reopen [\_bmad-output/implementation-artifacts/epic-5-context.md:28]
+- [x] [Review][Patch] report.md historical sections still read as current (gated / no remedy / v2 alive) [face-gate/results/report.md:311]
+- [x] [Review][Patch] gitignore covers only `face-gate/corpus/photos/` exactly [.gitignore:75]
+- [x] [Review][Patch] committed manifest has no sha256 of the machine-local JPEGs [face-gate/corpus/manifest.json:10]
+- [x] [Review][Patch] instrument-record still has placeholder `〈story commit〉` [face-gate/results/report.md:278]
+- [x] [Review][Patch] known-probe-defects list is missing five extra restore items [face-gate/results/report.md:620]
