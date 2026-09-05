@@ -649,6 +649,20 @@ Widget _harness(
   ),
 );
 
+/// A slicer whose every ask parks behind its own held completer — the
+/// multi-flight shape (the epic-4 retro's concurrent row): two asks on
+/// two deals can be genuinely in flight at once, and the test releases
+/// each outcome when it chooses, in any order.
+class _IndependentSlicer implements SlicerPort {
+  final calls = <Completer<SlicerOutcome>>[];
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) {
+    final call = Completer<SlicerOutcome>();
+    calls.add(call);
+    return call.future;
+  }
+}
+
 void main() {
   final shipped = File(catalogueAssetPath).readAsStringSync();
 
@@ -2490,6 +2504,75 @@ void main() {
     );
     expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a late discarded success cannot rearm a degraded '
+      'successor — two flights land out of order, the successor\'s '
+      'control stays skip-only for the rest of its deal (FR-5)', (
+    tester,
+  ) async {
+    final slicer = _IndependentSlicer();
+    final store = _RecordingStore();
+    await launchAndCommit(tester, store, slicer: slicer);
+    final firstId = dealtEntryOf(store)!.itemId;
+
+    // Flight A: the ask on the stuck card parks on the provider.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(slicer.calls, hasLength(1));
+
+    // A tap inside the pending flight passes the card: A is skipped,
+    // the successor B deals — and B's own ask parks too.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    final successorId = latestDealtEntryOf(store)!.itemId;
+    expect(successorId, isNot(firstId));
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(slicer.calls, hasLength(2));
+
+    // B's flight fails first: the cause is stated once, the control
+    // degrades for the rest of B's deal, and the pop stands the card.
+    slicer.calls[1].complete(
+      const SlicerFailed(SlicerFailureCause.networkUnreachable),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(AppStringsEs().noSlicerOffline), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    // A's late success now lands into its ended deal: the core
+    // discards it (no facts, no supersede — B still stands), and the
+    // landing must not touch B's degrade.
+    slicer.calls[0].complete(
+      const SlicerDelivered(
+        '{"steps":['
+        '{"text":"Primer paso","duration_seconds":30},'
+        '{"text":"Segundo paso","duration_seconds":30}]}',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(store.facts, isEmpty);
+    expect(latestDealtEntryOf(store)!.itemId, successorId);
+
+    // The next tap on B is the plain skip — B already stated its
+    // failure, and a discarded late success of A may not rearm the
+    // ask.
+    await tester.tap(cardSecondaryFinder);
+    await tester.pumpAndSettle();
+    expect(
+      slicer.calls,
+      hasLength(2),
+      reason:
+          'B already stated its failure; a late discarded success of A '
+          'must not rearm B',
+    );
+    expect(
+      store.entries.where(
+        (entry) => entry.kind == 'card_skipped' && entry.itemId == successorId,
+      ),
+      hasLength(1),
+    );
   });
 
   testWidgets('a non-offline failure pushes its own cause string — an '

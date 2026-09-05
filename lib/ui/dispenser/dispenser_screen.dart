@@ -464,9 +464,18 @@ class _DispenserScreenState extends State<DispenserScreen>
         case DispenserRescueSucceeded(:final view):
           // The activation committed: the counter is reset, and the
           // deal it reset is over — a superseded deal needs neither
-          // marker, and a later deal of anything starts clean.
-          _autoRescueFiredForDeal = null;
-          _degradedRescueDealId = null;
+          // marker. Only the flight's OWN markers die with it,
+          // though: a late delivery into an ended deal is discarded
+          // by the core, and whatever deal now stands (a successor
+          // whose own ask already failed) owns its markers alone —
+          // its control stays degraded for the rest of that deal
+          // (FR-5), unrearmed by a discarded landing.
+          if (_autoRescueFiredForDeal == dealt.card.id) {
+            _autoRescueFiredForDeal = null;
+          }
+          if (_degradedRescueDealId == dealt.card.id) {
+            _degradedRescueDealId = null;
+          }
           _writeInFlight = true;
           setState(() => _view = view);
           // The old card remains in the render tree until this
