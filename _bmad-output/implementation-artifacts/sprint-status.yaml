@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-05-2026 10:15
+last_updated: 09-05-2026 11:54
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -48,7 +48,6 @@ development_status:
   1-10-the-unsplit-secondary-control-the-skip-half: done
   1-11-proof-that-lateness-cannot-be-expressed: done
   epic-1-retrospective: optional
-
   epic-2: done
   2-1-the-time-bag-and-the-way-into-settings: done
   2-2-the-declared-pocket-and-the-derived-session: done
@@ -58,14 +57,12 @@ development_status:
   2-6-the-weekly-self-report-and-the-deterministic-slot-handoff: done
   2-7-warm-return: done
   epic-2-retrospective: optional
-
   epic-3: done
   3-1-on-device-recognition-availability-verified-on-the-handsets: done
   3-2-manual-capture-one-line-three-sizes-and-a-frame-instead-of-a: done
   3-3-the-capture-comes-back-as-an-ordinary-card: done
   3-4-dictation-into-the-capture-line: done
   epic-3-retrospective: optional
-
   epic-4: done
   4-1-the-model-evaluation-harness-and-provider-selection: done
   4-2-the-egress-chokepoint-sealed-three-ways: done
@@ -74,17 +71,21 @@ development_status:
   4-5-honest-degradation-one-calm-surface-seven-strings-one-exit: done
   4-6-rescue-mode: done
   epic-4-retrospective: done
-
   epic-5: backlog
   5-1-the-on-device-face-gate-verified-before-it-is-trusted: backlog
   5-2-the-camera-entry-and-shooting-the-frame: backlog
-  5-3-per-scan-consent-the-upload-and-the-scan-s-whole-lifecycle: backlog
-  5-4-epic-project-genesis-by-photograph-or-in-writing: backlog
-  5-5-invisible-buffers: backlog
-  5-6-cluster-curation-in-its-three-homes: backlog
-  5-7-the-gentle-seasonal-suggestion: backlog
+  5-3-the-image-seam-sealed-before-a-payload-ships: backlog
+  5-4-the-scan-cache-and-its-single-use-consent-token: backlog
+  5-5-the-consent-gate: backlog
+  5-6-the-unbounded-wait-and-honest-abandonment: backlog
+  5-7-the-slice-lands-as-steps: backlog
+  5-8-typed-genesis-analizar: backlog
+  5-9-epic-material-in-the-weave: backlog
+  5-10-invisible-buffers: backlog
+  5-11-the-curation-row-and-its-settings-home: backlog
+  5-12-curation-s-other-two-homes-the-e1-surface-and-the-one-time-strip: backlog
+  5-13-the-gentle-seasonal-suggestion: backlog
   epic-5-retrospective: optional
-
   epic-6: backlog
   6-1-purge-comes-first: backlog
   6-2-the-two-detachment-questions: backlog
@@ -92,70 +93,81 @@ development_status:
   6-4-the-quarantine-box-and-its-blind-timer: backlog
   6-5-the-cumulative-declutter-metric: backlog
   epic-6-retrospective: optional
-
   epic-7: backlog
   7-1-the-before-after-reward: backlog
   7-2-the-local-transformation-album: backlog
   7-3-the-cumulative-impact-dashboard: backlog
   epic-7-retrospective: optional
-
   epic-8: backlog
   8-1-one-silent-channel-that-cannot-be-widened: backlog
   8-2-one-per-domestic-day-rescheduled-after-boot: backlog
   epic-8-retrospective: optional
-
   epic-9: backlog
   9-1-the-four-series-on-the-device-and-nowhere-else: backlog
   9-2-the-generational-export-and-the-coordinator-that-keeps-it-wh: backlog
   9-3-restore-and-the-property-test-that-earns-the-name: backlog
   epic-9-retrospective: optional
 action_items:
-  - id: "epic-4-retro-item-1-epic-4-f1-guard-the-rescue-success-branc"
-    epic: 4
-    action: "Epic 4 F1: guard the rescue success branch (deal-stands check like the
-      failure branch) so a discarded late success cannot re-arm a degraded deal; commit
-      a reduced multi-flight regression test and delete test/ui/dispenser/retro_concurrent_rescue_test.dart
-      (restores green gate)"
-    owner: "dev-loop"
-    status: done
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
-  - id: "epic-4-retro-item-2-epic-4-f2-funnel-non-answer-write-path-c"
-    epic: 4
-    action: "Epic 4 F2: funnel non-answer write-path commits (declarePocket/energy/report/pause/extend/dismissals)
-      through _commitView so warranted deals auto-rescue per FR-5, plus the missing
-      pin"
-    owner: "dev-loop"
-    status: open
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
-  - id: "epic-4-retro-item-3-epic-4-f3-bound-rescue-step-text-length"
-    epic: 4
-    action: "Epic 4 F3: bound rescue step text length in parseRescueSteps — over-long
-      step text rejects as malformed"
-    owner: "dev-loop"
-    status: open
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
-  - id: "epic-4-retro-item-4-epic-4-f4-add-an-android-debug-build-ste"
-    epic: 4
-    action: "Epic 4 F4: add an Android debug-build step (make build) to ci.yml so
-      Kotlin compiles in CI; follow up with an androidTest for CredentialKeystore/CredentialsChannel
-      round-trip and fold matrix"
-    owner: "dev-loop"
-    status: open
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
-  - id: "epic-4-retro-item-5-epic-4-f5-epic-5-pre-work-image-seam-fix"
-    epic: 4
-    action: "Epic 4 F5 (Epic 5 pre-work): image seam fixes before scan payloads ship
-      — pass-through mime truthfulness (image_cap vs imageMimeTypeOf), reclassify
-      pre-transport decode failures out of malformedResponse, revisit the 16MP pixel
-      ceiling for low-RAM devices"
-    owner: "epic-5-planning"
-    status: open
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
-  - id: "epic-4-retro-item-6-epic-4-f6-hardening-backlog-background-e"
-    epic: 4
-    action: "Epic 4 F6 (hardening backlog): background executor for the Keystore channel;
-      narrow on Object to on Exception (byok_slicer, dispenser_controller); empty-plaintext
-      vault guard; optional digest pin for the byok_wire-eval tool string"
-    owner: "backlog"
-    status: open
-    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md"
+- id: epic-4-retro-item-1-epic-4-f1-guard-the-rescue-success-branc
+  epic: 4
+  action: 'Epic 4 F1: guard the rescue success branch (deal-stands check like the failure branch) so a
+    discarded late success cannot re-arm a degraded deal; commit a reduced multi-flight regression test
+    and delete test/ui/dispenser/retro_concurrent_rescue_test.dart (restores green gate)'
+  owner: dev-loop
+  status: done
+  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+- id: epic-4-retro-item-2-epic-4-f2-funnel-non-answer-write-path-c
+  epic: 4
+  action: 'Epic 4 F2: funnel non-answer write-path commits (declarePocket/energy/report/pause/extend/dismissals)
+    through _commitView so warranted deals auto-rescue per FR-5, plus the missing pin'
+  owner: dev-loop
+  status: done
+  ref: _bmad-output/implementation-artifacts/spec-epic4-f2-commitview-funnel.md
+- id: epic-4-retro-item-3-epic-4-f3-bound-rescue-step-text-length
+  epic: 4
+  action: 'Epic 4 F3: bound rescue step text length in parseRescueSteps — over-long step text rejects
+    as malformed'
+  owner: dev-loop
+  status: done
+  ref: _bmad-output/implementation-artifacts/spec-epic4-f3-rescue-step-text-bound.md
+- id: epic-4-retro-item-4-epic-4-f4-add-an-android-debug-build-ste
+  epic: 4
+  action: 'Epic 4 F4: add an Android debug-build step (make build) to ci.yml so Kotlin compiles in CI;
+    follow up with an androidTest for CredentialKeystore/CredentialsChannel round-trip and fold matrix'
+  owner: dev-loop
+  status: open
+  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+- id: epic-4-retro-item-5-epic-4-f5-epic-5-pre-work-image-seam-fix
+  epic: 4
+  action: 'Epic 4 F5 (Epic 5 pre-work): image seam fixes before scan payloads ship — pass-through mime
+    truthfulness (image_cap vs imageMimeTypeOf), reclassify pre-transport decode failures out of malformedResponse,
+    revisit the 16MP pixel ceiling for low-RAM devices. -> materialized as Story 5.3 (re-partition 2026-09-05,
+    sprint-change-proposal-2026-09-05); stays open until that story is done'
+  owner: epic-5-planning
+  status: open
+  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+- id: epic-4-retro-item-6-epic-4-f6-hardening-backlog-background-e
+  epic: 4
+  action: 'Epic 4 F6 (hardening backlog): background executor for the Keystore channel; narrow on Object
+    to on Exception (byok_slicer, dispenser_controller); empty-plaintext vault guard; optional digest
+    pin for the byok_wire-eval tool string'
+  owner: backlog
+  status: open
+  ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
+- id: epic-4-retro-item-7-split-dispenser-view-arms-before-epic-5
+  epic: 4
+  action: Split dispenser_screen.dart view arms (dealt/closed/checkpoint/strip/no-slicer; pure refactor,
+    tests stay green) before Epic 5 adds scan/genesis arms — F7 advice signed 2026-09-05 (session 'La
+    dieta de las stories y el coro'); doubles as the choir orchestrator's warm-up (timed, not counted)
+  owner: dev-loop
+  status: open
+  ref: _bmad-output/planning-artifacts/sprint-change-proposal-2026-09-05.md
+- id: epic-5-choir-pilot-run-and-measure
+  epic: 5
+  action: 'Run the choir pilot per _bmad-output/implementation-artifacts/choir-pilot-protocol.md: pairs
+    A (5.4 vs 5.10), B (5.7 vs 5.13), C (5.11 vs 5.12); record credits per story (orchestrator and workers
+    separately), wall time and gate outcome; written verdict at the Epic 5 retrospective feeds Epic 6''s
+    mode decision at its door'
+  owner: dev-loop
+  status: open
+  ref: _bmad-output/implementation-artifacts/choir-pilot-protocol.md

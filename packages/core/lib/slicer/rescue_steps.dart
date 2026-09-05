@@ -12,11 +12,15 @@
 /// library's own statement of the same three names, and the parity is
 /// pinned from the shell side: a test there feeds the contract's own
 /// derived field names and the Local stub's canned body through this
-/// parse, so a drift in either direction fails the gate. The bounds
-/// are the contract's — 2–4 steps, each 1–60 seconds — and they are
-/// re-enforced here whatever a wire dropped on the way out (Gemini's
-/// dialect carries no minItems/maxItems by design; the parse is where
-/// the bounds hold).
+/// parse, so a drift in either direction fails the gate. The count
+/// and duration bounds are the contract's — 2–4 steps, each 1–60
+/// seconds — and they are re-enforced here whatever a wire dropped on
+/// the way out (Gemini's dialect carries no minItems/maxItems by
+/// design; the parse is where the bounds hold). The text bound
+/// (`rescueStepTextMost`) is this parse's own — the wire schema says
+/// only "string" — and it refuses a longer step whole rather than
+/// truncate it: verbatim words serve the one-card surface, or the
+/// body is not a slice this build would weave as work.
 
 library;
 
@@ -37,6 +41,19 @@ const int rescueStepSecondsLeast = 1;
 /// the ≤ 60 s band, the same ceiling a 🔴 day admits by.
 const int rescueStepSecondsMost = 60;
 
+/// The per-step most text length, in UTF-16 code units, measured on
+/// the text AFTER the parse's own trim — never the raw wire string,
+/// so padding neither saves nor condemns a step. The pair's least is
+/// the parse's existing non-empty check (one unit), the same
+/// Least/Most pairing the count and duration bounds keep. This bound
+/// is the parse's own (the wire schema carries none), and it is per
+/// step because the card shows one step at a time — a 2–4 step body
+/// is a ladder, not one wall. A step past it refuses the whole body,
+/// never trims the words into shape: the taxonomy's honesty rides
+/// verbatim text, so a wall is refused rather than edited (AD-23's
+/// no-repair rule, the one the parse below cites).
+const int rescueStepTextMost = 120;
+
 /// The steps array's wire name — `rescue_contract.dart`'s canonical
 /// schema derives the same name; parity is pinned from the shell side.
 const String rescueWireStepsField = 'steps';
@@ -53,10 +70,11 @@ const String rescueWireDurationField = 'duration_seconds';
 typedef RescueStep = ({String text, int durationSeconds});
 
 /// Parses [body] against the rescue contract: a JSON object holding a
-/// `steps` array of 2–4 objects, each a non-empty `text` string and an
-/// integer `duration_seconds` of 1–60 — the bounds the wires cannot be
-/// trusted to have enforced, restated here as the single reader. A body
-/// that fails any clause answers null: one failure cause
+/// `steps` array of 2–4 objects, each a non-empty `text` string of at
+/// most `rescueStepTextMost` code units (measured after trim) and an
+/// integer `duration_seconds` of 1–60 — the bounds the wires cannot
+/// be trusted to have enforced, restated here as the single reader. A
+/// body that fails any clause answers null: one failure cause
 /// (`malformedResponse`) covers them all, and nothing here repairs,
 /// retries or coaxes a near-miss into shape (AD-23's tolerance is for
 /// unknown log kinds, never for a slice this build would weave as
@@ -91,6 +109,9 @@ List<RescueStep>? parseRescueSteps(String body) {
     }
     final text = textWire.trim();
     if (text.isEmpty) {
+      return null;
+    }
+    if (text.length > rescueStepTextMost) {
       return null;
     }
     final Object? durationWire = stepWire[rescueWireDurationField];

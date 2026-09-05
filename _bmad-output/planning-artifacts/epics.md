@@ -112,25 +112,25 @@ Source of record: **ARCHITECTURE-SPINE.md** (status final, updated 2026-08-27). 
 | AD-1 | No plan is ever stored; the day is derived from (pool, log, day, session) | 1.6, 2.1, 6.4 |
 | AD-2 | Both stores insert-only, enforced by SQL triggers in a `.drift` file | 1.3 |
 | AD-3 | Determinism; `card_dealt` written by a command, never by rendering | 1.1, 1.6 |
-| AD-4 | One calendar authority: 04:00 day, Monday week, meteorological season; SM-2 persists until answered | 1.4, 2.6, 5.7, 8.2 |
+| AD-4 | One calendar authority: 04:00 day, Monday week, meteorological season; SM-2 persists until answered | 1.4, 2.6, 5.13, 8.2 |
 | AD-5 | Core sealed (no flutter/drift/plugins, CI-enforced); no adapter names inside | 1.1 |
 | AD-6 | NL-1 in the read API: no collections of pending/captured tasks; signals named as facts | 1.6, 3.3 |
 | AD-7 | One egress chokepoint sealed three ways; exactly three payload shapes, no fourth as a type | 4.2 |
-| AD-8 | Consent a single-use `ScanConsent` token; scan cache unlinked on every terminal path | 5.2, 5.3 |
+| AD-8 | Consent a single-use `ScanConsent` token; scan cache unlinked on every terminal path | 5.2, 5.4, 5.5, 5.6 |
 | AD-9 / AD-10 | `SlicerPort`'s three implementations; compile-time provider allowlist, no-training gate | 4.4, 4.1 |
 | AD-11 | Three Kotlin channels (notify, dictate, credentials); no socket, no date arithmetic | 3.4, 4.3, 8.1 |
 | AD-12 | Egress map a closed list; no network SDK for any reason; `crash_recorded` is the only diagnostic | 1.3, 4.2 |
 | AD-13 | Export authoritative/derived split; one foreground coordinator; `(generationSequence, generationId)` order | 9.2, 9.3 |
-| AD-14 | Origin set at genesis, immutable, inherited by rescue steps, never in the Dispenser | 1.3, 3.2, 4.6, 5.4 |
+| AD-14 | Origin set at genesis, immutable, inherited by rescue steps, never in the Dispenser | 1.3, 3.2, 4.6, 5.7, 5.9 |
 | AD-15 | The shipped ARB is the string table; no literals; pinned keys need value + sign-off | 1.2, 4.5 |
 | AD-16 | Catalogue a build-time asset: four fields, ARB names keyed by id, 28-deal rotation test | 1.5, 1.7, 4.6 |
 | AD-17 | Three runtime permissions at first use; inexact alarm; `RECEIVE_BOOT_COMPLETED`; no exact-alarm | 3.4, 5.2, 8.2 |
 | AD-18 | Update path is the restore path: one keystore, install-on-top, debug never on a validation handset | 9.3 |
 | AD-19 | No session of record; a session belongs to its start day; exactly three closing causes | 2.2 |
-| AD-20 | One resolver owns the Focus slot: occupancy vs identity, Epic arbitration, below-floor fallback | 1.6, 3.3, 5.4, 6.1 |
+| AD-20 | One resolver owns the Focus slot: occupancy vs identity, Epic arbitration, below-floor fallback | 1.6, 3.3, 5.9, 6.1 |
 | AD-21 | One log of user acts and system events; no entry asserts an absence; store seal | 1.3 |
 | AD-22 | No secret in log, pool or export; vault envelopes; `withCredential` per request | 4.3 |
-| AD-23 | Forward-only evolution: unknown kinds tolerated, payloads additive, catalogue ids permanent | 1.3, 1.5, 5.3, 9.3 |
+| AD-23 | Forward-only evolution: unknown kinds tolerated, payloads additive, catalogue ids permanent | 1.3, 1.5, 5.4, 5.7, 9.3 |
 | AD-24 | Exactly one `EligibleDay(item, day)`; `warmReturnDue` the one sibling | 2.7, 3.3, 4.6 |
 | AD-25 | Pool membership derived; no synthetic completion; dissolution retires the chain atomically | 4.6, 1.11 |
 | AD-26 | Achievement figures cross only to the dashboard; internal signals never cross as numbers | 7.3, 9.1 |
@@ -165,10 +165,10 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 20 | Battery check-in marks: registered charge filling from the left, no offset | 2.5 |
 | 21 | Mic capsule at the field's end; state declared in ink and prose, never by motion | 3.4 |
 | 22 | `ambient-strip`: six residents, at most one visible; ephemeral bare, persistent hairline | 2.5 |
-| 23 | `curation-row`: one component, three homes, cadence as the only description | 5.6 |
+| 23 | `curation-row`: one component, three homes, cadence as the only description | 5.11, 5.12 |
 | 24 | Cámara entry: absent never greyed; reversal in Settings; visibility = enabled ∧ permission | 5.2 |
-| 25 | `Nuevo proyecto`: quiet text affordance carrying typed entry + the Settings way-out | 2.1, 5.4 |
-| 26 | `action-equal-pair` consent gate: zero recommended actions, no fill on either | 5.3 |
+| 25 | `Nuevo proyecto`: quiet text affordance carrying typed entry + the Settings way-out | 2.1, 5.8 |
+| 26 | `action-equal-pair` consent gate: zero recommended actions, no fill on either | 5.5 |
 | 27 | `destination-flow`: three glyphs at 64px, one decision per screen, no tile or default | 6.3 |
 | 28 | `zone-marker` Hoja footer: a place-marker, not a control | 1.8 |
 | 29 | `photo-frame`: 3:4, labels outside, empty frame of the right shape while loading | 7.1, 7.2 |
@@ -176,7 +176,7 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 31 | The surface map exactly as sited | all |
 | 32 | Contextual navigation plus one quiet prose departure; no nav bar, no destination list | 7.2, 7.3 |
 | 33 | Settings as a flat platform list in five quiet groups | 2.1, 4.4, 8.1, 9.2 |
-| 34 | Onboarding = the product plus one one-time strip; the first card in ≤ 2 s | 5.6 |
+| 34 | Onboarding = the product plus one one-time strip; the first card in ≤ 2 s | 5.12 |
 | 35 | Two declared exceptions and no third; dashboard density must not propagate | 7.3 |
 | 36 | The denominator rule as a checkable review gate, value by value | 7.3 |
 | 37 | The volume line carries no glyph (glyph-adjacency rule) | 6.5, 7.3 |
@@ -283,7 +283,7 @@ That is incidental sharing of stable components, not the same component redesign
 | E2 | 2.1 Time Bag + way into Settings · 2.2 declared pocket + derived session · 2.3 pause · 2.4 checkpoint · 2.5 ambient strip + check-in · 2.6 weekly self-report · 2.7 Warm Return | FR-4, 6, 7, 8, 9, 10 |
 | E3 | 3.1 recognition availability probe · 3.2 Manual Capture · 3.3 the capture returns · 3.4 dictation | FR-27, 32 |
 | E4 | 4.1 model harness · 4.2 egress seal · 4.3 credential vault · 4.4 port + allowlist · 4.5 honest degradation · 4.6 Rescue Mode | FR-5, 28, 29 |
-| E5 | 5.1 face gate · 5.2 camera entry · 5.3 consent + scan lifecycle · 5.4 genesis · 5.5 buffers · 5.6 curation's three homes · 5.7 seasonal suggestion | FR-11 *(Epic)*, 13, 15, 16, 25, 31 *(curation)* |
+| E5 | 5.1 face gate · 5.2 camera entry + shoot · 5.3 image seam (pre-work) · 5.4 scan cache + consent token · 5.5 consent gate · 5.6 unbounded wait · 5.7 slice lands as steps · 5.8 typed genesis · 5.9 Epic material in the weave · 5.10 buffers · 5.11 curation-row + Settings · 5.12 E1 surface + one-time strip · 5.13 seasonal suggestion | FR-11 *(Epic)*, 13, 15, 16, 25, 31 *(curation)* |
 | E6 | 6.1 purge first · 6.2 detachment questions · 6.3 three destinations · 6.4 Quarantine Box · 6.5 declutter metric | FR-19, 20, 21, 22 |
 | E7 | 7.1 Before/After · 7.2 Transformation Album · 7.3 impact dashboard | FR-17, 18, 23 |
 | E8 | 8.1 one silent channel · 8.2 one per domestic day + boot | FR-24 |
@@ -329,10 +329,12 @@ Every check the validation step mandates was run against the written stories rat
 | Rescue needed the degradation surface | FR-5's no-Slicer path degrades per FR-29, whose surface was built one story later | **4.5 and 4.6 swapped** — degradation now precedes rescue |
 | The scan surface needed the consent token | AD-8 makes a `ScanConsent` a compile-time precondition of upload, so the wait and the slice outcome could not exist before the token | The upload, the wait and the slice outcomes moved from **5.2 into 5.3**; 5.2 now ends at the face gate, and both stories were retitled to match |
 
+**Re-partitioned 2026-09-05** (story size budget — correct-course, session *La dieta de las stories y el coro*): Epic 5's seven stories became thirteen. The ordering fixes above still hold under the new numbering — old 5.2 still ends at the face gate (with the refusal AC now explicit in new 5.2), and old 5.3's token-before-upload constraint now spans new 5.4 (token) → 5.5 (gate) → 5.6 (upload). Old→new: 5.1→5.1 · 5.2→5.2 · 5.3→5.4+5.5+5.6+5.7 · 5.4→5.8+5.9 · 5.5→5.10 · 5.6→5.11+5.12 · 5.7→5.13; new 5.3 is Epic 4 retro finding F5 (image seam), scheduled before the first payload ships.
+
 **Two findings that are not defects in this document but are worth carrying forward:**
 
 1. **A `shipped` Evergreen task's Origin Context was undefined, and FR-5 needs one to re-slice — decided 2026-08-27: its Spanish catalogue name, one line, exactly the Manual Capture shape (debt 4, paid).** Story 4.6 is where it bites.
-2. **One acceptance criterion in Story 1.11 is vacuous until Epic 5.** Its *"no milestone is in an overdue state"* clause has no milestones to check while Epic Projects do not exist. It is not wrong and it costs nothing — Story 5.5 tests the same property for real once buffers exist — but a reader should not mistake the Epic 1 pass for evidence about buffers.
+2. **One acceptance criterion in Story 1.11 is vacuous until Epic 5.** Its *"no milestone is in an overdue state"* clause has no milestones to check while Epic Projects do not exist. It is not wrong and it costs nothing — Story 5.10 tests the same property for real once buffers exist — but a reader should not mistake the Epic 1 pass for evidence about buffers.
 
 **Checks that passed without change:** FR coverage (32/32 with the two declared splits); Story 1.1 is a scaffold story, not a template clone; both stores land in one story because Epic 1 genuinely needs both, later epics adding fields additively under AD-23; ports declared by first consumer; epic independence in both directions; and `core/weave` overlap answered by AD-20's candidate-precedence extension point (rationale in the Epic List).
 
@@ -1770,7 +1772,7 @@ So that being stuck produces a smaller ask rather than a quiet accusation.
 
 **Given** a rescue step's pool fact
 **When** it is written
-**Then** it carries the step's **estimate in seconds, verbatim from the Slicer's tag**, and a size from Story 5.3's one fixed banding — ≤ 60 s → the 30 s size — with every duration-consuming rule reading the estimate and the size governing only same-size precedence and shape counting (AD-23, FR-5)
+**Then** it carries the step's **estimate in seconds, verbatim from the Slicer's tag**, and a size from Story 5.7's one fixed banding — ≤ 60 s → the 30 s size — with every duration-consuming rule reading the estimate and the size governing only same-size precedence and shape counting (AD-23, FR-5)
 
 **Given** a rescue re-slice
 **When** it is requested, returned or failed
@@ -1823,9 +1825,10 @@ The user photographs a real space — or describes one in writing — and is sho
 
 **Scope notes:**
 
-- **Story 5.1 gates 5.2 and 5.3.** The face gate is a privacy guarantee resting on a **community-maintained** dependency the architecture already lists among its three fragile ones. Its bar is asymmetric and that asymmetry is the whole point: a false positive costs an annoyance, a false negative **uploads a photograph of a person**, which is the failure FR-25 exists to prevent.
+- **Re-partitioned 2026-09-05** (story size budget, correct-course, session *La dieta de las stories y el coro*): the original seven stories became thirteen; acceptance criteria were redistributed, none invented, none lost, and FR/AD/UX-DR coverage is unchanged. Old→new mapping: 5.1→5.1 · 5.2→5.2 (+ the face-refusal AC from old 5.3) · old 5.3→5.4+5.5+5.6+5.7 · old 5.4→5.8+5.9 · old 5.5→5.10 · old 5.6→5.11+5.12 · old 5.7→5.13. New 5.3 is the Epic 4 retro's **F5 image-seam pre-work** (finding 5, `epic-4-retro-2026-09-05.md`) and lands before the first scan payload leaves the device.
+- **Story 5.1 gates the camera chain (5.2 through 5.7).** The face gate is a privacy guarantee resting on a **community-maintained** dependency the architecture already lists among its three fragile ones. Its bar is asymmetric and that asymmetry is the whole point: a false positive costs an annoyance, a false negative **uploads a photograph of a person**, which is the failure FR-25 exists to prevent.
 - **This epic completes the genesis surface Epic 2 half-built.** Epic 2 put the `Nuevo proyecto` affordance on the Dispenser carrying only its Settings way-out; this epic adds typed project entry as that surface's recommended action, restoring principle 1's literal arithmetic — one recommended action plus one way out. E2 stays dissolved.
-- **The `Files` port gains the per-scan cache**, additively on the adapter Epic 4 declared for credential envelopes.
+- **The `Files` port gains the per-scan cache** (Story 5.4), additively on the adapter Epic 4 declared for credential envelopes.
 
 **Implementation notes:** both genesis entrances, A-slim — the Cámara entry sited directly on the Dispenser (visibility = enabled ∧ permission not refused, with the single Settings row owning both the disable toggle and the reactivation) and the typed genesis surface behind `Nuevo proyecto` carrying one recommended action plus its way out. AD-8's single-use `ScanConsent` token bound to the scan's cache subdirectory, minted after the on-device face gate and before the resolution cap; both scan files unlinked on **every** terminal path, with a sweep at each `app_opened` as the crash backstop. Adds Epic material as a candidate source with AD-20's least-recently-served arbitration. Builds the `action-equal-pair` consent gate — the only surface in the app with zero recommended actions — and the `curation-row` in all three homes. Onboarding is the product plus one one-time strip: no wizard, because the ≤ 2 s contract holds hardest on day one.
 
@@ -1899,13 +1902,41 @@ So that starting a project costs a photo instead of a form.
 
 **Given** the camera surface
 **When** the user shoots
-**Then** the frame is written to that scan's own cache subdirectory and handed to the on-device face gate — and **no upload path is reachable from this story**, because AD-8 makes a `ScanConsent` a compile-time precondition of upload and Story 5.3 is what mints one (FR-16, AD-8)
+**Then** the frame is written to that scan's own cache subdirectory and handed to the on-device face gate — and **no upload path is reachable from this story**, because AD-8 makes a `ScanConsent` a compile-time precondition of upload and Story 5.4 is what mints one (FR-16, AD-8)
 
-### Story 5.3: Per-scan consent, the upload and the scan's whole lifecycle
+**Given** a person or face detected in the frame
+**When** the scan is handled
+**Then** it is refused **on-device, before upload**, with an offer to reframe, and a `face_refused` entry is appended — **the refusal is about the frame, never about the user** (FR-25, AD-21; moved here from old 5.3 in the 2026-09-05 re-partition, because the gate runs at shoot, before consent is minted)
 
-As Sergio,
-I want to be asked every single time before a photo of the inside of my home leaves the device,
-So that consent is a decision I make rather than a setting I once forgot.
+### Story 5.3: The image seam, sealed before a payload ships
+
+As a builder,
+I want the image path's mime truthfulness, failure taxonomy and memory ceiling made honest before the first scan payload leaves the device,
+So that Epic 4's sealed egress keeps its promises the moment it starts carrying photographs.
+
+**Acceptance Criteria:**
+
+**Given** a decodable sub-cap image whose bytes are not JPEG or PNG (WebP, GIF, BMP)
+**When** it passes the image cap toward the wire
+**Then** the payload's declared mime is the **true sniffed type** — `image_cap` and `imageMimeTypeOf` agree on every input, and a type the wire cannot declare rejects as malformed **before transport** rather than being mislabelled `image/jpeg` (Epic 4 retro F5, AD-7)
+
+**Given** bytes that cannot be decoded at all
+**When** the image cap attempts them
+**Then** the failure is classified as a **pre-transport malformed-input failure**, never folded into `malformedResponse` — the taxonomy's delivered-but-unusable bucket stays honest because nothing was ever sent (Epic 4 retro F5, FR-29, AD-7)
+
+**Given** a low-RAM device mid-camera-flow
+**When** the pixel ceiling is revisited
+**Then** the 16 MP `egressPixelCeiling` no longer admits rasters — plus resize/encode buffers — that OOM-kill the flow: the ceiling is lowered or a decode-bound guard added, decided against the memory arithmetic and recorded (Epic 4 retro F5)
+
+**Given** the three fixes
+**When** this story lands
+**Then** the committed suites pin each — a non-JPEG/PNG decodable input carries its true mime or rejects pre-transport; undecodable input never reaches `malformedResponse`; the ceiling change is asserted — **and this story precedes the consented upload (5.5–5.6) shipping the first scan payload** (ordering constraint, 2026-09-05 re-partition)
+
+### Story 5.4: The scan cache and its single-use consent token
+
+As a builder,
+I want the scan's cache subdirectory and its single-use `ScanConsent` token to exist before any consent surface does,
+So that AD-8's compile-time precondition is already true when the gate asks its question.
 
 **Acceptance Criteria:**
 
@@ -1917,9 +1948,37 @@ So that consent is a decision I make rather than a setting I once forgot.
 **When** it is minted
 **Then** it is minted **after the on-device face gate and before the resolution cap**, binds to the scan's cache subdirectory identity, and is **consumable once** — so the cap operates inside the binding rather than producing a new subject (AD-8)
 
+**Given** a scan
+**When** its files are examined
+**Then** it owns **one cache subdirectory holding at most two files** — the frame and its capped copy (AD-8)
+
+**Given** a scan that resolves by **any** means — a plan, a face refusal, a declined consent, a provider failure, or the user leaving or backgrounding the app
+**When** resolution completes
+**Then** **both files are unlinked**, whichever cause came first (AD-8, NFR14)
+
+**Given** a crash between minting and resolution
+**When** the app is next opened
+**Then** a sweep of the scan cache directory runs at `app_opened` as the backstop (AD-8, NFR14)
+
+**Given** the `Files` port
+**When** the cache is added to it
+**Then** the per-scan cache extends the adapter Epic 4 declared for credential envelopes **additively** — no existing capability reopens (AD-23)
+
+**Given** the `consent_granted` entry
+**When** its power is examined
+**Then** it is **instrumentation only and carries no capability**: the token is never persisted, never exported and never reconstructible from the log (AD-8)
+
 **Given** the app's settings
 **When** they are searched for a consent preference
 **Then** **no blanket "always allow" exists**, and it must not be added as a convenience — consent is asked per scan, every scan (FR-25)
+
+### Story 5.5: The consent gate
+
+As Sergio,
+I want to be asked every single time before a photo of the inside of my home leaves the device,
+So that consent is a decision I make rather than a setting I once forgot.
+
+**Acceptance Criteria:**
 
 **Given** the consent gate
 **When** it is rendered
@@ -1942,29 +2001,21 @@ So that consent is a decision I make rather than a setting I once forgot.
 **When** the flow continues
 **Then** no upload happens, the user lands on the no-Slicer surface with its own string and the `Anotarlo` exit, and there is **no re-ask, no persuasion and no second attempt at the gate** (FR-25, FR-29)
 
-**Given** a person or face detected in the frame
-**When** the scan is handled
-**Then** it is refused **on-device, before upload**, with an offer to reframe, and a `face_refused` entry is appended — **the refusal is about the frame, never about the user** (FR-25, AD-21)
-
-**Given** a scan
-**When** its files are examined
-**Then** it owns **one cache subdirectory holding at most two files** — the frame and its capped copy (AD-8)
-
-**Given** a scan that resolves by **any** means — a plan, a face refusal, a declined consent, a provider failure, or the user leaving or backgrounding the app
-**When** resolution completes
-**Then** **both files are unlinked**, whichever cause came first (AD-8, NFR14)
-
-**Given** a crash between minting and resolution
-**When** the app is next opened
-**Then** a sweep of the scan cache directory runs at `app_opened` as the backstop (AD-8, NFR14)
-
-**Given** the `consent_granted` entry
-**When** its power is examined
-**Then** it is **instrumentation only and carries no capability**: the token is never persisted, never exported and never reconstructible from the log (AD-8)
-
 **Given** what is sent
 **When** the payload is inspected
 **Then** it is only the scan image and a prompt — **no plan history, no album contents, no device or location identifiers** (FR-25, NFR4)
+
+**Given** the consent gate's strings
+**When** this story is planned
+**Then** the equal actions are `Enviar la foto` and `No enviarla`; the body is `La foto se procesará por [proveedor] para obtener las tareas necesarias.` (UX-DR52)
+
+### Story 5.6: The unbounded wait and honest abandonment
+
+As Sergio,
+I want the scan's wait to happen where I can see it and to cost me nothing when I walk away,
+So that patience is mine to spend and leaving is always free.
+
+**Acceptance Criteria:**
 
 **Given** a granted consent
 **When** the upload runs and the wait is rendered
@@ -1974,6 +2025,18 @@ So that consent is a decision I make rather than a setting I once forgot.
 **Given** the user leaves the scan surface or backgrounds the app mid-wait
 **When** the scan resolves
 **Then** the wait is **cancelled and discarded**, a `scan_abandoned` entry is appended, and **nothing is queued** (FR-16, AD-8, AD-21)
+
+**Given** the scan-wait affordance
+**When** this story is planned
+**Then** the unbounded wait says `Creando tareas` beside an indeterminate animated writing pencil (UX-DR56)
+
+### Story 5.7: The slice lands as steps
+
+As Sergio,
+I want the scan to come back as steps I can actually do — timed honestly, kept in context, with the photo itself gone,
+So that the space stops being a wall and becomes ten minutes.
+
+**Acceptance Criteria:**
 
 **Given** a successful slice
 **When** the steps are returned
@@ -1991,11 +2054,7 @@ So that consent is a decision I make rather than a setting I once forgot.
 **When** the scan's data is handled
 **Then** the Slicer's structured description of the space is retained as **Origin Context** for future re-slicing, and the image itself is discarded (FR-16, FR-25, FR-5)
 
-**Given** the consent gate's strings and the scan-wait affordance
-**When** this story is planned
-**Then** the equal actions are `Enviar la foto` and `No enviarla`; the body is `La foto se procesará por [proveedor] para obtener las tareas necesarias.`; the unbounded wait says `Creando tareas` beside an indeterminate animated writing pencil (UX-DR52, UX-DR56)
-
-### Story 5.4: Epic Project genesis, by photograph or in writing
+### Story 5.8: Typed genesis — `Analizar`
 
 As Sergio,
 I want the trastero to become a thing with a first step instead of a wall,
@@ -2011,10 +2070,6 @@ So that a project I have been avoiding for months starts with ten minutes.
 **When** they are compared
 **Then** the photo path is the Dispenser's own Cámara entry and the typed path sits behind the affordance; **neither is a precondition for the other**, and reaching manual entry costs one tap and asks for no reason (FR-11)
 
-**Given** any template or archetype
-**When** an Epic Project is created
-**Then** **no Epic Project is ever created from a template** — Epic material always comes from the Slicer, from input the user supplied (FR-11)
-
 **Given** the typed genesis surface
 **When** the user sends a description
 **Then** the surface states in plain Spanish that the description will be analysed to create tasks, and **`Analizar` is the consent action** — no separate dialog and no provider name on this text-genesis surface (FR-25, NFR4)
@@ -2026,6 +2081,26 @@ So that a project I have been avoiding for months starts with ten minutes.
 **Given** a genesis call
 **When** it is instrumented
 **Then** it is recorded in FR-26 series (b) on the **same terms as a photo scan**, so the text path is instrumented like the photo path (FR-26)
+
+**Given** no reachable Slicer
+**When** genesis is attempted by either entrance
+**Then** it degrades per FR-29 and the Evergreen day keeps working — the app names which half is unavailable (FR-11, FR-29)
+
+**Given** the genesis surface's drafted strings
+**When** this story is planned
+**Then** the consent action is `Analizar` and the quiet exit is `Volver`; the surface says the description will be analysed to create tasks without naming the provider (UX-DR52)
+
+### Story 5.9: Epic material in the weave
+
+As a builder,
+I want Epic Project material to enter the weave as ordinary candidates under the one resolver,
+So that a sliced project composes like everything else and nothing about it becomes a list.
+
+**Acceptance Criteria:**
+
+**Given** any template or archetype
+**When** an Epic Project is created
+**Then** **no Epic Project is ever created from a template** — Epic material always comes from the Slicer, from input the user supplied (FR-11)
 
 **Given** a created Epic Project
 **When** its lifecycle is inspected
@@ -2044,15 +2119,7 @@ So that a project I have been avoiding for months starts with ten minutes.
 **When** the surface is rendered
 **Then** they are shown **one card — the first step — and never the plan**: nothing enumerates the rest, so there is nothing to dread (FR-1, UJ-2)
 
-**Given** no reachable Slicer
-**When** genesis is attempted by either entrance
-**Then** it degrades per FR-29 and the Evergreen day keeps working — the app names which half is unavailable (FR-11, FR-29)
-
-**Given** the genesis surface's drafted strings
-**When** this story is planned
-**Then** the consent action is `Analizar` and the quiet exit is `Volver`; the surface says the description will be analysed to create tasks without naming the provider (UX-DR52)
-
-### Story 5.5: Invisible buffers
+### Story 5.10: Invisible buffers
 
 As Sergio,
 I want the app to have already absorbed the days I will inevitably miss,
@@ -2080,7 +2147,7 @@ So that a week away costs me nothing I can see.
 **When** any surface is audited
 **Then** slack appears nowhere: no bar, no percentage, no "days remaining", no configuration row (FR-13, §1.1 P4)
 
-### Story 5.6: Cluster curation in its three homes
+### Story 5.11: The curation-row and its Settings home
 
 As Sergio,
 I want to switch off the parts of the house I do not have,
@@ -2096,7 +2163,7 @@ So that the app stops offering me a terrace I never had, without ever showing me
 **When** it is read
 **Then** it says one of `diaria` / `semanal` / `mensual-estacional` and is **the row's only description** — rhythm is product metadata, not volume, and FR-31 forbids counting tasks while cadence counts nothing (UX-DR23)
 
-**Given** the three homes — the E1 template surface, onboarding's one-time strip offer, and Settings' sub-screen
+**Given** the row's three homes — the E1 template surface (5.12), onboarding's one-time strip offer (5.12), and Settings' sub-screen (this story)
 **When** each is rendered
 **Then** all three render the **identical row**, so curation looks like itself everywhere it is found (UX-DR23)
 **And** none of the three may read as a browsable catalogue (FR-31)
@@ -2110,11 +2177,6 @@ So that the app stops offering me a terrace I never had, without ever showing me
 **When** its granularity is checked
 **Then** it is **cluster level only and never a task-level row** — a browsable 80-item catalogue is the list NL-1 abolishes, arriving through the template door (FR-31)
 
-**Given** the E1 template surface
-**When** it is built
-**Then** it opens **from the genesis surface** — the complement to typed entry, never a third top-level path — rendered in the identical `curation-row`, and its exception licence lives here and nowhere else (FR-11, E1)
-**And** it enumerates **templates and clusters, never the individual catalogue entries inside them**, and selecting a template enables or disables Evergreen clusters only — it never creates an Epic Project (FR-11, FR-31, E1)
-
 **Given** a curation change
 **When** it takes effect
 **Then** **weekly zones change at the next week boundary** — the rotation argument is theirs — and **daily and `fondo` clusters change immediately**, where FR-31's *simply never appear* governs (AD-16)
@@ -2127,6 +2189,19 @@ So that the app stops offering me a terrace I never had, without ever showing me
 **When** curation is looked for
 **Then** it is reachable from **onboarding and Settings only, never from the Dispenser** (FR-31, NFR3)
 **And** Settings' **Contenido de la casa** group holds it as a sub-screen (UX-DR33)
+
+### Story 5.12: Curation's other two homes — the E1 surface and the one-time strip
+
+As Sergio,
+I want the same quiet switch to find me where curation naturally lives — picking a starting shape, or first opening the app — without either place becoming a catalogue,
+So that choosing what applies to my house never costs a list.
+
+**Acceptance Criteria:**
+
+**Given** the E1 template surface
+**When** it is built
+**Then** it opens **from the genesis surface** — the complement to typed entry, never a third top-level path — rendered in the identical `curation-row`, and its exception licence lives here and nowhere else (FR-11, E1)
+**And** it enumerates **templates and clusters, never the individual catalogue entries inside them**, and selecting a template enables or disables Evergreen clusters only — it never creates an Epic Project (FR-11, FR-31, E1)
 
 **Given** first run
 **When** onboarding is rendered
@@ -2144,7 +2219,7 @@ So that the app stops offering me a terrace I never had, without ever showing me
 **When** this story is planned
 **Then** it is `Ajustar grupos de tareas`, tappable once on the strip and gone forever when dismissed (UX-DR52)
 
-### Story 5.7: The gentle seasonal suggestion
+### Story 5.13: The gentle seasonal suggestion
 
 As Sergio,
 I want the app to mention the closet switch when spring arrives and then drop it,

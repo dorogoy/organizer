@@ -166,8 +166,9 @@ List<LogEntryContent> rescueRequested({
 typedef RescueStepSeed = ({String id, RescueStep step});
 
 /// `slice_returned` plus the steps it minted (FR-5): the parsed steps
-/// ([parseRescueSteps]' own contract already bounds them 2–4 × 1–60 s)
-/// become transient pool facts — origin inherited from the parent,
+/// ([parseRescueSteps]' own contract already bounds them 2–4 × 1–60 s,
+/// each step's text at most `rescueStepTextMost` code units) become
+/// transient pool facts — origin inherited from the parent,
 /// size `instant`, estimate verbatim — and the supersede pair lands:
 /// the `slice_returned` row clears the standing dealt-but-unanswered
 /// card (the walk's rule), and the bundled next `card_dealt` resolves

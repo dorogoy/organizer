@@ -6,6 +6,12 @@ Loaded automatically by BMad skills as persistent facts. Canonical agent instruc
 
 - Every story (bmad-build) ends with `flutter test`, `dart format --set-exit-if-changed .` and `flutter analyze` all green, before the spec is presented for review. Full rule: `AGENTS.md` → Policy.
 
+## Story size budget
+
+- Every story spec measures **≤ 24 KB** (the spec file, `wc -c`, measured cold at review presentation). Over budget → the story is split at review, **before** implementation; the gate is numeric and never argued per case. Decided 2026-09-05 (epic-4 retro + correct-course); evidence: the three outliers — 42.4 / 32.5 / 31.6 KB — are the three that exhausted coding sessions; the completed range sits at 12–25 KB.
+- Canon: *"una story que no cabe en una sesión no cabe en la máquina"*.
+- Applies to the spec only. The choir pilot's worker briefs stay small by design and are governed by the pilot protocol, not by this gate.
+
 ## Development environment — devbox
 
 - The development toolchain is owned by **devbox** (`/usr/local/bin/devbox`, 0.18.0). `devbox.json` and a committed `devbox.lock` live at the repository root (created by Story 1.1); they are the single definition of the environment for every machine and for CI.

@@ -580,11 +580,14 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// Ends the rescue markers when the committed view is no longer the
   /// dealt card they key to (Story 4.6): both are per-DEAL state, and
   /// a different card standing — or no card at all, the closed
-  /// surface, a rest offer — is not that deal. Every commit site calls
-  /// this with the view it commits (`_commitView` for the read path,
-  /// each write path for its own), so a deal ended by a session close
-  /// or any crossing ends them exactly as an answer does, and a fresh
-  /// deal of the same item starts clean.
+  /// surface, a rest offer — is not that deal. `_commitView` calls
+  /// this with the view it commits for every read and, since the
+  /// epic-4 F2 funnel, the nine non-answer write paths too; the
+  /// answer paths clear the markers at their own deal's end, and the
+  /// rescue landings in `_onRescue` commit directly and manage their
+  /// own markers — so a deal ended by a session close or any crossing
+  /// ends them exactly as an answer does, and a fresh deal of the
+  /// same item starts clean.
   void _endRescueMarkersIfDealEnded(DispenserView view) {
     if (_degradedRescueDealId != null &&
         (view is! DispenserDealt || view.card.id != _degradedRescueDealId)) {
@@ -596,7 +599,10 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// Commits a resolved read: the view renders, and a completion waiting
+  /// The single commit owner: every resolved read (launch, resume,
+  /// refresh) commits here, and since the epic-4 F2 funnel so do the
+  /// nine non-answer write results, at the same position their old
+  /// direct commits held. The view renders, and a completion waiting
   /// on this commit shows its ack above it — the fixed window starts
   /// (or restarts, for a later completion) at the commit, never before.
   /// Since Story 4.6 the commit is also the auto-heuristic's moment
@@ -790,7 +796,7 @@ class _DispenserScreenState extends State<DispenserScreen>
     final tappedAt = widget.controller.nowOf();
     // A launch or foreground refresh may still be reading the old log. Its
     // result must not overwrite this answer after it lands.
-    _readGeneration++;
+    final generation = ++_readGeneration;
     var releaseAfterRefresh = false;
     try {
       await widget.sessionSettled?.call();
@@ -798,8 +804,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
-      _endRescueMarkersIfDealEnded(view);
-      setState(() => _view = view);
+      _commitView(view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks
       // cannot act.
@@ -812,9 +817,10 @@ class _DispenserScreenState extends State<DispenserScreen>
       // close or offer, strip included) returns instead of a blank.
       try {
         final view = await widget.controller.read();
-        if (mounted) {
-          _endRescueMarkersIfDealEnded(view);
-          setState(() => _view = view);
+        // A concurrent refresh superseded this recovery read; its
+        // commit must not overwrite.
+        if (mounted && generation == _readGeneration) {
+          _commitView(view);
         }
       } catch (_) {
         // The recovery read failed too: the empty frame is the
@@ -853,8 +859,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       await widget.sessionSettled?.call();
       final view = await widget.controller.dismissCheckIn(tapTime: tapTime);
       if (mounted) {
-        _endRescueMarkersIfDealEnded(view);
-        setState(() => _view = view);
+        _commitView(view);
         releaseAfterRefresh = true;
         _releaseWriteAfterRefreshFrame();
       }
@@ -889,7 +894,7 @@ class _DispenserScreenState extends State<DispenserScreen>
     final tappedAt = widget.controller.nowOf();
     // A launch or foreground refresh may still be reading the old log.
     // Its result must not overwrite this answer after it lands.
-    _readGeneration++;
+    final generation = ++_readGeneration;
     var releaseAfterRefresh = false;
     try {
       await widget.sessionSettled?.call();
@@ -900,8 +905,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
-      _endRescueMarkersIfDealEnded(view);
-      setState(() => _view = view);
+      _commitView(view);
       // The old surface remains in the render tree until this
       // refresh's frame. Keep the shared guard through it so its
       // stale callbacks cannot act.
@@ -914,9 +918,10 @@ class _DispenserScreenState extends State<DispenserScreen>
       // offer, report included) returns instead of a blank.
       try {
         final view = await widget.controller.read();
-        if (mounted) {
-          _endRescueMarkersIfDealEnded(view);
-          setState(() => _view = view);
+        // A concurrent refresh superseded this recovery read; its
+        // commit must not overwrite.
+        if (mounted && generation == _readGeneration) {
+          _commitView(view);
         }
       } catch (_) {
         // The recovery read failed too: the empty frame is the
@@ -956,8 +961,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       await widget.sessionSettled?.call();
       final view = await widget.controller.dismissReport(tapTime: tapTime);
       if (mounted) {
-        _endRescueMarkersIfDealEnded(view);
-        setState(() => _view = view);
+        _commitView(view);
         releaseAfterRefresh = true;
         _releaseWriteAfterRefreshFrame();
       }
@@ -1130,8 +1134,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
-      _endRescueMarkersIfDealEnded(view);
-      setState(() => _view = view);
+      _commitView(view);
       // The old card remains in the render tree until this refresh's frame.
       // Keep the shared guard through it so its stale callbacks cannot act.
       releaseAfterRefresh = true;
@@ -1177,8 +1180,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
-      _endRescueMarkersIfDealEnded(view);
-      setState(() => _view = view);
+      _commitView(view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks
       // cannot act.
@@ -1228,8 +1230,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!mounted) {
         return;
       }
-      _endRescueMarkersIfDealEnded(view);
-      setState(() => _view = view);
+      _commitView(view);
       // The old surface remains in the render tree until this refresh's
       // frame. Keep the shared guard through it so its stale callbacks
       // cannot act.
