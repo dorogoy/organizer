@@ -507,10 +507,12 @@ void main() {
   });
 
   test('the surface\'s callers are frozen — its own file names the widget, '
-      'the Dispenser screen (Story 4-6\'s rescue failure) and the scan '
+      'the Dispenser screen (Story 4-6\'s rescue failure), the scan '
       'surface (Story 5.2\'s face refusal, on the cause 4-5 shipped for '
-      'this caller) are the push sites; later callers renegotiate this '
-      'census when they arrive', () {
+      'this caller) and the consent gate (Story 5.5\'s decline and '
+      'failure arms, renegotiated additively when the caller arrived) '
+      'are the push sites; later callers renegotiate this census when '
+      'they arrive', () {
     final libDir = Directory('lib');
     expect(libDir.existsSync(), isTrue, reason: 'the scan must see a lib/');
     var files = 0;
@@ -540,11 +542,11 @@ void main() {
     expect(files, greaterThan(30), reason: 'a non-trivial lib/ was scanned');
     expect(
       referers,
-      hasLength(3),
+      hasLength(4),
       reason:
           'only the surface\'s own file, the Dispenser\'s rescue '
-          'failure push and the scan surface\'s face-refusal push '
-          'may name it',
+          'failure push, the scan surface\'s face-refusal push and '
+          'the consent gate\'s decline/failure pushes may name it',
     );
     expect(
       referers.any(
@@ -565,6 +567,15 @@ void main() {
       reason:
           'the 5.2 face-refusal push is the shipped caller 4-5 '
           'named this surface for',
+    );
+    expect(
+      referers.any(
+        (path) => path.endsWith('lib/ui/scan/consent_gate_screen.dart'),
+      ),
+      isTrue,
+      reason:
+          "the 5.5 decline and failure arms push it — the surface's "
+          'own consentDeclined cause and the standing failure map',
     );
   });
 }

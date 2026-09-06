@@ -17,6 +17,7 @@ import 'dart:async';
 
 import 'package:core/ports/face_gate_port.dart';
 import 'package:core/ports/files_port.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,7 @@ import 'package:organizer/scan/scan_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/no_slicer/no_slicer_surface.dart';
+import 'package:organizer/ui/scan/consent_gate_screen.dart';
 import 'package:organizer/ui/scan/scan_screen.dart';
 import 'package:organizer/ui/theme.dart';
 
@@ -139,6 +141,22 @@ class _FakeGate implements FaceGatePort {
   Future<FaceGateOutcome> gate(String framePath) async => outcome;
 }
 
+/// The Slicer fake: requests recorded, outcome steered (the routing
+/// matrix's delivered and failed arms).
+class _FakeSlicer implements SlicerPort {
+  _FakeSlicer({SlicerOutcome? outcome})
+    : outcome = outcome ?? const SlicerDelivered('[{"text": "x"}]');
+
+  SlicerOutcome outcome;
+  final requests = <ScanSliceRequest>[];
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) async {
+    requests.add(request as ScanSliceRequest);
+    return outcome;
+  }
+}
+
 DateTime _fixedClock() => DateTime.utc(2026, 9, 5, 10);
 
 void main() {
@@ -177,11 +195,15 @@ void main() {
     _RecordingFiles files,
     CameraShell camera, {
     FaceGatePort? gate,
+    SlicerPort? slicer,
+    Future<String?> Function()? readSelectedProvider,
   }) => ScanController(
     store: store,
     files: files,
     camera: camera,
     gate: gate,
+    slicer: slicer,
+    readSelectedProvider: readSelectedProvider,
     nowOf: _fixedClock,
   );
 
@@ -235,10 +257,65 @@ void main() {
     expect(texts.toSet(), {strings.scanShutter});
   });
 
-  testWidgets('a passing gate closes quietly: the route pops, the '
-      'scan unlinks, nothing is appended (the chain continues in 5.5)', (
+  testWidgets('a passing gate with a selected provider but NO slicer '
+      'seam: the gate never renders — the half-wired composition folds '
+      'closed with the same quiet pop (the gate-seam convention)', (
     tester,
   ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+        readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.text(launchWord), findsOneWidget);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+  });
+
+  testWidgets('a throwing provider read is the fail-closed quiet pop — '
+      'route gone, the scan closed, no gate, no rows', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: _FakeSlicer(),
+        readSelectedProvider: () async => throw StateError('read threw'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+  });
+
+  testWidgets('an id outside the frozen allowlist renders the no-key '
+      'surface, never the gate with an empty name — the derivation '
+      'gates charset, membership is the pre-gate read\'s', (tester) async {
     final store = _RecordingStore();
     final files = _RecordingFiles();
     await launch(
@@ -248,14 +325,203 @@ void main() {
         files,
         _FakeCamera(),
         gate: _FakeGate(const FaceGatePass()),
+        slicer: _FakeSlicer(),
+        // Charset-valid ([a-z0-9_]) but no allowlist entry.
+        readSelectedProvider: () async => 'unknown_provider',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(NoSlicerSurface), findsOneWidget);
+    expect(find.text(strings.noSlicerNoKey), findsOneWidget);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+  });
+
+  testWidgets('a passing gate with a selected provider replaces the '
+      'route with the consent gate — the frame survives the pass, no row '
+      'stands (the consent continuation, Story 5.5)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: _FakeSlicer(),
+        readSelectedProvider: () async => 'gemini',
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text(strings.scanShutter));
     await tester.pumpAndSettle();
     expect(find.byType(ScanScreen), findsNothing);
+    expect(find.byType(ConsentGateScreen), findsOneWidget);
+    // The body interpolates the provider's rendered name.
+    expect(
+      find.text(strings.consentGateBody(strings.providerNameGemini)),
+      findsOneWidget,
+    );
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isEmpty);
+  });
+
+  testWidgets('a passing gate with NO provider selected: the gate never '
+      'renders — the no-key surface replaces the route and the scan '
+      'closes quietly (consent is never asked for a request that cannot '
+      'be made)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: _FakeSlicer(),
+        readSelectedProvider: () async => null,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(NoSlicerSurface), findsOneWidget);
+    expect(find.text(strings.noSlicerNoKey), findsOneWidget);
     expect(store.entries, isEmpty);
     expect(files.unlinkedScans, isNotEmpty);
+  });
+
+  testWidgets('declining from the gate routes the no-Slicer surface with '
+      'its own string — one consent_declined row, the slicer never '
+      'called, no re-ask (FR-25, FR-29)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final slicer = _FakeSlicer();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.text(strings.consentGateDecline), findsOneWidget);
+    await tester.tap(find.text(strings.consentGateDecline));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(NoSlicerSurface), findsOneWidget);
+    expect(find.text(strings.noSlicerConsentDeclined), findsOneWidget);
+    expect(store.entries, hasLength(1));
+    expect(store.entries.single.kind, 'consent_declined');
+    expect(slicer.requests, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+  });
+
+  testWidgets('accepting from the gate dispatches exactly once and '
+      'closes quietly to the Dispenser on delivery — one consent_granted '
+      'row, the interim discard (P2-A), nothing queued', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final slicer = _FakeSlicer();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.consentGateSend));
+    await tester.pumpAndSettle();
+    // Delivered: the scan closes to the Dispenser — the launch surface
+    // is back, nothing landed, no second answer exists.
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.text(launchWord), findsOneWidget);
+    expect(slicer.requests, hasLength(1));
+    expect(store.entries, hasLength(1));
+    expect(store.entries.single.kind, 'consent_granted');
+    expect(files.unlinkedScans, isNotEmpty);
+  });
+
+  testWidgets('a failed dispatch routes the no-Slicer surface through '
+      "the standing cause map — the failure arm's string, not a new one", (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final slicer = _FakeSlicer(
+      outcome: const SlicerFailed(SlicerFailureCause.invalidKey),
+    );
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.consentGateSend));
+    await tester.pumpAndSettle();
+    expect(find.byType(NoSlicerSurface), findsOneWidget);
+    expect(find.text(strings.noSlicerInvalidKey), findsOneWidget);
+    expect(store.entries.single.kind, 'consent_granted');
+    expect(files.unlinkedScans, isNotEmpty);
+  });
+
+  testWidgets('the system back on the gate leaves quietly: no row, the '
+      'scan closes — leaving is not declining', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera();
+    final slicer = _FakeSlicer();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.text(launchWord), findsOneWidget);
+    expect(store.entries, isEmpty);
+    expect(slicer.requests, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
   });
 
   testWidgets('a refused frame replaces the route with the one calm '

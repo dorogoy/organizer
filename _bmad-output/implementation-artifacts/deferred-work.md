@@ -293,3 +293,12 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/5-3-the-image-seam-sealed-before-a-payload-ships.md`
   summary: The recorded 50–63 MB JPEG peak in `egressPixelCeiling`'s doc counts one 12.5 MP uint8 raster + a ≤1536² target + bounded encode buffers. It omits `compute()`'s copy of the input, the parent isolate still holding those bytes, `bakeOrientation`'s second full-size raster on tagged camera JPEGs, and `copyResize` keeping source and dest. Revising the ruled 12.5 MP ceiling is Sergio's call; the 16 MP path was worse.
   evidence: Code review 2026-09-06 (round 3) — Blind Hunter on `image_cap.dart` arithmetic; production capture remains `ResolutionPreset.max` (bounded preset still deferred).
+- source_spec: `_bmad-output/implementation-artifacts/5-5-the-consent-gate.md`
+  summary: The scan prompt's step contract (real actions, integer 3–5-minute tags, JSON-only) is pinned by no test — a silent edit to the duration band or shape fails nothing.
+  evidence: Surfaced by the 5.5 blind-hunter review layer; the response-side contract validation that actually gates this lands with Story 5.7's slice landing (`slice_failed` mapping), so a prompt-side pin now would be rewritten by 5.7 — deferred to that story's suite.
+- source_spec: `_bmad-output/implementation-artifacts/5-5-the-consent-gate.md`
+  summary: The consent gate's action pair exposes no button semantics to screen readers (raw Material+InkWell, the house idiom) — an app-wide semantics/accessibility pass is wanted, not a single-surface divergence.
+  evidence: Surfaced by the 5.5 blind-hunter review layer; every existing action (HechoButton, SecondaryTextAction, no-Slicer exit) uses the same idiom, so adding Semantics only at the gate would make it the sole semantic button — the pass must cover the app's action grammar at once.
+- source_spec: `_bmad-output/implementation-artifacts/5-5-the-consent-gate.md`
+  summary: The provider the consent gate names (read before the gate) and the provider that actually receives the payload (resolved per-call inside the slicer at dispatch) are two unbound reads — safe only because Settings is unreachable beneath the modal scan chain.
+  evidence: Surfaced by the 5.5 blind-hunter review layer; binding them requires carrying the provider id in the request, and the sealed egress shapes (AD-8/AD-23, frozen for 5.5) cannot grow a field — record for the Epic 5 retro and Story 5.8 (typed genesis inherits the same shape).

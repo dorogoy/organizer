@@ -23,6 +23,21 @@ import '../tokens.dart';
 /// named infrastructure identifier on the UI module's AD-15 terms.
 const String uncoveredProviderRender = '';
 
+/// The rendered name for an allowlist id — the one display-name truth
+/// (Story 5.5): the ARB is the one home of provider copy, matched to
+/// the frozen entries by test (an id the table does not cover fails
+/// the build there, so the empty arm is unreachable). Lifted from the
+/// settings section's private helper so the consent gate's body
+/// interpolates the same name the pills render — never a second
+/// spelling of a provider.
+String providerNameOf(AppStrings strings, String id) => switch (id) {
+  geminiProviderId => strings.providerNameGemini,
+  openAiProviderId => strings.providerNameOpenai,
+  anthropicProviderId => strings.providerNameAnthropic,
+  openRouterProviderId => strings.providerNameOpenrouter,
+  _ => uncoveredProviderRender,
+};
+
 /// The IA y voz group's access content (FR-28): provider pills in
 /// the `size-option` grammar (selected `accent-soft` fill, unselected
 /// raised with a 1px hairline, 48dp minimum, `rounded.full`, no
@@ -181,7 +196,7 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
       children: [
         for (final entry in slicerProviderAllowlist) ...[
           _ProviderOption(
-            label: _providerNameOf(strings, entry.id),
+            label: providerNameOf(strings, entry.id),
             selected: _selectedProvider == entry.id,
             onTap: () => _onEntryTap(entry.id),
           ),
@@ -206,18 +221,6 @@ class _SlicerAccessSectionState extends State<SlicerAccessSection> {
       ],
     );
   }
-
-  /// The rendered name for an allowlist id — the ARB is the one home
-  /// of provider copy, matched to the frozen entries by test (an id
-  /// the table does not cover fails the build there, so the empty
-  /// arm is unreachable).
-  static String _providerNameOf(AppStrings strings, String id) => switch (id) {
-    geminiProviderId => strings.providerNameGemini,
-    openAiProviderId => strings.providerNameOpenai,
-    anthropicProviderId => strings.providerNameAnthropic,
-    openRouterProviderId => strings.providerNameOpenrouter,
-    _ => uncoveredProviderRender,
-  };
 
   /// The rendered terms sentence for an allowlist id — the same
   /// coverage contract as the name.

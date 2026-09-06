@@ -16,6 +16,8 @@ import 'dart:async';
 
 import 'package:core/ports/face_gate_port.dart';
 import 'package:core/ports/files_port.dart';
+import 'package:core/ports/scan_consent.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -188,6 +190,38 @@ class _FakeGate implements FaceGatePort {
   }
 }
 
+/// The Slicer fake: the requests the tests read (bytes, prompt, scanId,
+/// token), the outcome the tests steer, and an in-flight window the
+/// close epoch races against.
+class _FakeSlicer implements SlicerPort {
+  _FakeSlicer({SlicerOutcome? outcome})
+    : outcome =
+          outcome ??
+          const SlicerDelivered('[{"text": "x", "duration_minutes": 4}]');
+
+  SlicerOutcome outcome;
+
+  /// When set, [slice] throws — a malfunctioning seam, never a
+  /// taxonomy value (the containment arm's own test input).
+  Object? throwOnSlice;
+  final requests = <ScanSliceRequest>[];
+  Completer<void>? gate;
+
+  @override
+  Future<SlicerOutcome> slice(SlicerRequest request) async {
+    requests.add(request as ScanSliceRequest);
+    final gate = this.gate;
+    if (gate != null) {
+      await gate.future;
+    }
+    final throwOnSlice = this.throwOnSlice;
+    if (throwOnSlice != null) {
+      throw throwOnSlice;
+    }
+    return outcome;
+  }
+}
+
 DateTime _fixedClock() => DateTime.utc(2026, 9, 5, 10);
 
 void main() {
@@ -346,12 +380,16 @@ void main() {
       _RecordingFiles files,
       _FakeCamera camera, {
       FaceGatePort? gate,
+      SlicerPort? slicer,
+      Future<String?> Function()? readSelectedProvider,
     }) async {
       final controller = ScanController(
         store: store,
         files: files,
         camera: camera,
         gate: gate,
+        slicer: slicer,
+        readSelectedProvider: readSelectedProvider,
         idMinter: const Uuid(),
         nowOf: _fixedClock,
       );
@@ -359,25 +397,28 @@ void main() {
       return controller;
     }
 
-    test('no face: the gate passes, the frame is written before the '
-        'gate runs, the directory unlinks, nothing is appended — the '
-        'quiet close (the chain continues in 5.5)', () async {
+    test('no face: the gate passes and the frame SURVIVES the pass — '
+        'the directory is not unlinked, nothing is appended, and the arm '
+        'carries the standing scan identity plus the frame bytes (the '
+        "consent act's payload, Story 5.5)", () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final gate = _FakeGate(const FaceGatePass());
-      final controller = await openGranted(
-        store,
-        files,
-        _FakeCamera(),
-        gate: gate,
-      );
+      final camera = _FakeCamera()
+        ..shotOutcome = const CameraShotCaptured([7, 8, 9]);
+      final controller = await openGranted(store, files, camera, gate: gate);
       final outcome = await controller.shoot();
-      expect(outcome, isA<ScanShootClosed>());
-      // The frame was written and the gate read the written path.
+      expect(outcome, isA<ScanShootGatePassed>());
+      final passed = outcome as ScanShootGatePassed;
+      expect(passed.scanId, isNotEmpty);
+      // The frame was written and the gate read the written path; the
+      // bytes themselves are pinned by the accept test below, through
+      // the one dispatch (the arm carries the identity, not the bytes).
       expect(files.writtenFrames, hasLength(1));
       expect(gate.gatedPaths, [files.framePathToReturn]);
-      // The scan's directory unlinked — no frame lingers.
-      expect(files.unlinkedScans, hasLength(1));
+      // Gate-pass is no longer a terminal path: the directory stands
+      // for the consent act to resolve.
+      expect(files.unlinkedScans, isEmpty);
       expect(store.entries, isEmpty);
     });
 
@@ -592,6 +633,209 @@ void main() {
       await Future.wait([first, second]);
       expect(files.writtenFrames, hasLength(1));
       expect(store.entries, hasLength(1));
+    });
+  });
+
+  group('consent — the phase after the gate pass (Story 5.5, FR-25, '
+      'AD-8, FR-29)', () {
+    /// A standing scan at the consent moment: shot bytes [1, 2, 3],
+    /// the gate passed, the frame surviving.
+    Future<(ScanController, ScanShootGatePassed)> standingScan(
+      _RecordingStore store,
+      _RecordingFiles files, {
+      _FakeSlicer? slicer,
+      Future<String?> Function()? readSelectedProvider,
+    }) async {
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: _FakeCamera()
+          ..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: readSelectedProvider,
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      final outcome = await controller.shoot();
+      expect(outcome, isA<ScanShootGatePassed>());
+      return (controller, outcome as ScanShootGatePassed);
+    }
+
+    test('decline: exactly one payload-less consent_declined row, the '
+        'cache unlinked, the slicer never called, no consent_granted row '
+        '(FR-25, FR-29, AD-21)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer();
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      await controller.declineConsent();
+      expect(store.entries, hasLength(1));
+      final row = store.entries.single;
+      expect(row.kind, 'consent_declined');
+      expect(row.itemId, isNull);
+      expect(row.settingKey, isNull);
+      expect(row.permission, isNull);
+      expect(row.sliceCause, isNull);
+      expect(row.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+      expect(files.unlinkedScans, [passed.scanId]);
+      expect(slicer.requests, isEmpty);
+      // One decision exists: a second decline is nothing at all.
+      await controller.declineConsent();
+      expect(store.entries, hasLength(1));
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('accept: one consent_granted row, the token minted bound to '
+        'the standing scanId, exactly one slice carrying bytes + prompt '
+        '+ scanId + token — and the cache unlinked on the resolution '
+        '(AD-8, FR-25, NFR4)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer();
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentDelivered>());
+      expect(slicer.requests, hasLength(1));
+      final request = slicer.requests.single;
+      expect(request.imageBytes, [1, 2, 3]);
+      expect(request.scanId, passed.scanId);
+      expect(request.prompt, isNotEmpty);
+      expect(request.consent, isA<ScanConsent>());
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      expect(files.unlinkedScans, [passed.scanId]);
+      // One decision and one token: a second accept is nothing at all.
+      expect(await controller.grantConsent(), isA<ScanConsentStale>());
+      expect(slicer.requests, hasLength(1));
+      expect(store.entries, hasLength(1));
+    });
+
+    test('a failed dispatch surfaces the raw cause for the standing '
+        'map and unlinks the cache — the 4-5 mapping consumes it '
+        'unchanged', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerFailed(SlicerFailureCause.invalidKey);
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentFailed>());
+      expect(
+        (outcome as ScanConsentFailed).cause,
+        SlicerFailureCause.invalidKey,
+      );
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('a close mid-dispatch turns the late resolution into a stale '
+        "answer: no routing data, the close already unlinked, the act's "
+        "row stands (5.2's epoch discipline)", () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final granting = controller.grantConsent();
+      await controller.close();
+      expect(files.unlinkedScans, [passed.scanId]);
+      slicer.gate!.complete();
+      expect(await granting, isA<ScanConsentStale>());
+      // The close's unlink was the only one: the stale answer unlinked
+      // nothing new and recreated nothing.
+      expect(files.unlinkedScans, [passed.scanId]);
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    });
+
+    test('a decline after the scan ended is nothing at all — no row, '
+        'no second unlink', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final (controller, passed) = await standingScan(store, files);
+      await controller.close();
+      await controller.declineConsent();
+      expect(store.entries, isEmpty);
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('a rapid second decision is nothing: a decline while the '
+        'dispatch stands appends no second row and mints no second '
+        'token — one decision taken', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final granting = controller.grantConsent();
+      await controller.declineConsent();
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      slicer.gate!.complete();
+      expect(await granting, isA<ScanConsentDelivered>());
+      expect(slicer.requests, hasLength(1));
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('a close landing mid-decision folds the decline into nothing '
+        '— no row, the close\'s unlink the only one (leaving is not '
+        'declining)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final (controller, passed) = await standingScan(store, files);
+      final declining = controller.declineConsent();
+      // The close lands while the decision stands — between the
+      // once-guard and the append's commit.
+      await controller.close();
+      await declining;
+      expect(store.entries, isEmpty);
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('a throwing slicer seam is contained: the provider-unreachable '
+        'failure arm, the cache unlinked, no crash (the rescue path\'s own '
+        'containment)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()..throwOnSlice = StateError('seam threw');
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentFailed>());
+      expect(
+        (outcome as ScanConsentFailed).cause,
+        SlicerFailureCause.providerUnreachable,
+      );
+      expect(slicer.requests, hasLength(1));
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('no slicer behind the test seam: the accept folds closed — '
+        'nothing half-wired dispatches, no token minted, no row', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final (controller, _) = await standingScan(store, files);
+      expect(await controller.grantConsent(), isA<ScanConsentStale>());
+      expect(store.entries, isEmpty);
     });
   });
 

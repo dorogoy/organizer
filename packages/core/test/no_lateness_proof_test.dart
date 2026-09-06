@@ -2159,19 +2159,21 @@ final class KitchenSink {
     );
   });
 
-  test('the consent capability is minted by no production caller and '
-      'consumed by exactly one — the token has no second home (Story '
-      '5.4, AD-8)', () {
+  test('the consent capability is minted by exactly one production '
+      'caller and consumed by exactly one — the token has no second home '
+      '(Story 5.4, AD-8; mint caller renegotiated additively by Story '
+      '5.5)', () {
     // The walk covers both lib trees — the core's and the shell's —
     // over masked source (comments and string contents blanked, the
     // check_core_purity precedent), so a doc mention can never pose
     // as a call site and a quoted identifier can never pose as code.
     // `mintScanConsent` is legal only in its definition home (the
-    // sanctioned minter itself — zero production callers, exactly as
-    // the story pins; 5.5 renegotiates additively when it wires the
-    // consent act); `.consume(` only there and in the dispatch's scan
-    // branch. Test directories sit outside both trees and are not
-    // scanned: this census pins production only.
+    // sanctioned minter itself) and in the one production caller the
+    // consent act owns (the scan controller — Story 5.5's additive
+    // renegotiation, exactly as this census's comment promised);
+    // `.consume(` only there and in the dispatch's scan branch. Test
+    // directories sit outside both trees and are not scanned: this
+    // census pins production only.
     final masked = <String, String>{
       for (final path in _coreLibFiles())
         'packages/core/lib/$path': _withoutStrings(
@@ -2181,7 +2183,10 @@ final class KitchenSink {
         path: _withoutStrings(_withoutComments(_shellSource(path))),
     };
 
-    const mintAllowed = {'packages/core/lib/ports/scan_consent.dart'};
+    const mintAllowed = {
+      'packages/core/lib/ports/scan_consent.dart',
+      'lib/scan/scan_controller.dart',
+    };
     const consumeAllowed = {
       'packages/core/lib/ports/scan_consent.dart',
       'lib/egress/egress_dispatch.dart',
@@ -2207,8 +2212,8 @@ final class KitchenSink {
       mintOffenders,
       isEmpty,
       reason:
-          'a production mint caller outside the definition home — '
-          'wiring the mint is 5.5\'s, renegotiated additively',
+          'a production mint caller outside the definition home and the '
+          'one consent act — the token has no second home',
     );
     expect(
       consumeOffenders,
@@ -2217,9 +2222,14 @@ final class KitchenSink {
           'a second consumption site — one token authorizes one '
           'dispatch entry, and only the dispatch consumes',
     );
-    // Non-vacuous: the definition home carries the minter itself, and
-    // the dispatch's scan branch is the one consumption.
-    expect(mintSites, 1, reason: 'the sanctioned minter, defined once');
+    // Non-vacuous: the definition home carries the minter itself, the
+    // scan controller is its one production caller, and the dispatch's
+    // scan branch is the one consumption.
+    expect(
+      mintSites,
+      2,
+      reason: 'the sanctioned minter, defined once and called once',
+    );
     expect(
       consumeSites,
       1,

@@ -135,6 +135,13 @@ MomentEntry _consented(int micros, {String id = 'consent'}) => MomentEntry(
   kind: LogKind.consentGranted,
 );
 
+MomentEntry _declined(int micros, {String id = 'decline'}) => MomentEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.consentDeclined,
+);
+
 void main() {
   // "Now" for every read — Saturday 2026-08-29 12:00 UTC, the house
   // matrix clock. The 48 h boundary lands Thursday 2026-08-27 12:00.
@@ -349,6 +356,31 @@ void main() {
         reason:
             'consent_granted is a user act — the anchor is the act\'s '
             'own instant, under the threshold',
+      );
+    });
+
+    test('a consent decline is never contact — the user turning the '
+        'photo down is not the user using the app (Story 5.5, FR-25, '
+        'AD-21, the permission-refusal register)', () {
+      // Alone before the open at any distance: not contact, so not due.
+      expect(
+        due([_declined(before(const Duration(hours: 96))), _opened(now)]),
+        isFalse,
+        reason:
+            'a decline logs, but is not contact — no greeting owes '
+            'on it',
+      );
+      // The discriminating shape: the decline sits 47 h before the
+      // read and must not move the anchor off the 49 h-old open. Had
+      // the kind defaulted to contact, the predicate would read false.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _declined(before(const Duration(hours: 47))),
+          _opened(now),
+        ]),
+        isTrue,
+        reason: 'the anchor is the open — the decline moved it not at all',
       );
     });
 

@@ -258,6 +258,26 @@ void main() {
         isTrue,
         reason: 'the Dispenser rescue path must hold the composed slicer',
       );
+      // The consent phase (Story 5.5) rides the same composed slicer
+      // and the settings derivation's provider read — optional named
+      // args vanish silently, so dropping either seam would render the
+      // gate dead in production (accept folds stale) with every suite
+      // green. Bounded by the statement's semicolon, like the Files
+      // pin above, so the Dispenser's own `slicer:` cannot satisfy it.
+      expect(
+        RegExp(r'ScanController\([^;]*?slicer:\s*slicer').hasMatch(source),
+        isTrue,
+        reason: 'the scan consent phase must hold the composed slicer',
+      );
+      expect(
+        RegExp(
+          r'ScanController\([^;]*?readSelectedProvider:\s*settings\.readSelectedProvider',
+        ).hasMatch(source),
+        isTrue,
+        reason:
+            'the pre-gate availability read must come from the '
+            'settings derivation',
+      );
     },
   );
 }
