@@ -17,6 +17,16 @@
 // reactivate) and whose single tap opens the system's app-details
 // screen. No new group header: the flat list simply holds both, and
 // the row never confirms, never explains, never re-asks.
+//
+// Story 5.2 adds the camera row (FR-16, UX-DR33): one platform switch
+// row in the `IA y voz` group owning both the disable toggle and the
+// reactivation — the toggle's write is the reactivation, restoring
+// the Cámara entry's derived visibility wherever a refusal stood,
+// while the OS permission is asked again only at the next first use.
+// While a camera refusal row stands, the row also carries the quiet
+// reactivation affordance (the mic row's own premise twin), whose tap
+// opens the system's app-details screen; no feedback beyond the
+// switch itself, ever.
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 
@@ -61,6 +71,21 @@ class _SettingsScreenState extends State<SettingsScreen>
   /// first read resolves — absent, exactly as when the premise fails.
   bool _micReactivationAvailable = false;
 
+  /// The camera toggle's derived value (Story 5.2, FR-16): null until
+  /// the first read resolves — no loader, the switch renders off and
+  /// lands on the derivation's answer when the read commits.
+  bool? _cameraEnabled;
+
+  /// Whether the camera row carries the quiet reactivation affordance
+  /// (Story 5.2, FR-16): a camera refusal row stands. False until the
+  /// first read resolves.
+  bool _cameraReactivationAvailable = false;
+
+  // The camera facts read owns its own generation, beside the
+  // dictation read's: the two run concurrently from initState, and one
+  // must not retire the other.
+  var _cameraReadGeneration = 0;
+
   // Only the newest read may update the selection: an initial slow read can
   // otherwise complete after the post-write refresh and restore old state.
   var _readGeneration = 0;
@@ -80,6 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     WidgetsBinding.instance.addObserver(this);
     _readBag();
     _readDictationFacts();
+    _readCameraFacts();
   }
 
   @override
@@ -92,6 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _readDictationFacts();
+      _readCameraFacts();
     }
   }
 
@@ -156,6 +183,54 @@ class _SettingsScreenState extends State<SettingsScreen>
       return;
     }
     await _readBag();
+  }
+
+  /// Reads the camera row's facts (Story 5.2, FR-16): the toggle's
+  /// derived value and the reactivation affordance's premise. The same
+  /// quiet register as the bag read — a failed read changes nothing.
+  Future<void> _readCameraFacts() async {
+    final controller = widget.controller;
+    if (controller == null) {
+      return;
+    }
+    final generation = ++_cameraReadGeneration;
+    try {
+      final results = await Future.wait([
+        controller.readCameraEnabled(),
+        controller.readCameraReactivationAvailable(),
+      ]);
+      if (mounted && generation == _cameraReadGeneration) {
+        setState(() {
+          _cameraEnabled = results[0];
+          _cameraReactivationAvailable = results[1];
+        });
+      }
+    } catch (_) {
+      // Quiet: the switch stays as it was and the affordance stays
+      // absent.
+    }
+  }
+
+  /// The camera toggle's tap (Story 5.2, FR-16): exactly one
+  /// `setting_changed` row, then a re-read — the switch's own landing
+  /// is the whole feedback, and the write is the reactivation wherever
+  /// a refusal stood. A failed write is quiet and changes nothing.
+  Future<void> _onCameraToggle(bool enabled) async {
+    final controller = widget.controller;
+    // A tap before the first read resolves is nothing: the switch has
+    // no derived state to change yet, and the write would guess.
+    if (controller == null || _cameraEnabled == null) {
+      return;
+    }
+    if (enabled == _cameraEnabled) {
+      return;
+    }
+    try {
+      await controller.writeCameraEnabled(enabled);
+    } catch (_) {
+      return;
+    }
+    await _readCameraFacts();
   }
 
   /// The derived bag's off-ladder extra, when it has one: an in-range
@@ -249,6 +324,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                 onTap: _onOpenMicAppSettings,
               ),
             ],
+            // The camera row (Story 5.2, FR-16, UX-DR33): one platform
+            // switch row owning both the disable toggle and the
+            // reactivation — the reversal lives where the refusal was
+            // put. Nothing behind `Nuevo proyecto` changes with it,
+            // and no feedback exists beyond the switch itself.
+            const SizedBox(height: Spacing.taskToActions),
+            // The unread window renders the derivation's default
+            // (enabled), never off: an off→on flash would misstate
+            // the setting the log has not yet spoken for.
+            _CameraRow(
+              value: _cameraEnabled ?? defaultCameraEnabled,
+              onChanged: _onCameraToggle,
+            ),
+            // The camera reactivation affordance (Story 5.2): the mic
+            // row's own quiet twin, rendered exactly while a camera
+            // refusal row stands — one tap, the system's app-details
+            // screen, no confirmation and no re-ask.
+            if (_cameraReactivationAvailable) ...[
+              const SizedBox(height: Spacing.actionGap),
+              _ReactivationRow(
+                label: AppStrings.of(context).settingsCameraReactivate,
+                onTap: _onOpenCameraAppSettings,
+              ),
+            ],
           ],
         ),
       ),
@@ -261,6 +360,17 @@ class _SettingsScreenState extends State<SettingsScreen>
   Future<void> _onOpenMicAppSettings() async {
     try {
       await widget.controller?.openMicAppSettings();
+    } catch (_) {
+      // Quiet: nothing is surfaced, nothing changes.
+    }
+  }
+
+  /// The camera reactivation affordance's single action (Story 5.2):
+  /// the same system app-details screen through the camera row's own
+  /// path — quiet both ways, exactly as the mic row's.
+  Future<void> _onOpenCameraAppSettings() async {
+    try {
+      await widget.controller?.openCameraAppSettings();
     } catch (_) {
       // Quiet: nothing is surfaced, nothing changes.
     }
@@ -305,6 +415,69 @@ class _ReactivationRow extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.start,
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The camera row (Story 5.2, FR-16, UX-DR33): a quiet platform
+/// switch row in the flat list's own grammar — the label left in the
+/// action-secondary role, the switch right, the whole band a 48dp
+/// minimum target. The switch is the row's whole feedback: no
+/// confirmation, no state, no error surface (the bag row's own
+/// register), and the write it makes is the reactivation wherever a
+/// camera refusal stood.
+class _CameraRow extends StatelessWidget {
+  const _CameraRow({required this.value, this.onChanged});
+
+  final bool value;
+
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // The whole row band is the control — the `_ReactivationRow`'s
+    // own grammar, merged for readers: one node, the label as its
+    // spoken name, the switch's state as its toggle state, the band's
+    // 48dp minimum as its target. The platform switch keeps its own
+    // thumb inside the same merged node, so the visual control and
+    // the spoken one are the same thing.
+    return Semantics(
+      button: true,
+      label: AppStrings.of(context).settingsCameraLabel,
+      toggled: value,
+      child: GestureDetector(
+        // Absent, the tap stays an accepted no-op — a null onTap
+        // would render a disabled control instead (the row's band and
+        // the switch share this one handler).
+        onTap: onChanged == null ? () {} : () => onChanged!(!value),
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: Spacing.touchTargetMin),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.spacingBase),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    AppStrings.of(context).settingsCameraLabel,
+                    // bodyMedium is the wired action-secondary role
+                    // (theme.dart) — the row reads as quiet prose, the
+                    // settings list's own grammar.
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                Switch(
+                  // The same one handler the band carries — the two
+                  // controls are one.
+                  onChanged: onChanged ?? (_) {},
+                  value: value,
+                ),
+              ],
             ),
           ),
         ),

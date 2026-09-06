@@ -1143,6 +1143,11 @@ final class KitchenSink {
       'ports/slicer_port.dart:SlicerOutcome',
       'ports/slicer_port.dart:SlicerDelivered',
       'ports/slicer_port.dart:SlicerFailed',
+      // Story 5.2: the face gate port's sealed outcome union and its
+      // two decided states.
+      'ports/face_gate_port.dart:FaceGateOutcome',
+      'ports/face_gate_port.dart:FaceGatePass',
+      'ports/face_gate_port.dart:FaceGateRefusal',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
@@ -1170,6 +1175,9 @@ final class KitchenSink {
       // The slicer port interface (Story 4-4, AD-9) — a method
       // contract, no fields, on the ports' own terms.
       'ports/slicer_port.dart:SlicerPort',
+      // The face gate port interface (Story 5.2, AD-11) — a method
+      // contract, no fields, on the ports' own terms.
+      'ports/face_gate_port.dart:FaceGatePort',
       // The recognizer port's own state vocabularies (Story 3.4) —
       // enums with members and no fields.
       'ports/recognizer_port.dart:RecognizerAvailability',
@@ -1879,6 +1887,88 @@ final class KitchenSink {
     expect(commandMints, commandRefs);
     expect(
       RegExp(r'==\s*LogKind\.permissionRefused\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('face_refused is minted in exactly one file and read nowhere in '
+      'core — the kind rides the moment family and nothing else names it '
+      '(Story 5.2, FR-25, AD-21, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (whose moment
+    // classifier carries the kind — no subtype of its own, the
+    // `app_opened` precedent) and the one command file that mints it.
+    // Any reference anywhere else in core lib is a finding: the shell
+    // reads nothing of the kind (no derivation consumes it — the calm
+    // surface is the refusal's whole presentation), so even a reader
+    // here would be vocabulary growing past its story.
+    const allowed = {'log/log_entry.dart', 'commands/scan_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bfaceRefused\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the faceRefused identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'face_refused' anywhere else in core
+    // lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]face_refused['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'face_refused' outside the definition "
+          'home',
+    );
+
+    // The definition home: exactly the definition, the registry entry
+    // and the moment classifier — no subtype override exists, the
+    // `app_opened` precedent's own count.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]face_refused['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only face_refused wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\bfaceRefused\b').allMatches(definitionHome),
+      hasLength(3),
+      reason:
+          'the definition, registry and moment classifier are the only '
+          'faceRefused identifier uses in this file',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(_source('commands/scan_commands.dart'));
+    final commandRefs = RegExp(r'LogKind\.faceRefused\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.faceRefused\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.faceRefused\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
     );

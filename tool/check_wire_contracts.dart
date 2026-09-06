@@ -14,13 +14,18 @@
 // A constant renamed or drifted on either side is a finding here;
 // the Dart side of each channel is additionally pinned to
 // independent raw literals by its adapter test
-// (test/platform/…), so both halves are locked to the protocol,
-// not to each other's drift.
+// (test/platform/…, and test/plugins/… for the camera channel),
+// so both halves are locked to the protocol, not to each other's
+// drift.
 //
 // A new channel joins [wireContracts] in the same pass that writes
-// its two halves — the list is the census of hand-written channels
-// (AD-11: exactly three, notify/dictate/credentials — the third
-// arrives with its own story).
+// its two halves — the list is the census of SHIPPED hand-written
+// channels: the build decides four (dictate, credentials and camera
+// shipped, notify reserved and unshipped — the camera slot grown by
+// Story 5.2's 2026-09-05 ruling 1-B, which owns the scan path's
+// permission moment alone, capture staying plugin-served), and this
+// list holds the three whose halves exist today; notify joins it in
+// the pass that writes its halves.
 //
 // Output contract (the tool checks' own): one `file:line: message`
 // line per finding, exit 1 when any finding exists, exit 2 when a
@@ -63,6 +68,11 @@ const String manifestPath = 'android/app/src/main/AndroidManifest.xml';
 
 /// The dictate channel's runtime permission (Story 3.4, FR-32).
 const String recordAudioPermission = 'android.permission.RECORD_AUDIO';
+
+/// The camera channel's runtime permission (Story 5.2, FR-16 — the
+/// 2026-09-05 ruling 1-B moved the scan path's permission moment onto
+/// the fourth hand-written channel).
+const String cameraPermissionWire = 'android.permission.CAMERA';
 
 /// Every hand-written channel's contract (AD-11). Grown only by
 /// explicit decision — a new wire name joins a contract's map in the
@@ -110,6 +120,23 @@ const List<WireContract> wireContracts = [
     // No asserted permission: the credentials channel asks for no
     // runtime permission — the Keystore is permission-free, and the
     // merged-manifest seal (egress seal 3) polices the whole set.
+  ),
+  WireContract(
+    name: 'camera',
+    kotlinHalfPath:
+        'android/app/src/main/kotlin/dev/dorogoy/organizer/CameraChannel.kt',
+    dartHalfPath: 'lib/plugins/camera/camera_channel.dart',
+    kotlinToDartWireNames: {
+      'CHANNEL_NAME': 'cameraChannelName',
+      'REQUEST_METHOD': 'cameraRequestMethod',
+      'WIRE_GRANTED': 'cameraGrantedWire',
+      'WIRE_REFUSED': 'cameraRefusedWire',
+      'WIRE_INTERRUPTED': 'cameraInterruptedWire',
+    },
+    // The scan path's permission moment (Story 5.2, ruling 1-B): the
+    // one runtime permission the channel asks for at the first scan
+    // attempt.
+    assertedPermission: cameraPermissionWire,
   ),
 ];
 

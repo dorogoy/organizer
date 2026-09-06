@@ -163,6 +163,12 @@ class _NullFiles implements FilesPort {
 
   @override
   Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
 }
 
 class _NullCipher implements CredentialsCipher {

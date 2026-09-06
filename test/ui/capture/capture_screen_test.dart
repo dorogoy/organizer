@@ -28,6 +28,7 @@ import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
+import 'package:organizer/ui/glyphs/camera_glyph.dart';
 import 'package:organizer/ui/glyphs/microphone_glyph.dart';
 import 'package:organizer/ui/glyphs/pencil_glyph.dart';
 import 'package:organizer/ui/theme.dart';
@@ -274,41 +275,57 @@ void main() {
 
   testWidgets('the Lápiz entry sits top-right at ≥48dp and one tap opens '
       'Manual Capture — in both chrome branches, pastel never under the '
-      'glyph (FR-27)', (tester) async {
+      'glyphs (FR-27; the Cámara entry beside it since 5.2, FR-16)', (
+    tester,
+  ) async {
     final store = _RecordingStore();
     await launch(tester, store);
 
     // The entry's 48dp target — the glyph zone the chip must clear.
-    Finder entryTarget(Finder lapiz) =>
-        find.ancestor(of: lapiz, matching: find.byType(Semantics)).first;
+    Finder entryTarget(Finder glyph) =>
+        find.ancestor(of: glyph, matching: find.byType(Semantics)).first;
 
-    // Pinned chrome: the entry is in the top band, the chip keeps the
-    // screen's exact centre, the glyph target holds 48dp, and the
-    // chip's pastel stops clear of the glyph zone — two controls, never
-    // one passing beneath the other.
+    // Pinned chrome: both entries sit in the top band, the chip keeps
+    // the screen's exact centre, each glyph target holds 48dp, and
+    // the chip's pastel stops clear of both glyph zones — three
+    // controls, never one pastel passing beneath a glyph.
     final lapiz = find.byType(PencilGlyph);
+    final camera = find.byType(CameraGlyph);
     expect(lapiz, findsOneWidget);
+    expect(camera, findsOneWidget);
     final lapizRect = tester.getRect(lapiz);
+    final cameraRect = tester.getRect(camera);
     final chipRect = tester.getRect(find.byType(PocketTriggerChip));
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
     expect(chipRect.center.dx, closeTo(screen.width / 2, 0.5));
     expect(
-      lapizRect.center.dx,
+      cameraRect.center.dx,
       greaterThan(chipRect.center.dx),
-      reason: 'the entry sits top-right of the centred chip',
+      reason: 'the Cámara entry sits top-right of the centred chip',
+    );
+    expect(
+      lapizRect.center.dx,
+      greaterThan(cameraRect.center.dx),
+      reason: 'Lápiz keeps the band\'s end edge, Cámara beside it',
     );
     expect(lapizRect.right, lessThanOrEqualTo(screen.width));
-    final target = tester.getRect(entryTarget(lapiz));
-    expect(target.width, greaterThanOrEqualTo(48));
-    expect(target.height, greaterThanOrEqualTo(48));
+    for (final target in [entryTarget(camera), entryTarget(lapiz)]) {
+      final rect = tester.getRect(target);
+      expect(rect.width, greaterThanOrEqualTo(48));
+      expect(rect.height, greaterThanOrEqualTo(48));
+    }
     expect(
       tester.widget<Semantics>(entryTarget(lapiz)).properties.label,
       strings.lapizEntry,
     );
     expect(
+      tester.widget<Semantics>(entryTarget(camera)).properties.label,
+      strings.camaraEntry,
+    );
+    expect(
       chipRect.right,
-      lessThan(target.left),
-      reason: 'the chip wraps before reaching the glyph zone',
+      lessThan(tester.getRect(entryTarget(camera)).left),
+      reason: 'the chip wraps before reaching either glyph zone',
     );
 
     await openCapture(tester);
@@ -324,8 +341,8 @@ void main() {
     expect(store.facts, isEmpty);
     expect(store.entries, isEmpty);
 
-    // In-frame chrome (the short-surface floor): the entry joins the
-    // scroll region together with the chip and stays a whole target.
+    // In-frame chrome (the short-surface floor): the entries join the
+    // scroll region together with the chip and stay whole targets.
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearAllTestValues);
     await tester.binding.setSurfaceSize(const ui.Size(320, 300));
@@ -335,6 +352,7 @@ void main() {
     await tester.pumpAndSettle();
     final inFrameLapiz = find.byType(PencilGlyph);
     expect(inFrameLapiz, findsOneWidget);
+    expect(find.byType(CameraGlyph), findsOneWidget);
     final inFrameTarget = tester.getRect(entryTarget(inFrameLapiz));
     expect(inFrameTarget.width, greaterThanOrEqualTo(48));
     expect(inFrameTarget.height, greaterThanOrEqualTo(48));
@@ -344,18 +362,24 @@ void main() {
     await tester.pumpAndSettle();
 
     // 200% on the default surface: the chip grows and wraps inside its
-    // inner bounds, still centred and still clear of the glyph zone.
+    // inner bounds, still centred and still clear of both glyph zones.
     await tester.binding.setSurfaceSize(null);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(harness(store));
     await tester.pumpAndSettle();
     final grownChip = tester.getRect(find.byType(PocketTriggerChip));
-    final grownTarget = tester.getRect(entryTarget(find.byType(PencilGlyph)));
+    final grownCamera = tester.getRect(entryTarget(find.byType(CameraGlyph)));
+    final grownLapiz = tester.getRect(entryTarget(find.byType(PencilGlyph)));
     expect(grownChip.center.dx, closeTo(screen.width / 2, 0.5));
     expect(
       grownChip.right,
-      lessThan(grownTarget.left),
-      reason: 'at 200% the wrapped chip still stops clear of the glyph',
+      lessThan(grownCamera.left),
+      reason: 'at 200% the wrapped chip stops clear of the Cámara glyph',
+    );
+    expect(
+      grownCamera.right,
+      lessThan(grownLapiz.left),
+      reason: 'the two glyph zones stay two controls at 200%',
     );
   });
 

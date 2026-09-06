@@ -10,6 +10,9 @@ import 'egress/slicer_factory.dart';
 import 'files/app_files.dart';
 import 'platform/credentials/credentials_cipher.dart';
 import 'platform/dictate/dictate_recognizer.dart';
+import 'plugins/camera/plugin_camera_shell.dart';
+import 'plugins/mlkit_face/mlkit_face_gate.dart';
+import 'scan/scan_controller.dart';
 import 'session/session_controller.dart';
 import 'session/log_write_queue.dart';
 import 'settings/settings_controller.dart';
@@ -28,6 +31,10 @@ void main() {
   final store = openStore();
   installCrashGuard(store);
   final logWrites = LogWriteQueue();
+  // The Files adapter (Story 4.3) — one instance for the whole shell:
+  // the vault's credential envelopes below, and since Story 5.2 the
+  // scan path's per-scan cache frames, over the same app-private root.
+  final files = AppFiles();
   // The `dictate` channel's one adapter (FR-32): the channel's
   // method-call handler is per-channel, so a single instance is
   // constructed here and threaded to every consumer — the dictation
@@ -41,7 +48,7 @@ void main() {
   // 4-4's Settings surfaces to consume; no surface reads it yet, and
   // the vault itself reads and writes nothing until asked.
   final vault = CredentialVault(
-    files: AppFiles(),
+    files: files,
     cipher: CredentialsChannelCipher(),
   );
   // The Settings seam (Story 4-4): the same store the whole shell
@@ -73,6 +80,23 @@ void main() {
     strings: AppStringsEs(),
     writeQueue: logWrites,
   );
+  // The scan seam (Story 5.2, FR-16, FR-25): the camera facade over the
+  // spine-pinned plugin, the face gate over the measured ML Kit
+  // interim rule, and the scan controller over the same store, the
+  // shared write queue and the same Files root the vault holds — one
+  // substrate, every adapter composed here at the root.
+  final scan = ScanController(
+    store: store,
+    files: files,
+    camera: PluginCameraShell(),
+    gate: const MlKitFaceGate(),
+    writeQueue: logWrites,
+  );
+  // The route-awareness observer (Story 5.2): registered with the
+  // navigator and threaded to the Dispenser, so a Settings toggle that
+  // moves the Cámara entry lands the moment the way-out chain pops
+  // back — not at the next lifecycle resume.
+  final routeObserver = RouteObserver<PageRoute<dynamic>>();
   // The Dispenser (Story 1.8) is the home: it reads the launch deal
   // through the same store, and the double asset read behind the shared
   // catalogue is benign — rootBundle caches bytes. The Settings seam
@@ -108,6 +132,10 @@ void main() {
           recognizer: recognizer,
           writeQueue: logWrites,
         ),
+        // The scan seam (Story 5.2): the Cámara entry's surface —
+        // same store, same shared write queue, the camera facade and
+        // the face gate composed above.
+        scan: scan,
         // The credential vault (Story 4.3): one instance, constructed
         // in main beside the cipher seam it consumes — the Settings
         // key path (4-4) is its first reader, and nothing here pulls
@@ -117,6 +145,9 @@ void main() {
         // unread until Rescue Mode (4-6) — the port ships with no
         // production call site, exactly as 4-2's dispatch did.
         slicer: slicer,
+        // The route observer (Story 5.2): the navigator's own copy of
+        // the seam the Dispenser holds.
+        routeObserver: routeObserver,
       ),
     ),
   );
@@ -136,8 +167,10 @@ class OrganizerApp extends StatelessWidget {
     this.settings,
     this.capture,
     this.dictation,
+    this.scan,
     this.vault,
     this.slicer,
+    this.routeObserver,
   });
 
   final DispenserController? dispenser;
@@ -155,6 +188,11 @@ class OrganizerApp extends StatelessWidget {
   /// beside the capture seam — same store, same shared write queue.
   final DictationController? dictation;
 
+  /// The scan seam (Story 5.2), threaded into the Dispenser's Cámara
+  /// entry — same store, same shared write queue, the camera facade
+  /// and the face gate composed in main.
+  final ScanController? scan;
+
   /// The credential vault (Story 4.3, AD-22), constructed once in
   /// main — the shell's only seal/unseal composition, consumed by
   /// the Settings key path since 4-4.
@@ -166,9 +204,14 @@ class OrganizerApp extends StatelessWidget {
   /// shell's composition stays visible at the root.
   final SlicerPort? slicer;
 
+  /// The route observer (Story 5.2): registered with the navigator
+  /// here, held by the Dispenser there — the pop-back re-read seam.
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+
   @override
   Widget build(BuildContext context) {
     final dispenser = this.dispenser;
+    final routeObserver = this.routeObserver;
     return MaterialApp(
       // Light/dark follows the system — ThemeMode.system, no in-app
       // override row (NFR19). Both themes are authored from tokens.dart.
@@ -179,6 +222,7 @@ class OrganizerApp extends StatelessWidget {
       // lib/strings/ are generated from it.
       localizationsDelegates: AppStrings.localizationsDelegates,
       supportedLocales: AppStrings.supportedLocales,
+      navigatorObservers: routeObserver == null ? const [] : [routeObserver],
       home: dispenser == null
           ? const SizedBox.shrink()
           : DispenserScreen(
@@ -187,6 +231,8 @@ class OrganizerApp extends StatelessWidget {
               settings: settings,
               capture: capture,
               dictation: dictation,
+              scan: scan,
+              routeObserver: routeObserver,
             ),
     );
   }

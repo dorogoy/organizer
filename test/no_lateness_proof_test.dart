@@ -192,13 +192,14 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, fifteen wire names wide: every user-act and
+    // The absolute ban, sixteen wire names wide: every user-act and
     // moment kind — and, since Story 3.4, the `permission_refused`
-    // system event, since Story 4.6 the three `slice_*` rescue rows —
-    // exists in the shell only inside the core's own constants: a
-    // quoted wire name in lib/ is a minter that bypasses the
-    // vocabulary. (crash_recorded is not banned here: the crash
-    // channel's constant idiom is pinned below.)
+    // system event, since Story 4.6 the three `slice_*` rescue rows,
+    // since Story 5.2 the `face_refused` scan row — exists in the
+    // shell only inside the core's own constants: a quoted wire name
+    // in lib/ is a minter that bypasses the vocabulary.
+    // (crash_recorded is not banned here: the crash channel's constant
+    // idiom is pinned below.)
     const bannedWireNames = [
       'card_done',
       'card_dealt',
@@ -215,6 +216,7 @@ void main() {
       'slice_requested',
       'slice_returned',
       'slice_failed',
+      'face_refused',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -355,6 +357,23 @@ void main() {
           'exactly one core permissionRefuse command invocation — the '
           'dictation channel\'s LogEntryContent path (Story 3.4)',
     );
+    final scan = sources['lib/scan/scan_controller.dart'];
+    expect(scan, isNotNull, reason: 'the scan channel is gone');
+    final scanSource = scan ?? '';
+    expect(
+      RegExp(r'\bpermissionRefuse\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core permissionRefuse command invocation — the '
+          'scan channel\'s camera refusal (Story 5.2)',
+    );
+    expect(
+      RegExp(r'\bfaceRefused\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core faceRefused command invocation — the scan '
+          'channel\'s face refusal (Story 5.2)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -394,8 +413,15 @@ void main() {
         'lib/session/session_controller.dart': 1,
         // Story 4-4 grows the settings channel's append sites to
         // two: the Time Bag's int row and the selected provider's
-        // text row, both through the same sanctioned minter.
-        'lib/settings/settings_controller.dart': 2,
+        // text row, both through the same sanctioned minter. Story
+        // 5.2 folds them into the channel's one shared content
+        // copier (the dispenser's own idiom) and adds the camera
+        // toggle's row beside them — one site, three rows.
+        'lib/settings/settings_controller.dart': 1,
+        // Story 5.2: the scan channel's two refusal rows — the
+        // camera permission refusal and the face refusal — through
+        // one shared content copier.
+        'lib/scan/scan_controller.dart': 1,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -409,7 +435,8 @@ void main() {
         'lib/capture/dictation_controller.dart': 1,
         'lib/dispenser/dispenser_controller.dart': 1,
         'lib/session/session_controller.dart': 1,
-        'lib/settings/settings_controller.dart': 2,
+        'lib/settings/settings_controller.dart': 1,
+        'lib/scan/scan_controller.dart': 1,
       },
       reason:
           'records constructed over core LogEntryContent exist '

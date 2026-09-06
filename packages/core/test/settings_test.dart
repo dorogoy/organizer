@@ -360,4 +360,35 @@ void main() {
       expect(settingChanged(key: 'future_setting'), isEmpty);
     });
   });
+
+  group('the camera_enabled minter (Story 5.2, FR-16)', () {
+    test('0 and 1 mint exactly one int row each', () {
+      for (final value in [0, 1]) {
+        final contents = settingChanged(
+          key: cameraEnabledSettingKey,
+          value: value,
+        );
+        expect(contents, hasLength(1), reason: '$value');
+        expect(contents.single.kind, LogKind.settingChanged);
+        expect(contents.single.settingKey, cameraEnabledSettingKey);
+        expect(contents.single.settingValue, value);
+        expect(contents.single.settingTextValue, isNull);
+      }
+    });
+
+    test('any other int, a textValue, or neither returns no content — '
+        'refusal is silence', () {
+      expect(settingChanged(key: cameraEnabledSettingKey, value: 2), isEmpty);
+      expect(settingChanged(key: cameraEnabledSettingKey, value: -1), isEmpty);
+      expect(
+        settingChanged(key: cameraEnabledSettingKey, textValue: '1'),
+        isEmpty,
+      );
+      expect(
+        settingChanged(key: cameraEnabledSettingKey, value: 1, textValue: '1'),
+        isEmpty,
+      );
+      expect(settingChanged(key: cameraEnabledSettingKey), isEmpty);
+    });
+  });
 }

@@ -58,16 +58,21 @@ void main() {
       inventory: enumerateManifest(File(path).readAsStringSync()),
     );
     expect(findings, hasLength(1));
-    expect(findings.single.message, contains('android.permission.CAMERA'));
+    expect(
+      findings.single.message,
+      contains('android.permission.READ_CONTACTS'),
+    );
     expect(findings.single.message, contains('release'));
     expect(findings.single.message, contains('effective set'));
-    // The full effective set — the platform injection and 4-4's
-    // deliberate INTERNET included, not just RECORD_AUDIO.
+    // The full effective set — the platform injection, 4-4's
+    // deliberate INTERNET and 5.2's deliberate CAMERA included, not
+    // just RECORD_AUDIO.
     expect(
       findings.single.message,
       contains('android.permission.RECORD_AUDIO'),
     );
     expect(findings.single.message, contains('android.permission.INTERNET'));
+    expect(findings.single.message, contains('android.permission.CAMERA'));
     expect(
       findings.single.message,
       contains(
@@ -138,26 +143,31 @@ void main() {
   });
 
   test('the enumerated permission sets are the decided per-variant ones '
-      '(4-4 grew release by the deliberate INTERNET edit)', () {
+      '(4-4 grew release by the deliberate INTERNET edit; 5.2 grew all '
+      'three by the deliberate CAMERA edit)', () {
     expect(permittedPermissionsByVariant['release'], {
       'android.permission.RECORD_AUDIO',
       'android.permission.INTERNET',
+      'android.permission.CAMERA',
     });
     expect(permittedPermissionsByVariant['debug'], {
       'android.permission.RECORD_AUDIO',
       'android.permission.INTERNET',
+      'android.permission.CAMERA',
     });
     expect(permittedPermissionsByVariant['profile'], {
       'android.permission.RECORD_AUDIO',
       'android.permission.INTERNET',
+      'android.permission.CAMERA',
     });
     expect(permittedPermissionsByVariant, hasLength(3));
   });
 
   test('the platform baseline is minimal: the startup provider, the '
       'profileinstaller receiver, the launcher activity, no aliases — '
-      'plus story 5.1\'s ML Kit init pair', () {
-    expect(permittedComponentsAllVariants, hasLength(4));
+      'plus story 5.1\'s ML Kit init pair and story 5.2\'s camerax '
+      'metadata-holder service', () {
+    expect(permittedComponentsAllVariants, hasLength(5));
     expect(
       permittedComponentsAllVariants,
       containsAll([
@@ -168,6 +178,11 @@ void main() {
         // ML Kit entries are stripped in the main manifest instead.
         'provider com.google.mlkit.common.internal.MlKitInitProvider',
         'service com.google.mlkit.common.internal.MlKitComponentDiscoveryService',
+        // Story 5.2's ruling (2026-09-05, on 5.1's precedent):
+        // camerax's one init-metadata service — baselined; the legacy
+        // external-storage permission pair camerax also merges is
+        // stripped in the main manifest instead.
+        'service androidx.camera.core.impl.MetadataHolderService',
       ]),
     );
     expect(permittedActivitiesAllVariants, {
@@ -190,12 +205,17 @@ void main() {
         'com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar',
         'com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar',
         'com.google.android.gms.version',
+        // Story 5.2's ruling (2026-09-05): camerax's default config
+        // provider, riding the metadata-holder service above.
+        'androidx.camera.core.impl.MetadataHolderService.DEFAULT_CONFIG_PROVIDER',
       ]),
     );
     // The stripped entries stay outside every baseline: datatransport's
     // cct backend factory and work's startup initializer must never
     // reappear as enumerated names (the pose registrar left with the
-    // person-gate deferral, 2026-09-05 — face-only is the interim gate).
+    // person-gate deferral, 2026-09-05 — face-only is the interim gate),
+    // and camerax's legacy external-storage permissions likewise live
+    // only as merger-rule strips (story 5.2).
     expect(
       permittedMetadataAllVariants.where(
         (name) =>
@@ -204,6 +224,15 @@ void main() {
             name.contains('pose.internal.PoseRegistrar'),
       ),
       isEmpty,
+    );
+    expect(
+      permittedPermissionsByVariant.values
+          .expand((set) => set)
+          .where((permission) => permission.contains('EXTERNAL_STORAGE')),
+      isEmpty,
+      reason:
+          'the legacy external-storage pair is stripped in the main '
+          'manifest, never baselined (story 5.2)',
     );
   });
 

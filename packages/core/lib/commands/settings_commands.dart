@@ -12,7 +12,10 @@
 /// kind as charset-validated text — a provider id, never a credential
 /// (the vault's envelopes live in Files storage, never in the log) and
 /// never an availability claim (the read-side derivation asks the vault
-/// at read time; nothing persists its answer).
+/// at read time; nothing persists its answer). Story 5.2 adds the
+/// camera-enabled toggle (FR-16): int-valued 0/1, the same closed
+/// else-chain, minting the row the Cámara entry's visibility fold
+/// composes with.
 ///
 /// Refusal is silence, on purpose: a key this build does not know, a
 /// Time Bag value outside its confirmed range, or a provider id outside
@@ -28,14 +31,17 @@ import 'package:core/log/log_entry.dart';
 import 'package:core/settings/settings.dart';
 
 /// `setting_changed` for the named key — the keys this build knows are
-/// [timeBagSettingKey] (int-valued) and [selectedProviderSettingKey]
-/// (text-valued, Story 4.3), and any other key returns no content
+/// [timeBagSettingKey] (int-valued), [selectedProviderSettingKey]
+/// (text-valued, Story 4.3) and [cameraEnabledSettingKey] (int-valued
+/// 0/1, Story 5.2), and any other key returns no content
 /// (AD-23: this build does not write what it cannot read). A Time Bag
 /// value inside [timeBagLeastMinutes]–[timeBagMostMinutes] — passed as
 /// [value], with no [textValue] — returns exactly one content row; a
 /// provider id satisfying [isValidProviderId] — passed as [textValue],
 /// with no [value] — returns exactly one content row carrying the text;
-/// anything else returns none. The shell completes the row — minting
+/// a camera-enabled value of 0 or 1 — passed as [value], with no
+/// [textValue] — returns exactly one content row; anything else
+/// returns none. The shell completes the row — minting
 /// the UUIDv7 id, the instant and the offset in force — before the
 /// port sees it.
 List<LogEntryContent> settingChanged({
@@ -60,6 +66,12 @@ List<LogEntryContent> settingChanged({
     }
     intValue = null;
     text = textValue;
+  } else if (key == cameraEnabledSettingKey) {
+    if (value == null || textValue != null || (value != 0 && value != 1)) {
+      return const [];
+    }
+    intValue = value;
+    text = null;
   } else {
     return const [];
   }

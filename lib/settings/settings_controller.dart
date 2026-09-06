@@ -1,4 +1,6 @@
+import 'package:core/commands/session_commands.dart';
 import 'package:core/commands/settings_commands.dart';
+import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/permission.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/recognizer_port.dart';
@@ -121,6 +123,63 @@ class SettingsController {
     return facts.where((fact) => fact.dictated == true).length;
   }
 
+  /// Reads the camera-enabled toggle (Story 5.2, FR-16): the derived
+  /// `camera_enabled` value over the log, defaulting to enabled. A
+  /// derivation, never a stored switch — the same discipline the bag
+  /// read holds.
+  Future<bool> readCameraEnabled() async {
+    await _writes;
+    final log = logEntriesOf(await store.readLogEntries());
+    return deriveCameraEnabled(log);
+  }
+
+  /// Appends one `setting_changed` {camera_enabled, 0|1} row through
+  /// the core's sanctioned minter — the instant minted at entry, on
+  /// the bag write's own shape. The write is the reactivation too: a
+  /// toggle landing after a camera refusal re-arms the Cámara entry's
+  /// derived visibility (the core fold composes the two rows), while
+  /// the OS permission itself is asked again only at the next first
+  /// use.
+  Future<void> writeCameraEnabled(bool enabled) {
+    final now = nowOf();
+    return _enqueueWrite(() async {
+      final contents = settingChanged(
+        key: cameraEnabledSettingKey,
+        value: enabled ? 1 : 0,
+      );
+      for (final content in contents) {
+        await _appendContent(content, now);
+      }
+    });
+  }
+
+  /// Reads the camera reactivation affordance's premise (Story 5.2,
+  /// FR-16, UX-DR33): the row carries the affordance exactly while a
+  /// camera refusal row stands — the ONE core definition of the
+  /// standing refusal (`cameraRefusalStanding`, the same fold
+  /// `cameraEntryVisible` composes), so the row and the entry can
+  /// never disagree: the toggle's write is the reactivation that
+  /// clears both, and a refusal that lands after it re-arms both.
+  /// Never an OS probe (the plugin's only status check is the request
+  /// itself, AD-17).
+  Future<bool> readCameraReactivationAvailable() async {
+    await _writes;
+    final entries = logEntriesOf(await store.readLogEntries());
+    return cameraRefusalStanding(entries);
+  }
+
+  /// The camera reactivation affordance's single action (Story 5.2):
+  /// the system's app-details screen, through the same recognizer-port
+  /// path the mic row's action takes — the permission surface's only
+  /// recovery path, and the app itself never re-asks.
+  Future<void> openCameraAppSettings() async {
+    final recognizer = this.recognizer;
+    if (recognizer == null) {
+      return;
+    }
+    await recognizer.openAppSettings();
+  }
+
   /// The reactivation row's single action (Story 3.4): the system's
   /// app-details screen, opened through the recognizer port — the
   /// permission surface's only recovery path. The app never re-asks on
@@ -145,24 +204,7 @@ class SettingsController {
     return _enqueueWrite(() async {
       final contents = settingChanged(key: timeBagSettingKey, value: minutes);
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: content.settingTextValue,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-          sliceCause: content.sliceCause,
-        ));
+        await _appendContent(content, now);
       }
     });
   }
@@ -195,24 +237,7 @@ class SettingsController {
         textValue: providerId,
       );
       for (final content in contents) {
-        await store.appendLogEntry((
-          id: idMinter.v7(),
-          kind: content.kind.name,
-          instantUtcMicros: now.microsecondsSinceEpoch,
-          offsetSeconds: now.timeZoneOffset.inSeconds,
-          itemId: content.itemId,
-          itemOrigin: content.itemOrigin,
-          stack: content.stack,
-          settingKey: content.settingKey,
-          settingValue: content.settingValue,
-          settingTextValue: content.settingTextValue,
-          pocketMinutes: content.pocketMinutes,
-          energyLevel: content.energyLevel,
-          reportValue: content.reportValue,
-          reportWeek: content.reportWeek,
-          permission: content.permission?.name,
-          sliceCause: content.sliceCause,
-        ));
+        await _appendContent(content, now);
       }
     });
   }
@@ -247,6 +272,34 @@ class SettingsController {
       return;
     }
     await vault.deleteCredential(providerId);
+  }
+
+  /// Appends one minted content row — the write paths' shared copier
+  /// since Story 5.2 (the dispenser controller's own idiom): one
+  /// minted instant per change (the caller's [now]), a v7 id per row,
+  /// the offset in force at the mint. The three sanctioned
+  /// `setting_changed` writers — the bag's int, the provider's text,
+  /// the camera toggle's 0/1 — all cross the port through this one
+  /// site.
+  Future<void> _appendContent(LogEntryContent content, DateTime now) async {
+    await store.appendLogEntry((
+      id: idMinter.v7(),
+      kind: content.kind.name,
+      instantUtcMicros: now.microsecondsSinceEpoch,
+      offsetSeconds: now.timeZoneOffset.inSeconds,
+      itemId: content.itemId,
+      itemOrigin: content.itemOrigin,
+      stack: content.stack,
+      settingKey: content.settingKey,
+      settingValue: content.settingValue,
+      settingTextValue: content.settingTextValue,
+      pocketMinutes: content.pocketMinutes,
+      energyLevel: content.energyLevel,
+      reportValue: content.reportValue,
+      reportWeek: content.reportWeek,
+      permission: content.permission?.name,
+      sliceCause: content.sliceCause,
+    ));
   }
 
   Future<void> _enqueueWrite(Future<void> Function() step) {

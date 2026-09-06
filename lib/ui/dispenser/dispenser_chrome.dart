@@ -1,6 +1,7 @@
-// The Dispenser's chrome (Stories 2.1–2.3 and 3.2): the surface's
+// The Dispenser's chrome (Stories 2.1–2.3, 3.2 and 5.2): the surface's
 // furniture around the view - the pocket-trigger band with the Lápiz
-// entry and the footer band. Extracted from `dispenser_screen.dart`
+// entry and, beside it since 5.2, the Cámara entry, and the footer
+// band. Extracted from `dispenser_screen.dart`
 // (`_pocketTrigger`, `_footerActions`, `_pinnedFooterBand`, and
 // `_LapizEntry`), moved output-equivalent - code verbatim where it
 // renders, prose adapted to this home; the rendered output is unchanged.
@@ -36,9 +37,18 @@
 // branches (pinned and in-frame). One tap, guarded like every push this
 // surface owns, opens the capture surface; nothing here lists, counts
 // or remembers captures — the entry is a way in, never a way back.
+//
+// The Cámara entry (Story 5.2, FR-16): the Scan affordance twins the
+// Lápiz grammar exactly — the utility glyph in its neutral mass inside
+// the same 48dp opaque target, one tap to the scan surface — and sits
+// beside Lápiz, which keeps the band's `end: 0`. The entry renders
+// only where the read cycle's derived visibility says so (enabled ∧
+// the camera permission not refused, log-derived — never an OS
+// probe): absent, never greyed, never explained (UX-DR24).
 import 'package:flutter/material.dart';
 
 import '../../strings/app_strings.dart';
+import '../glyphs/camera_glyph.dart';
 import '../glyphs/pencil_glyph.dart';
 import '../tokens.dart';
 import 'duration_chip.dart';
@@ -55,14 +65,14 @@ const double _cardMaxWidth = 480;
 /// payload and the command contract are unaffected.
 const List<int> pocketLadderOptions = [5, 10, 15, 20, 25, 30, 45, 60];
 
-/// The top chrome band (Stories 2.2 and 3.2): the pocket trigger pill
-/// top-centred above the card — and standing on the warm close too,
+/// The top chrome band (Stories 2.2, 3.2 and 5.2): the pocket trigger
+/// pill top-centred above the card — and standing on the warm close too,
 /// because a spent pocket is declared until superseded — with the
-/// Lápiz entry top-right in the same band, overlaid so the chip keeps
-/// the exact layout it owned alone: full-band wrap width and the
-/// screen's x-axis centre, in both chrome branches (pinned and
-/// in-frame). The carried minutes are log-derived data, never session
-/// state held in memory as truth.
+/// Lápiz entry top-right in the same band and the Cámara entry beside
+/// it (Story 5.2), overlaid so the chip keeps the exact layout it owned
+/// alone: full-band wrap width and the screen's x-axis centre, in both
+/// chrome branches (pinned and in-frame). The carried minutes are
+/// log-derived data, never session state held in memory as truth.
 class PocketTriggerBand extends StatelessWidget {
   const PocketTriggerBand({
     super.key,
@@ -70,6 +80,8 @@ class PocketTriggerBand extends StatelessWidget {
     this.inFrame = false,
     this.onOpenLadder,
     this.onOpenCapture,
+    this.cameraEntryVisible = false,
+    this.onOpenScan,
   });
 
   /// The standing declared pocket the trigger chip carries — the
@@ -87,6 +99,15 @@ class PocketTriggerBand extends StatelessWidget {
   /// The Lápiz entry's tap: the screen's capture-surface opener.
   final VoidCallback? onOpenCapture;
 
+  /// Whether the Cámara entry renders at all (Story 5.2, FR-16): the
+  /// read cycle's derived visibility — enabled ∧ the camera permission
+  /// not refused — never an OS probe. Absent by default, exactly as
+  /// when the derivation hides it.
+  final bool cameraEntryVisible;
+
+  /// The Cámara entry's tap: the screen's scan-surface opener.
+  final VoidCallback? onOpenScan;
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -100,23 +121,24 @@ class PocketTriggerBand extends StatelessWidget {
           child: Stack(
             children: [
               Center(
-                // On a wide ground, symmetric inner bounds — one glyph
-                // zone wide plus the action gap — keep the chip exactly
-                // screen-centred while it wraps clear of the Lápiz
-                // target: the band reads as two controls, never one
-                // pastel passing beneath a glyph. On a short ground the
-                // accessibility floor outranks the clearance (Story
-                // 2.3's own precedent): the chip keeps the full-band
-                // wrap it owned alone and the glyph overlays the band's
-                // edge, because starving the wrap there would grow the
-                // band past the floor.
+                // On a wide ground, symmetric inner bounds — two glyph
+                // zones wide plus the action gaps — keep the chip
+                // exactly screen-centred while it wraps clear of both
+                // entries' targets: the band reads as separate
+                // controls, never one pastel passing beneath a glyph.
+                // On a short ground the accessibility floor outranks
+                // the clearance (Story 2.3's own precedent): the chip
+                // keeps the full-band wrap it owned alone and the
+                // glyphs overlay the band's edge, because starving
+                // the wrap there would grow the band past the floor.
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final clearOfGlyph = constraints.maxWidth >= _cardMaxWidth;
+                    final clearOfGlyphs = constraints.maxWidth >= _cardMaxWidth;
                     return Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: clearOfGlyph
-                            ? Spacing.touchTargetMin + Spacing.actionGap
+                        horizontal: clearOfGlyphs
+                            ? (2 * Spacing.touchTargetMin) +
+                                  (2 * Spacing.actionGap)
                             : 0,
                       ),
                       child: PocketTriggerChip(
@@ -132,7 +154,21 @@ class PocketTriggerBand extends StatelessWidget {
                 end: 0,
                 top: 0,
                 bottom: 0,
-                child: Center(child: _LapizEntry(onTap: onOpenCapture)),
+                child: Center(
+                  // Lápiz keeps the band's end edge; Cámara sits beside
+                  // it, separated by the action gap — the two ways in
+                  // read as two controls of one grammar.
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (cameraEntryVisible) ...[
+                        _CameraEntry(onTap: onOpenScan),
+                        const SizedBox(width: Spacing.actionGap),
+                      ],
+                      _LapizEntry(onTap: onOpenCapture),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -227,6 +263,39 @@ class _LapizEntry extends StatelessWidget {
           width: Spacing.touchTargetMin,
           height: Spacing.touchTargetMin,
           child: Center(child: PencilGlyph(Spacing.glyphZoneMarker)),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Cámara entry (Story 5.2, FR-16): the Scan affordance — the
+/// `_LapizEntry` grammar verbatim, the CameraGlyph in its neutral
+/// mass inside the same 48dp opaque target, declared to readers as a
+/// button. One tap opens the scan surface; no painted label, no fill,
+/// no badge, nothing animated — mass is the visual, `camaraEntry` is
+/// the spoken name. Where the camera is disabled or its permission
+/// refused, the entry is not here at all: absent, never greyed, never
+/// explained — that decision is the screen's, never the glyph's.
+class _CameraEntry extends StatelessWidget {
+  const _CameraEntry({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: AppStrings.of(context).camaraEntry,
+      child: GestureDetector(
+        // Absent, the tap stays an accepted no-op — a null onTap would
+        // render a disabled control instead.
+        onTap: onTap ?? () {},
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: Spacing.touchTargetMin,
+          height: Spacing.touchTargetMin,
+          child: Center(child: CameraGlyph(Spacing.glyphZoneMarker)),
         ),
       ),
     );

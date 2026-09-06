@@ -97,6 +97,19 @@ class _StaleFirstReadStore extends _RecordingStore {
   }
 }
 
+/// A store whose every `readLogEntries` parks until released — the
+/// camera row's unread window, held open however many concurrent
+/// reads the surface fires.
+class _AllReadsGatedStore extends _RecordingStore {
+  final _gate = Completer<void>();
+
+  void release() => _gate.complete();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() =>
+      _gate.future.then((_) => super.readLogEntries());
+}
+
 /// A bundle over the shipped asset's exact bytes (the dispenser suite's
 /// pattern), so the loader runs fully offline.
 class _ShippedBundle implements AssetBundle {
@@ -332,10 +345,12 @@ void main() {
     // group (Story 4-4) — its header, the four allowlisted provider
     // names, the terms sentences (three unique — the first three
     // entries' shared date reads as one string), the key label and
-    // the free-tier sentence — and the validator surface's
+    // the free-tier sentence — the validator surface's
     // dictated-count line (Story 3.4 — zero until a dictated capture
-    // exists). No heading chrome, no other group, no light/dark row,
-    // no glyph.
+    // exists) and the camera row's label (Story 5.2 — the switch is
+    // the row's other half and carries no text; the reactivation
+    // affordance renders only while a camera refusal stands). No
+    // heading chrome, no other group, no light/dark row, no glyph.
     expect(find.byType(ListView), findsOneWidget);
     final es = AppStringsEs();
     expect(textsOf(tester).toSet(), {
@@ -357,6 +372,7 @@ void main() {
       es.settingsProviderKeyLabel,
       es.settingsProviderKeyFreeTierNote,
       es.settingsDictatedCount(0),
+      es.settingsCameraLabel,
     });
     expect(find.byType(Icon), findsNothing);
 
@@ -1039,6 +1055,220 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(AppStringsEs().settingsAiVoice), findsOneWidget);
       expect(find.byType(ErrorWidget), findsNothing);
+    });
+  });
+
+  group('the camera row (Story 5.2, FR-16, UX-DR33)', () {
+    LogEntryRecord cameraRefusal(String id) => (
+      id: id,
+      kind: LogKind.permissionRefused.name,
+      instantUtcMicros: 100,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: 'camera',
+      sliceCause: null,
+    );
+
+    testWidgets('the toggle writes exactly one setting_changed '
+        '{camera_enabled} row and the switch follows the derivation — '
+        'no confirmation, no other feedback (FR-16, AD-1)', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      // The default: on, once the derivation lands.
+      await tester.pumpAndSettle();
+      final rowLabel = find.text(AppStringsEs().settingsCameraLabel);
+      expect(rowLabel, findsOneWidget);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      final settingRows = store.entries
+          .where((entry) => entry.kind == 'setting_changed')
+          .toList();
+      expect(settingRows, hasLength(1));
+      expect(settingRows.single.settingKey, 'camera_enabled');
+      expect(settingRows.single.settingValue, 0);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+
+      // And back on: the toggle is its own reversal.
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      final cameraRows = store.entries
+          .where((entry) => entry.settingKey == 'camera_enabled')
+          .toList();
+      expect(cameraRows, hasLength(2));
+      expect(cameraRows.last.settingValue, 1);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('the reactivation affordance renders exactly while a '
+        'camera refusal row stands — and its tap opens the system '
+        'app-details screen (FR-16, UX-DR33)', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      store.entries.add(cameraRefusal('camera-refusal'));
+      final recognizer = _FakeRecognizer(RecognizerAvailability.askable);
+      await tester.pumpWidget(
+        harnessFor(
+          store,
+          SettingsController(
+            store: store,
+            recognizer: recognizer,
+            nowOf: _fixedClock,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(AppStringsEs().settingsCameraReactivate),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(AppStringsEs().settingsCameraReactivate));
+      await tester.pumpAndSettle();
+      expect(recognizer.openAppSettingsCalls, 1);
+      // The row stays: no confirmation, no retirement, no re-ask.
+      expect(
+        find.text(AppStringsEs().settingsCameraReactivate),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the unread window renders the derivation default — '
+        'on, never off — and a tap before the read lands writes nothing '
+        '(no off→on flash misstating state, no guessed write)', (tester) async {
+      await useTallSurface(tester);
+      // Pumped directly (not through the way-out chain), over a store
+      // whose every log read parks until the test releases it: the
+      // camera row's own read is held in flight, whatever order the
+      // surface's concurrent reads reach the store.
+      final store = _AllReadsGatedStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: SettingsScreen(
+            controller: SettingsController(store: store, nowOf: _fixedClock),
+          ),
+        ),
+      );
+      // The camera facts read is parked on the gated store: the
+      // switch stands on the default, and a tap is nothing.
+      await tester.pump();
+      expect(
+        tester.widget<Switch>(find.byType(Switch)).value,
+        isTrue,
+        reason: 'the unread window carries the default: enabled',
+      );
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason: 'no derived state, no write — the tap guessed nothing',
+      );
+      // The read lands: the switch still reads on (the derivation
+      // agrees), and the write path is armed from here.
+      store.release();
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    });
+
+    testWidgets('no refusal standing: no reactivation affordance '
+        'anywhere — the switch is the row\'s whole story', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(AppStringsEs().settingsCameraReactivate), findsNothing);
+    });
+
+    testWidgets('disabling the camera changes nothing behind Nuevo '
+        'proyecto — the intermediate surface\'s census is identical '
+        '(FR-16)', (tester) async {
+      // The texts the whole tree carries, every channel included.
+      List<String> censusOf(WidgetTester tester) {
+        final texts = <String?>[
+          for (final text in tester.widgetList<Text>(find.byType(Text)))
+            text.data,
+          for (final rich in tester.widgetList<RichText>(find.byType(RichText)))
+            rich.text.toPlainText(),
+          for (final semantics in tester.widgetList<Semantics>(
+            find.byType(Semantics),
+          ))
+            semantics.properties.label,
+        ];
+        return [
+          for (final value in texts)
+            if (value != null && value.isNotEmpty) value,
+        ];
+      }
+
+      // Through the real chain, both ways: a Dispenser whose camera
+      // is enabled, and one whose log holds the disable row — each
+      // opens `Nuevo proyecto`, and the two intermediate surfaces
+      // carry the identical census (the one way-out string, nothing
+      // referencing the photo).
+      Future<Set<String>> nuevoProyectoCensus(_RecordingStore store) async {
+        await tester.pumpWidget(harness(store));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(AppStringsEs().newProjectLink));
+        await tester.pumpAndSettle();
+        expect(find.byType(NuevoProyectoScreen), findsOneWidget);
+        final census = censusOf(tester).toSet();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+        return census;
+      }
+
+      final enabledCensus = await nuevoProyectoCensus(_RecordingStore());
+
+      final disabled = _RecordingStore();
+      disabled.entries.add((
+        id: 'camera-off',
+        kind: 'setting_changed',
+        instantUtcMicros: 100,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: 'camera_enabled',
+        settingValue: 0,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ));
+      final disabledCensus = await nuevoProyectoCensus(disabled);
+      expect(disabledCensus, enabledCensus);
+      expect(enabledCensus, {AppStringsEs().settingsWayOut});
+      expect(
+        disabled.entries,
+        hasLength(1),
+        reason: 'the disable row stands untouched by renders',
+      );
     });
   });
 }

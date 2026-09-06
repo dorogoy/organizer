@@ -64,6 +64,10 @@ The user photographs a real space — or describes one in writing — and is sho
 - The E1 template surface opens from the genesis surface, enumerates templates and clusters only, and selecting one enables/disables Evergreen clusters — it never creates an Epic Project. Onboarding's one-time offer is `Ajustar grupos de tareas`; once dismissed it never returns; the default is every cluster active so the first composed day is never empty.
 - The seasonal suggestion is an ambient-strip resident, bare chrome; at most one resident is visible, and the rarer instrument outranks the daily one.
 
+## Retro seeds (do not drop on compile)
+
+- **2026-09-06, Sergio, after 5.2 review.** Do not hide problems that are external to the app (OS, plugin, hardware — e.g. a lost CAMERA grant at the shutter). Communicate them; never a quiet close that reads as success; never mistake them for the user's refusal. Decide at the Epic 5 retro whether this is the epic-wide rule for 5.3–5.7 and whether remaining quiet-close matrix rows (missed shot, detector error) get renegotiated. Recorded in the 5.2 story and in `deferred-work.md`.
+
 ## Cross-Story Dependencies
 
 - Within the epic: 5.1 → 5.2; 5.3 before 5.5 ships the first payload; 5.4 → 5.5 → 5.6 → 5.7; 5.8 → 5.9; 5.9 → 5.10; 5.11 → 5.12; 5.9 → 5.13.

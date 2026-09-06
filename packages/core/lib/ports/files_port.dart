@@ -23,7 +23,13 @@
 library;
 
 /// The app-private byte store: read nullable, write atomic, delete
-/// idempotent, over flat scope/name partitions.
+/// idempotent, over flat scope/name partitions — plus, additively
+/// since Story 5.2, the per-scan cache mechanics Epic 5's scan path
+/// owns: one write of a scan's frame into that scan's own
+/// subdirectory, and one unlink of the whole subdirectory on every
+/// terminal path. The subdirectory vocabulary exists only through
+/// these two methods: a [scanId] is one clean path segment, never a
+/// composed path, and no listing, search or watch grows beside them.
 abstract interface class FilesPort {
   /// Reads the blob [name] in [scope], or null when no such blob
   /// exists. A stored empty blob reads back as empty, never as
@@ -39,4 +45,21 @@ abstract interface class FilesPort {
   /// outcome is the same whether or not the blob existed, and it is
   /// never an error for it to have been absent.
   Future<void> delete(String scope, String name);
+
+  /// Writes [bytes] as the frame of the scan named [scanId], in that
+  /// scan's own cache subdirectory, and returns the written file's
+  /// absolute path — the path the face gate reads the frame through
+  /// (the measured `InputImage.fromFilePath` seam). Atomic like
+  /// [write]; a [scanId] that is not one clean path segment writes
+  /// nothing and returns the empty string — the quiet refusal, never
+  /// a crash. The ≤ 2-files invariant and the `app_opened` sweep are
+  /// 5.4's to govern; this story adds the mechanics alone.
+  Future<String> writeScanFrame(String scanId, List<int> bytes);
+
+  /// Unlinks the scan [scanId]'s whole cache subdirectory — the frame
+  /// and anything else the scan cached. Idempotent by contract: the
+  /// outcome is the same whether or not the directory existed, and it
+  /// is never an error for it to have been absent. Every terminal
+  /// path a scan can take ends here, so no frame lingers.
+  Future<void> unlinkScan(String scanId);
 }

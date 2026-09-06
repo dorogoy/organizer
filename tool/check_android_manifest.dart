@@ -12,8 +12,9 @@
 // `dev.dorogoy.organizer.MainActivity`, with an empty alias set.
 //
 // Enumerated sets: the app-authored permissions are exactly
-// RECORD_AUDIO and INTERNET in release (4-4's BYOK egress — the
-// deliberate main-manifest edit this seal anticipated), plus the
+// RECORD_AUDIO, INTERNET and CAMERA in release (4-4's BYOK egress and
+// 5.2's scan capture — the deliberate main-manifest edits this seal
+// anticipated), plus the
 // template's dev-tooling INTERNET in debug/profile (hot reload, not
 // app egress). On top of those, one fixed platform baseline is
 // enumerated below: AGP's targetSdk-34 dynamic-receiver permission
@@ -50,6 +51,12 @@ import 'gradle_runner.dart';
 /// The RECORD_AUDIO permission the main manifest declares (FR-32).
 const String recordAudioPermission = 'android.permission.RECORD_AUDIO';
 
+/// The CAMERA permission the main manifest declares (Story 5.2,
+/// FR-16, FR-25, AD-17 — the deliberate main-manifest edit of
+/// 2026-09-05, on INTERNET's 4-4 precedent: the scan surface's
+/// capture, requested at the first scan attempt alone).
+const String cameraPermission = 'android.permission.CAMERA';
+
 /// The template's dev-tooling INTERNET of the debug/profile overlays.
 const String internetPermission = 'android.permission.INTERNET';
 
@@ -61,11 +68,12 @@ const String dynamicReceiverPermission =
 /// The app-authored permissions each variant's merged manifest may
 /// carry. Grown only by explicit decision (AD-7): story 4-4 added
 /// INTERNET to main for the BYOK Slicer's egress — the deliberate
-/// edit of this map that story made.
+/// edit of this map that story made — and story 5.2 added CAMERA for
+/// the scan surface's capture (2026-09-05), the same deliberate edit.
 const Map<String, Set<String>> permittedPermissionsByVariant = {
-  'release': {recordAudioPermission, internetPermission},
-  'debug': {recordAudioPermission, internetPermission},
-  'profile': {recordAudioPermission, internetPermission},
+  'release': {recordAudioPermission, internetPermission, cameraPermission},
+  'debug': {recordAudioPermission, internetPermission, cameraPermission},
+  'profile': {recordAudioPermission, internetPermission, cameraPermission},
 };
 
 /// The fixed platform baseline each variant's merged manifest carries:
@@ -85,6 +93,14 @@ const Set<String> permittedComponentsAllVariants = {
   // enumerated here; this pair is init machinery, not egress.
   'provider com.google.mlkit.common.internal.MlKitInitProvider',
   'service com.google.mlkit.common.internal.MlKitComponentDiscoveryService',
+  // Story 5.2's ruling (2026-09-05, on 5.1's precedent): camerax's
+  // one init component — the empty metadata-holder service its
+  // manifests carry the library's default config provider on. Init/
+  // config machinery, not egress: it opens nothing and reaches no
+  // network, and the camera needs it to initialize. The legacy
+  // external-storage permission pair camerax also merges is stripped
+  // in the main manifest, never enumerated.
+  'service androidx.camera.core.impl.MetadataHolderService',
 };
 
 /// The application class in the merged Flutter template. A custom
@@ -113,6 +129,10 @@ const Set<String> permittedMetadataAllVariants = {
   'com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar',
   'com.google.firebase.components:com.google.mlkit.vision.face.internal.FaceRegistrar',
   'com.google.android.gms.version',
+  // Story 5.2's ruling (2026-09-05): camerax's default config
+  // provider, riding the metadata-holder service enumerated above —
+  // init machinery, not egress.
+  'androidx.camera.core.impl.MetadataHolderService.DEFAULT_CONFIG_PROVIDER',
 };
 
 /// The activities each variant's merged manifest may declare: exactly

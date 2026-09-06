@@ -50,6 +50,22 @@ const String timeBagSettingKey = 'time_bag';
 /// about the credential at read time, so nothing persists its answer.
 const String selectedProviderSettingKey = 'selected_provider';
 
+/// The `setting_changed` key naming the camera-enabled toggle (Story
+/// 5.2, FR-16): whether the Dispenser's Cámara entry may render at
+/// all. Int-valued — 0 or 1, the Time Bag's own shape — with the
+/// default enabled. The key owns both the disable toggle and the
+/// reactivation: a write landing after a camera refusal row restores
+/// the entry's visibility (see `core/derive/camera_entry.dart`), and
+/// the OS permission itself is asked again only at the next first
+/// use. A value outside {0, 1} stays in the log and derives nothing
+/// (AD-23).
+const String cameraEnabledSettingKey = 'camera_enabled';
+
+/// The camera-enabled toggle's default (Story 5.2, FR-16): enabled —
+/// the Cámara entry renders wherever no camera refusal stands against
+/// it, so a fresh install shows the way in without a Settings visit.
+const bool defaultCameraEnabled = true;
+
 /// A provider id's charset (Story 4.3): lowercase letters, digits and
 /// the underscore, one to sixty-four characters — one flat path
 /// segment, the same rule the credential vault's Files scoping
@@ -151,3 +167,24 @@ bool deriveProviderConfigured(
   String? selectedProvider,
   bool credentialAvailable,
 ) => selectedProvider != null && credentialAvailable;
+
+/// The derived camera-enabled toggle (Story 5.2, FR-16): the last
+/// valid `camera_enabled` `setting_changed` entry in store read order,
+/// defaulting to [defaultCameraEnabled]. Entries whose value falls
+/// outside {0, 1} are treated as absent — the entry stays in the log,
+/// never repaired, never fatal (AD-23) — and an earlier valid value
+/// (or the default) stands. The pass reads `SettingEntry` rows alone;
+/// the entry-visibility fold over this bit lives in
+/// `core/derive/camera_entry.dart`, where it composes with the camera
+/// refusal rows.
+bool deriveCameraEnabled(List<LogEntry> entries) {
+  var enabled = defaultCameraEnabled;
+  for (final entry in entries) {
+    if (entry is SettingEntry &&
+        entry.key == cameraEnabledSettingKey &&
+        (entry.value == 0 || entry.value == 1)) {
+      enabled = entry.value == 1;
+    }
+  }
+  return enabled;
+}

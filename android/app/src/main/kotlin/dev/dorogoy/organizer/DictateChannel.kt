@@ -10,9 +10,12 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * The hand-written `dictate` channel (Story 3.4, FR-32, AD-11) — one of
- * the build's exactly three channels, and the repo's first: no socket,
- * no date arithmetic, no cloud fallback on any path. Registered by
+ * The hand-written `dictate` channel (Story 3.4, FR-32, AD-11) — the
+ * repo's first, and one of the build's four decided channels —
+ * dictate, credentials and camera shipped, notify reserved and
+ * unshipped (the fourth slot, camera, grown by Story 5.2's
+ * 2026-09-05 ruling 1-B): no socket, no date arithmetic, no cloud
+ * fallback on any path. Registered by
  * `MainActivity.configureFlutterEngine` and torn down in its cleanup.
  *
  * The protocol (mirrored by the named constants in
