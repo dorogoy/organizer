@@ -85,17 +85,12 @@ abstract interface class FilesPort {
   Future<String> writeScanCappedCopy(String scanId, List<int> bytes);
 
   /// Unlinks every child of the scan-cache scope — the crash backstop
-  /// run at every `app_opened` (Story 5.4): every terminal path and
-  /// lifecycle close already unlinks its own subdirectory, so a
-  /// standing child at open is either a leftover from a scan that
-  /// died between mint and resolution, or a scan the surface is still
-  /// deliberately holding open through a transient occlusion (an
-  /// inactive→resumed beat — a notification shade pulled mid-shoot).
-  /// The sweep unlinks both alike, fail-closed: the direction AD-8's
-  /// every-`app_opened` sweep mandates — an upload no one consented
-  /// to can never ride a lingering frame — and the
-  /// departure-cancels policy that would keep such a scan's own files
-  /// alive is Story 5.6's to govern. Blind by contract: the sweep
+  /// run at launch and after a real background `app_opened` (Story 5.4):
+  /// every terminal path and lifecycle close already unlinks its own
+  /// subdirectory, so a standing child at such an open is a leftover
+  /// from a scan that died between mint and resolution. A transient
+  /// inactive→resumed occlusion is not swept while the scan surface may
+  /// still hold its frame. Blind by contract: the sweep
   /// names no child to any caller and returns nothing — it is not a
   /// listing, and the port's no-listing ban holds by construction.
   /// Idempotent and quiet on every error: a missing scope (a fresh

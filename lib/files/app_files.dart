@@ -377,8 +377,9 @@ class AppFiles implements FilesPort {
     try {
       final root = await _resolvedRoot();
       final scopeDir = Directory.fromUri(_segmentUri(root.uri, scanCacheScope));
-      // Async like every other path here: the sweep runs at every
-      // open and blocks the platform isolate on the filesystem no
+      // Async like every other path here: the sweep runs at the
+      // lifecycle opens that request the crash backstop and blocks the
+      // platform isolate on the filesystem no
       // longer than the write paths do. A scope with no scans yet has
       // no directory: the fresh-install sweep is a no-op, and nothing
       // is created on the way out.
@@ -390,7 +391,14 @@ class AppFiles implements FilesPort {
       // anywhere — this enumeration is the adapter's own mechanics,
       // never a capability the port exposes (the port's method
       // returns void and takes nothing).
-      await for (final child in scopeDir.list(followLinks: false)) {
+      // Handle an enumeration error on the stream itself rather than
+      // letting it abort the async loop before later children are seen.
+      // The Directory stream remains best-effort and the next open retries
+      // anything the platform still refused.
+      final children = scopeDir
+          .list(followLinks: false)
+          .handleError((Object _) {});
+      await for (final child in children) {
         try {
           await child.delete(recursive: true);
         } on Object {

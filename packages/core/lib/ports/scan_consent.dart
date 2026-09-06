@@ -62,10 +62,22 @@ final class ScanConsent {
   /// failure taxonomy's costume.
   void consume() {
     if (_consumed) {
-      throw StateError('ScanConsent already consumed');
+      throw ScanConsentStateError('ScanConsent already consumed');
     }
     _consumed = true;
   }
+}
+
+/// A raw [StateError] raised by a violated scan-consent binding. The shell
+/// uses the subtype only to preserve this programmer error through its broad
+/// outcome boundary; it is never converted into a failure taxonomy.
+final class ScanConsentStateError extends StateError {
+  ScanConsentStateError(super.message);
+
+  /// The scan request carried a different in-memory identity than the
+  /// consent token. This remains a programmer error, not a provider failure.
+  ScanConsentStateError.scanIdMismatch()
+    : super('ScanConsent does not match scanId');
 }
 
 /// The single sanctioned minter (AD-8): binds a fresh, unconsumed

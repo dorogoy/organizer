@@ -75,7 +75,7 @@ development_status:
   5-1-the-on-device-face-gate-verified-before-it-is-trusted: done
   5-2-the-camera-entry-and-shooting-the-frame: done
   5-3-the-image-seam-sealed-before-a-payload-ships: done
-  5-4-the-scan-cache-and-its-single-use-consent-token: review
+  5-4-the-scan-cache-and-its-single-use-consent-token: done
   5-5-the-consent-gate: backlog
   5-6-the-unbounded-wait-and-honest-abandonment: backlog
   5-7-the-slice-lands-as-steps: backlog

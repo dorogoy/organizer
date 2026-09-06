@@ -24,6 +24,7 @@ void main() {
     final payload = ScanImagePrompt(
       imageBytes: bytes,
       prompt: 'describe',
+      scanId: 'scan-1',
       consent: token,
     );
     var calls = 0;
@@ -66,6 +67,7 @@ void main() {
       ScanImagePrompt(
         imageBytes: gradientJpeg(640, 480),
         prompt: 'describe',
+        scanId: 'scan-1',
         consent: token,
       ),
     );
@@ -75,6 +77,7 @@ void main() {
         ScanImagePrompt(
           imageBytes: gradientJpeg(640, 480),
           prompt: 'describe',
+          scanId: 'scan-1',
           consent: token,
         ),
       ),
@@ -102,6 +105,7 @@ void main() {
       ScanImagePrompt(
         imageBytes: Uint8List.fromList([9, 9, 9]),
         prompt: 'describe',
+        scanId: 'scan-1',
         consent: token,
       ),
     );
@@ -115,6 +119,7 @@ void main() {
         ScanImagePrompt(
           imageBytes: gradientJpeg(640, 480),
           prompt: 'describe',
+          scanId: 'scan-1',
           consent: token,
         ),
       ),
@@ -122,6 +127,43 @@ void main() {
     );
     expect(calls, 0);
   });
+
+  test(
+    'a token bound to another scan throws before the cap or transport',
+    () async {
+      final token = mintScanConsent(scanId: 'scan-a');
+      var calls = 0;
+      final dispatch = EgressDispatch((payload) async {
+        calls++;
+        return 'never';
+      });
+
+      await expectLater(
+        dispatch.send(
+          ScanImagePrompt(
+            imageBytes: gradientJpeg(640, 480),
+            prompt: 'describe',
+            scanId: 'scan-b',
+            consent: token,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(calls, 0);
+      await expectLater(
+        dispatch.send(
+          ScanImagePrompt(
+            imageBytes: gradientJpeg(640, 480),
+            prompt: 'describe',
+            scanId: 'scan-a',
+            consent: token,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+        reason: 'the rejected dispatch still burns the single-use token',
+      );
+    },
+  );
 
   test('a consumed token handed to send never wears the EgressFailed '
       'costume — the raw StateError is the whole answer', () async {
@@ -133,6 +175,7 @@ void main() {
         ScanImagePrompt(
           imageBytes: gradientJpeg(640, 480),
           prompt: 'describe',
+          scanId: 'scan-1',
           consent: token,
         ),
       ),
@@ -154,6 +197,7 @@ void main() {
       ScanImagePrompt(
         imageBytes: gradientJpeg(640, 480),
         prompt: 'describe',
+        scanId: 'scan-1',
         consent: token,
       ),
     );
@@ -171,6 +215,7 @@ void main() {
         ScanImagePrompt(
           imageBytes: gradientJpeg(640, 480),
           prompt: 'describe',
+          scanId: 'scan-1',
           consent: token,
         ),
       ),
@@ -212,6 +257,7 @@ void main() {
       ScanImagePrompt(
         imageBytes: gradientPng(2000, 1000),
         prompt: 'describe',
+        scanId: 'scan-1',
         consent: token,
       ),
     );
@@ -280,6 +326,7 @@ void main() {
       ScanImagePrompt(
         imageBytes: Uint8List.fromList([9, 9, 9]),
         prompt: 'describe',
+        scanId: 'scan-1',
         consent: mintScanConsent(scanId: 'scan-1'),
       ),
     );
@@ -324,6 +371,7 @@ void main() {
         ScanImagePrompt(
           imageBytes: kZero,
           prompt: '',
+          scanId: 'scan-1',
           consent: mintScanConsent(scanId: 'scan-1'),
         ),
       ),
@@ -370,6 +418,7 @@ Future<({img.Image image, img.ImageFormat format})> _sendOverJpg(
     ScanImagePrompt(
       imageBytes: gradientJpeg(width, height),
       prompt: 'scan',
+      scanId: 'scan-1',
       consent: token,
     ),
   );

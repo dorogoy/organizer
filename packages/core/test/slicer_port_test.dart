@@ -17,6 +17,7 @@ void main() {
         ScanSliceRequest(
           imageBytes: kZero,
           prompt: '',
+          scanId: 'scan-1',
           consent: mintScanConsent(scanId: 'scan-1'),
         ),
       ),
@@ -37,6 +38,7 @@ void main() {
     final request = ScanSliceRequest(
       imageBytes: bytes,
       prompt: 'describe',
+      scanId: 'scan-1',
       consent: token,
     );
     expect(request.imageBytes, same(bytes));

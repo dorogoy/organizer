@@ -71,6 +71,7 @@ void main() {
           ScanSliceRequest(
             imageBytes: Uint8List(0),
             prompt: '',
+            scanId: 'scan-1',
             consent: mintScanConsent(scanId: 'scan-1'),
           ),
           const GenesisSliceRequest(text: 'x'),

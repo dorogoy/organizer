@@ -68,6 +68,7 @@ void main() {
       ScanSliceRequest(
         imageBytes: bytes,
         prompt: prompt,
+        scanId: 'scan-cache-dir',
         consent: mintScanConsent(scanId: 'scan-cache-dir'),
       );
 
@@ -678,6 +679,32 @@ void main() {
       expect(recorded.single.body.contains('scan-cache-dir'), isFalse);
       expect(recorded.single.body.toLowerCase().contains('consent'), isFalse);
     });
+
+    test(
+      'reusing a scan request preserves the raw consent StateError',
+      () async {
+        await seedKey('openai', 'o-key');
+        final client = recording(
+          (request) => jsonResponse({
+            choicesKey: [
+              {
+                messageKey: {contentKey: '{"steps":[]}'},
+              },
+            ],
+          }),
+        );
+        final slicer = slicerWith(client, 'openai');
+        final request = scanRequest(gradientJpeg(640, 480), 'describe');
+
+        expect(await slicer.slice(request), isA<SlicerDelivered>());
+        await expectLater(
+          slicer.slice(request),
+          throwsA(isA<StateError>()),
+          reason: 'consent reuse is a programmer error, not provider outage',
+        );
+        expect(recorded, hasLength(1));
+      },
+    );
 
     test('an OpenRouter scan rides the same data-URI and keeps ZDR', () async {
       await seedKey('openrouter', 'r-key');

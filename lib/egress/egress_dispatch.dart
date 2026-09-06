@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:core/ports/scan_consent.dart';
+
 import 'egress_payload.dart';
 import 'image_cap.dart';
 
@@ -50,6 +52,8 @@ final class EgressFailed extends EgressResult {
 /// entry, burned even when the cap rejects — nothing retries, so a
 /// burned token on a failed send guards nothing, and the rule is
 /// total: no path exists where a token survives contact with `send`.
+/// The in-memory scan identity is checked against the token immediately
+/// after consumption; it never enters the serialized wire body.
 /// The cap then runs inside the binding — scan shapes only, before
 /// the transport is touched — and the capped reconstruction carries
 /// the same token; the transport is invoked exactly once. Any failure
@@ -70,6 +74,9 @@ final class EgressDispatch {
       // still burned the token, because nothing retries and one token
       // authorizes exactly one dispatch entry.
       payload.consent.consume();
+      if (payload.scanId != payload.consent.scanId) {
+        throw ScanConsentStateError.scanIdMismatch();
+      }
       final Uint8List capped;
       try {
         capped = await prepareImageForEgress(payload.imageBytes);
@@ -79,6 +86,7 @@ final class EgressDispatch {
       prepared = ScanImagePrompt(
         imageBytes: capped,
         prompt: payload.prompt,
+        scanId: payload.scanId,
         consent: payload.consent,
       );
     }

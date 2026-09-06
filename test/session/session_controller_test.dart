@@ -879,5 +879,26 @@ void main() {
         reason: 'the spurious resumed appends nothing, as before',
       );
     });
+
+    test('a transient inactive→resumed occlusion opens without sweeping '
+        'the scan cache', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      final controller = buildController(store, files: files);
+      await controller.handleAppOpen();
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await Future<void>.delayed(Duration.zero);
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(files.sweeps, 1, reason: 'the launch sweep is the only one');
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'app_opened',
+      ]);
+    });
   });
 }

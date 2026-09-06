@@ -817,28 +817,29 @@ final class KitchenSink {
 
     test('ScanSliceRequest', () {
       // The scan request's own shape (Story 5.4, AD-8): the bytes,
-      // the prompt and the required consent token — and nothing else,
-      // so no nullable-consent or `hasConsent` reshaping can pass
-      // silently: the precondition is compile-time, and this census
-      // is its census.
+      // the prompt, the in-memory scan identity and the required
+      // consent token — and nothing else, so no nullable-consent or
+      // `hasConsent` reshaping can pass silently: the precondition and
+      // binding are compile-time plus dispatch-checked, and this census
+      // is their census.
       expect(
         _classOwnFields('ScanSliceRequest', 'ports/slicer_port.dart'),
-        equals(['imageBytes', 'prompt', 'consent']),
+        equals(['imageBytes', 'prompt', 'scanId', 'consent']),
       );
     });
 
     test('ScanImagePrompt (the shell chokepoint)', () {
       // The payload's own shape (Story 5.4, AD-8), read from the
-      // shell's egress module across the two lib trees: the same
-      // three fields the port request carries — the token threads
-      // through, never serializes, and a nullable reshape cannot
-      // pass silently here either.
+      // shell's egress module across the two lib trees: the same four
+      // fields the port request carries — identity and token thread
+      // through in memory, never serialize, and a nullable reshape
+      // cannot pass silently here either.
       expect(
         _classOwnFieldsOf(
           'ScanImagePrompt',
           _extractionSourceOf(_shellSource('lib/egress/egress_payload.dart')),
         ),
-        equals(['imageBytes', 'prompt', 'consent']),
+        equals(['imageBytes', 'prompt', 'scanId', 'consent']),
       );
     });
 
@@ -1230,6 +1231,9 @@ final class KitchenSink {
       // Story 5.4: the scan consent token — the capability type
       // itself, its binding field and its one-way consumption state.
       'ports/scan_consent.dart:ScanConsent',
+      // Story 5.4: the raw binding-violation subtype that keeps the
+      // programmer error intact through the shell's broad Slicer boundary.
+      'ports/scan_consent.dart:ScanConsentStateError',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {

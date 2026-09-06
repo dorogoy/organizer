@@ -34,6 +34,7 @@ final class ScanImagePrompt extends EgressPayload {
   const ScanImagePrompt({
     required this.imageBytes,
     required this.prompt,
+    required this.scanId,
     required this.consent,
   });
 
@@ -42,6 +43,10 @@ final class ScanImagePrompt extends EgressPayload {
 
   /// The prompt the Slicer answers for this scan.
   final String prompt;
+
+  /// The in-memory identity of the scan whose frame is being sent. It is
+  /// checked against [consent] at dispatch and never reaches the wire.
+  final String scanId;
 
   /// The scan's single-use consent token (Story 5.4, AD-8), consumed
   /// by the dispatch's scan branch before the cap. Never serialized,

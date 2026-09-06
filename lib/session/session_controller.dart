@@ -98,6 +98,12 @@ class SessionController with WidgetsBindingObserver {
   /// launch-time `resumed` finds this false and appends nothing.
   bool _leftForegroundSinceOpen = false;
 
+  /// Whether the departure was a real backgrounding rather than a
+  /// transient `inactive` occlusion. A scan may keep its frame while an
+  /// inactive→resumed beat completes, so only the former authorizes the
+  /// cache sweep on the following open.
+  bool _realDepartureSinceOpen = false;
+
   Future<void> _enqueue(Future<void> Function() step) {
     final chained = writeQueue.enqueue(step);
     // Readers must observe the current attempt's failure. The shared queue
@@ -118,14 +124,18 @@ class SessionController with WidgetsBindingObserver {
   /// pool-fact snapshot inside this one queued operation (Story 3.3):
   /// the launch deal sees manual captures, so a standing capture can
   /// be the session's very first card. Since Story 5.4 the queued step
-  /// begins with the awaited, quiet scan-cache sweep (AC5, NFR14):
-  /// every launch open and every resume sweeps once, before the open's
-  /// rows land.
-  Future<void> handleAppOpen() {
+  /// begins with the awaited, quiet scan-cache sweep (AC5, NFR14) on
+  /// launch and real-background resumes, before the open's rows land. A
+  /// transient inactive→resumed beat still appends `app_opened` but skips
+  /// the sweep so an in-flight scan can keep its cache.
+  Future<void> handleAppOpen({bool sweepScanCache = true}) {
     final now = nowOf();
     _leftForegroundSinceOpen = false;
+    _realDepartureSinceOpen = false;
     return _enqueue(() async {
-      await _sweepScanCache();
+      if (sweepScanCache) {
+        await _sweepScanCache();
+      }
       final catalogue = await _loadCatalogue();
       final log = await _readLog();
       final poolFacts = poolFactsOf(await store.readPoolFacts());
@@ -146,18 +156,16 @@ class SessionController with WidgetsBindingObserver {
 
   /// The crash backstop (Story 5.4): a blind sweep of the scan cache
   /// at the start of the open's queued step. Every terminal path and
-  /// lifecycle close unlinks its own subdirectory, so a standing
-  /// child at open is either a crash leftover or a scan the surface
-  /// is still deliberately holding open through a transient occlusion
-  /// (an inactive→resumed beat — a notification shade pulled
-  /// mid-shoot); the sweep unlinks both alike, fail-closed — an
-  /// upload no one consented to can never ride a lingering frame —
-  /// and the departure-cancels policy that would keep such a scan's
-  /// own files alive is Story 5.6's to govern. The sweep runs at
-  /// every open, launch and resume alike, and never on background or
-  /// end. Quiet on every error: a backstop may never break the open
-  /// it runs inside (the adapter is quiet by contract; this guard
-  /// keeps even a throwing seam from surfacing).
+  /// lifecycle close unlinks its own subdirectory, so a standing child at
+  /// a sweep-triggering open is a crash leftover. A transient
+  /// inactive→resumed occlusion is not swept while the scan surface may
+  /// still hold its frame; the departure-cancels policy for a real
+  /// background is Story 5.6's to govern. The sweep runs at launch and
+  /// after a real background departure, never on a transient
+  /// inactive→resumed occlusion, background or end. Quiet on every error:
+  /// a backstop may never break the open it runs inside (the adapter is
+  /// quiet by contract; this guard keeps even a throwing seam from
+  /// surfacing).
   Future<void> _sweepScanCache() async {
     final files = this.files;
     if (files == null) {
@@ -191,7 +199,7 @@ class SessionController with WidgetsBindingObserver {
         // Only a real return from off-foreground re-opens — the launch
         // open is main's explicit call alone.
         if (_leftForegroundSinceOpen) {
-          unawaited(handleAppOpen());
+          unawaited(handleAppOpen(sweepScanCache: _realDepartureSinceOpen));
         }
       case AppLifecycleState.inactive:
         // A transient occlusion (a banner, the app switcher's first
@@ -202,6 +210,7 @@ class SessionController with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         _leftForegroundSinceOpen = true;
+        _realDepartureSinceOpen = true;
         unawaited(handleSessionEnd());
     }
   }

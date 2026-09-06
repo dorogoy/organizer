@@ -14,6 +14,7 @@ import 'dart:async';
 import 'dart:io' show SocketException, TlsException;
 
 import 'package:core/ports/slicer_port.dart';
+import 'package:core/ports/scan_consent.dart';
 import 'package:http/http.dart' as http;
 
 import '../vault/credential_vault.dart';
@@ -52,6 +53,11 @@ final class ByokSlicer implements SlicerPort {
   Future<SlicerOutcome> slice(SlicerRequest request) async {
     try {
       return await _slice(request);
+    } on ScanConsentStateError {
+      // Scan-consent reuse and identity mismatches are programmer errors
+      // from EgressDispatch, not provider failures. Preserve the raw
+      // contract through the public Slicer seam.
+      rethrow;
     } on Object {
       // The port answers outcomes only — a bare throw crossing this
       // boundary would break the outcome-only contract every caller
@@ -105,6 +111,7 @@ final class ByokSlicer implements SlicerPort {
     ScanSliceRequest() => ScanImagePrompt(
       imageBytes: request.imageBytes,
       prompt: request.prompt,
+      scanId: request.scanId,
       consent: request.consent,
     ),
     GenesisSliceRequest() => ProjectGenesisText(text: request.text),
