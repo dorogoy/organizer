@@ -134,20 +134,21 @@ Future<Uint8List> prepareImageForEgress(Uint8List bytes) =>
     compute(_capImage, bytes);
 
 Uint8List _capImage(Uint8List bytes) {
-  if (egressImageFormatOf(bytes) == null) {
+  final format = egressImageFormatOf(bytes);
+  if (format == null) {
     // Not JPEG, not PNG: a type the wire cannot declare, or not an
     // image at all — refused before any decoder is found or asked.
     throw const MalformedImageInput();
   }
-  final decoder = _probeDecoder(bytes);
+  final decoder = _probeDecoder(bytes, format);
   final (probeWidth, probeHeight) = _probeDimensions(decoder, bytes);
-  // Per-dimension bound first, overflow-safe by construction: a
-  // crafted PNG header can claim two near-uint32-max dimensions whose
-  // product wraps int64 negative (4294967295² ≈ 1.8 × 10¹⁹ is past
-  // 2⁶³), slipping a product-only comparison past the budget and
-  // toward a decode that would trust the lie. Bounding each dimension
-  // alone first means the product below is only ever taken on values
-  // whose product cannot wrap.
+  // Per-dimension bound first: a crafted PNG header can claim two
+  // near-uint32-max dimensions. Dart's `int` is arbitrary-precision, so
+  // the product cannot wrap negative — 4294967295² is just a very
+  // large int, and a product-only comparison would still refuse it —
+  // but forming that product is wasted work on a lie no decode should
+  // ever see. Bounding each dimension alone first means the product
+  // below is only ever taken on values already inside the budget.
   if (probeWidth > egressPixelCeiling ||
       probeHeight > egressPixelCeiling ||
       probeWidth * probeHeight > egressPixelCeiling) {
@@ -163,45 +164,68 @@ Uint8List _capImage(Uint8List bytes) {
     return bytes;
   }
   final image = _decodeFirstFrame(decoder, bytes);
-  // Bake EXIF orientation into the pixels before any dimension math:
-  // the target size must be computed on the oriented raster.
-  final oriented =
-      image.exif.imageIfd.hasOrientation && image.exif.imageIfd.orientation != 1
-      ? img.bakeOrientation(image)
-      : image;
-  final orientedLongest = oriented.width > oriented.height
-      ? oriented.width
-      : oriented.height;
-  // Integer math: the longer edge lands exactly on the cap and the
-  // shorter is floored, so rounding can never push a dimension over it.
-  var width = oriented.width * egressImageCap ~/ orientedLongest;
-  var height = oriented.height * egressImageCap ~/ orientedLongest;
-  if (width == 0) {
-    width = 1;
+  // Bake, resize and encode are still pre-transport: a throw here
+  // never reached a provider, so it is the same MalformedImageInput
+  // as the four named refusal sites, never `_causeOf`'s residual
+  // `providerUnreachable`.
+  try {
+    // Bake EXIF orientation into the pixels before any dimension math:
+    // the target size must be computed on the oriented raster.
+    final oriented =
+        image.exif.imageIfd.hasOrientation &&
+            image.exif.imageIfd.orientation != 1
+        ? img.bakeOrientation(image)
+        : image;
+    final orientedLongest = oriented.width > oriented.height
+        ? oriented.width
+        : oriented.height;
+    // Integer math: the longer edge lands exactly on the cap and the
+    // shorter is floored, so rounding can never push a dimension over it.
+    var width = oriented.width * egressImageCap ~/ orientedLongest;
+    var height = oriented.height * egressImageCap ~/ orientedLongest;
+    if (width == 0) {
+      width = 1;
+    }
+    if (height == 0) {
+      height = 1;
+    }
+    final resized = img.copyResize(
+      oriented,
+      width: width,
+      height: height,
+      interpolation: img.Interpolation.average,
+    );
+    // Re-encode from the sniff, not from decoder.format: the
+    // admit-set is two formats, and the copy on the wire is one of
+    // those two.
+    return switch (format) {
+      EgressImageFormat.png => img.encodePng(resized),
+      EgressImageFormat.jpeg => img.encodeJpg(
+        resized,
+        quality: egressJpegQuality,
+      ),
+    };
+  } catch (error) {
+    if (error is MalformedImageInput) rethrow;
+    throw const MalformedImageInput();
   }
-  if (height == 0) {
-    height = 1;
-  }
-  final resized = img.copyResize(
-    oriented,
-    width: width,
-    height: height,
-    interpolation: img.Interpolation.average,
-  );
-  if (decoder.format == img.ImageFormat.png) {
-    return img.encodePng(resized);
-  }
-  return img.encodeJpg(resized, quality: egressJpegQuality);
 }
 
-/// Identifies the codec. Every failure — unknown format, or a short
-/// buffer that upsets a probe itself — is the one
+/// Identifies the codec the sniff already admitted. The walk of every
+/// registered decoder (`findDecoderForData`) is not used: TGA has no
+/// magic, and a body the sniff called JPEG/PNG that those codecs
+/// refuse must not be claimed by another format and then declared as
+/// the sniff's mime. Every failure — the admitted codec rejects the
+/// body, or a short buffer upsets the probe itself — is the one
 /// [MalformedImageInput]: the sniff already admitted the magic, so a
 /// probe refusal here is a corrupt body, pre-transport.
-img.Decoder _probeDecoder(Uint8List bytes) {
+img.Decoder _probeDecoder(Uint8List bytes, EgressImageFormat format) {
   try {
-    final decoder = img.findDecoderForData(bytes);
-    if (decoder != null) {
+    final decoder = switch (format) {
+      EgressImageFormat.jpeg => img.JpegDecoder(),
+      EgressImageFormat.png => img.PngDecoder(),
+    };
+    if (decoder.isValidFile(bytes)) {
       return decoder;
     }
   } catch (_) {

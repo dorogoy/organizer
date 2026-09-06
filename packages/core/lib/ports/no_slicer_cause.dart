@@ -36,8 +36,9 @@ enum NoSlicerCause {
   /// its string to exactly what is unavailable.
   quotaExhausted,
 
-  /// The provider is unresponsive — HTTP 5xx evidence, and the
-  /// recorded fold of a body that yields no slice text.
+  /// The provider is unresponsive — HTTP 5xx evidence, the recorded
+  /// fold of a body that yields no slice text, and the recorded fold
+  /// of a pre-transport malformed input (nothing was ever sent).
   unreachable,
 
   /// No network — a socket-family failure before any HTTP status

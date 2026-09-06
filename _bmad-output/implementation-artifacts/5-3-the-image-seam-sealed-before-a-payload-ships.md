@@ -3,7 +3,7 @@ title: 'Story 5.3: The image seam, sealed before a payload ships'
 type: 'bugfix'
 created: '2026-09-06'
 status: 'done'
-review_loop_iteration: 1
+review_loop_iteration: 3
 baseline_commit: '546c79e30ea68f67ec9b2e252fdbc5e26a8cd902'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
@@ -90,6 +90,17 @@ context:
 - Given bytes that cannot be decoded, when the cap attempts them, then the resulting `SlicerFailureCause` is `malformedInput` — never `malformedResponse` — and the recorded transport shows zero calls; the delivered-but-unusable bucket keeps meaning "a 2xx arrived and was unusable" (AC2, FR-29, AD-7).
 - Given a low-RAM device mid-camera-flow, when the pixel ceiling is consulted, then `egressPixelCeiling` is 12.5 MP with the memory arithmetic recorded in the doc, the 12 MP sensor class (4032×3024) passes, and an over-ceiling header rejects before allocation as malformed input (AC3).
 - Given the committed suites, when this story lands, then each fix is pinned (mime truthfulness, taxonomy, ceiling) with the old defective assertions gone, and the story precedes 5.5–5.6 shipping the first scan payload (AC4, ordering constraint).
+
+### Review Findings
+
+- [x] [Review][Patch] Oversized-decode refusal is unpinned — `_decodeFirstFrame` can revert to `FormatException`/`malformedResponse` while every current test stays green [lib/egress/image_cap.dart:242]
+- [x] [Review][Patch] After the sniff admits JPEG/PNG, `_probeDecoder` still walks every codec via `findDecoderForData` (TGA has no magic) [lib/egress/image_cap.dart:203]
+- [x] [Review][Patch] bake/resize/encode tail is not mapped to `MalformedImageInput` — a pre-transport `ImageException` becomes `providerUnreachable` [lib/egress/image_cap.dart:165]
+- [x] [Review][Patch] `store_port` and `log_test` still say the port has seven causes after the eighth landed [packages/core/lib/ports/store_port.dart:68]
+- [x] [Review][Patch] `NoSlicerCause.unreachable` member doc names only 5xx and the body-fold, not `malformedInput` [packages/core/lib/ports/no_slicer_cause.dart:39]
+- [x] [Review][Patch] Guard comments and the uint32 test claim an int64 wrap Dart never does [lib/egress/image_cap.dart:144]
+- [x] [Review][Patch] `_fakeOverBudgetJpegHeader` comment claims 16 MP would have cleared a 20 MP header [test/egress/image_cap_test.dart:254]
+- [x] [Review][Defer] Recorded 50–63 MB peak omits isolate copies and `bakeOrientation`'s second raster [lib/egress/image_cap.dart:83] — deferred, pre-existing
 
 ## Spec Change Log
 

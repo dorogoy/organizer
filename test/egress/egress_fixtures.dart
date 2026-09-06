@@ -65,3 +65,60 @@ img.ImageFormat formatOf(Uint8List bytes) {
   }
   return decoder.format;
 }
+
+/// A PNG chunk: big-endian length, type, data, and the standard CRC-32
+/// over type + data (the decoder validates the IHDR CRC and throws on
+/// a mismatch, so the fixture computes the real one).
+Uint8List pngChunk(String type, List<int> data) {
+  final body = <int>[...type.codeUnits, ...data];
+  var crc = 0xFFFFFFFF;
+  for (final byte in body) {
+    crc ^= byte;
+    for (var bit = 0; bit < 8; bit++) {
+      crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+    }
+  }
+  crc ^= 0xFFFFFFFF;
+  final out = BytesBuilder();
+  out.add([
+    data.length >> 24,
+    data.length >> 16,
+    data.length >> 8,
+    data.length & 0xFF,
+  ]);
+  out.add(body);
+  out.add([
+    (crc >> 24) & 0xFF,
+    (crc >> 16) & 0xFF,
+    (crc >> 8) & 0xFF,
+    crc & 0xFF,
+  ]);
+  return out.toBytes();
+}
+
+/// A minimal, well-formed PNG: signature + IHDR claiming
+/// [width]×[height] (8-bit RGBA, no interlace) + IEND. The header
+/// parses cleanly; no IDAT follows, so no pixel decode can succeed.
+Uint8List pngHeaderWithDimensions(int width, int height) {
+  final out = BytesBuilder();
+  out.add([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  out.add(
+    pngChunk('IHDR', [
+      (width >> 24) & 0xFF,
+      (width >> 16) & 0xFF,
+      (width >> 8) & 0xFF,
+      width & 0xFF,
+      (height >> 24) & 0xFF,
+      (height >> 16) & 0xFF,
+      (height >> 8) & 0xFF,
+      height & 0xFF,
+      8, // bit depth
+      6, // color type: RGBA
+      0, // compression
+      0, // filter
+      0, // interlace
+    ]),
+  );
+  out.add(pngChunk('IEND', const []));
+  return out.toBytes();
+}

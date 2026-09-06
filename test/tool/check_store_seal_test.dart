@@ -12,6 +12,20 @@ Directory _makeTemp(String label) {
   return dir;
 }
 
+/// Spawns the seal executable. `dart run` returns 254 when its kernel
+/// compile races another file's `dart run` under `flutter test`
+/// parallelism (CI on PR 35); one retry is the same check, not a
+/// softened assertion.
+Future<ProcessResult> _runSeal(String root) async {
+  Future<ProcessResult> once() =>
+      Process.run('dart', ['run', 'tool/check_store_seal.dart', root]);
+  var result = await once();
+  if (result.exitCode == 254) {
+    result = await once();
+  }
+  return result;
+}
+
 void main() {
   test('a drift import outside lib/store/ is flagged, with file and line', () {
     final path = '$fixtures/outside.dart';
@@ -486,11 +500,7 @@ class WildcardLeak
       'exits 1 and prints file:line for a leak outside lib/store/',
       () async {
         final root = fixtureRoot(violating: true);
-        final result = await Process.run('dart', [
-          'run',
-          'tool/check_store_seal.dart',
-          root.path,
-        ]);
+        final result = await _runSeal(root.path);
         expect(result.exitCode, 1);
         final out = result.stdout as String;
         expect(out, matches(RegExp(r'screen\.dart:\d+:')));
@@ -500,11 +510,7 @@ class WildcardLeak
 
     test('exits 0 when only lib/store/ imports persistence', () async {
       final root = fixtureRoot(violating: false);
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 0);
       expect(result.stdout as String, contains('store seal check passed'));
     });
@@ -514,11 +520,7 @@ class WildcardLeak
       Directory('${root.path}/lib/fixtures').createSync(recursive: true);
       File('${root.path}/lib/fixtures/bad.dart')
           .writeAsStringSync("import 'package:drift/drift.dart';\n");
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       expect(result.stdout as String, contains('lib/fixtures/bad.dart'));
     });
@@ -528,11 +530,7 @@ class WildcardLeak
       Directory('${root.path}/lib/ui').createSync(recursive: true);
       File('${root.path}/lib/ui/screen.dart')
           .writeAsStringSync("import 'dart:io';\nvoid main() {}\n");
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains("a 'dart:io' import is legal under lib/"));
@@ -547,11 +545,7 @@ class WildcardLeak
         "import 'dart:io';\n"
         "void leak() => File('side').readAsStringSync();\n",
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains('dart:io file, process or socket API'));
@@ -567,11 +561,7 @@ class WildcardLeak
         "import 'dart:io';\n"
         'void leak() => HttpClient();\n',
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains('dart:io file, process or socket API'));
@@ -588,11 +578,7 @@ class WildcardLeak
         "import 'dart:io';\n"
         "void leak() => Process.runSync('cat', ['envelope']);\n",
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains('dart:io file, process or socket API'));
@@ -608,11 +594,7 @@ class WildcardLeak
         "import 'dart:io' show SocketException;\n"
         'Object? classify(Object cause) => cause is SocketException;\n',
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 0);
       expect(result.stdout as String, contains('store seal check passed'));
     });
@@ -631,11 +613,7 @@ class WildcardLeak
         'class CryptoLeak\n'
         '    fun leak() = Cipher.getInstance("AES/GCM/NoPadding")\n',
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains('CryptoLeak.kt:'));
@@ -658,11 +636,7 @@ class WildcardLeak
       File('${debug.path}/CredentialKeystore.kt').writeAsStringSync(
         File('$fixtures/DecoyCredentialKeystore.kt').readAsStringSync(),
       );
-      final result = await Process.run('dart', [
-        'run',
-        'tool/check_store_seal.dart',
-        root.path,
-      ]);
+      final result = await _runSeal(root.path);
       expect(result.exitCode, 1);
       final out = result.stdout as String;
       expect(out, contains('src/debug/kotlin'));

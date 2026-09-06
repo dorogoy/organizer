@@ -736,6 +736,27 @@ void main() {
   });
 
   group('the image seam\'s honesty (story 5.3) — the taxonomy pin', () {
+    test('an oversized header whose body will not decode reads '
+        'malformedInput, never malformedResponse — the decode-path '
+        'site end to end', () async {
+      await seedKey('gemini', 'g-key');
+      final client = recording((request) => jsonResponse({}));
+      // 2000×1000 PNG signature+IHDR+IEND, no IDAT: sniff admits,
+      // probe passes, budget passes, pixel decode refuses.
+      final bytes = pngHeaderWithDimensions(2000, 1000);
+      final outcome = await slicerWith(
+        client,
+        'gemini',
+      ).slice(ScanSliceRequest(imageBytes: bytes, prompt: 'describe'));
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.malformedInput,
+        reason: 'never malformedResponse — nothing was ever sent',
+      );
+      expect(recorded, isEmpty);
+    });
+
     test('undecodable scan bytes read malformedInput, never '
         'malformedResponse — zero transport calls', () async {
       await seedKey('gemini', 'g-key');

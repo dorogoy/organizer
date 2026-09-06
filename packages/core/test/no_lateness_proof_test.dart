@@ -1198,8 +1198,9 @@ final class KitchenSink {
       // The ambient strip's resident vocabulary (Story 2.5) — the
       // precedence order's members, no fields.
       'derive/strip.dart:StripResident',
-      // The slicer's failure-cause vocabulary (Story 4-4, FR-29) —
-      // seven members and no fields, the closed taxonomy itself.
+      // The slicer's failure-cause vocabulary (Story 4-4, FR-29;
+      // story 5.3 gained malformedInput) — eight members and no
+      // fields, the closed taxonomy itself.
       'ports/slicer_port.dart:SlicerFailureCause',
       // The no-Slicer cause vocabulary (Story 4-5, FR-29) — the UI's
       // seven renderable states, members and no fields, where the

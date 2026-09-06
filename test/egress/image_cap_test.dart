@@ -227,20 +227,58 @@ void main() {
     );
   });
 
+  test('an oversized header whose body will not decode is malformed '
+      'input — the decode-path refusal site', () async {
+    // 2000×1000: long edge over the cap, product under the ceiling,
+    // IHDR parses, no IDAT. Restoring FormatException at
+    // `_decodeFirstFrame` would still pass every other MalformedImageInput
+    // pin; this one would go red.
+    final bytes = pngHeaderWithDimensions(2000, 1000);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('JPEG magic that the JPEG codec refuses is malformed input — '
+      'no other decoder may claim it', () async {
+    // 32 bytes starting FF D8, with TGA's pixel-depth slot (offset 16)
+    // set to 24 so `findDecoderForData` could have handed the body to
+    // TGA after JpegDecoder.isValidFile failed. The probe now uses
+    // JpegDecoder only.
+    final bytes = Uint8List(32);
+    bytes[0] = 0xFF;
+    bytes[1] = 0xD8;
+    bytes[16] = 24;
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
   test('a crafted uint32 PNG header is refused by the per-dimension '
-      'bound — the product can never wrap past the budget', () async {
+      'bound — the product is never taken on a uint32-max lie', () async {
     // The control proves the builder produces a PNG the decoder's
     // header parse accepts (startDecode reads its IHDR — CRC valid,
     // IEND terminates): with sane dimensions it parses cleanly. The
-    // 0xFFFFFFFF² variant then reaches the budget guard with a
-    // well-formed header, so the ONLY rejection site that can fire is
-    // the per-dimension bound — the raw product (≈ 1.8 × 10¹⁹) wraps
-    // int64 negative and would slip a product-only comparison.
-    final control = _pngHeaderWithDimensions(2, 2);
-    final controlInfo = img.findDecoderForData(control)!.startDecode(control);
+    // 0xFFFFFFFF² variant then reaches the budget guard with the
+    // same well-formed header, so the rejection is the bound, not a
+    // probe failure. Dart's int cannot wrap that product negative;
+    // the per-dimension comparison fires first so the 10¹⁹ product
+    // is never formed.
+    final control = pngHeaderWithDimensions(2, 2);
+    final controlInfo = img.PngDecoder().startDecode(control);
     expect(controlInfo!.width, 2);
     expect(controlInfo.height, 2);
-    final crafted = _pngHeaderWithDimensions(0xFFFFFFFF, 0xFFFFFFFF);
+    final crafted = pngHeaderWithDimensions(0xFFFFFFFF, 0xFFFFFFFF);
+    final craftedInfo = img.PngDecoder().startDecode(crafted);
+    expect(
+      craftedInfo,
+      isNotNull,
+      reason: 'the header parses; the bound fires',
+    );
+    expect(craftedInfo!.width, 0xFFFFFFFF);
+    expect(craftedInfo.height, 0xFFFFFFFF);
     await expectLater(
       prepareImageForEgress(crafted),
       throwsA(isA<MalformedImageInput>()),
@@ -250,8 +288,9 @@ void main() {
   test('a header claiming an over-ceiling pixel budget is malformed '
       'input, not an OOM attempt', () async {
     // The pixel payload is tiny, but the header claims 20 MP — over
-    // the 12.5 MP ceiling, so the probe rejects before any decode
-    // allocation (16 MP would have cleared the old ceiling's bar).
+    // both the 12.5 MP ceiling and the old 16 MP bar, so this fixture
+    // does not discriminate the two; the 4096×3072 pin does. The
+    // probe still rejects before any decode allocation.
     final bytes = _fakeOverBudgetJpegHeader();
     await expectLater(
       prepareImageForEgress(bytes),
@@ -289,7 +328,7 @@ void main() {
       // terminates) but claims 0×8 pixels — the probe's
       // positive-dimension guard is the rejection site, before any
       // dimension math runs.
-      final bytes = _pngHeaderWithDimensions(0, 8);
+      final bytes = pngHeaderWithDimensions(0, 8);
       await expectLater(
         prepareImageForEgress(bytes),
         throwsA(isA<MalformedImageInput>()),
@@ -319,64 +358,6 @@ void main() {
       );
     });
   });
-}
-
-/// A PNG chunk: big-endian length, type, data, and the standard CRC-32
-/// over type + data (the decoder validates the IHDR CRC and throws on
-/// a mismatch, so the fixture computes the real one).
-Uint8List _pngChunk(String type, List<int> data) {
-  final body = <int>[...type.codeUnits, ...data];
-  var crc = 0xFFFFFFFF;
-  for (final byte in body) {
-    crc ^= byte;
-    for (var bit = 0; bit < 8; bit++) {
-      crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
-    }
-  }
-  crc ^= 0xFFFFFFFF;
-  final out = BytesBuilder();
-  out.add([
-    data.length >> 24,
-    data.length >> 16,
-    data.length >> 8,
-    data.length & 0xFF,
-  ]);
-  out.add(body);
-  out.add([
-    (crc >> 24) & 0xFF,
-    (crc >> 16) & 0xFF,
-    (crc >> 8) & 0xFF,
-    crc & 0xFF,
-  ]);
-  return out.toBytes();
-}
-
-/// A minimal, well-formed PNG: signature + IHDR claiming
-/// [width]×[height] (8-bit RGBA, no interlace) + IEND. The header
-/// parses cleanly; no IDAT follows, so no pixel decode can succeed —
-/// built to reach the cap's budget guard, never past it.
-Uint8List _pngHeaderWithDimensions(int width, int height) {
-  final out = BytesBuilder();
-  out.add([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-  out.add(
-    _pngChunk('IHDR', [
-      (width >> 24) & 0xFF,
-      (width >> 16) & 0xFF,
-      (width >> 8) & 0xFF,
-      width & 0xFF,
-      (height >> 24) & 0xFF,
-      (height >> 16) & 0xFF,
-      (height >> 8) & 0xFF,
-      height & 0xFF,
-      8, // bit depth
-      6, // color type: RGBA
-      0, // compression
-      0, // filter
-      0, // interlace
-    ]),
-  );
-  out.add(_pngChunk('IEND', const []));
-  return out.toBytes();
 }
 
 /// Builds bytes whose JPEG header declares a 5000×4000 SOF frame —

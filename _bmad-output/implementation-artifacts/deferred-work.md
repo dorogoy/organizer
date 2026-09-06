@@ -289,3 +289,7 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/5-3-the-image-seam-sealed-before-a-payload-ships.md`
   summary: No byte-size guard on in-cap pass-through images — a JPEG/PNG with in-ceiling header dimensions but an arbitrarily large encoded body (trailing payload past EOI/IEND) passes value-identical and the wire base64s the full size.
   evidence: Edge-case review 2026-09-06 — AD-7's cap is a resolution cap by design and this pass-through behavior predates 5.3 (unchanged by it); a byte ceiling is new egress policy, worth deciding with the bounded-capture-preset deferral (production camera JPEGs are bounded by the preset, so the exposure is crafted input only).
+
+- source_spec: `_bmad-output/implementation-artifacts/5-3-the-image-seam-sealed-before-a-payload-ships.md`
+  summary: The recorded 50–63 MB JPEG peak in `egressPixelCeiling`'s doc counts one 12.5 MP uint8 raster + a ≤1536² target + bounded encode buffers. It omits `compute()`'s copy of the input, the parent isolate still holding those bytes, `bakeOrientation`'s second full-size raster on tagged camera JPEGs, and `copyResize` keeping source and dest. Revising the ruled 12.5 MP ceiling is Sergio's call; the 16 MP path was worse.
+  evidence: Code review 2026-09-06 (round 3) — Blind Hunter on `image_cap.dart` arithmetic; production capture remains `ResolutionPreset.max` (bounded preset still deferred).
