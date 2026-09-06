@@ -10,8 +10,53 @@ void main() {
   test('the decided cap, quality and pixel ceiling are pinned', () {
     expect(egressImageCap, 1536);
     expect(egressJpegQuality, 85);
-    expect(egressPixelCeiling, 16_000_000);
+    expect(egressPixelCeiling, 12_500_000);
   });
+
+  test('a panoramic frame resizes inside the recorded resize bound — '
+      'both edges land under the cap', () async {
+    // image_cap.dart's arithmetic (review round 1): the long edge
+    // always lands on 1536, so the resize target is bounded by
+    // ≈ 1536×1536 ≈ 2.36 MP ≈ 7.1–9.4 MB — a 1536×2048 target never
+    // occurs. This 4000×1000 (4 MP) panorama takes the long-edge math
+    // to a 4:1 extreme and lands at 1536×384, inside the bound.
+    final out = await prepareImageForEgress(gradientJpeg(4000, 1000));
+    final image = decodeOrThrow(out);
+    expect(image.width, 1536);
+    expect(image.height, 384);
+    expect(image.width * image.height, 589_824);
+  });
+
+  test('the canonical 12 MP sensor capture survives the cap — the '
+      'camera class passes', () async {
+    // 4032×3024 = 12,192,768 px — the class the ruled 12,500,000
+    // exists to admit (a literal 12,000,000 rejected it). The resize
+    // lands at 1536×1152, both edges on the cap's terms. Encoding a
+    // 12 MP raster in-test costs a few seconds; that is the price of
+    // pinning the real camera class rather than a stand-in.
+    final bytes = gradientJpeg(4032, 3024);
+    final out = await prepareImageForEgress(bytes);
+    final image = decodeOrThrow(out);
+    expect(image.width, 1536);
+    expect(image.height, 1152);
+    expect(formatOf(out), img.ImageFormat.jpg);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('the ruled band bites: a 12,582,912 px capture is refused — the '
+      'pin that discriminates 12.5 MP from a reverted 16 MP', () async {
+    // 4096×3072 = 12,582,912 px — inside the old 16 MP ceiling, over
+    // the ruled 12,500,000. Under a guard reverted to 16 MP this real
+    // fixture would decode and resize successfully, so this pin makes
+    // the band's closure behavioral: a guard-only revert ships red.
+    // Header-only fixtures cannot discriminate — both ceilings throw
+    // the same type; the fixture must be real, and so the encoding
+    // costs a few seconds.
+    final bytes = gradientJpeg(4096, 3072);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('a JPEG within the cap is returned unchanged in value', () async {
     final bytes = gradientJpeg(320, 240);
@@ -114,36 +159,204 @@ void main() {
     },
   );
 
-  test(
-    'a GIF becomes JPEG q85 through the cap (third-format policy)',
-    () async {
-      final bytes = gradientGif(2000, 1000);
-      final out = await prepareImageForEgress(bytes);
-      final image = decodeOrThrow(out);
-      expect(image.width, 1536);
-      expect(image.height, 768);
-      expect(formatOf(out), img.ImageFormat.jpg);
-    },
-  );
+  test('an oversized GIF is refused pre-transport — the sniff gates before '
+      'any decode, whatever the size', () async {
+    final bytes = gradientGif(2000, 1000);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
 
-  test('a within-cap GIF passes through untouched (no gratuitous '
-      're-encode)', () async {
+  test('a within-cap GIF is refused too — size does not soften the admit '
+      'set (the old pass-through hole, sealed)', () async {
     final bytes = gradientGif(800, 600);
-    final out = await prepareImageForEgress(bytes);
-    expect(out, equals(bytes));
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
   });
 
-  test('undecodable bytes throw, never reject', () {
+  test('a decodable sub-cap WebP is refused before any decode', () async {
+    final bytes = gradientWebP(320, 240);
+    // The bytes are a genuine WebP the codec could read — the refusal
+    // is the sniff's, about the wire's declarable types.
+    expect(decodeOrThrow(bytes).width, 320);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('a decodable sub-cap BMP is refused before any decode', () async {
+    final bytes = gradientBmp(320, 240);
+    expect(decodeOrThrow(bytes).width, 320);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('undecodable bytes are malformed input — one rejection for every '
+      'non-admitted input', () async {
     final garbage = Uint8List.fromList([1, 2, 3, 4, 5]);
-    expect(prepareImageForEgress(garbage), throwsA(isA<FormatException>()));
+    await expectLater(
+      prepareImageForEgress(garbage),
+      throwsA(isA<MalformedImageInput>()),
+    );
   });
 
-  test('a header claiming an unsafe pixel budget is undecodable, not an '
-      'OOM attempt', () async {
-    // The pixel payload is tiny, but the header claims 20 MP — the probe
-    // rejects before any decode allocation.
+  test('JPEG magic with a corrupt body is malformed input too — the '
+      'sniff admits, the probe refuses', () async {
+    final bytes = Uint8List.fromList([0xFF, 0xD8, 0x12, 0x34]);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('PNG magic with a corrupt body is malformed input — the PNG leg '
+      'of the corrupt-body row', () async {
+    final bytes = Uint8List.fromList([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+      0x12, 0x34, 0x56,
+    ]);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('an oversized header whose body will not decode is malformed '
+      'input — the decode-path refusal site', () async {
+    // 2000×1000: long edge over the cap, product under the ceiling,
+    // IHDR parses, no IDAT. Restoring FormatException at
+    // `_decodeFirstFrame` would still pass every other MalformedImageInput
+    // pin; this one would go red.
+    final bytes = pngHeaderWithDimensions(2000, 1000);
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('JPEG magic that the JPEG codec refuses is malformed input — '
+      'no other decoder may claim it', () async {
+    // 32 bytes starting FF D8, with TGA's pixel-depth slot (offset 16)
+    // set to 24 so `findDecoderForData` could have handed the body to
+    // TGA after JpegDecoder.isValidFile failed. The probe now uses
+    // JpegDecoder only.
+    final bytes = Uint8List(32);
+    bytes[0] = 0xFF;
+    bytes[1] = 0xD8;
+    bytes[16] = 24;
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('a crafted uint32 PNG header is refused by the per-dimension '
+      'bound — the product is never taken on a uint32-max lie', () async {
+    // The control proves the builder produces a PNG the decoder's
+    // header parse accepts (startDecode reads its IHDR — CRC valid,
+    // IEND terminates): with sane dimensions it parses cleanly. The
+    // 0xFFFFFFFF² variant then reaches the budget guard with the
+    // same well-formed header, so the rejection is the bound, not a
+    // probe failure. Dart's int cannot wrap that product negative;
+    // the per-dimension comparison fires first so the 10¹⁹ product
+    // is never formed.
+    final control = pngHeaderWithDimensions(2, 2);
+    final controlInfo = img.PngDecoder().startDecode(control);
+    expect(controlInfo!.width, 2);
+    expect(controlInfo.height, 2);
+    final crafted = pngHeaderWithDimensions(0xFFFFFFFF, 0xFFFFFFFF);
+    final craftedInfo = img.PngDecoder().startDecode(crafted);
+    expect(
+      craftedInfo,
+      isNotNull,
+      reason: 'the header parses; the bound fires',
+    );
+    expect(craftedInfo!.width, 0xFFFFFFFF);
+    expect(craftedInfo.height, 0xFFFFFFFF);
+    await expectLater(
+      prepareImageForEgress(crafted),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  test('a header claiming an over-ceiling pixel budget is malformed '
+      'input, not an OOM attempt', () async {
+    // The pixel payload is tiny, but the header claims 20 MP — over
+    // both the 12.5 MP ceiling and the old 16 MP bar, so this fixture
+    // does not discriminate the two; the 4096×3072 pin does. The
+    // probe still rejects before any decode allocation.
     final bytes = _fakeOverBudgetJpegHeader();
-    expect(prepareImageForEgress(bytes), throwsA(isA<FormatException>()));
+    await expectLater(
+      prepareImageForEgress(bytes),
+      throwsA(isA<MalformedImageInput>()),
+    );
+  });
+
+  group('the shared sniff (story 5.3) — the seam\'s single type truth', () {
+    test('exactly two formats exist, closed by the enum', () {
+      expect(EgressImageFormat.values, hasLength(2));
+      expect(
+        EgressImageFormat.values,
+        containsAll(const [EgressImageFormat.jpeg, EgressImageFormat.png]),
+      );
+    });
+
+    test('empty bytes and short fragments read null — the length '
+        'guards hold', () {
+      expect(egressImageFormatOf(Uint8List(0)), isNull);
+      expect(
+        egressImageFormatOf(Uint8List.fromList([0x89, 0x50, 0x4E])),
+        isNull,
+        reason: 'a 3-byte PNG prefix fragment is not a sniffed type',
+      );
+      expect(
+        egressImageFormatOf(Uint8List.fromList([0xFF, 0xD8])),
+        EgressImageFormat.jpeg,
+        reason: 'the two JPEG magic bytes alone admit',
+      );
+    });
+
+    test('a header claiming zero dimensions is refused by the probe '
+        'guard', () async {
+      // startDecode parses this header cleanly (valid IHDR CRC, IEND
+      // terminates) but claims 0×8 pixels — the probe's
+      // positive-dimension guard is the rejection site, before any
+      // dimension math runs.
+      final bytes = pngHeaderWithDimensions(0, 8);
+      await expectLater(
+        prepareImageForEgress(bytes),
+        throwsA(isA<MalformedImageInput>()),
+      );
+    });
+
+    test('an in-cap APNG passes through whole — the animated shape the '
+        'admit set carries', () async {
+      // package:image has no encodeAnimatedPng; its PNG encoder writes
+      // a real APNG (acTL/fcTL chunks) for a multi-frame Image, which
+      // is the same thing — this fixture is a genuine animated PNG.
+      final animated = img.Image.from(gradient(100, 80));
+      animated.addFrame(gradient(100, 80));
+      final bytes = img.encodePng(animated);
+      expect(
+        decodeOrThrow(bytes).frames.length,
+        2,
+        reason: 'the fixture really is animated, not a plain PNG',
+      );
+      final out = await prepareImageForEgress(bytes);
+      expect(
+        out,
+        equals(bytes),
+        reason:
+            'in-cap pass-through returns the whole file — the '
+            'first-frame decode path never runs under the cap',
+      );
+    });
   });
 }
 

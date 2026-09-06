@@ -65,7 +65,7 @@ typedef PoolFactRecord = ({
 /// `Permission` enum names) and is set only on `permission_refused`,
 /// additively since schema v7 (Story 3.4, AD-17, AD-23).
 /// [sliceCause] is the slice failure's cause wire name (one of the
-/// seven the `SlicerFailureCause` enum names) and is set only on
+/// eight the `SlicerFailureCause` enum names) and is set only on
 /// `slice_failed`, additively since schema v9 (Story 4.6, FR-5,
 /// AD-23).
 typedef LogEntryRecord = ({

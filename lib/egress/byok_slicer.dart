@@ -20,6 +20,7 @@ import '../vault/credential_vault.dart';
 import 'byok_wire.dart';
 import 'egress_dispatch.dart';
 import 'egress_payload.dart';
+import 'image_cap.dart';
 import 'provider_allowlist.dart';
 
 /// How the slicer learns the selected provider per call: the shell
@@ -125,7 +126,13 @@ final class ByokSlicer implements SlicerPort {
   };
 
   /// The evidence-to-cause mapping, closed over the taxonomy and
-  /// split by evidence kind. HTTP status evidence: 401/403 read
+  /// split by evidence kind. Pre-transport input evidence — the image
+  /// seam's [MalformedImageInput] (an undeclarable magic, undecodable
+  /// bytes, a body the header probe trips — or, on the oversized
+  /// decode path, the decode — an over-ceiling header) —
+  /// reads `malformedInput` (story 5.3): nothing was ever sent, so
+  /// this is never `malformedResponse`; nothing sent is never
+  /// delivered-but-unusable. HTTP status evidence: 401/403 read
   /// `invalidKey`, 429 `quotaExhausted`, and every other non-2xx
   /// status — the 5xx family and the residual 4xx alike — reads
   /// `providerUnreachable`: the provider answered the request with
@@ -136,12 +143,16 @@ final class ByokSlicer implements SlicerPort {
   /// `networkUnreachable`. Decode evidence — a delivered 2xx body
   /// that is not valid UTF-8 — reads `malformedResponse`, the
   /// taxonomy's delivered-but-unusable bucket, which is otherwise
-  /// reserved for extraction failures and is never reached by
-  /// transport evidence. Anything else the transport threw (a
-  /// stall's `TimeoutException` included) is the provider's side of
-  /// the conversation: `providerUnreachable` — the split is
+  /// reserved for extraction failures and is never reached
+  /// pre-transport: a `FormatException` here means only a delivered
+  /// body's decode trouble, which is what this arm's doc always
+  /// claimed. Anything else the transport threw (a stall's
+  /// `TimeoutException` included) is the provider's side of the
+  /// conversation: `providerUnreachable` — the split is
   /// evidence-shaped, honest about its limits, and adds no eighth
-  /// cause.
+  /// surface cause: `malformedInput` folds to `unreachable` in
+  /// `no_slicer_cause.dart`'s total map, the same recorded fold shape
+  /// as `malformedResponse`.
   static SlicerFailureCause _causeOf(Object cause) {
     if (cause is WireStatusException) {
       final status = cause.statusCode;
@@ -157,6 +168,9 @@ final class ByokSlicer implements SlicerPort {
         cause is TlsException ||
         cause is http.ClientException) {
       return SlicerFailureCause.networkUnreachable;
+    }
+    if (cause is MalformedImageInput) {
+      return SlicerFailureCause.malformedInput;
     }
     if (cause is FormatException) {
       return SlicerFailureCause.malformedResponse;

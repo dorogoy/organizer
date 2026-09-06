@@ -1304,7 +1304,7 @@ void main() {
     });
 
     test('a valid slice_failed converts with its cause — one of the '
-        'seven the port\'s enum names', () {
+        'eight the port\'s enum names', () {
       final conversion = convertLogEntryRecord(
         _record(
           'slice_failed',
@@ -1318,7 +1318,7 @@ void main() {
       expect(entry.cause, SlicerFailureCause.quotaExhausted);
     });
 
-    test('each of the seven failure causes names its own slice_failed '
+    test('each of the eight failure causes names its own slice_failed '
         'row', () {
       for (final cause in SlicerFailureCause.values) {
         final conversion = convertLogEntryRecord(

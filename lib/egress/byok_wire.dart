@@ -20,6 +20,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'egress_payload.dart';
+import 'image_cap.dart';
 import 'provider_allowlist.dart';
 import 'rescue_contract.dart';
 
@@ -261,23 +262,20 @@ const String imageJpegMimeType = 'image/jpeg';
 /// The PNG mime type.
 const String imagePngMimeType = 'image/png';
 
-/// The two image mime types the egress cap can emit, sniffed from
-/// the bytes' magic numbers — the cap re-encodes to JPEG and keeps
-/// PNG as PNG, so every scan payload that reaches the wire carries
-/// one of the two.
-String imageMimeTypeOf(Uint8List bytes) {
-  if (bytes.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xd8) {
-    return imageJpegMimeType;
-  }
-  if (bytes.length >= 4 &&
-      bytes[0] == 0x89 &&
-      bytes[1] == 0x50 &&
-      bytes[2] == 0x4e &&
-      bytes[3] == 0x47) {
-    return imagePngMimeType;
-  }
-  return imageJpegMimeType;
-}
+/// The two image mime types the seam can declare, both mapped from
+/// the cap's own single sniff ([egressImageFormatOf]) — the wire and
+/// the cap agree on every input by construction (AC1, AD-7), so a
+/// declared mime is always the true sniffed type. A body the sniff
+/// refuses throws [MalformedImageInput]: the cap has already rejected
+/// every such input pre-transport, so reaching this arm means a
+/// caller bypassed the cap — either way the wire never mislabels a
+/// payload, and the old silent default (unknown magic read
+/// `image/jpeg`) is gone.
+String imageMimeTypeOf(Uint8List bytes) => switch (egressImageFormatOf(bytes)) {
+  EgressImageFormat.jpeg => imageJpegMimeType,
+  EgressImageFormat.png => imagePngMimeType,
+  null => throw const MalformedImageInput(),
+};
 
 /// The per-send stall bound: one value for every wire, a bound on
 /// the pathological (a provider that accepts the connection and

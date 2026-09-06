@@ -1,6 +1,6 @@
 /// The Slicer port (Story 4-4, AD-9): the core's name for "ask a
 /// provider for a slice" — one `slice` operation over one request,
-/// answering one outcome or one of seven failure causes. Three
+/// answering one outcome or one of eight failure causes. Three
 /// request kinds mirror the egress payload union (AD-7) one-for-one:
 /// a scan photograph plus its prompt, a project-genesis text, and a
 /// rescue re-slice's origin context plus task. Declaring three and
@@ -16,12 +16,16 @@
 /// (`ByokSlicer` — already banned here by name in
 /// `tool/check_core_purity.dart` — plus the Local stub and the
 /// Managed third shape). The cause taxonomy is the whole honesty
-/// contract FR-29 builds its calm surface on: seven distinguishable
-/// causes, closed here so no eighth can appear as a type, split by
-/// evidence — socket-family failures read `networkUnreachable`,
-/// HTTP-status evidence reads `invalidKey`/`quotaExhausted`/
-/// `providerUnreachable`, and a provider's answer that will not
-/// yield its slice text reads `malformedResponse`.
+/// contract FR-29 builds its calm surface on: the port distinguishes
+/// eight causes, closed here so no ninth can appear as a type, split
+/// by evidence — the image seam's pre-transport refusals read
+/// `malformedInput` (story 5.3), socket-family failures read
+/// `networkUnreachable`, HTTP-status evidence reads
+/// `invalidKey`/`quotaExhausted`/`providerUnreachable`, and a
+/// provider's answer that will not yield its slice text reads
+/// `malformedResponse`. FR-29's rendered surface stays exactly seven
+/// strings: `no_slicer_cause.dart`'s total map folds the taxonomy
+/// down, deliberately.
 
 library;
 
@@ -66,14 +70,16 @@ final class RescueSliceRequest extends SlicerRequest {
   final String task;
 }
 
-/// Why a slice could not be delivered: the seven-cause taxonomy
-/// (FR-29), closed by construction. Config-family causes
-/// (`credentialUnavailable`, `invalidKey`, `managedUnavailable`)
-/// carry a text pointer to Ajustes in 4-5's copy; the split between
-/// `networkUnreachable` and `providerUnreachable` is evidential —
-/// socket-family vs HTTP-status — and deliberately honest about its
-/// limits: a provider being down and DNS failing can both surface
-/// as sockets.
+/// Why a slice could not be delivered: the eight-cause taxonomy,
+/// closed by construction (story 5.3 gained `malformedInput`; FR-29's
+/// rendered surface stays seven — the fold to it is
+/// `no_slicer_cause.dart`'s recorded map, not a new string).
+/// Config-family causes (`credentialUnavailable`, `invalidKey`,
+/// `managedUnavailable`) carry a text pointer to Ajustes in 4-5's
+/// copy; the split between `networkUnreachable` and
+/// `providerUnreachable` is evidential — socket-family vs
+/// HTTP-status — and deliberately honest about its limits: a provider
+/// being down and DNS failing can both surface as sockets.
 enum SlicerFailureCause {
   /// No usable credential stands behind the selected provider —
   /// none selected, no envelope stored, or material that will not
@@ -95,6 +101,13 @@ enum SlicerFailureCause {
 
   /// The provider answered but its body yielded no slice text.
   malformedResponse,
+
+  /// The image seam refused the input before any transport existed
+  /// (story 5.3): the bytes were not a type the wire can declare
+  /// honestly, would not decode, or claimed more than the pixel
+  /// ceiling. Nothing was ever sent — a pre-transport fact about the
+  /// input, never the delivered-but-unusable `malformedResponse`.
+  malformedInput,
 
   /// The Managed shape was asked for a slice: it is inert in this
   /// build, and every request reads this cause.
@@ -124,7 +137,7 @@ final class SlicerDelivered extends SlicerOutcome {
 final class SlicerFailed extends SlicerOutcome {
   const SlicerFailed(this.cause);
 
-  /// The failure's cause, one of the closed seven.
+  /// The failure's cause, one of the closed eight.
   final SlicerFailureCause cause;
 }
 
