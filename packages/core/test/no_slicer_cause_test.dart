@@ -3,8 +3,8 @@ import 'package:core/ports/slicer_port.dart';
 import 'package:test/test.dart';
 
 /// The no-Slicer cause vocabulary (Story 4-5, FR-29): exactly seven
-/// members, and the total map from the port's seven failure causes —
-/// pinned row by row, exhaustive with no default arm, so an eighth
+/// members, and the total map from the port's eight failure causes —
+/// pinned row by row, exhaustive with no default arm, so a ninth
 /// cause on either side is a compile error here before it is a review
 /// comment anywhere. The two pre-request refusals have no
 /// failure-cause origin: the map's image is exactly the five causes a
@@ -47,10 +47,19 @@ void main() {
       noSlicerCauseFromFailure(SlicerFailureCause.networkUnreachable),
       NoSlicerCause.offline,
     );
-    // The recorded fold (epics.md:1988): a body that yields no slice
+    // The recorded fold (epics.md:2051): a body that yields no slice
     // text surfaces under the provider-unresponsive string.
     expect(
       noSlicerCauseFromFailure(SlicerFailureCause.malformedResponse),
+      NoSlicerCause.unreachable,
+    );
+    // Story 5.3's recorded fold (AC2, epics.md:1925), the same shape:
+    // a pre-transport malformed input — nothing ever sent — surfaces
+    // under the same provider-unresponsive string. FR-29's seven
+    // strings stand (the no-eighth-string ruling holds where it was
+    // made, the surface).
+    expect(
+      noSlicerCauseFromFailure(SlicerFailureCause.malformedInput),
       NoSlicerCause.unreachable,
     );
     // The config-family fold (slicer_port.dart's own doc): Managed is

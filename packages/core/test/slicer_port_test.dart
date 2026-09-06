@@ -4,10 +4,11 @@ import 'package:core/ports/slicer_port.dart';
 import 'package:test/test.dart';
 
 /// The Slicer port's vocabulary (Story 4-4, AD-9): exactly three
-/// requests, exactly two outcomes, exactly seven causes — pinned by
-/// exhaustiveness with no default arm, so a fourth request, a third
-/// outcome or an eighth cause is a compile error here before it is
-/// a review comment anywhere.
+/// requests, exactly two outcomes, exactly eight causes (story 5.3
+/// added the pre-transport `malformedInput`; the rendered surface
+/// stays seven) — pinned by exhaustiveness with no default arm, so a
+/// fourth request, a third outcome or a ninth cause is a compile
+/// error here before it is a review comment anywhere.
 void main() {
   test('exactly three request kinds exist, mirroring the payloads 1:1', () {
     expect(_requestOf(ScanSliceRequest(imageBytes: kZero, prompt: '')), 1);
@@ -49,8 +50,8 @@ void main() {
     expect(outcome.responseBody, '{"steps":[]}');
   });
 
-  test('exactly seven causes exist, closed by the enum', () {
-    expect(SlicerFailureCause.values, hasLength(7));
+  test('exactly eight causes exist, closed by the enum', () {
+    expect(SlicerFailureCause.values, hasLength(8));
     expect(
       SlicerFailureCause.values,
       containsAll(const [
@@ -60,6 +61,7 @@ void main() {
         SlicerFailureCause.providerUnreachable,
         SlicerFailureCause.networkUnreachable,
         SlicerFailureCause.malformedResponse,
+        SlicerFailureCause.malformedInput,
         SlicerFailureCause.managedUnavailable,
       ]),
     );

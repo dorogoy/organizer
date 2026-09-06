@@ -22,10 +22,23 @@ Uint8List rotatedJpeg(int width, int height, int orientation) {
 Uint8List gradientPng(int width, int height) =>
     img.encodePng(gradient(width, height));
 
-/// A single-frame GIF — a third codec, to pin the everything-else→JPEG
-/// policy.
+/// A single-frame GIF — a third real codec, to pin the
+/// admit-exactly-two rejection (story 5.3): the seam refuses GIF
+/// pre-transport; the old everything-else→JPEG policy is gone.
 Uint8List gradientGif(int width, int height) =>
     img.encodeGif(gradient(width, height));
+
+/// A decodable sub-cap WebP — a fourth real codec whose magic the
+/// seam refuses (story 5.3): the bytes decode fine, and that is the
+/// point — the rejection is about the wire's declarable types, never
+/// about decodability.
+Uint8List gradientWebP(int width, int height) =>
+    img.encodeWebP(gradient(width, height));
+
+/// A decodable sub-cap BMP — the third undeclarable shape the seam
+/// refuses.
+Uint8List gradientBmp(int width, int height) =>
+    img.encodeBmp(gradient(width, height));
 
 img.Image gradient(int width, int height) {
   final image = img.Image(width: width, height: height);

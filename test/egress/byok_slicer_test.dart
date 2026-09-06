@@ -4,6 +4,7 @@ import 'package:fake_async/fake_async.dart';
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/slicer_port.dart';
@@ -13,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:organizer/egress/byok_slicer.dart';
 import 'package:organizer/egress/byok_wire.dart';
+import 'package:organizer/egress/image_cap.dart';
 import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/egress/provider_allowlist.dart';
 import 'package:organizer/egress/rescue_contract.dart';
@@ -729,6 +731,152 @@ void main() {
           dataUriSchemePrefix + imagePngMimeType + dataUriBase64Middle,
         ),
         isTrue,
+      );
+    });
+  });
+
+  group('the image seam\'s honesty (story 5.3) — the taxonomy pin', () {
+    test('undecodable scan bytes read malformedInput, never '
+        'malformedResponse — zero transport calls', () async {
+      await seedKey('gemini', 'g-key');
+      final client = recording((request) => jsonResponse({}));
+      final outcome = await slicerWith(client, 'gemini').slice(
+        ScanSliceRequest(
+          imageBytes: Uint8List.fromList([9, 9, 9]),
+          prompt: 'describe',
+        ),
+      );
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.malformedInput,
+        reason: 'never malformedResponse — nothing was ever sent',
+      );
+      expect(
+        recorded,
+        isEmpty,
+        reason:
+            'the refusal is pre-transport: nothing was ever sent, '
+            'so the delivered-but-unusable bucket stays out of reach',
+      );
+    });
+
+    test('a decodable in-cap GIF reads malformedInput too — never a '
+        'mislabelled payload, never malformedResponse', () async {
+      await seedKey('openai', 'o-key');
+      final client = recording((request) => jsonResponse({}));
+      final outcome = await slicerWith(
+        client,
+        'openai',
+      ).slice(ScanSliceRequest(imageBytes: gradientGif(640, 480), prompt: 'x'));
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.malformedInput,
+      );
+      expect(
+        recorded,
+        isEmpty,
+        reason:
+            'the old wire would have declared the GIF image/jpeg; '
+            'now the sniff refuses it before any decode or send',
+      );
+    });
+
+    test('a decodable in-cap BMP reads malformedInput too — the third '
+        'undeclarable shape, end to end', () async {
+      await seedKey('gemini', 'g-key');
+      final client = recording((request) => jsonResponse({}));
+      final outcome = await slicerWith(
+        client,
+        'gemini',
+      ).slice(ScanSliceRequest(imageBytes: gradientBmp(640, 480), prompt: 'x'));
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.malformedInput,
+        reason: 'never malformedResponse, never a mislabelled payload',
+      );
+      expect(
+        recorded,
+        isEmpty,
+        reason: 'the refusal is pre-transport: zero transport calls',
+      );
+    });
+
+    test('a decodable in-cap WebP reads malformedInput — the shape AC1 '
+        'names first, on the one wire without a leg', () async {
+      await seedKey('anthropic', 'a-key');
+      final client = recording((request) => jsonResponse({}));
+      final outcome = await slicerWith(client, 'anthropic').slice(
+        ScanSliceRequest(imageBytes: gradientWebP(640, 480), prompt: 'x'),
+      );
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.malformedInput,
+        reason: 'never malformedResponse, never a mislabelled payload',
+      );
+      expect(
+        recorded,
+        isEmpty,
+        reason: 'the refusal is pre-transport: zero transport calls',
+      );
+    });
+
+    test('an oversized scan rides the wire as its re-encoded self — cap '
+        'and wire joined', () async {
+      await seedKey('gemini', 'g-key');
+      final client = recording(
+        (request) => jsonResponse({
+          candidatesKey: [
+            {
+              contentKey: {
+                partsKey: [
+                  {textKey: '{"steps":[]}'},
+                ],
+              },
+            },
+          ],
+        }),
+      );
+      final outcome = await slicerWith(client, 'gemini').slice(
+        ScanSliceRequest(imageBytes: gradientJpeg(2000, 1000), prompt: 'x'),
+      );
+      expect(outcome, isA<SlicerDelivered>());
+      final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
+      final parts = (body[contentsKey] as List).single[partsKey] as List;
+      final inline =
+          (parts[1] as Map<String, Object?>)[inlineDataTypeValue]
+              as Map<String, Object?>;
+      // The declared mime is the true type of the copy that actually
+      // travels — the cap's re-encode, not the input file.
+      expect(inline[inlineMimeTypeKey], imageJpegMimeType);
+      final raster = decodeOrThrow(
+        base64Decode(inline[inlineDataKey] as String),
+      );
+      expect(raster.width, 1536, reason: 'the capped copy, resized');
+      expect(raster.height, 768);
+    });
+
+    test('imageMimeTypeOf is pinned to the shared sniff — jpeg and png '
+        'map, every undeclarable magic throws', () {
+      // The wire's refusing arm has no other coverage: without these
+      // pins, a regression back to the old silent `image/jpeg` default
+      // would be invisible here.
+      expect(imageMimeTypeOf(gradientJpeg(64, 48)), imageJpegMimeType);
+      expect(imageMimeTypeOf(gradientPng(64, 48)), imagePngMimeType);
+      expect(
+        () => imageMimeTypeOf(gradientGif(64, 48)),
+        throwsA(isA<MalformedImageInput>()),
+      );
+      expect(
+        () => imageMimeTypeOf(gradientWebP(64, 48)),
+        throwsA(isA<MalformedImageInput>()),
+      );
+      expect(
+        () => imageMimeTypeOf(gradientBmp(64, 48)),
+        throwsA(isA<MalformedImageInput>()),
       );
     });
   });

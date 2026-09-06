@@ -58,19 +58,24 @@ enum NoSlicerCause {
 
 /// The total map from the port's failure taxonomy to the renderable
 /// cause vocabulary: every `SlicerFailureCause` lands on exactly one
-/// `NoSlicerCause`, exhaustive with no default arm, so an eighth
+/// `NoSlicerCause`, exhaustive with no default arm, so a ninth
 /// failure cause is a compile error here before it is a review
 /// comment anywhere.
 ///
-/// The two folds are recorded, not improvised:
-/// `malformedResponse→unreachable` (epics.md:1988 — the provider
+/// The three folds are recorded, not improvised:
+/// `malformedResponse→unreachable` (epics.md:2051 — the provider
 /// answered but its body would not yield a slice, surfaced under the
-/// provider-unresponsive string) and `managedUnavailable→noKey`
-/// (config-family per `slicer_port.dart`'s own doc: the Managed shape
-/// is inert in this BYOK-only build, nothing was sent, and the no-key
-/// string's remedy — Ajustes — is the true one). The image is exactly
-/// the five causes a request can produce: `consentDeclined` and
-/// `personInFrame` have no failure-cause origin by construction.
+/// provider-unresponsive string), `malformedInput→unreachable`
+/// (story 5.3's AC2, epics.md:1925 — the image seam refused the
+/// input before any transport existed; nothing was ever sent, so the
+/// same provider-unresponsive string is the honest surface, and the
+/// no-eighth-string ruling stands where it was made) and
+/// `managedUnavailable→noKey` (config-family per
+/// `slicer_port.dart`'s own doc: the Managed shape is inert in this
+/// BYOK-only build, nothing was sent, and the no-key string's remedy
+/// — Ajustes — is the true one). The image is exactly the five causes
+/// a request can produce: `consentDeclined` and `personInFrame` have
+/// no failure-cause origin by construction.
 NoSlicerCause noSlicerCauseFromFailure(SlicerFailureCause failure) =>
     switch (failure) {
       SlicerFailureCause.credentialUnavailable => NoSlicerCause.noKey,
@@ -79,5 +84,6 @@ NoSlicerCause noSlicerCauseFromFailure(SlicerFailureCause failure) =>
       SlicerFailureCause.providerUnreachable => NoSlicerCause.unreachable,
       SlicerFailureCause.networkUnreachable => NoSlicerCause.offline,
       SlicerFailureCause.malformedResponse => NoSlicerCause.unreachable,
+      SlicerFailureCause.malformedInput => NoSlicerCause.unreachable,
       SlicerFailureCause.managedUnavailable => NoSlicerCause.noKey,
     };

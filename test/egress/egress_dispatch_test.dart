@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:organizer/egress/egress_dispatch.dart';
 import 'package:organizer/egress/egress_payload.dart';
+import 'package:organizer/egress/image_cap.dart';
 
 import 'egress_fixtures.dart';
 
@@ -112,7 +113,8 @@ void main() {
     expect(calls, 2, reason: 'one invocation per send, never a queued replay');
   });
 
-  test('undecodable scan bytes fail before the transport is touched', () async {
+  test('undecodable scan bytes are malformed input, before the transport '
+      'is touched', () async {
     var calls = 0;
     final dispatch = EgressDispatch((payload) async {
       calls++;
@@ -126,7 +128,14 @@ void main() {
     );
     expect(calls, 0);
     expect(result, isA<EgressFailed>());
-    expect((result as EgressFailed).cause, isA<FormatException>());
+    expect(
+      (result as EgressFailed).cause,
+      isA<MalformedImageInput>(),
+      reason:
+          'the cap refusal crosses compute() verbatim and is the one '
+          'pre-transport type — never a FormatException, which would '
+          'misread as delivered-but-unusable',
+    );
   });
 
   test(

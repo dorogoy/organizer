@@ -283,3 +283,9 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
   summary: Product principle for the Epic 5 retro — do not hide problems that are external to the app (OS, plugin, hardware). The user must be told; a quiet close that reads as success is a lie, and folding a malfunction into the user's refusal is the other lie. Forced by the 5.2 review: a lost CAMERA grant at the shutter after a granted preview now surfaces `scanOpenFailed` (no `permission_refused` row). Decide whether this is the epic-wide rule for the rest of the scan chain (5.3–5.7) and whether the remaining quiet-close matrix rows (missed shot, detector error past retry) get renegotiated.
   evidence: Sergio, 2026-09-06, after the 5.2 code-review decision on `takePicture` `CameraAccessDenied`; story section “Topics for Epic 5 retro”; related earlier deferral on shoot-side vs open-side asymmetry (story 5.2 review 2026-09-05).
 
+
+## Deferred from: code review of 5-3-the-image-seam-sealed-before-a-payload-ships (2026-09-06)
+
+- source_spec: `_bmad-output/implementation-artifacts/5-3-the-image-seam-sealed-before-a-payload-ships.md`
+  summary: No byte-size guard on in-cap pass-through images — a JPEG/PNG with in-ceiling header dimensions but an arbitrarily large encoded body (trailing payload past EOI/IEND) passes value-identical and the wire base64s the full size.
+  evidence: Edge-case review 2026-09-06 — AD-7's cap is a resolution cap by design and this pass-through behavior predates 5.3 (unchanged by it); a byte ceiling is new egress policy, worth deciding with the bounded-capture-preset deferral (production camera JPEGs are bounded by the preset, so the exposure is crafted input only).
