@@ -66,6 +66,13 @@ class _RecordingFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async => unlinkedScans.add(scanId);
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// The camera fake whose preview is a visible marker widget, whose

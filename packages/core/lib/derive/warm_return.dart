@@ -35,7 +35,11 @@
 /// `app_opened` (the delimiter itself, which a later opening makes
 /// prior contact), `crash_recorded` (a crash is not the user) and,
 /// since Story 3.4, `permission_refused` (the user turning the app
-/// away, not using it — the `crash_recorded` precedent). An
+/// away, not using it — the `crash_recorded` precedent). The moments
+/// split like every kind (AD-21): `session_ended` is the user's own
+/// stop, and, since Story 5.4, `consent_granted` is the user's consent
+/// act — contact both, the user actively using the app, the opposite
+/// register of the refusals. An
 /// `UnknownEntry` contributes nothing: a future kind joins exactly one
 /// set — contact or system — in the same pass that adds it to
 /// [LogKind], never before.
@@ -59,8 +63,12 @@ const int warmReturnThresholdMicros = 48 * 60 * 60 * 1000 * 1000;
 /// `slice_failed` (Story 4.6 — the no-Slicer family's own register: a
 /// rescue that found no Slicer states a system's absence, and a
 /// system event must not reset the absence clock);
-/// `session_ended` is the user's own stop, the payload-carrying kinds
-/// are all acts — `slice_requested` and `slice_returned` included
+/// `session_ended` is the user's own stop and — since Story 5.4 —
+/// `consent_granted` joins it as the second payload-less act (AD-8:
+/// the user actively consenting mid-scan is the user using the app,
+/// so a process death between consent and slice still reads as
+/// contact), the payload-carrying kinds are all acts —
+/// `slice_requested` and `slice_returned` included
 /// (Story 4.6: the user's ask and its delivery ride the user's own
 /// dealt card, the `capture_created` precedent). An `UnknownEntry` is
 /// not an act — a tolerated row asserts nothing — and a future kind
@@ -84,11 +92,12 @@ bool _isUserAct(LogEntry entry) {
       // clock and suppress a deserved Warm Return.
       return entry.kind != LogKind.sliceFailed;
     case MomentEntry(:final kind):
-      // `session_ended` is the user's stop — the one moment that is an
-      // act. A future moment kind defaults to NOT contact (mirroring
-      // `UnknownEntry`'s conservative default) until its pass assigns
-      // it a set.
-      return kind == LogKind.sessionEnded;
+      // `session_ended` is the user's stop and, since Story 5.4,
+      // `consent_granted` is the user's own consent act — the two
+      // moments that are acts. A future moment kind defaults to NOT
+      // contact (mirroring `UnknownEntry`'s conservative default)
+      // until its pass assigns it a set.
+      return kind == LogKind.sessionEnded || kind == LogKind.consentGranted;
     case CrashEntry():
       return false;
     case PermissionRefusedEntry():

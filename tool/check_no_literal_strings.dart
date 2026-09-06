@@ -125,8 +125,12 @@ const Map<String, Set<String>> namedConstantAllowance = {
     // Story 5.2: the scan cache's reserved scope name, the frame
     // file's name and the write's absent-path answer — infrastructure
     // identifiers on the module's own terms, never widget copy.
+    // Story 5.4 adds the capped copy's fixed, extension-free name
+    // beside the frame's (the sniff is the mime truth; the name
+    // claims nothing).
     'scanCacheScope',
     'scanFrameFileName',
+    'scanCappedCopyName',
     'absentFramePath',
   },
   // Story 5.2: the camera plugin adapter's one mirrored wire code —

@@ -5,6 +5,7 @@
 // compose its way out of the root).
 import 'dart:io';
 
+import 'package:core/ports/scan_consent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/files/app_files.dart';
@@ -258,6 +259,177 @@ void main() {
       await deleteFileBestEffort(shot.path);
       await deleteFileBestEffort(root.path);
       expect(root.existsSync(), isTrue);
+    });
+  });
+
+  group('the capped copy and the sweep (Story 5.4, AD-8)', () {
+    String namedOf(FileSystemEntity entity) =>
+        entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
+
+    Directory scanDirOf(String scanId) => Directory(
+      '${root.path}${Platform.pathSeparator}$scanCacheScope'
+      '${Platform.pathSeparator}$scanId',
+    );
+
+    test('a capped copy writes beside the frame and the returned path '
+        'reads back byte-for-byte', () async {
+      final framePath = await files.writeScanFrame('scan-1', [1]);
+      final cappedPath = await files.writeScanCappedCopy('scan-1', [7, 8, 250]);
+      expect(cappedPath, isNotEmpty);
+      final file = File(cappedPath);
+      expect(file.existsSync(), isTrue);
+      expect(await file.readAsBytes(), [7, 8, 250]);
+      expect(
+        cappedPath.replaceAll('\\', '/').split('/'),
+        containsAllInOrder([scanCacheScope, 'scan-1', scanCappedCopyName]),
+      );
+      expect(framePath, isNotEmpty);
+      // Two sanctioned names, nothing else: a scan's subdirectory
+      // holds at most the frame and the capped copy, by construction.
+      final names = scanDirOf('scan-1').listSync().map(namedOf).toList()
+        ..sort();
+      expect(names, [scanCappedCopyName, scanFrameFileName]);
+      // The flat scope's own read does not see it (it lives in a
+      // subdirectory the flat vocabulary never composes).
+      expect(await files.read(scanCacheScope, scanCappedCopyName), isNull);
+    });
+
+    test('a re-write replaces the standing capped copy atomically, and '
+        'a failed rename deletes the staging sibling', () async {
+      await files.writeScanCappedCopy('scan-1', [1, 1]);
+      final scanDir = scanDirOf('scan-1');
+      final cappedFile = File(
+        '${scanDir.path}${Platform.pathSeparator}$scanCappedCopyName',
+      );
+      cappedFile.deleteSync();
+      // A directory standing where the file belongs makes the rename
+      // fail — the write answers the quiet empty path, and no .tmp
+      // lingers beside the planted destination.
+      Directory(cappedFile.path).createSync();
+      expect(await files.writeScanCappedCopy('scan-1', [2]), '');
+      final names = scanDir.listSync().map(namedOf).toList();
+      expect(names, [scanCappedCopyName]);
+      expect(
+        names.where((name) => name.endsWith(stagingSuffix)),
+        isEmpty,
+        reason: 'the staging sibling died with the failed rename',
+      );
+    });
+
+    test('a traversal-shaped scanId is refused quietly: no write, the '
+        'empty path, nothing escaped the root', () async {
+      for (final scanId in ['../evil', 'a/b', '.', '..', 'a\u0000b']) {
+        expect(
+          await files.writeScanCappedCopy(scanId, [1]),
+          '',
+          reason: scanId,
+        );
+        expect(root.listSync(), isEmpty, reason: scanId);
+      }
+    });
+
+    test('two scans hold separate capped copies — cross-scope '
+        'isolation, one clean segment each', () async {
+      final one = await files.writeScanCappedCopy('scan-1', [1]);
+      final two = await files.writeScanCappedCopy('scan-2', [2, 2]);
+      expect(one, isNot(two));
+      expect(await File(one).readAsBytes(), [1]);
+      expect(await File(two).readAsBytes(), [2, 2]);
+    });
+
+    test('the mint validates nothing — the adapter is the refusing '
+        'edge (Story 5.4, AD-8): a token bound to a traversal-shaped '
+        'scanId writes nothing through either scan write', () async {
+      // The sanctioned minter binds whatever it is handed — the
+      // caller's contract, no validation at the mint — so the
+      // enforcement is proven at the adapter, exactly where the
+      // documents put it.
+      final token = mintScanConsent(scanId: '../evil');
+      expect(await files.writeScanFrame(token.scanId, [1]), '');
+      expect(await files.writeScanCappedCopy(token.scanId, [2]), '');
+      expect(root.listSync(), isEmpty, reason: 'nothing escaped the root');
+    });
+
+    test('unlinkScan removes the two-file state whole — the directory '
+        'is gone, and the unlink stays idempotent (AC3, AC4)', () async {
+      await files.writeScanFrame('scan-1', [1]);
+      await files.writeScanCappedCopy('scan-1', [2]);
+      expect(scanDirOf('scan-1').listSync(), hasLength(2));
+      await files.unlinkScan('scan-1');
+      expect(scanDirOf('scan-1').existsSync(), isFalse);
+      // Idempotent: a second unlink of the same scan is quiet.
+      await files.unlinkScan('scan-1');
+      // The scope itself stays for the other scans.
+      await files.writeScanFrame('scan-2', [3]);
+      expect(scanDirOf('scan-2').existsSync(), isTrue);
+    });
+
+    test('the sweep unlinks every child of the scope — stale subdirs '
+        'and stray files alike — and the scope dir itself remains '
+        '(AC5)', () async {
+      await files.writeScanFrame('scan-old', [1]);
+      await files.writeScanCappedCopy('scan-old', [2]);
+      await files.writeScanFrame('scan-live', [3]);
+      File(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope'
+        '${Platform.pathSeparator}stray.bin',
+      ).createSync();
+      // Another scope's blob is not the sweep's to touch.
+      await files.write(credentialFilesScope, 'openai', [9]);
+      // A nested leftover dies whole.
+      Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope'
+        '${Platform.pathSeparator}scan-nested',
+      ).createSync();
+      File(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope'
+        '${Platform.pathSeparator}scan-nested'
+        '${Platform.pathSeparator}$scanFrameFileName',
+      ).writeAsBytesSync([4]);
+
+      await files.sweepScanCache();
+
+      final scopeDir = Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope',
+      );
+      expect(scopeDir.existsSync(), isTrue, reason: 'the scope remains');
+      expect(scopeDir.listSync(followLinks: false), isEmpty);
+      expect(await files.read(credentialFilesScope, 'openai'), [9]);
+    });
+
+    test('a fresh install: a missing scope sweeps as a quiet no-op, '
+        'creating nothing', () async {
+      await files.sweepScanCache();
+      expect(root.listSync(), isEmpty);
+    });
+
+    test('the sweep is idempotent — a second run is the same quiet '
+        'outcome', () async {
+      await files.writeScanFrame('scan-old', [1]);
+      await files.sweepScanCache();
+      await files.sweepScanCache();
+      expect(
+        Directory('${root.path}${Platform.pathSeparator}$scanCacheScope')
+            .listSync(followLinks: false),
+        isEmpty,
+      );
+    });
+
+    test('a sweep over a scope it cannot read is quiet — a backstop '
+        'never breaks its caller', () async {
+      await files.writeScanFrame('scan-old', [1]);
+      final scopeDir = Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope',
+      );
+      expect((await Process.run('chmod', ['000', scopeDir.path])).exitCode, 0);
+      try {
+        await files.sweepScanCache();
+      } finally {
+        await Process.run('chmod', ['755', scopeDir.path]);
+      }
+      // Nothing threw; whatever the filesystem refused stands for the
+      // next open's sweep.
+      expect(scopeDir.existsSync(), isTrue);
     });
   });
 }

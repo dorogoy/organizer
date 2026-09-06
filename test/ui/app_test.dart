@@ -216,6 +216,17 @@ void main() {
         RegExp(r'installSessionController\(\s*store: store').hasMatch(source),
         isTrue,
       );
+      // The Files seam (Story 5.4): the open's scan-cache sweep — the
+      // crash backstop — runs through the one standing AppFiles
+      // instance; deleting the threading breaks this pin. The match
+      // is bounded by the statement's terminating semicolon, so it
+      // cannot reach the scan seam's own `files: files` below.
+      expect(
+        RegExp(r'installSessionController\([^;]*?files:\s*files')
+            .hasMatch(source),
+        isTrue,
+        reason: 'the session wiring must hold the one Files adapter',
+      );
       expect(
         RegExp(r'DispenserController\(\s*store: store').hasMatch(source),
         isTrue,

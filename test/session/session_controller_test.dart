@@ -7,6 +7,7 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/log/log_entry.dart' show logEntriesOf;
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/weave/session.dart' show anchorDayOf, walkLog;
 import 'package:flutter/services.dart';
@@ -136,6 +137,52 @@ class _FlakyBundle implements AssetBundle {
   void clear() {}
 }
 
+/// The sweep-counting Files fake: it moves no bytes — it only records
+/// that the open's crash backstop fired, when, and whether it was
+/// asked to throw (Story 5.4).
+class _SweepCountingFiles implements FilesPort {
+  _SweepCountingFiles(this.logLengthOf);
+
+  /// Read at the moment the sweep runs, so a test can pin the sweep
+  /// to the start of the open's queued step (0 rows yet).
+  final int Function() logLengthOf;
+
+  int sweeps = 0;
+
+  /// The log length at the moment the sweep ran.
+  int? sweptAtLogLength;
+
+  bool throws = false;
+
+  @override
+  Future<List<int>?> read(String scope, String name) async => null;
+
+  @override
+  Future<void> write(String scope, String name, List<int> bytes) async {}
+
+  @override
+  Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<void> sweepScanCache() async {
+    sweeps++;
+    sweptAtLogLength = logLengthOf();
+    if (throws) {
+      throw StateError('sweep boom');
+    }
+  }
+}
+
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
   id: id,
   kind: kind,
@@ -192,11 +239,13 @@ void main() {
   SessionController buildController(
     _RecordingStore store, {
     DateTime Function() nowOf = _fixedClock,
+    FilesPort? files,
   }) => SessionController(
     store: store,
     strings: AppStringsEs(),
     bundle: _FakeBundle({catalogueAssetPath: shipped}),
     nowOf: nowOf,
+    files: files,
   );
 
   test(
@@ -661,5 +710,195 @@ void main() {
     expect(unbounded.entries.skip(1).map((entry) => entry.kind).toList(), [
       'app_opened',
     ], reason: 'a day-old unbounded session stays open — no span exists');
+  });
+
+  group('the scan-cache sweep at the open (Story 5.4, AC5, NFR14)', () {
+    test('the launch open sweeps exactly once, at the start of the '
+        'queued step — before the open\'s rows land', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      await buildController(store, files: files).handleAppOpen();
+
+      expect(files.sweeps, 1);
+      expect(
+        files.sweptAtLogLength,
+        0,
+        reason: 'the sweep runs before app_opened and the batch append',
+      );
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ], reason: 'the open itself is unchanged by the backstop');
+    });
+
+    test('each resume sweeps again — one sweep per app_opened, never '
+        'more', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      final controller = buildController(store, files: files);
+      await controller.handleAppOpen();
+      await controller.handleAppOpen();
+      expect(files.sweeps, 2);
+    });
+
+    test('background and end never sweep — the trigger is the open '
+        'alone', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      final controller = buildController(store, files: files);
+      await controller.handleAppOpen();
+      expect(files.sweeps, 1);
+      await controller.handleSessionEnd();
+      expect(
+        files.sweeps,
+        1,
+        reason: 'session_ended mints its row and sweeps nothing',
+      );
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+      ]);
+    });
+
+    test('a null seam is no sweep — everything else unchanged (the '
+        'optional-seam convention)', () async {
+      final store = _RecordingStore();
+      await buildController(store).handleAppOpen();
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ]);
+    });
+
+    test('a throwing sweep never breaks the open — the backstop folds '
+        'into nothing', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length)
+        ..throws = true;
+      await buildController(store, files: files).handleAppOpen();
+      expect(files.sweeps, 1, reason: 'the sweep ran');
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ], reason: 'the queued step completed after the quiet fold');
+    });
+
+    test('the installer threads the seam: the unawaited launch open '
+        'sweeps through the standing adapter', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      installSessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+        files: files,
+        addObserver: (_) {},
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(files.sweeps, 1);
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ]);
+    });
+
+    test('a real pause→resume through the observer appends app_opened '
+        'and sweeps exactly once — the resume\'s own sweep (Story '
+        '5.4, AC5)', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      // A ticking clock: distinct lifecycle events mint distinct
+      // instants, as production always does.
+      var minute = 0;
+      final controller = buildController(
+        store,
+        files: files,
+        nowOf: () => DateTime.utc(2026, 8, 29, 12, minute++),
+      );
+      await controller.handleAppOpen();
+      expect(files.sweeps, 1, reason: 'the launch open swept');
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        files.sweeps,
+        1,
+        reason: 'the departure ends the session and sweeps nothing',
+      );
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        files.sweeps,
+        2,
+        reason: 'the real return is one app_opened — exactly one sweep',
+      );
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ]);
+    });
+
+    test('a spurious launch-time resumed through the observer sweeps '
+        'nothing — no departure seen, the gating flag false (Story '
+        '5.4)', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      var minute = 0;
+      final controller = buildController(
+        store,
+        files: files,
+        nowOf: () => DateTime.utc(2026, 8, 29, 12, minute++),
+      );
+      await controller.handleAppOpen();
+      expect(files.sweeps, 1);
+      expect(store.entries, hasLength(3));
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        files.sweeps,
+        1,
+        reason: 'no departure since the open — no re-open, no sweep',
+      );
+      expect(
+        store.entries,
+        hasLength(3),
+        reason: 'the spurious resumed appends nothing, as before',
+      );
+    });
+
+    test('a transient inactive→resumed occlusion opens without sweeping '
+        'the scan cache', () async {
+      final store = _RecordingStore();
+      final files = _SweepCountingFiles(() => store.entries.length);
+      final controller = buildController(store, files: files);
+      await controller.handleAppOpen();
+
+      controller.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await Future<void>.delayed(Duration.zero);
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(files.sweeps, 1, reason: 'the launch sweep is the only one');
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'app_opened',
+      ]);
+    });
   });
 }

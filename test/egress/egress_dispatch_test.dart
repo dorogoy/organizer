@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:core/ports/scan_consent.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:organizer/egress/egress_dispatch.dart';
@@ -11,12 +12,21 @@ import 'egress_fixtures.dart';
 /// Matrix rows 1–3 of the story's I/O table, plus the union
 /// exhaustiveness guarantees (a fourth payload or a third outcome does
 /// not compile — the switches below carry no default arm, so the
-/// analyzer breaks the build the moment one appears).
+/// analyzer breaks the build the moment one appears). Since Story 5.4
+/// (AD-8) every scan construction site mints its own single-use
+/// consent token: the suites' compilation is the compile-time
+/// precondition's proof, and the pins below are its once-ness.
 void main() {
   test('row 1: a scan payload within the cap reaches the transport once, '
       'bytes unchanged', () async {
     final bytes = gradientJpeg(640, 480);
-    final payload = ScanImagePrompt(imageBytes: bytes, prompt: 'describe');
+    final token = mintScanConsent(scanId: 'scan-1');
+    final payload = ScanImagePrompt(
+      imageBytes: bytes,
+      prompt: 'describe',
+      scanId: 'scan-1',
+      consent: token,
+    );
     var calls = 0;
     Object? received;
     final dispatch = EgressDispatch((payload) async {
@@ -34,6 +44,187 @@ void main() {
       sent.imageBytes,
       equals(bytes),
       reason: 'an in-cap scan payload is never re-encoded',
+    );
+    // The capped rebuild (here a pass-through) carries the same
+    // binding — the cap provably runs inside the token's grip.
+    expect(
+      identical(sent.consent, token),
+      isTrue,
+      reason: 'the capped reconstruction carries the same token',
+    );
+  });
+
+  test('the scan token is consumed exactly once by the send: a second '
+      'send over it throws raw StateError — never an EgressFailed, '
+      'never a SlicerFailureCause costume (AC2)', () async {
+    final token = mintScanConsent(scanId: 'scan-1');
+    var calls = 0;
+    final dispatch = EgressDispatch((payload) async {
+      calls++;
+      return 'sliced';
+    });
+    await dispatch.send(
+      ScanImagePrompt(
+        imageBytes: gradientJpeg(640, 480),
+        prompt: 'describe',
+        scanId: 'scan-1',
+        consent: token,
+      ),
+    );
+    expect(calls, 1);
+    await expectLater(
+      dispatch.send(
+        ScanImagePrompt(
+          imageBytes: gradientJpeg(640, 480),
+          prompt: 'describe',
+          scanId: 'scan-1',
+          consent: token,
+        ),
+      ),
+      throwsA(isA<StateError>()),
+      reason:
+          'the reuse is a programmer error thrown outside the catch '
+          'arms — it escapes send raw',
+    );
+    expect(
+      calls,
+      1,
+      reason: 'the consumed token never reaches the transport again',
+    );
+  });
+
+  test('a cap rejection burns the token and stays pre-transport '
+      'EgressFailed exactly as 5.3 — terminal, no retry (AC2)', () async {
+    final token = mintScanConsent(scanId: 'scan-1');
+    var calls = 0;
+    final dispatch = EgressDispatch((payload) async {
+      calls++;
+      return 'never';
+    });
+    final result = await dispatch.send(
+      ScanImagePrompt(
+        imageBytes: Uint8List.fromList([9, 9, 9]),
+        prompt: 'describe',
+        scanId: 'scan-1',
+        consent: token,
+      ),
+    );
+    expect(calls, 0, reason: 'the cap refused before the transport');
+    expect(result, isA<EgressFailed>());
+    expect((result as EgressFailed).cause, isA<MalformedImageInput>());
+    // Burned even when the cap rejected: one token authorizes one
+    // dispatch entry, terminal by design.
+    await expectLater(
+      dispatch.send(
+        ScanImagePrompt(
+          imageBytes: gradientJpeg(640, 480),
+          prompt: 'describe',
+          scanId: 'scan-1',
+          consent: token,
+        ),
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(calls, 0);
+  });
+
+  test(
+    'a token bound to another scan throws before the cap or transport',
+    () async {
+      final token = mintScanConsent(scanId: 'scan-a');
+      var calls = 0;
+      final dispatch = EgressDispatch((payload) async {
+        calls++;
+        return 'never';
+      });
+
+      await expectLater(
+        dispatch.send(
+          ScanImagePrompt(
+            imageBytes: gradientJpeg(640, 480),
+            prompt: 'describe',
+            scanId: 'scan-b',
+            consent: token,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(calls, 0);
+      await expectLater(
+        dispatch.send(
+          ScanImagePrompt(
+            imageBytes: gradientJpeg(640, 480),
+            prompt: 'describe',
+            scanId: 'scan-a',
+            consent: token,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+        reason: 'the rejected dispatch still burns the single-use token',
+      );
+    },
+  );
+
+  test('a consumed token handed to send never wears the EgressFailed '
+      'costume — the raw StateError is the whole answer', () async {
+    final token = mintScanConsent(scanId: 'scan-1');
+    token.consume();
+    final dispatch = EgressDispatch((payload) async => 'ok');
+    await expectLater(
+      dispatch.send(
+        ScanImagePrompt(
+          imageBytes: gradientJpeg(640, 480),
+          prompt: 'describe',
+          scanId: 'scan-1',
+          consent: token,
+        ),
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('a throwing transport fails the send exactly as 5.3 — the '
+      'cause verbatim, not a raw throw, not a taxonomy fold — and '
+      'the token is burned (AC2)', () async {
+    final token = mintScanConsent(scanId: 'scan-1');
+    final cause = StateError('unreachable');
+    var calls = 0;
+    final dispatch = EgressDispatch((payload) async {
+      calls++;
+      throw cause;
+    });
+    final result = await dispatch.send(
+      ScanImagePrompt(
+        imageBytes: gradientJpeg(640, 480),
+        prompt: 'describe',
+        scanId: 'scan-1',
+        consent: token,
+      ),
+    );
+    expect(calls, 1, reason: 'one invocation per send, never a retry');
+    expect(result, isA<EgressFailed>());
+    expect(
+      identical((result as EgressFailed).cause, cause),
+      isTrue,
+      reason: 'the transport\'s cause travels verbatim, stack and all',
+    );
+    // Burned despite the transport failure: one token authorizes one
+    // dispatch entry — terminal, no retry exists.
+    await expectLater(
+      dispatch.send(
+        ScanImagePrompt(
+          imageBytes: gradientJpeg(640, 480),
+          prompt: 'describe',
+          scanId: 'scan-1',
+          consent: token,
+        ),
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(
+      calls,
+      1,
+      reason: 'the consumed token never reaches the transport again',
     );
   });
 
@@ -61,10 +252,21 @@ void main() {
       received['payload'] = payload;
       return 'ok';
     });
+    final token = mintScanConsent(scanId: 'scan-1');
     final result = await dispatch.send(
-      ScanImagePrompt(imageBytes: gradientPng(2000, 1000), prompt: 'describe'),
+      ScanImagePrompt(
+        imageBytes: gradientPng(2000, 1000),
+        prompt: 'describe',
+        scanId: 'scan-1',
+        consent: token,
+      ),
     );
     expect(result, isA<EgressDelivered>());
+    expect(
+      identical((received['payload'] as ScanImagePrompt).consent, token),
+      isTrue,
+      reason: 'the capped copy travels under the same binding',
+    );
     final out = (received['payload'] as ScanImagePrompt).imageBytes;
     final decoder = img.findDecoderForData(out);
     expect(decoder, isNotNull);
@@ -124,6 +326,8 @@ void main() {
       ScanImagePrompt(
         imageBytes: Uint8List.fromList([9, 9, 9]),
         prompt: 'describe',
+        scanId: 'scan-1',
+        consent: mintScanConsent(scanId: 'scan-1'),
       ),
     );
     expect(calls, 0);
@@ -159,8 +363,20 @@ void main() {
     },
   );
 
-  test('exactly three payload shapes and two outcomes exist as types', () {
-    expect(_shapeOf(ScanImagePrompt(imageBytes: kZero, prompt: '')), 1);
+  test('exactly three payload shapes and two outcomes exist as types '
+      '(Story 5.4: the scan shape still carries its minted token; '
+      'rescue and genesis need none)', () {
+    expect(
+      _shapeOf(
+        ScanImagePrompt(
+          imageBytes: kZero,
+          prompt: '',
+          scanId: 'scan-1',
+          consent: mintScanConsent(scanId: 'scan-1'),
+        ),
+      ),
+      1,
+    );
     expect(_shapeOf(const ProjectGenesisText(text: '')), 2);
     expect(_shapeOf(const RescueResliceText(originContext: '', task: '')), 3);
     expect(_outcomeOf(const EgressDelivered('x')), 1);
@@ -197,11 +413,23 @@ Future<({img.Image image, img.ImageFormat format})> _sendOverJpg(
     received['payload'] = payload;
     return 'ok';
   });
+  final token = mintScanConsent(scanId: 'scan-1');
   final result = await dispatch.send(
-    ScanImagePrompt(imageBytes: gradientJpeg(width, height), prompt: 'scan'),
+    ScanImagePrompt(
+      imageBytes: gradientJpeg(width, height),
+      prompt: 'scan',
+      scanId: 'scan-1',
+      consent: token,
+    ),
   );
   expect(result, isA<EgressDelivered>());
-  final out = (received['payload'] as ScanImagePrompt).imageBytes;
+  final sent = received['payload'] as ScanImagePrompt;
+  expect(
+    identical(sent.consent, token),
+    isTrue,
+    reason: 'the re-encoded copy carries the same binding',
+  );
+  final out = sent.imageBytes;
   final decoder = img.findDecoderForData(out);
   expect(decoder, isNotNull);
   return (image: decodeOrThrow(out), format: decoder!.format);

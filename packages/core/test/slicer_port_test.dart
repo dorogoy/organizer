@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:test/test.dart';
 
@@ -11,7 +12,17 @@ import 'package:test/test.dart';
 /// error here before it is a review comment anywhere.
 void main() {
   test('exactly three request kinds exist, mirroring the payloads 1:1', () {
-    expect(_requestOf(ScanSliceRequest(imageBytes: kZero, prompt: '')), 1);
+    expect(
+      _requestOf(
+        ScanSliceRequest(
+          imageBytes: kZero,
+          prompt: '',
+          scanId: 'scan-1',
+          consent: mintScanConsent(scanId: 'scan-1'),
+        ),
+      ),
+      1,
+    );
     expect(_requestOf(const GenesisSliceRequest(text: '')), 2);
     expect(
       _requestOf(const RescueSliceRequest(originContext: '', task: '')),
@@ -19,11 +30,20 @@ void main() {
     );
   });
 
-  test('a scan request carries its bytes and prompt verbatim', () {
+  test('a scan request carries its bytes, prompt and minted consent '
+      'verbatim (Story 5.4, AD-8: the consent is a required field — '
+      'this suite cannot construct the shape without one)', () {
     final bytes = Uint8List.fromList([1, 2, 3]);
-    final request = ScanSliceRequest(imageBytes: bytes, prompt: 'describe');
+    final token = mintScanConsent(scanId: 'scan-1');
+    final request = ScanSliceRequest(
+      imageBytes: bytes,
+      prompt: 'describe',
+      scanId: 'scan-1',
+      consent: token,
+    );
     expect(request.imageBytes, same(bytes));
     expect(request.prompt, 'describe');
+    expect(request.consent, same(token));
   });
 
   test('a genesis request carries its text verbatim', () {

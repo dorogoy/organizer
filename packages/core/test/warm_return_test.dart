@@ -128,6 +128,13 @@ SliceEntry _slice(LogKind kind, int micros) => SliceEntry(
   itemOrigin: Origin.manual,
 );
 
+MomentEntry _consented(int micros, {String id = 'consent'}) => MomentEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.consentGranted,
+);
+
 void main() {
   // "Now" for every read — Saturday 2026-08-29 12:00 UTC, the house
   // matrix clock. The 48 h boundary lands Thursday 2026-08-27 12:00.
@@ -316,6 +323,60 @@ void main() {
           _opened(now),
         ]),
         isTrue,
+      );
+    });
+
+    test('a consent grant is contact — the user actively using the app '
+        '(Story 5.4, AD-8, the session_ended register)', () {
+      // Alone before the first open the grant IS the prior contact —
+      // the exact inverse of the refusal's shape above: the greeting
+      // anchors on the act's own instant and reads due at 96 h.
+      expect(
+        due([_consented(before(const Duration(hours: 96))), _opened(now)]),
+        isTrue,
+        reason: 'consent_granted is contact — the anchor is the act',
+      );
+      // The discriminating shape: the grant sits 47 h before the read
+      // and moves the anchor off the 49 h-old open — not due. Had the
+      // kind defaulted to non-contact, the predicate would read true.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _consented(before(const Duration(hours: 47))),
+          _opened(now),
+        ]),
+        isFalse,
+        reason:
+            'consent_granted is a user act — the anchor is the act\'s '
+            'own instant, under the threshold',
+      );
+    });
+
+    test('the consent act obeys the same 48 h boundary discipline as '
+        'every contact kind — at the threshold due, just under not '
+        '(Story 5.4)', () {
+      // The grant exactly 48 h before the read is the anchor: due —
+      // the comparison is inclusive, the boundary test's own shape.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _consented(before(const Duration(hours: 48))),
+          _opened(now),
+        ]),
+        isTrue,
+        reason: 'contact exactly on the 48 h edge is due',
+      );
+      // One second inside the threshold: not due.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _consented(
+            before(const Duration(hours: 47, minutes: 59, seconds: 59)),
+          ),
+          _opened(now),
+        ]),
+        isFalse,
+        reason: 'contact 47 h 59 m 59 s old sits under the threshold',
       );
     });
 

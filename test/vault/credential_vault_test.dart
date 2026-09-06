@@ -60,6 +60,13 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// A scripted cipher fake: seals answer through an optional gate (so

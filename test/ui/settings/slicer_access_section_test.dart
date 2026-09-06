@@ -132,6 +132,13 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// A transparent cipher: the envelope is the plaintext, so a saved

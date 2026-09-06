@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/widgets.dart';
@@ -16,7 +17,9 @@ import 'log_write_queue.dart';
 /// the controller is registered as a binding observer and the launch
 /// open runs once, unawaited, so the first frame never waits on the
 /// store. The registrar is injectable so tests observe the registration
-/// — the crash guard's own testability pattern.
+/// — the crash guard's own testability pattern. The [files] seam is
+/// the standing adapter in production (Story 5.4's `app_opened`
+/// sweep); tests that pass none simply run without the sweep.
 SessionController installSessionController({
   required StorePort store,
   required AppStrings strings,
@@ -24,6 +27,7 @@ SessionController installSessionController({
   Uuid idMinter = const Uuid(),
   DateTime Function() nowOf = DateTime.now,
   LogWriteQueue? writeQueue,
+  FilesPort? files,
   void Function(WidgetsBindingObserver observer)? addObserver,
 }) {
   final controller = SessionController(
@@ -33,6 +37,7 @@ SessionController installSessionController({
     idMinter: idMinter,
     nowOf: nowOf,
     writeQueue: writeQueue,
+    files: files,
   );
   (addObserver ?? WidgetsBinding.instance.addObserver)(controller);
   unawaited(controller.handleAppOpen());
@@ -61,6 +66,7 @@ class SessionController with WidgetsBindingObserver {
     this.idMinter = const Uuid(),
     this.nowOf = DateTime.now,
     LogWriteQueue? writeQueue,
+    this.files,
   }) : writeQueue = writeQueue ?? LogWriteQueue();
 
   final StorePort store;
@@ -69,6 +75,13 @@ class SessionController with WidgetsBindingObserver {
   final Uuid idMinter;
   final DateTime Function() nowOf;
   final LogWriteQueue writeQueue;
+
+  /// The Files seam (Story 5.4): the standing adapter in production,
+  /// null in tests that pass no seam. The `app_opened` sweep runs
+  /// only through it — a null seam is simply no sweep, the
+  /// optional-seam convention every other consumer here follows.
+  final FilesPort? files;
+
   Future<Catalogue>? _catalogue;
 
   /// The serialized lifecycle: each queued step completes before the
@@ -84,6 +97,12 @@ class SessionController with WidgetsBindingObserver {
   /// launch open belongs to main's explicit call alone: a spurious
   /// launch-time `resumed` finds this false and appends nothing.
   bool _leftForegroundSinceOpen = false;
+
+  /// Whether the departure was a real backgrounding rather than a
+  /// transient `inactive` occlusion. A scan may keep its frame while an
+  /// inactive→resumed beat completes, so only the former authorizes the
+  /// cache sweep on the following open.
+  bool _realDepartureSinceOpen = false;
 
   Future<void> _enqueue(Future<void> Function() step) {
     final chained = writeQueue.enqueue(step);
@@ -104,11 +123,19 @@ class SessionController with WidgetsBindingObserver {
   /// the event, not the reads that followed it. The open also reads the
   /// pool-fact snapshot inside this one queued operation (Story 3.3):
   /// the launch deal sees manual captures, so a standing capture can
-  /// be the session's very first card.
-  Future<void> handleAppOpen() {
+  /// be the session's very first card. Since Story 5.4 the queued step
+  /// begins with the awaited, quiet scan-cache sweep (AC5, NFR14) on
+  /// launch and real-background resumes, before the open's rows land. A
+  /// transient inactive→resumed beat still appends `app_opened` but skips
+  /// the sweep so an in-flight scan can keep its cache.
+  Future<void> handleAppOpen({bool sweepScanCache = true}) {
     final now = nowOf();
     _leftForegroundSinceOpen = false;
+    _realDepartureSinceOpen = false;
     return _enqueue(() async {
+      if (sweepScanCache) {
+        await _sweepScanCache();
+      }
       final catalogue = await _loadCatalogue();
       final log = await _readLog();
       final poolFacts = poolFactsOf(await store.readPoolFacts());
@@ -125,6 +152,30 @@ class SessionController with WidgetsBindingObserver {
       );
       await _appendAll(contents, now);
     });
+  }
+
+  /// The crash backstop (Story 5.4): a blind sweep of the scan cache
+  /// at the start of the open's queued step. Every terminal path and
+  /// lifecycle close unlinks its own subdirectory, so a standing child at
+  /// a sweep-triggering open is a crash leftover. A transient
+  /// inactive→resumed occlusion is not swept while the scan surface may
+  /// still hold its frame; the departure-cancels policy for a real
+  /// background is Story 5.6's to govern. The sweep runs at launch and
+  /// after a real background departure, never on a transient
+  /// inactive→resumed occlusion, background or end. Quiet on every error:
+  /// a backstop may never break the open it runs inside (the adapter is
+  /// quiet by contract; this guard keeps even a throwing seam from
+  /// surfacing).
+  Future<void> _sweepScanCache() async {
+    final files = this.files;
+    if (files == null) {
+      return;
+    }
+    try {
+      await files.sweepScanCache();
+    } on Object {
+      // Folded into nothing: the open proceeds whatever the sweep met.
+    }
   }
 
   /// The app left the foreground: appends `session_ended` — one of
@@ -148,7 +199,7 @@ class SessionController with WidgetsBindingObserver {
         // Only a real return from off-foreground re-opens — the launch
         // open is main's explicit call alone.
         if (_leftForegroundSinceOpen) {
-          unawaited(handleAppOpen());
+          unawaited(handleAppOpen(sweepScanCache: _realDepartureSinceOpen));
         }
       case AppLifecycleState.inactive:
         // A transient occlusion (a banner, the app switcher's first
@@ -159,6 +210,7 @@ class SessionController with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         _leftForegroundSinceOpen = true;
+        _realDepartureSinceOpen = true;
         unawaited(handleSessionEnd());
     }
   }
