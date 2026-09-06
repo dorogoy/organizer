@@ -40,7 +40,7 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s sixteen kinds', () {
+    test('holds exactly the build\'s seventeen kinds', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -58,6 +58,7 @@ void main() {
         LogKind.sliceRequested,
         LogKind.sliceReturned,
         LogKind.sliceFailed,
+        LogKind.faceRefused,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -67,6 +68,7 @@ void main() {
         'card_skipped',
         'crash_recorded',
         'energy_set',
+        'face_refused',
         'permission_refused',
         'report_answered',
         'session_ended',
@@ -77,7 +79,7 @@ void main() {
         'slice_requested',
         'slice_returned',
       ]);
-      expect(LogKind.knownByName, hasLength(16));
+      expect(LogKind.knownByName, hasLength(17));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {

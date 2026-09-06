@@ -184,6 +184,12 @@ class AppStringsEs extends AppStrings {
   String get settingsAiVoice => 'IA y voz';
 
   @override
+  String get settingsCameraLabel => 'Cámara';
+
+  @override
+  String get settingsCameraReactivate => 'Reactivar la cámara';
+
+  @override
   String get providerNameGemini => 'Gemini';
 
   @override
@@ -271,6 +277,15 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get lapizEntry => 'Lápiz - anotar';
+
+  @override
+  String get camaraEntry => 'Cámara - escanear';
+
+  @override
+  String get scanShutter => 'Hacer la foto';
+
+  @override
+  String get scanOpenFailed => 'La cámara no se ha podido abrir ahora mismo.';
 
   @override
   String get captureTitle => 'Un rincón de la casa';

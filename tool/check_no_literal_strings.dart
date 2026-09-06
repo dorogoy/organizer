@@ -122,6 +122,28 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'selfSegment',
     'parentSegment',
     'segmentNulCharacter',
+    // Story 5.2: the scan cache's reserved scope name, the frame
+    // file's name and the write's absent-path answer — infrastructure
+    // identifiers on the module's own terms, never widget copy.
+    'scanCacheScope',
+    'scanFrameFileName',
+    'absentFramePath',
+  },
+  // Story 5.2: the camera plugin adapter's one mirrored wire code —
+  // the plugin's own Kotlin denial identifier, read after a granted
+  // ask as the revocation-discovered denial (ruling 1-B moved the ask
+  // itself onto the `camera` channel).
+  'lib/plugins/camera/plugin_camera_shell.dart': {'cameraAccessDeniedWire'},
+  // Story 5.2, ruling 1-B: the hand-written `camera` channel's wire
+  // vocabulary (channel, method and the ask's three answers),
+  // protocol identifiers mirrored by the Kotlin half — on the dictate
+  // channel's terms, never widget copy.
+  'lib/plugins/camera/camera_channel.dart': {
+    'cameraChannelName',
+    'cameraRequestMethod',
+    'cameraGrantedWire',
+    'cameraRefusedWire',
+    'cameraInterruptedWire',
   },
   'lib/catalogue/loader.dart': {
     'catalogueReadFailureTemplate',

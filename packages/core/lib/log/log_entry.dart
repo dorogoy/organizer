@@ -10,11 +10,14 @@
 /// (SM-2, AD-21), since Story 3.2 the twelfth kind `capture_created`
 /// (FR-27, AD-14), since Story 3.4 the thirteenth kind
 /// `permission_refused` (FR-32, AD-17, AD-21 — one of the system events'
-/// three stated derivation exceptions), and since Story 4.6 the
+/// three stated derivation exceptions), since Story 4.6 the
 /// fourteenth–sixteenth kinds `slice_requested` / `slice_returned` /
 /// `slice_failed` (FR-5, AD-21 — the Rescue Mode channel's three rows,
-/// appending on the same terms as a photo scan). A new kind is a new
-/// kind, never a flag on an old one.
+/// appending on the same terms as a photo scan), and since Story 5.2 the
+/// seventeenth kind `face_refused` (FR-25, AD-21 — the on-device face
+/// gate's refusal, a payload-less system event on the `app_opened`
+/// precedent: no drift schema change, no item pair, no cause). A new kind
+/// is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -96,6 +99,7 @@ final class LogKind {
   static const sliceRequested = LogKind._('slice_requested', known: true);
   static const sliceReturned = LogKind._('slice_returned', known: true);
   static const sliceFailed = LogKind._('slice_failed', known: true);
+  static const faceRefused = LogKind._('face_refused', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -115,6 +119,7 @@ final class LogKind {
     'slice_requested': sliceRequested,
     'slice_returned': sliceReturned,
     'slice_failed': sliceFailed,
+    'face_refused': faceRefused,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -185,7 +190,9 @@ final class ItemActEntry extends LogEntry {
 }
 
 /// A moment in the product's life with no pool-item referent and no
-/// payload (`session_ended`, `app_opened`). `session_started` left
+/// payload (`session_ended`, `app_opened`, and — since Story 5.2 —
+/// `face_refused`, the face gate's refusal on the `app_opened`
+/// precedent). `session_started` left
 /// this family in Story 2.2: it carries the declared pocket, so it has
 /// its own subtype below.
 final class MomentEntry extends LogEntry {
@@ -612,7 +619,9 @@ bool _isItemAct(LogKind kind) =>
     kind == LogKind.captureCreated;
 
 bool _isMoment(LogKind kind) =>
-    kind == LogKind.sessionEnded || kind == LogKind.appOpened;
+    kind == LogKind.sessionEnded ||
+    kind == LogKind.appOpened ||
+    kind == LogKind.faceRefused;
 
 /// Whether [kind] is one of the three `slice_*` kinds (Story 4.6).
 bool _isSliceKind(LogKind kind) =>

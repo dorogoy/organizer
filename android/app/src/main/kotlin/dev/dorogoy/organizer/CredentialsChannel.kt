@@ -5,7 +5,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * The hand-written `credentials` channel (Story 4.3, AD-22) — the
- * second of the build's exactly three channels: seal and unseal
+ * second of the build's four decided channels — dictate, credentials and camera shipped, notify reserved and unshipped: seal and unseal
  * under the one named non-exportable AndroidKeyStore wrapping key,
  * and nothing else. The provider id never crosses — the Kotlin half
  * is a pure crypto service over the one key, and scoping lives on

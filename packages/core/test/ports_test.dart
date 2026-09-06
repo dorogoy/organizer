@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/clock_port.dart';
+import 'package:core/ports/face_gate_port.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -49,6 +50,12 @@ class _ShellFiles implements FilesPort {
 
   @override
   Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
 }
 
 /// A shell-side stand-in proving the slicer port is implementable
@@ -60,6 +67,16 @@ class _ShellSlicer implements SlicerPort {
   @override
   Future<SlicerOutcome> slice(SlicerRequest request) async =>
       const SlicerFailed(SlicerFailureCause.managedUnavailable);
+}
+
+/// A shell-side stand-in proving the face gate port is implementable
+/// outside its declaring library (Story 5.2, AD-11) — adapters detect,
+/// the core only names the vocabulary.
+class _ShellFaceGate implements FaceGatePort {
+  const _ShellFaceGate();
+
+  @override
+  Future<FaceGateOutcome> gate(String framePath) async => const FaceGatePass();
 }
 
 void main() {
@@ -80,9 +97,12 @@ void main() {
     // port Story 4-4 adds (AD-9): one file each — plus the no-Slicer
     // cause vocabulary Story 4-5 lands beside them (FR-29): pure
     // enum-plus-map vocabulary, not an interface, but the ports
-    // library is its decided home.
+    // library is its decided home — and the face gate port Story 5.2
+    // adds (FR-25, AD-11), sealing the fragile ML Kit dependency
+    // behind a seam: seven files.
     expect(names, [
       'clock_port.dart',
+      'face_gate_port.dart',
       'files_port.dart',
       'no_slicer_cause.dart',
       'recognizer_port.dart',
@@ -114,6 +134,16 @@ void main() {
       );
     },
   );
+
+  test('the face gate port is implementable by a shell-side adapter '
+      '(Story 5.2, AD-11) — a decided outcome vocabulary, never an error '
+      'folded into a refusal', () async {
+    const gate = _ShellFaceGate();
+    expect(gate, isA<FaceGatePort>());
+    expect(await gate.gate('/cache/scan/frame.jpg'), isA<FaceGatePass>());
+    expect(const FaceGateRefusal(), isA<FaceGateOutcome>());
+    expect(const FaceGatePass(), isA<FaceGateOutcome>());
+  });
 
   group(
     'the pool-fact read boundary\'s rescue sanitation (Story 4.6, AD-23)',

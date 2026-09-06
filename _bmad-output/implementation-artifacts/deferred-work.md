@@ -254,3 +254,21 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `5-1-the-on-device-face-gate-verified-before-it-is-trusted.md`
   summary: No standing git check-ignore guard for corpus photo directories (`face-gate/corpus/photos/`, `eval/corpus/photos/`)
   evidence: Verification-gap review 2026-09-05 — the "no corpus photo ever committed" Never rests on one manual check (2026-09-05); a removed/mistyped ignore line or a sibling-directory slip stages real people's photos with every check green; `git check-ignore` works pathname-only so a check runs in CI where photos are absent; the story's Never clause forbade adding it inside 5.1
+
+## Deferred from: story 5.2 review (2026-09-05)
+
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: No tool/ seal enforces the `package:camera` import boundary ("only `lib/plugins/camera/` may import it") — the ML Kit and egress boundaries have mechanical checks, the camera plugin's is prose in pubspec comments and camera_shell.dart only.
+  evidence: Review 2026-09-05 (blind hunter) — a stray `import 'package:camera/...'` outside the facade dir compiles and ships with `make check` green; the boundary would rest on reviewer attention alone.
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: `ResolutionPreset.max` capture vs memory/latency — max-resolution JPEGs (10+ MB) are read wholesale, cached, then re-decoded by ML Kit for a frame that is always unlinked; decide a bounded preset (or justify max) against the memory arithmetic.
+  evidence: Review 2026-09-05 (blind hunter) — the cost is transient today (nothing uploads), but the pixel-ceiling/OOM revisit is 5.3's recorded scope (Epic 4 retro F5); any preset change also shifts the face gate's input distribution, so it must be decided with the 5.1 reopen, not silently inside a patch.
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: Shoot-side system failures (failed shot, detector error past retry) close the scan surface silently, while open-side failures communicate (`scanOpenFailed`) — the asymmetry inside ruling 1-B's principle ("a system problem is communicated") is unresolved for the gate's own failures.
+  evidence: Review 2026-09-05 (blind hunter) — the frozen matrix row "Detector error → surface closes quietly, no `face_refused` row — fail closed" is deliberate as shipped (no false privacy claims in the log); communicating gate failures would need a frozen-content renegotiation, Sergio's call, best taken when 5.5 wires the pass branch.
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: No cross-channel uniqueness assertion for the Kotlin permission request codes (camera 3405 vs dictate's) — each channel's code is pinned individually, nothing forbids a collision.
+  evidence: Review 2026-09-05 (blind hunter) — a future channel reusing a request code would interleave permission answers silently; needs a small registry/uniqueness check in the wire-contract tool.
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: The Kotlin half of the `camera` channel (staged ask, empty-grants→`interrupted`, result forwarding) has no executable verification — wire contracts pin constant values only, and the repo ships no Kotlin test infra at all.
+  evidence: Verification-gap review 2026-09-05 — inverting the empty-grants branch to `refused` or dropping MainActivity's forward keeps `make gate`/`make check` green; extends the standing F4 androidTest deferral (CredentialKeystore/CredentialsChannel round-trip, same missing infra) — one Kotlin test leg should cover all hand-written channels.

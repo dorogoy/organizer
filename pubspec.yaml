@@ -44,6 +44,14 @@ dependencies:
   # bundled status is recorded in face-gate/results/report.md.
   google_mlkit_face_detection: 0.15.1
 
+  # The scan surface's capture (story 5.2, FR-16, FR-25): the spine-pinned
+  # first-party camera plugin (spine ARCHITECTURE-SPINE.md:258), wrapped
+  # behind the shell facade in lib/plugins/camera/ and never imported past
+  # that directory. Exact-pinned like every runtime dep; the camerax
+  # closure it resolves is a deliberate AD-7 seal-2 re-freeze recorded in
+  # tool/check_gradle_dependencies.dart.
+  camera: 0.12.0+2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

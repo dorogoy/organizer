@@ -79,9 +79,32 @@ const String credentialsCorruptWire = 'corrupt';
 const String credentialsInvalidatedWire = 'invalidated';
 ''';
 
+const String _cameraKotlinHalf = '''
+internal class CameraChannel {
+    private companion object {
+        const val CHANNEL_NAME = "dev.dorogoy.organizer/camera"
+        const val REQUEST_METHOD = "request"
+        const val WIRE_GRANTED = "granted"
+        const val WIRE_REFUSED = "refused"
+        const val WIRE_INTERRUPTED = "interrupted"
+        const val PERMISSION = android.Manifest.permission.CAMERA
+        const val PERMISSION_REQUEST_CODE = 3405
+    }
+}
+''';
+
+const String _cameraDartHalf = '''
+const String cameraChannelName = 'dev.dorogoy.organizer/camera';
+const String cameraRequestMethod = 'request';
+const String cameraGrantedWire = 'granted';
+const String cameraRefusedWire = 'refused';
+const String cameraInterruptedWire = 'interrupted';
+''';
+
 const String _manifest = '''
 <manifest>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
 </manifest>
 ''';
 
@@ -91,11 +114,16 @@ WireContract get _dictateContract =>
 WireContract get _credentialsContract =>
     wireContracts.firstWhere((contract) => contract.name == 'credentials');
 
+WireContract get _cameraContract =>
+    wireContracts.firstWhere((contract) => contract.name == 'camera');
+
 Directory _fixture({
   required String dictateKotlin,
   required String dictateDart,
   String credentialsKotlin = _credentialsKotlinHalf,
   String credentialsDart = _credentialsDartHalf,
+  String cameraKotlin = _cameraKotlinHalf,
+  String cameraDart = _cameraDartHalf,
   String manifest = _manifest,
 }) {
   final root = Directory.systemTemp.createTempSync('wire_contracts');
@@ -118,6 +146,12 @@ Directory _fixture({
     credentialsKotlin,
   );
   write('lib/platform/credentials/credentials_cipher.dart', credentialsDart);
+  write(
+    'android/app/src/main/kotlin/dev/dorogoy/organizer/'
+    'CameraChannel.kt',
+    cameraKotlin,
+  );
+  write('lib/plugins/camera/camera_channel.dart', cameraDart);
   write('android/app/src/main/AndroidManifest.xml', manifest);
   return root;
 }
@@ -139,6 +173,32 @@ void main() {
       dartSource: _credentialsDartHalf,
     );
     expect(findings, isEmpty);
+  });
+
+  test('a matching pair of camera halves is clean', () {
+    final findings = scanContract(
+      contract: _cameraContract,
+      kotlinSource: _cameraKotlinHalf,
+      dartSource: _cameraDartHalf,
+    );
+    expect(findings, isEmpty);
+  });
+
+  test('a camera wire word drifted on the Dart side is a finding naming '
+      'the interruption its own word — never folded into a refusal', () {
+    final drifted = _cameraDartHalf.replaceFirst(
+      "const String cameraInterruptedWire = 'interrupted';",
+      "const String cameraInterruptedWire = 'unavailable';",
+    );
+    final findings = scanContract(
+      contract: _cameraContract,
+      kotlinSource: _cameraKotlinHalf,
+      dartSource: drifted,
+    );
+    expect(findings, hasLength(1));
+    expect(findings.single, contains('cameraInterruptedWire'));
+    expect(findings.single, contains('WIRE_INTERRUPTED'));
+    expect(findings.single, contains('camera wire contract'));
   });
 
   test('a value drifted on the Dart side names the file and line', () {
@@ -263,6 +323,26 @@ void main() {
       expect(result.stdout as String, contains('RECORD_AUDIO is not declared'));
     });
 
+    test('exits 1 when the manifest drops CAMERA — the camera channel '
+        'cannot ask for its one runtime permission', () async {
+      final root = _fixture(
+        dictateKotlin: _dictateKotlinHalf,
+        dictateDart: _dictateDartHalf,
+        manifest: '''
+<manifest>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+</manifest>
+''',
+      );
+      final result = await Process.run('dart', [
+        'run',
+        'tool/check_wire_contracts.dart',
+        root.path,
+      ]);
+      expect(result.exitCode, 1);
+      expect(result.stdout as String, contains('CAMERA is not declared'));
+    });
+
     test(
       'exits 1 when a credentials half drifts while dictate matches',
       () async {
@@ -304,13 +384,28 @@ void main() {
     });
   });
 
-  test('the contracts list holds exactly the two shipped channels, with '
-      'their wire-name maps pinned', () {
-    expect(wireContracts, hasLength(2));
+  test('the contracts list holds exactly the three shipped channels of '
+      'the four decided (notify reserved, unshipped), with their '
+      'wire-name maps pinned', () {
+    expect(wireContracts, hasLength(3));
     expect(_dictateContract.kotlinToDartWireNames, hasLength(13));
     expect(_dictateContract.assertedPermission, recordAudioPermission);
     expect(_credentialsContract.kotlinToDartWireNames, hasLength(10));
     // No permission asserted: the credentials channel asks for none.
     expect(_credentialsContract.assertedPermission, isNull);
+    // Story 5.2's fourth channel (ruling 1-B): the scan path's
+    // permission moment, five wire names and the CAMERA assertion.
+    expect(_cameraContract.kotlinToDartWireNames, hasLength(5));
+    expect(_cameraContract.assertedPermission, cameraPermissionWire);
+    expect(
+      _cameraContract.kotlinToDartWireNames.values,
+      containsAll([
+        'cameraChannelName',
+        'cameraRequestMethod',
+        'cameraGrantedWire',
+        'cameraRefusedWire',
+        'cameraInterruptedWire',
+      ]),
+    );
   });
 }

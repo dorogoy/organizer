@@ -54,6 +54,12 @@ class _FakeFiles implements FilesPort {
     }
     blobs.remove(_key(scope, name));
   }
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
 }
 
 /// A scripted cipher fake: seals answer through an optional gate (so

@@ -264,6 +264,18 @@
     "description": "Settings — the IA y voz group header (Story 4-4, reusing the string 3.4 authored): the BYOK access path's provider pills, terms lines and quiet key field, beside the validator surface's dictation facts. The reactivation row inside the group carries the same label."
   },
 
+  "settingsCameraLabel": "Cámara",
+  "@settingsCameraLabel": {
+    "description": "Settings, IA y voz — the camera row's label (Story 5.2, FR-16): the one row owning both the disable toggle and the reactivation. The switch is the whole feedback; nothing behind Nuevo proyecto changes with it.",
+    "x-signoff": "Sergio, 2026-09-05"
+  },
+
+  "settingsCameraReactivate": "Reactivar la cámara",
+  "@settingsCameraReactivate": {
+    "description": "Settings, IA y voz — the camera row's quiet reactivation affordance (Story 5.2, FR-16, UX-DR33), rendered exactly while a camera refusal row stands; one tap opens the system's app-details screen, never a re-ask.",
+    "x-signoff": "Sergio, 2026-09-05"
+  },
+
   "providerNameGemini": "Gemini",
   "@providerNameGemini": {
     "description": "Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist."
@@ -408,6 +420,24 @@
   "lapizEntry": "Lápiz - anotar",
   "@lapizEntry": {
     "description": "Dispenser Lápiz entry — TalkBack name of the glyph-only Manual Capture affordance (Story 3.2). Not painted; screen readers only."
+  },
+
+  "camaraEntry": "Cámara - escanear",
+  "@camaraEntry": {
+    "description": "Dispenser Cámara entry — TalkBack name of the glyph-only Scan affordance (Story 5.2), the Lápiz entry's twin grammar. Not painted; screen readers only.",
+    "x-signoff": "Sergio, 2026-09-05"
+  },
+
+  "scanShutter": "Hacer la foto",
+  "@scanShutter": {
+    "description": "Scan surface — the one recommended action, the shutter (Story 5.2): A-slim surface, no chrome beyond it, OS back the way out.",
+    "x-signoff": "Sergio, 2026-09-05"
+  },
+
+  "scanOpenFailed": "La cámara no se ha podido abrir ahora mismo.",
+  "@scanOpenFailed": {
+    "description": "Scan surface — the system-problem notice for an interrupted permission ask or a failed camera open (Story 5.2, ruling 2026-09-05 1-B: app logic and system-problem notification are separate domains — a malfunction is communicated, never hidden, never mistaken for the user's refusal). The surface stays, no row lands, the entry is untouched; OS back is the way out.",
+    "x-signoff": "Sergio, 2026-09-05"
   },
 
   "captureTitle": "Un rincón de la casa",

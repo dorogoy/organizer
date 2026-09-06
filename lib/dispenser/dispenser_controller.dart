@@ -4,6 +4,7 @@ import 'package:core/commands/report_commands.dart';
 import 'package:core/commands/rescue_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/day/calendar.dart';
+import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/checkpoint.dart';
 import 'package:core/derive/rescue.dart';
 import 'package:core/derive/strip.dart';
@@ -45,11 +46,17 @@ import '../strings/app_strings.dart';
 /// latest contact that preceded it, derived in the same read and
 /// rendered as the fixed greeting above the committed view — for the
 /// whole opening, never dismissed, never timed, no state anywhere.
+/// Since Story 5.2 every variant also carries the Cámara entry's
+/// visibility fact (FR-16): enabled ∧ the camera permission not
+/// refused, the log-derived fold from `core/derive/camera_entry.dart`
+/// computed in the same queue-consistent read — never an OS probe,
+/// never stored, and absent (never greyed) wherever it derives false.
 sealed class DispenserView {
   const DispenserView({
     this.stripResident,
     this.reportWeekOrdinal,
     this.warmReturnDue = false,
+    this.cameraEntryVisible = false,
   });
 
   /// The ambient strip's resident on this read — the precedence
@@ -75,6 +82,15 @@ sealed class DispenserView {
   /// `app_opened` and cannot move the anchor), and the next opening
   /// inside 48 h derives it false with no state anywhere.
   final bool warmReturnDue;
+
+  /// The Cámara entry's visibility fact (Story 5.2, FR-16): the
+  /// log-derived fold — enabled ∧ no camera refusal row standing after
+  /// the last enabled-write — computed in the same queue-consistent
+  /// read, never an OS probe (probing would ask at app entry, AD-17).
+  /// The entry is simply absent wherever this derives false: never
+  /// greyed, never explained, and the reactivation is the Settings
+  /// row's own toggle (UX-DR33).
+  final bool cameraEntryVisible;
 }
 
 /// The dealt-unanswered card of the open session — the launch deal on a
@@ -98,6 +114,7 @@ final class DispenserDealt extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.warmReturnDue,
+    super.cameraEntryVisible,
   });
 
   final Card card;
@@ -135,6 +152,7 @@ final class DispenserClosed extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.warmReturnDue,
+    super.cameraEntryVisible,
   });
 
   final int? pocketMinutes;
@@ -155,6 +173,7 @@ final class DispenserRestOffer extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.warmReturnDue,
+    super.cameraEntryVisible,
   });
 
   final int? pocketMinutes;
@@ -369,6 +388,13 @@ class DispenserController {
       entries: log,
       instantUtcMicros: now.microsecondsSinceEpoch,
     );
+    // The Cámara entry's visibility fact (Story 5.2, FR-16): the
+    // log-derived fold over the same queue-consistent log — enabled ∧
+    // no camera refusal standing after the last enabled-write. No
+    // probe exists here by construction: the camera plugin's only
+    // status check is the request itself, and asking at render time
+    // would be asking at app entry (AD-17, NFR8).
+    final cameraVisible = cameraEntryVisible(log);
     // The asked week rides the read: the report's answer mints the
     // week the user was shown, never one re-derived at tap time. Any
     // other read clears it — nothing else was asked.
@@ -426,6 +452,7 @@ class DispenserController {
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
         warmReturnDue: warm,
+        cameraEntryVisible: cameraVisible,
       );
     }
     final checkpoint = deriveCheckpoint(
@@ -440,6 +467,7 @@ class DispenserController {
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
         warmReturnDue: warm,
+        cameraEntryVisible: cameraVisible,
       );
     }
     // The one control's own facts (Story 4.6, FR-5): a standing card
@@ -474,6 +502,7 @@ class DispenserController {
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
       warmReturnDue: warm,
+      cameraEntryVisible: cameraVisible,
     );
   });
 

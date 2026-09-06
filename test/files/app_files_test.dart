@@ -151,4 +151,90 @@ void main() {
       expect(root.listSync(), isEmpty);
     });
   });
+
+  group('the per-scan cache mechanics (Story 5.2, FR-16, FR-25)', () {
+    test('a frame writes into the scan\'s own subdirectory and the '
+        'returned path reads back byte-for-byte', () async {
+      final path = await files.writeScanFrame('scan-1', [4, 5, 250]);
+      expect(path, isNotEmpty);
+      final file = File(path);
+      expect(file.existsSync(), isTrue);
+      expect(await file.readAsBytes(), [4, 5, 250]);
+      // The reserved vocabulary: the scan_cache scope, the scan's own
+      // clean segment, the one frame name.
+      expect(
+        path.replaceAll('\\', '/').split('/'),
+        containsAllInOrder([scanCacheScope, 'scan-1', scanFrameFileName]),
+      );
+      // The flat scope's own read does not see the frame (it lives in
+      // a subdirectory the flat vocabulary never composes) — the
+      // subdirectory exists only through the scan methods.
+      expect(await files.read(scanCacheScope, 'frame.jpg'), isNull);
+    });
+
+    test('two scans hold separate frames — one clean segment each', () async {
+      final one = await files.writeScanFrame('scan-1', [1]);
+      final two = await files.writeScanFrame('scan-2', [2, 2]);
+      expect(one, isNot(two));
+      expect(await File(one).readAsBytes(), [1]);
+      expect(await File(two).readAsBytes(), [2, 2]);
+    });
+
+    test('a re-write replaces the standing frame — one rename, no '
+        'staging file behind', () async {
+      await files.writeScanFrame('scan-1', [1, 1]);
+      await files.writeScanFrame('scan-1', [2]);
+      final scanDir = Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope'
+        '${Platform.pathSeparator}scan-1',
+      );
+      expect(scanDir.listSync().map((e) => e.uri.pathSegments.last).toList(), [
+        scanFrameFileName,
+      ]);
+    });
+
+    test('unlink removes the scan\'s whole subdirectory and is '
+        'idempotent — the scope itself stays for the other scans', () async {
+      await files.writeScanFrame('scan-1', [1]);
+      await files.writeScanFrame('scan-2', [2]);
+      await files.unlinkScan('scan-1');
+      final scopeDir = Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope',
+      );
+      // A directory entity's URI ends in a slash, so its last raw
+      // segment is empty — the census reads the named segment.
+      String namedOf(FileSystemEntity entity) =>
+          entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
+      expect(scopeDir.listSync().map(namedOf).toList(), ['scan-2']);
+      // Idempotent: a second unlink of the same scan is quiet.
+      await files.unlinkScan('scan-1');
+      expect(scopeDir.listSync().map(namedOf).toList(), ['scan-2']);
+      // A scan that never existed unlinks quietly too.
+      await files.unlinkScan('never-opened');
+    });
+
+    test('a traversal-shaped scanId is refused quietly: no write, the '
+        'empty path, nothing escaped the root', () async {
+      for (final scanId in ['../evil', 'a/b', '.', '..', 'a\u0000b']) {
+        expect(await files.writeScanFrame(scanId, [1]), '', reason: scanId);
+        await files.unlinkScan(scanId);
+        expect(root.listSync(), isEmpty, reason: scanId);
+      }
+    });
+
+    test('the plugin-shot deletion helper removes the named file, '
+        'best-effort: absent is quiet, nothing throws (P1 — no shot '
+        'lingers where nothing sweeps)', () async {
+      final shot = File(
+        '${root.path}${Platform.pathSeparator}plugin_cache_shot.jpg',
+      )..writeAsBytesSync([1, 2, 3]);
+      await deleteFileBestEffort(shot.path);
+      expect(shot.existsSync(), isFalse);
+      // Absent is the same quiet answer; a directory-shaped path
+      // neither throws nor recurses.
+      await deleteFileBestEffort(shot.path);
+      await deleteFileBestEffort(root.path);
+      expect(root.existsSync(), isTrue);
+    });
+  });
 }

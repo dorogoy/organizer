@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 /// The `credentials` channel's name — the second of the build's
-/// exactly three hand-written channels (AD-11, Story 4.3, AD-22) —
+/// four decided hand-written channels (AD-11 — dictate, credentials and camera shipped, notify reserved and unshipped; the camera slot grown by Story 5.2's 2026-09-05 ruling) —
 /// an infrastructure identifier, never widget copy: a named string
 /// constant on the platform module's terms (AD-15's ban is on
 /// literals reaching a widget).

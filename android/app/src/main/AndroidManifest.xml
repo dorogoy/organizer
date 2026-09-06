@@ -4,6 +4,13 @@
          of the three runtime permissions, requested at the moment its
          feature is first used — never at app entry or first run. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- The scan surface's capture (Story 5.2, FR-16, FR-25, AD-17,
+         added 2026-09-05 on INTERNET's 4-4 precedent): the CAMERA
+         runtime permission, requested by the spine-pinned camera
+         plugin at the first scan attempt (opening the scan surface) —
+         never at app entry, never during first run. The refusal's
+         reversal lives in Settings; the app never re-asks on its own. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <!-- The BYOK Slicer's egress (Story 4-4, AD-7): the one deliberate
          main-manifest permission 4-2's seal anticipated — sockets leave
          only through lib/egress/, and this is the platform's own word
@@ -22,6 +29,19 @@
          gate composition, 2026-09-05: face-only is the interim gate.) -->
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove"/>
+    <!-- CameraX's seal-3 surgery (Story 5.2, 2026-09-05, on 5.1's
+         precedent): the camerax closure merges the legacy external-
+         storage permission pair, which nothing in this app touches —
+         the scan writes only app-private Files storage and the shot
+         lands in the camera plugin's own cache. Stripped by merger
+         rule, never baselined; CameraX's one init-metadata service
+         that remains is enumerated in tool/check_android_manifest.dart. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove"/>
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:node="remove"/>
     <application
         android:label="organizer"

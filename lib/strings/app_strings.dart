@@ -371,6 +371,18 @@ abstract class AppStrings {
   /// **'IA y voz'**
   String get settingsAiVoice;
 
+  /// Settings, IA y voz — the camera row's label (Story 5.2, FR-16): the one row owning both the disable toggle and the reactivation. The switch is the whole feedback; nothing behind Nuevo proyecto changes with it.
+  ///
+  /// In es, this message translates to:
+  /// **'Cámara'**
+  String get settingsCameraLabel;
+
+  /// Settings, IA y voz — the camera row's quiet reactivation affordance (Story 5.2, FR-16, UX-DR33), rendered exactly while a camera refusal row stands; one tap opens the system's app-details screen, never a re-ask.
+  ///
+  /// In es, this message translates to:
+  /// **'Reactivar la cámara'**
+  String get settingsCameraReactivate;
+
   /// Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist.
   ///
   /// In es, this message translates to:
@@ -532,6 +544,24 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Lápiz - anotar'**
   String get lapizEntry;
+
+  /// Dispenser Cámara entry — TalkBack name of the glyph-only Scan affordance (Story 5.2), the Lápiz entry's twin grammar. Not painted; screen readers only.
+  ///
+  /// In es, this message translates to:
+  /// **'Cámara - escanear'**
+  String get camaraEntry;
+
+  /// Scan surface — the one recommended action, the shutter (Story 5.2): A-slim surface, no chrome beyond it, OS back the way out.
+  ///
+  /// In es, this message translates to:
+  /// **'Hacer la foto'**
+  String get scanShutter;
+
+  /// Scan surface — the system-problem notice for an interrupted permission ask or a failed camera open (Story 5.2, ruling 2026-09-05 1-B: app logic and system-problem notification are separate domains — a malfunction is communicated, never hidden, never mistaken for the user's refusal). The surface stays, no row lands, the entry is untouched; OS back is the way out.
+  ///
+  /// In es, this message translates to:
+  /// **'La cámara no se ha podido abrir ahora mismo.'**
+  String get scanOpenFailed;
 
   /// Manual Capture — title, names a place (the spatial frame, rule 1).
   ///

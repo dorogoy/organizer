@@ -11,6 +11,47 @@ import 'package:path_provider/path_provider.dart';
 /// widget), never user copy.
 const String credentialFilesScope = 'credentials';
 
+/// The Files scope holding the per-scan cache (Story 5.2, FR-16,
+/// FR-25): one subdirectory per scan — named by the scan's own clean
+/// `scanId` segment — holding that scan's frame (and, from 5.4, its
+/// capped copy) until every terminal path unlinks it. The reserved
+/// name `FilesPort`'s own doc anticipated, on the same infrastructure
+/// terms as the credentials scope.
+const String scanCacheScope = 'scan_cache';
+
+/// The frame file's name inside a scan's cache subdirectory (Story
+/// 5.2): the JPEG bytes the camera wrote, named once here so no
+/// caller composes a path the adapter did not validate. An
+/// infrastructure identifier on the terms above.
+const String scanFrameFileName = 'frame.jpg';
+
+/// The write's answer when no frame exists to gate (Story 5.2): a
+/// refused traversal-shaped segment, or a directory that would not
+/// create. The empty path is the quiet fail-closed signal the scan
+/// controller folds into its close, on the same terms above.
+const String absentFramePath = '';
+
+/// Best-effort deletion of one absolute file path outside the
+/// adapter's own scopes (Story 5.2's review, P1): the camera plugin
+/// writes its shot to the platform's cache before the app reads the
+/// bytes, and that file — a person-bearing frame included — dies in
+/// the same breath. Nothing this story ships sweeps the plugin's
+/// cache, so the deletion is eager and best-effort: a path that would
+/// not delete is a quiet nothing, never a failed shot. This module is
+/// dart:io's one shell home (the store seal's own allowlist), which
+/// is why the helper lives here and not beside the plugin wrap.
+Future<void> deleteFileBestEffort(String path) async {
+  try {
+    final file = File(path);
+    if (file.existsSync()) {
+      await file.delete();
+    }
+  } on FileSystemException {
+    // Quiet by contract: best-effort means the attempt, never the
+    // outcome, and no caller's flow turns on this file's death.
+  }
+}
+
 /// The temp file's name suffix while a write stages its bytes before
 /// the rename — an infrastructure identifier on the terms above.
 const String stagingSuffix = '.tmp';
@@ -183,6 +224,74 @@ class AppFiles implements FilesPort {
     } on FileSystemException {
       // Quiet: the delete's contract is idempotence, and the next
       // read measures whatever actually stands.
+    }
+  }
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async {
+    if (!_isCleanSegment(scanId)) {
+      // The quiet refusal, on the flat methods' own terms: a
+      // traversal-shaped scanId writes nothing anywhere, and the
+      // empty path tells the caller no frame exists to gate.
+      return absentFramePath;
+    }
+    // The whole write is guarded against anything the platform can
+    // throw — not just the filesystem family: the root resolution
+    // itself can surface as a PlatformException (path_provider's
+    // method channel), and the scan's quiet fail-closed contract
+    // takes every flavour alike (the caller's failed-shot close
+    // covers the empty path).
+    try {
+      final root = await _resolvedRoot();
+      // Two validated segments, one composition at a time: the scope,
+      // then the scan's own subdirectory — the only nesting the
+      // port's scan vocabulary admits, and only through this method.
+      final scanDir = Directory.fromUri(
+        _segmentUri(_segmentUri(root.uri, scanCacheScope), scanId),
+      );
+      await scanDir.create(recursive: true);
+      final file = File.fromUri(_segmentUri(scanDir.uri, scanFrameFileName));
+      // Atomic like the flat write: the bytes land in a sibling temp
+      // file first, then one rename swaps them in — the gate reads
+      // the whole frame or none of it.
+      final staging = File(
+        file.path + (_stagingSerial++).toString() + stagingSuffix,
+      );
+      await staging.writeAsBytes(bytes, flush: true);
+      await staging.rename(file.path);
+      return file.path;
+    } on Object {
+      // Best-effort cleanup of a half-written staging file is not
+      // reachable from here (its name never escapes the try), and the
+      // scan's own unlink takes whatever the directory holds: the
+      // quiet empty path is the whole answer — a failed frame write
+      // is the scan's fail-closed close, never a crash and never a
+      // half-readable frame.
+      return absentFramePath;
+    }
+  }
+
+  @override
+  Future<void> unlinkScan(String scanId) async {
+    if (!_isCleanSegment(scanId)) {
+      return;
+    }
+    try {
+      final root = await _resolvedRoot();
+      final scanDir = Directory.fromUri(
+        _segmentUri(_segmentUri(root.uri, scanCacheScope), scanId),
+      );
+      // Idempotent by construction: an absent directory is not an
+      // error, the scope directory itself stays — other scans' frames
+      // are not this call's to touch — and a filesystem refusal reads
+      // as the same quiet outcome the caller asked for.
+      if (scanDir.existsSync()) {
+        await scanDir.delete(recursive: true);
+      }
+    } on FileSystemException {
+      // Quiet: the unlink's contract is idempotence, and 5.4's
+      // `app_opened` sweep is the crash backstop for whatever a
+      // refused delete left standing.
     }
   }
 

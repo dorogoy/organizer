@@ -1079,6 +1079,12 @@ class _ThrowingReadFiles implements FilesPort {
 
   @override
   Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
 }
 
 /// An in-memory Files fake (the vault suite's own shape).
@@ -1096,6 +1102,12 @@ class _FakeFiles implements FilesPort {
   @override
   Future<void> delete(String scope, String name) async =>
       blobs.remove('$scope/$name');
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
 }
 
 /// A transparent cipher: the envelope is the plaintext, so a seeded

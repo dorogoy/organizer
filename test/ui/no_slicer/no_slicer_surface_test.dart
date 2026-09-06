@@ -507,9 +507,10 @@ void main() {
   });
 
   test('the surface\'s callers are frozen — its own file names the widget, '
-      'and the Dispenser screen (Story 4-6\'s rescue failure) is the one '
-      'push site; Epic 5\'s callers renegotiate this census when they '
-      'arrive', () {
+      'the Dispenser screen (Story 4-6\'s rescue failure) and the scan '
+      'surface (Story 5.2\'s face refusal, on the cause 4-5 shipped for '
+      'this caller) are the push sites; later callers renegotiate this '
+      'census when they arrive', () {
     final libDir = Directory('lib');
     expect(libDir.existsSync(), isTrue, reason: 'the scan must see a lib/');
     var files = 0;
@@ -539,10 +540,11 @@ void main() {
     expect(files, greaterThan(30), reason: 'a non-trivial lib/ was scanned');
     expect(
       referers,
-      hasLength(2),
+      hasLength(3),
       reason:
-          'only the surface\'s own file and the Dispenser\'s rescue '
-          'failure push may name it',
+          'only the surface\'s own file, the Dispenser\'s rescue '
+          'failure push and the scan surface\'s face-refusal push '
+          'may name it',
     );
     expect(
       referers.any(
@@ -555,7 +557,14 @@ void main() {
         (path) => path.endsWith('lib/ui/dispenser/dispenser_screen.dart'),
       ),
       isTrue,
-      reason: 'the 4-6 rescue failure push is the surface\'s one caller',
+      reason: 'the 4-6 rescue failure push is one caller',
+    );
+    expect(
+      referers.any((path) => path.endsWith('lib/ui/scan/scan_screen.dart')),
+      isTrue,
+      reason:
+          'the 5.2 face-refusal push is the shipped caller 4-5 '
+          'named this surface for',
     );
   });
 }

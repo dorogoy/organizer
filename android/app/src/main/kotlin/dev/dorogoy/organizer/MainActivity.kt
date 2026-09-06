@@ -6,6 +6,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private var dictateChannel: DictateChannel? = null
     private var credentialsChannel: CredentialsChannel? = null
+    private var cameraChannel: CameraChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -19,6 +20,14 @@ class MainActivity : FlutterActivity() {
         // torn down with the engine like its sibling.
         credentialsChannel =
             CredentialsChannel(flutterEngine.dartExecutor.binaryMessenger)
+        // The camera channel (Story 5.2, FR-16, AD-11 — the fourth of
+        // the build's four decided channels: dictate, credentials and
+        // camera shipped, notify reserved and unshipped; the 2026-09-05
+        // ruling 1-B grew the count): it owns the scan path's
+        // permission moment alone — capture stays plugin-served, and
+        // this channel opens no camera of its own.
+        cameraChannel =
+            CameraChannel(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun onRequestPermissionsResult(
@@ -26,9 +35,13 @@ class MainActivity : FlutterActivity() {
         permissions: Array<out String>,
         grantResults: IntArray,
     ) {
-        // The dictate channel's first-use permission answer arrives
-        // here; everything else falls through to the embedding.
+        // Each channel's first-use permission answer arrives here
+        // under its own request code; everything else falls through
+        // to the embedding.
         if (dictateChannel?.onRequestPermissionsResult(requestCode, grantResults) == true) {
+            return
+        }
+        if (cameraChannel?.onRequestPermissionsResult(requestCode, grantResults) == true) {
             return
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -39,6 +52,8 @@ class MainActivity : FlutterActivity() {
         dictateChannel = null
         credentialsChannel?.destroy()
         credentialsChannel = null
+        cameraChannel?.destroy()
+        cameraChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 }

@@ -42,6 +42,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:organizer/catalogue/catalogue_names.g.dart';
 import 'package:organizer/catalogue/loader.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
+import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/session/session_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
@@ -50,8 +51,11 @@ import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/dispenser/zone_marker.dart';
+import 'package:organizer/ui/glyphs/camera_glyph.dart';
+import 'package:organizer/ui/glyphs/pencil_glyph.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/glyphs/leaf_glyph.dart';
+import 'package:organizer/ui/scan/scan_screen.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
 
@@ -5415,6 +5419,292 @@ void main() {
       expect(find.text('Tengo 15 minutos ahora'), findsOneWidget);
       expect(find.byType(ErrorWidget), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the Cámara entry (Story 5.2, FR-16, UX-DR15, UX-DR24)', () {
+    /// A `permission_refused` {camera} row, as the store holds it.
+    LogEntryRecord cameraRefusal() => (
+      id: '01905c02-0000-7000-8000-000000000001',
+      kind: 'permission_refused',
+      instantUtcMicros: 1000,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: 'camera',
+      sliceCause: null,
+    );
+
+    /// A `setting_changed` {camera_enabled, [value]} row.
+    LogEntryRecord cameraSetting(int value) => (
+      id: '01905c02-0000-7000-8000-0000000000$value',
+      kind: 'setting_changed',
+      instantUtcMicros: 2000 + value,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: 'camera_enabled',
+      settingValue: value,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+    );
+
+    Finder entryTarget(Finder glyph) =>
+        find.ancestor(of: glyph, matching: find.byType(Semantics)).first;
+
+    testWidgets('the default state: present top-right beside Lápiz — '
+        'one tap opens the scan surface, both targets 48dp, the chip '
+        'wraps clear of both glyph zones', (tester) async {
+      final store = _RecordingStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      final lapiz = find.byType(PencilGlyph);
+      final camera = find.byType(CameraGlyph);
+      expect(lapiz, findsOneWidget);
+      expect(camera, findsOneWidget);
+      // The entries read as buttons carrying their spoken names.
+      expect(
+        tester.widget<Semantics>(entryTarget(camera)).properties.label,
+        AppStringsEs().camaraEntry,
+      );
+      expect(
+        tester.widget<Semantics>(entryTarget(lapiz)).properties.label,
+        AppStringsEs().lapizEntry,
+      );
+      // Cámara sits beside Lápiz, which keeps the end edge: both in
+      // the top band, cámara left of lápiz, both ≥48dp.
+      final lapizRect = tester.getRect(lapiz);
+      final cameraRect = tester.getRect(camera);
+      final chipRect = tester.getRect(find.byType(PocketTriggerChip));
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      expect(cameraRect.center.dy, closeTo(lapizRect.center.dy, 1));
+      expect(cameraRect.right, lessThan(lapizRect.left));
+      expect(lapizRect.right, lessThanOrEqualTo(screen.width));
+      for (final target in [entryTarget(camera), entryTarget(lapiz)]) {
+        final rect = tester.getRect(target);
+        expect(rect.width, greaterThanOrEqualTo(48));
+        expect(rect.height, greaterThanOrEqualTo(48));
+      }
+      // The two-glyph clearance: the chip's wrap stops clear of the
+      // cámara target — the outermost one — on the wide ground.
+      expect(
+        chipRect.right,
+        lessThan(tester.getRect(entryTarget(camera)).left),
+        reason: 'the chip wraps before reaching either glyph zone',
+      );
+      expect(chipRect.center.dx, closeTo(screen.width / 2, 0.5));
+
+      // One tap opens the scan surface (the null seam is the honest
+      // test seam), and the way back is the system back.
+      await tester.tap(camera);
+      await tester.pumpAndSettle();
+      expect(find.byType(ScanScreen), findsOneWidget);
+      // Nothing was written by the way in.
+      expect(store.entries, isEmpty);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(ScanScreen), findsNothing);
+      expect(store.entries, isEmpty);
+    });
+
+    testWidgets('a camera refusal makes the entry simply absent — never '
+        'greyed, never explained — and Lápiz stands unchanged '
+        '(FR-16, AD-17, UX-DR24)', (tester) async {
+      final store = _RecordingStore();
+      store.entries.add(cameraRefusal());
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsNothing);
+      expect(find.byType(PencilGlyph), findsOneWidget);
+      // No explanation copy anywhere: nothing the tree carries names
+      // the camera — the entry is gone, not mourned.
+      final labels = [
+        for (final semantics in tester.widgetList<Semantics>(
+          find.byType(Semantics),
+        ))
+          semantics.properties.label,
+        for (final text in tester.widgetList<Text>(find.byType(Text)))
+          text.data,
+      ].whereType<String>();
+      expect(
+        labels.where((label) => label.toLowerCase().contains('cámara')),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a disable write makes the entry never render — and a '
+        're-enable after a refusal restores it (the toggle is the '
+        'reactivation, UX-DR33)', (tester) async {
+      final disabled = _RecordingStore();
+      disabled.entries.add(cameraSetting(0));
+      await tester.pumpWidget(_harness(buildController(disabled)));
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsNothing);
+
+      final reactivated = _RecordingStore();
+      reactivated.entries
+        ..add(cameraRefusal())
+        ..add(cameraSetting(1));
+      await tester.pumpWidget(
+        _harness(buildController(reactivated), screenKey: const Key('two')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsOneWidget);
+    });
+
+    testWidgets('a refusal after the re-enable hides the entry again — '
+        'the fold reads the log, not memory', (tester) async {
+      final store = _RecordingStore();
+      store.entries
+        ..add(cameraRefusal())
+        ..add(cameraSetting(1))
+        ..add(cameraRefusal());
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsNothing);
+    });
+
+    testWidgets('the entry renders during the rest offer too — the '
+        'offer is a view, the entry is chrome — and a refusal row '
+        'removes it there as everywhere (the default-false fold '
+        'argument is pinned at every construction site)', (tester) async {
+      // A sitting seeded 40 minutes into a 45-minute pocket at the
+      // fixed clock: the read resolves the rest offer (the
+      // checkpoint group's own seeding shape).
+      final offered = _RecordingStore();
+      offered.entries.add((
+        id: 'seed-week-answered',
+        kind: 'report_answered',
+        instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: 3,
+        reportWeek: 1389,
+        permission: null,
+        sliceCause: null,
+      ));
+      offered.entries.add((
+        id: 'seed-pocket',
+        kind: 'session_started',
+        instantUtcMicros: DateTime.utc(
+          2026,
+          8,
+          29,
+          11,
+          20,
+        ).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: 45,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ));
+      await tester.pumpWidget(_harness(buildController(offered)));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Nada más por el momento'),
+        findsOneWidget,
+        reason: 'the rest offer stands',
+      );
+      expect(
+        find.byType(CameraGlyph),
+        findsOneWidget,
+        reason: 'chrome renders through the offer',
+      );
+
+      // The refused twin: the same offer, one camera refusal row —
+      // the entry is absent while the offer stands unchanged.
+      final refused = _RecordingStore();
+      refused.entries.addAll(offered.entries);
+      refused.entries.add(cameraRefusal());
+      await tester.pumpWidget(
+        _harness(buildController(refused), screenKey: const Key('offer2')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Nada más por el momento'), findsOneWidget);
+      expect(find.byType(CameraGlyph), findsNothing);
+      expect(find.byType(PencilGlyph), findsOneWidget);
+    });
+
+    testWidgets('a Settings toggle lands the moment the way-out chain '
+        'pops back — the route-aware re-read (Story 5.2)', (tester) async {
+      final store = _RecordingStore();
+      final observer = RouteObserver<PageRoute<dynamic>>();
+      // The settings list is lazy and the camera row sits in its
+      // tail: a tall surface builds it (the settings suite's own
+      // idiom).
+      await tester.binding.setSurfaceSize(const ui.Size(320, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          navigatorObservers: [observer],
+          home: DispenserScreen(
+            controller: buildController(store),
+            settings: SettingsController(store: store, nowOf: _fixedClock),
+            routeObserver: observer,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsOneWidget);
+
+      // The way-out chain, as the settings suite drives it.
+      await tester.tap(find.text(AppStringsEs().newProjectLink));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(AppStringsEs().settingsWayOut));
+      await tester.pumpAndSettle();
+      // The toggle write lands through the real row.
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(
+        store.entries
+            .where((entry) => entry.kind == 'setting_changed')
+            .single
+            .settingKey,
+        'camera_enabled',
+      );
+
+      // Popping back re-reads: the entry is gone without any
+      // lifecycle resume.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(CameraGlyph), findsNothing);
+      expect(find.byType(PencilGlyph), findsOneWidget);
     });
   });
 }

@@ -55,10 +55,12 @@ import 'package:flutter/services.dart';
 import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
+import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
 import '../no_slicer/no_slicer_surface.dart';
 import '../settings/nuevo_proyecto_screen.dart';
+import '../scan/scan_screen.dart';
 import '../tokens.dart';
 import 'dispenser_chrome.dart';
 import 'dispenser_closed_view.dart';
@@ -97,6 +99,8 @@ class DispenserScreen extends StatefulWidget {
     this.settings,
     this.capture,
     this.dictation,
+    this.scan,
+    this.routeObserver,
   });
 
   final DispenserController controller;
@@ -121,12 +125,28 @@ class DispenserScreen extends StatefulWidget {
   /// keyboard alone and no capsule.
   final DictationController? dictation;
 
+  /// The scan seam (Story 5.2, FR-16): main constructs it over the
+  /// same store, the shared write queue, the camera facade and the
+  /// face gate, and the Cámara entry hands it to the scan surface.
+  /// Absent (the test seam), the entry still opens the surface with
+  /// no controller behind it — the surface renders its empty frame
+  /// and nothing writes.
+  final ScanController? scan;
+
+  /// The route-awareness seam (Story 5.2): the observer main also
+  /// registers with the MaterialApp, so a way-out chain popping back
+  /// (Settings → `Nuevo proyecto` → here) re-reads — the camera row's
+  /// toggle and the refusal reactivation must move the Cámara entry
+  /// the moment the Dispenser is current again, not at the next
+  /// lifecycle resume. Absent (the test seam), no pop-refresh runs.
+  final RouteObserver<PageRoute<dynamic>>? routeObserver;
+
   @override
   State<DispenserScreen> createState() => _DispenserScreenState();
 }
 
 class _DispenserScreenState extends State<DispenserScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   /// Null until the first read resolves: the empty frame, never a loader.
   DispenserView? _view;
   int _readGeneration = 0;
@@ -142,6 +162,17 @@ class _DispenserScreenState extends State<DispenserScreen>
   bool _completionAckVisible = false;
   Timer? _completionAckTimer;
 
+  /// The Cámara entry's last committed visibility (Story 5.2, FR-16):
+  /// held through the refresh windows so the entry never flickers on a
+  /// re-read, and starting absent — the affordance defaults to absent,
+  /// the dictation seam's own rule, so an entry the log refuses never
+  /// appears even for the first read's duration.
+  bool _cameraEntryVisible = false;
+
+  /// The route this state subscribed with — the unsubscription's own
+  /// key, null before `didChangeDependencies` first ran.
+  Route<dynamic>? _subscribedRoute;
+
   @override
   void initState() {
     super.initState();
@@ -150,10 +181,40 @@ class _DispenserScreenState extends State<DispenserScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final observer = widget.routeObserver;
+    if (observer != null) {
+      final route = ModalRoute.of(context);
+      if (!identical(route, _subscribedRoute)) {
+        if (_subscribedRoute != null) {
+          observer.unsubscribe(this);
+        }
+        if (route is PageRoute) {
+          _subscribedRoute = route;
+          observer.subscribe(this, route);
+        } else {
+          _subscribedRoute = null;
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _completionAckTimer?.cancel();
+    widget.routeObserver?.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // A way-out chain came back (Settings → `Nuevo proyecto` → here):
+    // the log may have moved under the standing view — a camera toggle,
+    // a reactivation — and the surface re-derives from what now stands
+    // (Story 5.2). The same quiet read every refresh runs.
+    _refresh();
   }
 
   @override
@@ -546,6 +607,10 @@ class _DispenserScreenState extends State<DispenserScreen>
   void _commitView(DispenserView view) {
     final ackWaiting = _completionAckWaiting;
     _completionAckWaiting = false;
+    // The Cámara entry's visibility rides the commit (Story 5.2): the
+    // view's own fact becomes the standing fact, held through the next
+    // refresh's pending window.
+    _cameraEntryVisible = view.cameraEntryVisible;
     setState(() {
       _view = view;
       if (ackWaiting) {
@@ -614,6 +679,8 @@ class _DispenserScreenState extends State<DispenserScreen>
                     inFrame: true,
                     onOpenLadder: _openPocketLadder,
                     onOpenCapture: _openCapture,
+                    cameraEntryVisible: _cameraEntryVisible,
+                    onOpenScan: _openScan,
                   ),
                   const SizedBox(height: Spacing.cardPadding),
                   content,
@@ -633,6 +700,8 @@ class _DispenserScreenState extends State<DispenserScreen>
                 minutes: _standingPocketMinutes,
                 onOpenLadder: _openPocketLadder,
                 onOpenCapture: _openCapture,
+                cameraEntryVisible: _cameraEntryVisible,
+                onOpenScan: _openScan,
               ),
               Expanded(child: DispenserFrame(child: content)),
               DispenserFooterBand(
@@ -911,6 +980,22 @@ class _DispenserScreenState extends State<DispenserScreen>
             controller: widget.capture,
             dictation: widget.dictation,
           ),
+        ),
+      );
+    }
+  }
+
+  /// One tap on the Cámara entry (Story 5.2, FR-16): the Scan path,
+  /// one hop from the Dispenser. The same rapid-tap guard as every
+  /// push this surface owns — a push while another route transitions
+  /// in would stack a second route — and no confirmation, no writes:
+  /// the first-use permission moment belongs to the scan surface's
+  /// own open, never to this tap (AD-17).
+  void _openScan() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ScanScreen(controller: widget.scan),
         ),
       );
     }
