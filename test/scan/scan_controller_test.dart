@@ -68,6 +68,13 @@ class _RecordingFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async => unlinkedScans.add(scanId);
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// The camera fake: the outcomes the tests steer, the calls the tests
@@ -145,6 +152,13 @@ class _GatedWriteFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async => unlinkedScans.add(scanId);
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// The gate fake: pass, refusal, or a throwing detector.

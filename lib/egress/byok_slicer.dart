@@ -98,11 +98,14 @@ final class ByokSlicer implements SlicerPort {
   }
 
   /// The request→payload mapping: three kinds onto three payloads,
-  /// one-for-one, exhaustively.
+  /// one-for-one, exhaustively. The scan mapping threads the consent
+  /// token through (Story 5.4, AD-8) — the port and the chokepoint
+  /// agree by construction, and the token still never serializes.
   static EgressPayload _payloadOf(SlicerRequest request) => switch (request) {
     ScanSliceRequest() => ScanImagePrompt(
       imageBytes: request.imageBytes,
       prompt: request.prompt,
+      consent: request.consent,
     ),
     GenesisSliceRequest() => ProjectGenesisText(text: request.text),
     RescueSliceRequest() => RescueResliceText(

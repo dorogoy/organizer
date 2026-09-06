@@ -21,7 +21,46 @@ final String _libRoot = Directory('packages/core/lib').existsSync()
     ? 'packages/core/lib'
     : 'lib';
 
+/// The repository root, resolved the same way — the anchor for pins
+/// that must see across both lib trees (the core's and the shell's):
+/// from the repository root it is here; from packages/core it is the
+/// package's parent's parent.
+final String _repoRoot = Directory('packages/core/lib').existsSync()
+    ? '.'
+    : '../..';
+
 String _source(String path) => File('$_libRoot/$path').readAsStringSync();
+
+/// A shell lib source, repo-root relative (`lib/...`) — the twin of
+/// [_source] for the cross-tree censuses.
+String _shellSource(String path) => File('$_repoRoot/$path').readAsStringSync();
+
+/// Every `.dart` file under the shell's `lib/`, repo-root relative
+/// and sorted — the census twin of [_coreLibFiles].
+List<String> _shellLibFiles() {
+  final files = <String>[];
+  void walk(Directory dir) {
+    for (final entity in dir.listSync(followLinks: false)) {
+      if (entity is Directory) {
+        final name = entity.uri.pathSegments
+            .where((segment) => segment.isNotEmpty)
+            .last;
+        if (name != '.dart_tool') {
+          walk(entity);
+        }
+      } else if (entity is File && entity.path.endsWith('.dart')) {
+        // Normalize the invocation root away: `lib/...` either way
+        // (the lister prefixes the walked path as given — `./lib`
+        // from the repository root, `../../lib` from packages/core).
+        final path = entity.path.replaceAll('\\', '/');
+        files.add(path.replaceFirst(RegExp(r'^(\./|\.\./)+'), ''));
+      }
+    }
+  }
+
+  walk(Directory('$_repoRoot/lib'));
+  return files..sort();
+}
 
 /// Strips nested line and block comments — line structure preserved — so
 /// prose cannot move a pin. Strings remain intact while comments are found.
@@ -763,6 +802,46 @@ final class KitchenSink {
       );
     });
 
+    test('ScanConsent', () {
+      // The consent token's own surface (Story 5.4, AD-8): the
+      // binding to the scan's cache subdirectory identity and the
+      // private one-way consumption state — and nothing else, so no
+      // capability, timestamp or readable fact can ride the token.
+      // Identity semantics are the contract: no equality, no
+      // human-readable rendering, nothing reconstructible.
+      expect(
+        _classOwnFields('ScanConsent', 'ports/scan_consent.dart'),
+        equals(['scanId', '_consumed']),
+      );
+    });
+
+    test('ScanSliceRequest', () {
+      // The scan request's own shape (Story 5.4, AD-8): the bytes,
+      // the prompt and the required consent token — and nothing else,
+      // so no nullable-consent or `hasConsent` reshaping can pass
+      // silently: the precondition is compile-time, and this census
+      // is its census.
+      expect(
+        _classOwnFields('ScanSliceRequest', 'ports/slicer_port.dart'),
+        equals(['imageBytes', 'prompt', 'consent']),
+      );
+    });
+
+    test('ScanImagePrompt (the shell chokepoint)', () {
+      // The payload's own shape (Story 5.4, AD-8), read from the
+      // shell's egress module across the two lib trees: the same
+      // three fields the port request carries — the token threads
+      // through, never serializes, and a nullable reshape cannot
+      // pass silently here either.
+      expect(
+        _classOwnFieldsOf(
+          'ScanImagePrompt',
+          _extractionSourceOf(_shellSource('lib/egress/egress_payload.dart')),
+        ),
+        equals(['imageBytes', 'prompt', 'consent']),
+      );
+    });
+
     test('LogFacts', () {
       // The derived session states facts the log makes true — no
       // missed count, no debt, no deferral field (AD-1, AD-19, AD-25).
@@ -1148,6 +1227,9 @@ final class KitchenSink {
       'ports/face_gate_port.dart:FaceGateOutcome',
       'ports/face_gate_port.dart:FaceGatePass',
       'ports/face_gate_port.dart:FaceGateRefusal',
+      // Story 5.4: the scan consent token — the capability type
+      // itself, its binding field and its one-way consumption state.
+      'ports/scan_consent.dart:ScanConsent',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
@@ -1972,6 +2054,174 @@ final class KitchenSink {
       RegExp(r'==\s*LogKind\.faceRefused\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
+    );
+  });
+
+  test('consent_granted is minted in exactly one file and read only in '
+      'the stated set — the kind rides the moment family and nothing '
+      'else names it (Story 5.4, AD-8, FR-26, AD-21, AD-3)', () {
+    // The three homes the vocabulary allows: the definition (whose
+    // moment classifier carries the kind — no subtype of its own, the
+    // `app_opened` precedent), the one command file that mints it, and
+    // the one stated reader — the warm-return predicate (Story 5.4's
+    // same-pass rule: the kind is contact, the user actively using the
+    // app). Any reference anywhere else in core lib is a finding: no
+    // derivation consumes the kind, and the token itself is never
+    // logged, so even a reader here would be vocabulary growing past
+    // its story.
+    const allowed = {
+      'log/log_entry.dart',
+      'commands/scan_commands.dart',
+      'derive/warm_return.dart',
+    };
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bconsentGranted\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the consentGranted identifier outside the definition, the '
+          'one minter and the stated reader',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'consent_granted' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]consent_granted['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'consent_granted' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry
+    // and the moment classifier — no subtype override exists, the
+    // `app_opened` precedent's own count.
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]consent_granted['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only consent_granted '
+          'wire uses',
+    );
+    expect(
+      RegExp(r'\bconsentGranted\b').allMatches(definitionHome),
+      hasLength(3),
+      reason:
+          'the definition, registry and moment classifier are the only '
+          'consentGranted identifier uses in this file',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(_source('commands/scan_commands.dart'));
+    final commandRefs = RegExp(r'LogKind\.consentGranted\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.consentGranted\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.consentGranted\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+
+    // The stated reader: the warm-return predicate assigns the kind
+    // its contact set in the same pass that added it (the doc's own
+    // rule) — the one qualified reader outside the definition home.
+    final reader = _withoutComments(_source('derive/warm_return.dart'));
+    expect(
+      RegExp(r'LogKind\.consentGranted\b').allMatches(reader),
+      hasLength(1),
+      reason: 'the contact assignment is the only read of the kind',
+    );
+  });
+
+  test('the consent capability is minted by no production caller and '
+      'consumed by exactly one — the token has no second home (Story '
+      '5.4, AD-8)', () {
+    // The walk covers both lib trees — the core's and the shell's —
+    // over masked source (comments and string contents blanked, the
+    // check_core_purity precedent), so a doc mention can never pose
+    // as a call site and a quoted identifier can never pose as code.
+    // `mintScanConsent` is legal only in its definition home (the
+    // sanctioned minter itself — zero production callers, exactly as
+    // the story pins; 5.5 renegotiates additively when it wires the
+    // consent act); `.consume(` only there and in the dispatch's scan
+    // branch. Test directories sit outside both trees and are not
+    // scanned: this census pins production only.
+    final masked = <String, String>{
+      for (final path in _coreLibFiles())
+        'packages/core/lib/$path': _withoutStrings(
+          _withoutComments(_source(path)),
+        ),
+      for (final path in _shellLibFiles())
+        path: _withoutStrings(_withoutComments(_shellSource(path))),
+    };
+
+    const mintAllowed = {'packages/core/lib/ports/scan_consent.dart'};
+    const consumeAllowed = {
+      'packages/core/lib/ports/scan_consent.dart',
+      'lib/egress/egress_dispatch.dart',
+    };
+
+    final mintOffenders = <String>[];
+    final consumeOffenders = <String>[];
+    var mintSites = 0;
+    var consumeSites = 0;
+    masked.forEach((path, source) {
+      final mints = RegExp(r'\bmintScanConsent\b').allMatches(source).length;
+      final consumes = RegExp(r'\.consume\(').allMatches(source).length;
+      if (mints > 0 && !mintAllowed.contains(path)) {
+        mintOffenders.add(path);
+      }
+      if (consumes > 0 && !consumeAllowed.contains(path)) {
+        consumeOffenders.add(path);
+      }
+      mintSites += mints;
+      consumeSites += consumes;
+    });
+    expect(
+      mintOffenders,
+      isEmpty,
+      reason:
+          'a production mint caller outside the definition home — '
+          'wiring the mint is 5.5\'s, renegotiated additively',
+    );
+    expect(
+      consumeOffenders,
+      isEmpty,
+      reason:
+          'a second consumption site — one token authorizes one '
+          'dispatch entry, and only the dispatch consumes',
+    );
+    // Non-vacuous: the definition home carries the minter itself, and
+    // the dispatch's scan branch is the one consumption.
+    expect(mintSites, 1, reason: 'the sanctioned minter, defined once');
+    expect(
+      consumeSites,
+      1,
+      reason:
+          'the one-way consumption, performed exactly once in '
+          'production code',
     );
   });
 

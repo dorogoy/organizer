@@ -79,6 +79,10 @@ void main() {
     store: store,
     strings: AppStringsEs(),
     writeQueue: logWrites,
+    // The Files adapter (Story 5.4): the open's scan-cache sweep —
+    // the crash backstop — runs through the one standing instance
+    // composed above.
+    files: files,
   );
   // The scan seam (Story 5.2, FR-16, FR-25): the camera facade over the
   // spine-pinned plugin, the face gate over the measured ML Kit

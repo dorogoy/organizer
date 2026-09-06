@@ -41,13 +41,21 @@ final class EgressFailed extends EgressResult {
   final StackTrace? stack;
 }
 
-/// One-shot dispatch over the injected [EgressTransport] (AD-7): the
-/// resolution cap runs inside `send` — scan shapes only, before the
-/// transport is touched — then the transport is invoked exactly once.
-/// Any failure is terminal and surfaced as [EgressFailed]. AD-8's
-/// gate → mint → cap → upload order stays intact when Epic 5 wires
-/// consent, because the cap lives here, inside the send, not at the
-/// call site.
+/// One-shot dispatch over the injected [EgressTransport] (AD-7): on
+/// the scan shapes the single-use consent token (AD-8, story 5.4) is
+/// consumed first — before the resolution cap and outside the catch
+/// arms, so a reused token is the programmer error it is and
+/// propagates raw out of `send`, never wearing an [EgressFailed] or
+/// `SlicerFailureCause` costume. One token authorizes one dispatch
+/// entry, burned even when the cap rejects — nothing retries, so a
+/// burned token on a failed send guards nothing, and the rule is
+/// total: no path exists where a token survives contact with `send`.
+/// The cap then runs inside the binding — scan shapes only, before
+/// the transport is touched — and the capped reconstruction carries
+/// the same token; the transport is invoked exactly once. Any failure
+/// is terminal and surfaced as [EgressFailed]. AD-8's gate → mint →
+/// cap → upload order stays intact, because the consumption and the
+/// cap both live here, inside the send, not at the call site.
 final class EgressDispatch {
   const EgressDispatch(this._transport);
 
@@ -56,13 +64,23 @@ final class EgressDispatch {
   Future<EgressResult> send(EgressPayload payload) async {
     var prepared = payload;
     if (payload is ScanImagePrompt) {
+      // AD-8's one-way consumption, deliberately outside the catch
+      // arms: a second send over a consumed token throws raw — a
+      // programmer error no taxonomy folds — and a cap rejection has
+      // still burned the token, because nothing retries and one token
+      // authorizes exactly one dispatch entry.
+      payload.consent.consume();
       final Uint8List capped;
       try {
         capped = await prepareImageForEgress(payload.imageBytes);
       } on Object catch (cause, stack) {
         return EgressFailed(cause, stack);
       }
-      prepared = ScanImagePrompt(imageBytes: capped, prompt: payload.prompt);
+      prepared = ScanImagePrompt(
+        imageBytes: capped,
+        prompt: payload.prompt,
+        consent: payload.consent,
+      );
     }
     try {
       return EgressDelivered(await _transport(prepared));

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:core/ports/files_port.dart';
+import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_test/flutter_test.dart';
@@ -67,7 +68,11 @@ void main() {
       () async {
         const slicer = ManagedSlicer();
         for (final request in [
-          ScanSliceRequest(imageBytes: Uint8List(0), prompt: ''),
+          ScanSliceRequest(
+            imageBytes: Uint8List(0),
+            prompt: '',
+            consent: mintScanConsent(scanId: 'scan-1'),
+          ),
           const GenesisSliceRequest(text: 'x'),
           const RescueSliceRequest(originContext: 'x', task: 'y'),
         ]) {
@@ -169,6 +174,13 @@ class _NullFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 class _NullCipher implements CredentialsCipher {

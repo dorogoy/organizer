@@ -31,6 +31,8 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:core/ports/scan_consent.dart';
+
 /// One Slicer request: exactly three shapes exist and no fourth
 /// exists as a type — the union is sealed in this one library.
 sealed class SlicerRequest {
@@ -38,15 +40,32 @@ sealed class SlicerRequest {
 }
 
 /// A scan photograph plus its prompt (Epic 5's caller): the image
-/// half of the Slicer's input, mirroring `ScanImagePrompt`.
+/// half of the Slicer's input, mirroring `ScanImagePrompt`. Since
+/// Story 5.4 (AD-8) the shape cannot be constructed without the
+/// scan's minted [ScanConsent] — a required field, so absence is a
+/// compile error at every construction site and no runtime consent
+/// branch exists anywhere. The other two request kinds carry no
+/// token: rescue and genesis are not consent-bearing (the token binds
+/// to a scan cache identity only scans have).
 final class ScanSliceRequest extends SlicerRequest {
-  const ScanSliceRequest({required this.imageBytes, required this.prompt});
+  const ScanSliceRequest({
+    required this.imageBytes,
+    required this.prompt,
+    required this.consent,
+  });
 
   /// The frame's encoded bytes (JPEG or PNG as captured).
   final Uint8List imageBytes;
 
   /// The prompt the Slicer answers for this scan.
   final String prompt;
+
+  /// The scan's single-use consent token (Story 5.4, AD-8) — minted
+  /// through the one sanctioned minter after the on-device face gate
+  /// and before the resolution cap, bound to this scan's cache
+  /// subdirectory identity, consumed exactly once by the dispatch's
+  /// scan branch. It travels with the request and never serializes.
+  final ScanConsent consent;
 }
 
 /// A project-genesis request (Epic 5's caller): text describing a

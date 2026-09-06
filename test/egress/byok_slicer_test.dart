@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:core/ports/files_port.dart';
+import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/slicer/rescue_steps.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,6 +58,18 @@ void main() {
     originContext: 'la mesa del salón',
     task: 'recoger la mesa',
   );
+
+  // Story 5.4 (AD-8): every scan request carries its own minted
+  // single-use consent token — a fresh one per construction site,
+  // never shared between sends. The scanId is chosen to be
+  // recognizable so the wire-body assertions below can prove the
+  // token never serializes.
+  ScanSliceRequest scanRequest(Uint8List bytes, String prompt) =>
+      ScanSliceRequest(
+        imageBytes: bytes,
+        prompt: prompt,
+        consent: mintScanConsent(scanId: 'scan-cache-dir'),
+      );
 
   http.Response jsonResponse(Object body, {int status = 200}) => http.Response(
     jsonEncode(body),
@@ -597,9 +610,10 @@ void main() {
           }),
         );
         final bytes = gradientJpeg(640, 480);
-        final outcome = await slicerWith(client, 'gemini').slice(
-          ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
-        );
+        final outcome = await slicerWith(
+          client,
+          'gemini',
+        ).slice(scanRequest(bytes, 'describe el rincón'));
         expect(outcome, isA<SlicerDelivered>());
         final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
         final parts = (body[contentsKey] as List).single[partsKey] as List;
@@ -618,6 +632,15 @@ void main() {
           equals(bytes),
           reason: 'an in-cap scan payload rides the wire byte-identical',
         );
+        // The consent token never serializes (AD-8): the wire body is
+        // built from the bytes and the prompt alone — no scanId, no
+        // consent field, nothing reconstructible from the request.
+        expect(
+          recorded.single.body.contains('scan-cache-dir'),
+          isFalse,
+          reason: 'no consent trace reaches the wire',
+        );
+        expect(recorded.single.body.toLowerCase().contains('consent'), isFalse);
       },
     );
 
@@ -633,9 +656,10 @@ void main() {
         }),
       );
       final bytes = gradientJpeg(640, 480);
-      await slicerWith(client, 'openai').slice(
-        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
-      );
+      await slicerWith(
+        client,
+        'openai',
+      ).slice(scanRequest(bytes, 'describe el rincón'));
       final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
       final content = (body[messagesKey] as List).single[contentKey] as List;
       expect((content[0] as Map)[textKey], 'describe el rincón');
@@ -649,6 +673,10 @@ void main() {
         isTrue,
       );
       expect(base64Decode(url.split(dataUriBase64Middle).last), bytes);
+      // The consent token never serializes (AD-8): neither the
+      // token's binding nor its type name reaches the wire body.
+      expect(recorded.single.body.contains('scan-cache-dir'), isFalse);
+      expect(recorded.single.body.toLowerCase().contains('consent'), isFalse);
     });
 
     test('an OpenRouter scan rides the same data-URI and keeps ZDR', () async {
@@ -663,9 +691,10 @@ void main() {
         }),
       );
       final bytes = gradientJpeg(640, 480);
-      await slicerWith(client, 'openrouter').slice(
-        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
-      );
+      await slicerWith(
+        client,
+        'openrouter',
+      ).slice(scanRequest(bytes, 'describe el rincón'));
       final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
       final content = (body[messagesKey] as List).single[contentKey] as List;
       final image = content[1] as Map<String, Object?>;
@@ -680,6 +709,9 @@ void main() {
         ),
         bytes,
       );
+      // Same pin on the third wire: no consent trace anywhere (AD-8).
+      expect(recorded.single.body.contains('scan-cache-dir'), isFalse);
+      expect(recorded.single.body.toLowerCase().contains('consent'), isFalse);
     });
 
     test('an Anthropic scan rides a base64 image source', () async {
@@ -692,9 +724,10 @@ void main() {
         }),
       );
       final bytes = gradientJpeg(640, 480);
-      await slicerWith(client, 'anthropic').slice(
-        ScanSliceRequest(imageBytes: bytes, prompt: 'describe el rincón'),
-      );
+      await slicerWith(
+        client,
+        'anthropic',
+      ).slice(scanRequest(bytes, 'describe el rincón'));
       final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
       final content = (body[messagesKey] as List).single[contentKey] as List;
       final image = content[0] as Map<String, Object?>;
@@ -704,6 +737,8 @@ void main() {
       expect(source[mediaTypeKey], imageJpegMimeType);
       expect(base64Decode(source[dataKey] as String), bytes);
       expect((content[1] as Map)[textKey], 'describe el rincón');
+      // Same pin on a second wire: no consent trace anywhere (AD-8).
+      expect(recorded.single.body.contains('scan-cache-dir'), isFalse);
     });
 
     test('an in-cap PNG keeps image/png on the OpenAI data-URI', () async {
@@ -718,10 +753,7 @@ void main() {
         }),
       );
       final bytes = gradientPng(200, 100);
-      await slicerWith(
-        client,
-        'openai',
-      ).slice(ScanSliceRequest(imageBytes: bytes, prompt: 'png'));
+      await slicerWith(client, 'openai').slice(scanRequest(bytes, 'png'));
       final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
       final content = (body[messagesKey] as List).single[contentKey] as List;
       final url =
@@ -747,7 +779,7 @@ void main() {
       final outcome = await slicerWith(
         client,
         'gemini',
-      ).slice(ScanSliceRequest(imageBytes: bytes, prompt: 'describe'));
+      ).slice(scanRequest(bytes, 'describe'));
       expect(outcome, isA<SlicerFailed>());
       expect(
         (outcome as SlicerFailed).cause,
@@ -761,12 +793,10 @@ void main() {
         'malformedResponse — zero transport calls', () async {
       await seedKey('gemini', 'g-key');
       final client = recording((request) => jsonResponse({}));
-      final outcome = await slicerWith(client, 'gemini').slice(
-        ScanSliceRequest(
-          imageBytes: Uint8List.fromList([9, 9, 9]),
-          prompt: 'describe',
-        ),
-      );
+      final outcome = await slicerWith(
+        client,
+        'gemini',
+      ).slice(scanRequest(Uint8List.fromList([9, 9, 9]), 'describe'));
       expect(outcome, isA<SlicerFailed>());
       expect(
         (outcome as SlicerFailed).cause,
@@ -789,7 +819,7 @@ void main() {
       final outcome = await slicerWith(
         client,
         'openai',
-      ).slice(ScanSliceRequest(imageBytes: gradientGif(640, 480), prompt: 'x'));
+      ).slice(scanRequest(gradientGif(640, 480), 'x'));
       expect(outcome, isA<SlicerFailed>());
       expect(
         (outcome as SlicerFailed).cause,
@@ -811,7 +841,7 @@ void main() {
       final outcome = await slicerWith(
         client,
         'gemini',
-      ).slice(ScanSliceRequest(imageBytes: gradientBmp(640, 480), prompt: 'x'));
+      ).slice(scanRequest(gradientBmp(640, 480), 'x'));
       expect(outcome, isA<SlicerFailed>());
       expect(
         (outcome as SlicerFailed).cause,
@@ -829,9 +859,10 @@ void main() {
         'names first, on the one wire without a leg', () async {
       await seedKey('anthropic', 'a-key');
       final client = recording((request) => jsonResponse({}));
-      final outcome = await slicerWith(client, 'anthropic').slice(
-        ScanSliceRequest(imageBytes: gradientWebP(640, 480), prompt: 'x'),
-      );
+      final outcome = await slicerWith(
+        client,
+        'anthropic',
+      ).slice(scanRequest(gradientWebP(640, 480), 'x'));
       expect(outcome, isA<SlicerFailed>());
       expect(
         (outcome as SlicerFailed).cause,
@@ -861,9 +892,10 @@ void main() {
           ],
         }),
       );
-      final outcome = await slicerWith(client, 'gemini').slice(
-        ScanSliceRequest(imageBytes: gradientJpeg(2000, 1000), prompt: 'x'),
-      );
+      final outcome = await slicerWith(
+        client,
+        'gemini',
+      ).slice(scanRequest(gradientJpeg(2000, 1000), 'x'));
       expect(outcome, isA<SlicerDelivered>());
       final body = jsonDecode(recorded.single.body) as Map<String, Object?>;
       final parts = (body[contentsKey] as List).single[partsKey] as List;
@@ -1254,6 +1286,13 @@ class _ThrowingReadFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// An in-memory Files fake (the vault suite's own shape).
@@ -1277,6 +1316,13 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// A transparent cipher: the envelope is the plaintext, so a seeded

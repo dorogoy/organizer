@@ -25,7 +25,16 @@ const String scanCacheScope = 'scan_cache';
 /// infrastructure identifier on the terms above.
 const String scanFrameFileName = 'frame.jpg';
 
-/// The write's answer when no frame exists to gate (Story 5.2): a
+/// The capped copy's file name inside a scan's cache subdirectory
+/// (Story 5.4, AD-8): fixed and extension-free, beside
+/// [scanFrameFileName] — the resolution cap may re-encode to JPEG or
+/// PNG, and the sniff (story 5.3) is the single mime truth, so the
+/// name claims nothing a later re-encode could unmake. An
+/// infrastructure identifier on the terms above.
+const String scanCappedCopyName = 'capped';
+
+/// The scan writes' answer when no file exists to hand back (Story
+/// 5.2's frame write and Story 5.4's capped-copy write alike): a
 /// refused traversal-shaped segment, or a directory that would not
 /// create. The empty path is the quiet fail-closed signal the scan
 /// controller folds into its close, on the same terms above.
@@ -305,6 +314,95 @@ class AppFiles implements FilesPort {
       // Quiet: the unlink's contract is idempotence, and 5.4's
       // `app_opened` sweep is the crash backstop for whatever a
       // refused delete left standing.
+    }
+  }
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async {
+    if (!_isCleanSegment(scanId)) {
+      // The quiet refusal, the frame write's own terms: a
+      // traversal-shaped scanId writes nothing anywhere, and the
+      // empty path tells the caller no capped copy exists.
+      return absentFramePath;
+    }
+    // The whole write is guarded against anything the platform can
+    // throw, exactly as the frame write is: the root resolution
+    // itself can surface as a PlatformException, and the quiet
+    // fail-closed contract takes every flavour alike.
+    try {
+      final root = await _resolvedRoot();
+      // Two validated segments, one composition at a time: the scope,
+      // then the scan's own subdirectory — the same only-nesting the
+      // frame write composes, so a scan's directory can hold no third
+      // location by construction.
+      final scanDir = Directory.fromUri(
+        _segmentUri(_segmentUri(root.uri, scanCacheScope), scanId),
+      );
+      await scanDir.create(recursive: true);
+      final file = File.fromUri(_segmentUri(scanDir.uri, scanCappedCopyName));
+      // Atomic like the frame write: the bytes land in a sibling temp
+      // file first, then one rename swaps them in — a reader sees the
+      // whole capped copy or none of it.
+      final staging = File(
+        file.path + (_stagingSerial++).toString() + stagingSuffix,
+      );
+      try {
+        await staging.writeAsBytes(bytes, flush: true);
+        await staging.rename(file.path);
+        return file.path;
+      } on Object {
+        // writeAsBytes can succeed and rename fail: the sibling
+        // staging file would otherwise linger. The scan's unlink is
+        // the directory backstop; this is the write's own hygiene,
+        // the frame write's shape.
+        try {
+          if (staging.existsSync()) {
+            await staging.delete();
+          }
+        } on FileSystemException {
+          // Quiet: unlinkScan still takes the directory.
+        }
+        return absentFramePath;
+      }
+    } on Object {
+      // Root resolution or directory create failed: nothing to
+      // stage. The quiet empty path is the whole answer — never a
+      // crash, never a half-readable copy.
+      return absentFramePath;
+    }
+  }
+
+  @override
+  Future<void> sweepScanCache() async {
+    try {
+      final root = await _resolvedRoot();
+      final scopeDir = Directory.fromUri(_segmentUri(root.uri, scanCacheScope));
+      // Async like every other path here: the sweep runs at every
+      // open and blocks the platform isolate on the filesystem no
+      // longer than the write paths do. A scope with no scans yet has
+      // no directory: the fresh-install sweep is a no-op, and nothing
+      // is created on the way out.
+      if (!await scopeDir.exists()) {
+        return;
+      }
+      // Blind by construction: the children are read here only to be
+      // unlinked, and no child's name is returned, stored or passed
+      // anywhere — this enumeration is the adapter's own mechanics,
+      // never a capability the port exposes (the port's method
+      // returns void and takes nothing).
+      await for (final child in scopeDir.list(followLinks: false)) {
+        try {
+          await child.delete(recursive: true);
+        } on Object {
+          // Quiet per child — every flavour, not just the filesystem
+          // family: one refused delete never stops the sweep, and the
+          // next open sweeps again. The backstop's idempotence is
+          // what makes the refusal survivable.
+        }
+      }
+    } on Object {
+      // Quiet by contract: the sweep is the open's backstop — a
+      // backstop may never break the open it runs inside.
     }
   }
 

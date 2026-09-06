@@ -37,8 +37,8 @@ class _ShellStore implements StorePort {
 }
 
 /// A shell-side stand-in proving the files port is implementable outside
-/// its declaring library (Story 4.3, AD-21, AD-22) — adapters move bytes,
-/// never semantics.
+/// its declaring library (Story 4.3, AD-21, AD-22; the scan-cache
+/// vocabulary since 5.2 and 5.4) — adapters move bytes, never semantics.
 class _ShellFiles implements FilesPort {
   const _ShellFiles();
 
@@ -56,6 +56,13 @@ class _ShellFiles implements FilesPort {
 
   @override
   Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
 }
 
 /// A shell-side stand-in proving the slicer port is implementable
@@ -97,15 +104,18 @@ void main() {
     // port Story 4-4 adds (AD-9): one file each — plus the no-Slicer
     // cause vocabulary Story 4-5 lands beside them (FR-29): pure
     // enum-plus-map vocabulary, not an interface, but the ports
-    // library is its decided home — and the face gate port Story 5.2
+    // library is its decided home — the face gate port Story 5.2
     // adds (FR-25, AD-11), sealing the fragile ML Kit dependency
-    // behind a seam: seven files.
+    // behind a seam — and the consent-token type Story 5.4 adds
+    // (AD-8): the capability exists only as that type, beside the
+    // ports it preconditions. Eight files.
     expect(names, [
       'clock_port.dart',
       'face_gate_port.dart',
       'files_port.dart',
       'no_slicer_cause.dart',
       'recognizer_port.dart',
+      'scan_consent.dart',
       'slicer_port.dart',
       'store_port.dart',
     ]);
