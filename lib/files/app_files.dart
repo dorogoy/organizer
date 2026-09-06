@@ -257,16 +257,29 @@ class AppFiles implements FilesPort {
       final staging = File(
         file.path + (_stagingSerial++).toString() + stagingSuffix,
       );
-      await staging.writeAsBytes(bytes, flush: true);
-      await staging.rename(file.path);
-      return file.path;
+      try {
+        await staging.writeAsBytes(bytes, flush: true);
+        await staging.rename(file.path);
+        return file.path;
+      } on Object {
+        // writeAsBytes can succeed and rename fail: the sibling
+        // staging file would otherwise linger. The scan's unlink is
+        // the directory backstop; this is the write's own hygiene,
+        // the flat `write` method's shape.
+        try {
+          if (staging.existsSync()) {
+            await staging.delete();
+          }
+        } on FileSystemException {
+          // Quiet: unlinkScan still takes the directory.
+        }
+        return absentFramePath;
+      }
     } on Object {
-      // Best-effort cleanup of a half-written staging file is not
-      // reachable from here (its name never escapes the try), and the
-      // scan's own unlink takes whatever the directory holds: the
-      // quiet empty path is the whole answer — a failed frame write
-      // is the scan's fail-closed close, never a crash and never a
-      // half-readable frame.
+      // Root resolution or directory create failed: nothing to
+      // stage. The quiet empty path is the whole answer — a failed
+      // frame write is the scan's fail-closed close, never a crash
+      // and never a half-readable frame.
       return absentFramePath;
     }
   }

@@ -28,11 +28,19 @@ final class ScanShootRefused extends ScanShootOutcome {
 }
 
 /// The scan ended quietly — the gate passed (the chain continues in
-/// 5.5), or a failure folded closed (a failed shot, a detector error
+/// 5.5), or a failure folded closed (a missed shot, a detector error
 /// past its retry, no gate behind the test seam): no row, nothing
 /// surfaced, the surface simply closes.
 final class ScanShootClosed extends ScanShootOutcome {
   const ScanShootClosed();
+}
+
+/// The shutter found a system problem (a lost grant at the shot):
+/// no row — a malfunction is not a refusal — and the surface owes
+/// the honest notice (`scanOpenFailed`), never a quiet pop that
+/// would read as a taken photo.
+final class ScanShootFailed extends ScanShootOutcome {
+  const ScanShootFailed();
 }
 
 /// The scan flow's shell half (Story 5.2, FR-16, FR-25, AD-17; ruling
@@ -137,8 +145,10 @@ class ScanController {
     _opening = true;
     final epoch = _epoch;
     try {
-      // A fresh scan: a fresh cache segment, whatever became of the
-      // last one (its own terminal paths unlinked it).
+      // A fresh scan: unlink whatever still stands under the previous
+      // identity (a resume must not mint over an unreleased segment),
+      // then a new cache segment.
+      await _unlinkScan();
       _scanId = idMinter.v7();
       final outcome = await camera.open();
       if (_epoch != epoch && outcome == CameraOpenOutcome.granted) {
@@ -202,50 +212,66 @@ class ScanController {
       if (scanId == null) {
         return const ScanShootClosed();
       }
-      final bytes = await camera.takePicture();
-      if (bytes == null) {
-        await _unlinkCaptured(scanId);
-        return const ScanShootClosed();
+      final shot = await camera.takePicture();
+      switch (shot) {
+        case CameraShotNone():
+          await _unlinkCaptured(scanId);
+          return const ScanShootClosed();
+        case CameraShotAccessLost():
+          // A grant gone at the shutter is a system problem, never a
+          // user refusal and never a quiet close that reads as a
+          // taken photo: unlink the frame and let the surface drop
+          // the preview, then close (dispose-under-preview is a
+          // crash). No row.
+          await _unlinkCaptured(scanId);
+          return const ScanShootFailed();
+        case CameraShotCaptured(:final bytes):
+          if (_epoch != epoch) {
+            // The scan ended while the shot stood: the bytes die here —
+            // writing them would recreate the directory the close already
+            // unlinked.
+            return const ScanShootClosed();
+          }
+          // The frame is written before the gate runs — the gate reads
+          // the written cache file through the measured `fromFilePath`
+          // seam, and nothing upstream of that file ever exists.
+          final framePath = await files.writeScanFrame(scanId, bytes);
+          if (_epoch != epoch) {
+            // The close landed inside the write itself: the directory it
+            // recreated dies with this scan's captured identity.
+            await _unlinkCaptured(scanId);
+            return const ScanShootClosed();
+          }
+          final gate = this.gate;
+          if (framePath.isEmpty || gate == null) {
+            await _unlinkCaptured(scanId);
+            return const ScanShootClosed();
+          }
+          FaceGateOutcome verdict;
+          try {
+            verdict = await gate.gate(framePath);
+          } on Object {
+            // Fail closed, never falsely refused: the frame is unlinked,
+            // nothing proceeds, no row lands.
+            await _unlinkCaptured(scanId);
+            return const ScanShootClosed();
+          }
+          // The captured identity's own unlink — idempotent beside
+          // whatever a concurrent close already took, so the frame never
+          // outlives this scan whichever path won the race.
+          await _unlinkCaptured(scanId);
+          if (_epoch != epoch) {
+            // The surface left while the gate ran: a late refusal must
+            // not mint a privacy row or navigate after the user has
+            // gone. The frame is already unlinked.
+            return const ScanShootClosed();
+          }
+          if (verdict is FaceGateRefusal) {
+            await _appendFaceRefused();
+            return const ScanShootRefused();
+          }
+          return const ScanShootClosed();
       }
-      if (_epoch != epoch) {
-        // The scan ended while the shot stood: the bytes die here —
-        // writing them would recreate the directory the close already
-        // unlinked.
-        return const ScanShootClosed();
-      }
-      // The frame is written before the gate runs — the gate reads
-      // the written cache file through the measured `fromFilePath`
-      // seam, and nothing upstream of that file ever exists.
-      final framePath = await files.writeScanFrame(scanId, bytes);
-      if (_epoch != epoch) {
-        // The close landed inside the write itself: the directory it
-        // recreated dies with this scan's captured identity.
-        await _unlinkCaptured(scanId);
-        return const ScanShootClosed();
-      }
-      final gate = this.gate;
-      if (framePath.isEmpty || gate == null) {
-        await _unlinkCaptured(scanId);
-        return const ScanShootClosed();
-      }
-      FaceGateOutcome verdict;
-      try {
-        verdict = await gate.gate(framePath);
-      } on Object {
-        // Fail closed, never falsely refused: the frame is unlinked,
-        // nothing proceeds, no row lands.
-        await _unlinkCaptured(scanId);
-        return const ScanShootClosed();
-      }
-      // The captured identity's own unlink — idempotent beside
-      // whatever a concurrent close already took, so the frame never
-      // outlives this scan whichever path won the race.
-      await _unlinkCaptured(scanId);
-      if (verdict is FaceGateRefusal) {
-        await _appendFaceRefused();
-        return const ScanShootRefused();
-      }
-      return const ScanShootClosed();
     } finally {
       _shooting = false;
     }

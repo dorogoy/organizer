@@ -68,6 +68,35 @@ enum CameraOpenOutcome {
   unavailable,
 }
 
+/// One shutter's outcome: captured bytes, no frame, or a lost
+/// grant at the shot — the last is a system problem (ruling 1-B),
+/// never a user refusal and never a quiet close that reads as a
+/// taken photo.
+sealed class CameraShotOutcome {
+  const CameraShotOutcome();
+}
+
+/// The JPEG bytes of a captured frame.
+final class CameraShotCaptured extends CameraShotOutcome {
+  const CameraShotCaptured(this.bytes);
+  final List<int> bytes;
+}
+
+/// The shot failed for a reason that is not a lost grant — the
+/// caller's fail-closed quiet close (a detector error's sibling).
+final class CameraShotNone extends CameraShotOutcome {
+  const CameraShotNone();
+}
+
+/// The grant was gone at the shutter (`CameraAccessDenied` after a
+/// granted open). A functioning problem: the scan surface
+/// communicates (`scanOpenFailed`), no `permission_refused` row, the
+/// Cámara entry stays — a photo that was not taken is never presented
+/// as one that was.
+final class CameraShotAccessLost extends CameraShotOutcome {
+  const CameraShotAccessLost();
+}
+
 /// The camera seam (Story 5.2): the first-use permission moment, the
 /// shot, the preview and the teardown. The plugin implementation
 /// lives beside this interface; tests fake it. No availability probe
@@ -83,11 +112,9 @@ abstract interface class CameraShell {
   /// alike — and the caller owns the row, the close and the notice.
   Future<CameraOpenOutcome> open();
 
-  /// Shoots the standing frame and returns its JPEG bytes, or null
-  /// when the shot failed — a quiet failure the caller folds into the
-  /// same fail-closed close a detector error takes. Only valid after
-  /// a granted [open] and before [dispose].
-  Future<List<int>?> takePicture();
+  /// Shoots the standing frame. Only valid after a granted [open]
+  /// and before [dispose].
+  Future<CameraShotOutcome> takePicture();
 
   /// The preview widget for a granted open — the plugin's own preview
   /// wrapped, never its controller. Before a granted open this is the

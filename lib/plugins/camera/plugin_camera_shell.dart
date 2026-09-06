@@ -51,12 +51,25 @@ CameraOpenOutcome cameraOpenOutcomeOfPluginError(String? code) =>
 /// One standing controller per open; every method is quiet on failure
 /// exactly where the facade's contract demands it.
 class PluginCameraShell implements CameraShell {
-  PluginCameraShell({CameraPermissionsChannel? permissionChannel})
-    : permissionChannel = permissionChannel ?? const CameraChannel();
+  PluginCameraShell({
+    CameraPermissionsChannel? permissionChannel,
+    this.availableCamerasOf,
+    this.initializeOf,
+  }) : permissionChannel = permissionChannel ?? const CameraChannel();
 
   /// The permission moment's seam (ruling 1-B): the hand-written
   /// `camera` channel, injectable for the shell's own tests.
   final CameraPermissionsChannel permissionChannel;
+
+  /// Test seam: replaces `availableCameras()`. Production leaves this
+  /// null so the plugin's own listing runs.
+  final Future<List<CameraDescription>> Function()? availableCamerasOf;
+
+  /// Test seam: replaces `CameraController.initialize()`. Production
+  /// leaves this null. A thrown error is mapped like a real
+  /// initialize failure — the catch this story's revocation path
+  /// actually runs.
+  final Future<void> Function(CameraController controller)? initializeOf;
 
   CameraController? _controller;
 
@@ -79,7 +92,7 @@ class PluginCameraShell implements CameraShell {
     }
     final List<CameraDescription> cameras;
     try {
-      cameras = await availableCameras();
+      cameras = await (availableCamerasOf ?? availableCameras)();
     } on Object {
       return CameraOpenOutcome.unavailable;
     }
@@ -105,7 +118,9 @@ class PluginCameraShell implements CameraShell {
       enableAudio: false,
     );
     try {
-      await controller.initialize();
+      await (initializeOf ?? (CameraController c) => c.initialize())(
+        controller,
+      );
     } on Object catch (error) {
       // The failed controller goes out here whatever its error — a
       // disposal that itself throws must not replace the outcome
@@ -132,28 +147,36 @@ class PluginCameraShell implements CameraShell {
   }
 
   @override
-  Future<List<int>?> takePicture() async {
+  Future<CameraShotOutcome> takePicture() async {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
-      return null;
+      return const CameraShotNone();
     }
+    XFile? file;
     try {
-      final file = await controller.takePicture();
+      file = await controller.takePicture();
       // The bytes cross into the app's own cache through the Files
       // port; the plugin-written file dies in the same breath — the
       // files module's best-effort deletion, run on a failed read too
       // (the finally): no shot, a person-bearing frame included,
       // lingers in the plugin's cache dir, which nothing this story
-      // ships sweeps.
-      try {
-        return await file.readAsBytes();
-      } finally {
-        await deleteFileBestEffort(file.path);
+      // ships sweeps. The finally is on this try so a throw after
+      // takePicture returns still deletes.
+      return CameraShotCaptured(await file.readAsBytes());
+    } on CameraException catch (error) {
+      if (error.code == cameraAccessDeniedWire) {
+        return const CameraShotAccessLost();
       }
+      return const CameraShotNone();
     } on Object {
-      // A failed shot is quiet: no frame exists to gate, and the
-      // caller's fail-closed close takes the scan out whole.
-      return null;
+      // A failed shot that is not a lost grant: no frame exists to
+      // gate, and the caller's fail-closed close takes the scan out.
+      return const CameraShotNone();
+    } finally {
+      final path = file?.path;
+      if (path != null) {
+        await deleteFileBestEffort(path);
+      }
     }
   }
 

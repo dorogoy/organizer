@@ -8,6 +8,7 @@
 // quiet). The plugin's error-code→outcome mapping is pinned to an
 // independent raw literal, so a plugin upgrade renaming its denial
 // code fails here loudly instead of silently remapping.
+import 'package:camera/camera.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -76,7 +77,7 @@ void main() {
     // No controller stands: the preview is the empty box and a shot
     // has nothing to read.
     expect(shell.buildPreview(), isA<SizedBox>());
-    expect(await shell.takePicture(), isNull);
+    expect(await shell.takePicture(), isA<CameraShotNone>());
   });
 
   test('an interrupted ask answers interrupted without any plugin call — '
@@ -85,7 +86,7 @@ void main() {
     final shell = PluginCameraShell(permissionChannel: channel);
     expect(await shell.open(), CameraOpenOutcome.interrupted);
     expect(channel.asks, 1);
-    expect(await shell.takePicture(), isNull);
+    expect(await shell.takePicture(), isA<CameraShotNone>());
   });
 
   test('a channel that cannot answer folds into the interruption — a '
@@ -107,5 +108,47 @@ void main() {
       1,
       reason: 'the permission moment ran first, before any plugin call',
     );
+  });
+
+  test('a granted ask whose initialize throws CameraAccessDenied is '
+      'denied — the revocation-discovered denial at the only site that '
+      'talks to the plugin', () async {
+    final channel = _FakeChannel(CameraPermissionAnswer.granted);
+    final shell = PluginCameraShell(
+      permissionChannel: channel,
+      availableCamerasOf: () async => [
+        const CameraDescription(
+          name: '0',
+          lensDirection: CameraLensDirection.back,
+          sensorOrientation: 90,
+        ),
+      ],
+      initializeOf: (_) async {
+        throw CameraException(cameraAccessDeniedWire, 'revoked');
+      },
+    );
+    expect(await shell.open(), CameraOpenOutcome.denied);
+    expect(channel.asks, 1);
+    expect(await shell.takePicture(), isA<CameraShotNone>());
+  });
+
+  test('a granted ask whose initialize throws any other code is '
+      'unavailable — a device problem, never a row', () async {
+    final channel = _FakeChannel(CameraPermissionAnswer.granted);
+    final shell = PluginCameraShell(
+      permissionChannel: channel,
+      availableCamerasOf: () async => [
+        const CameraDescription(
+          name: '0',
+          lensDirection: CameraLensDirection.back,
+          sensorOrientation: 90,
+        ),
+      ],
+      initializeOf: (_) async {
+        throw CameraException('SomeDeviceError', 'broken');
+      },
+    );
+    expect(await shell.open(), CameraOpenOutcome.unavailable);
+    expect(channel.asks, 1);
   });
 }

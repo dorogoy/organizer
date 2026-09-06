@@ -34,9 +34,6 @@ library;
 import 'package:core/log/log_entry.dart';
 import 'package:core/settings/settings.dart';
 
-/// Whether the Cámara entry may render (Story 5.2, FR-16): enabled ∧
-/// (no camera refusal row ∨ a `camera_enabled` write later than the
-/// last refusal row). Pure over the log, writing nothing (AD-3); rows
 /// Whether a camera refusal row stands against the entry (Story 5.2,
 /// FR-16): a `permission_refused{camera}` row exists with **no**
 /// `camera_enabled` write landing after it in store read order. This

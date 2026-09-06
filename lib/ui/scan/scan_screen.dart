@@ -59,6 +59,11 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
+  /// Serializes lifecycle close/open so a resume cannot mint a new
+  /// scan over an in-flight release, and so `CameraPreview` is off
+  /// the tree before dispose.
+  Future<void> _lifecycle = Future<void>.value();
+
   /// Whether a granted open stands (the preview runs). False until
   /// the controller's open resolves — the empty `surfaceBase` frame,
   /// never a loader (UX-DR41's own rule, the Dispenser's precedent).
@@ -102,28 +107,49 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        if (!_openInFlight && !_openFailed && mounted) {
-          // A return to the foreground restores the scan: the camera
-          // was released on the way out (or never landed), and the
-          // fast path re-opens it — granted → the preview back,
-          // interrupted/unavailable → the notice, exactly as the
-          // first open answered.
+        if (!_openInFlight && !_openFailed && !_shooting && mounted) {
+          // A return to the foreground restores the scan: wait for
+          // any in-flight release (the preview is already off the
+          // tree), then the fast path re-opens — granted → the
+          // preview back, interrupted/unavailable → the notice.
           setState(() => _granted = false);
-          unawaited(_open());
+          _enqueueLifecycle(() async {
+            await widget.controller?.close();
+            if (mounted && !_openFailed && !_shooting) {
+              await _open();
+            }
+          });
         }
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        if (!_openInFlight && _granted) {
+        if (!_openInFlight && !_shooting && _granted) {
           // The camera releases on the way out — no lens stands open
           // behind a backgrounded surface — while the ask is staged
           // never: the dialog owns the moment, and its `inactive` is
-          // not this surface's exit.
+          // not this surface's exit. An in-flight shoot owns the
+          // lens until it settles (the epoch guard retires a late
+          // landing if the user left by another path).
           setState(() => _granted = false);
-          unawaited(widget.controller?.close());
+          _enqueueLifecycle(() async {
+            await WidgetsBinding.instance.endOfFrame;
+            await widget.controller?.close();
+          });
         }
     }
+  }
+
+  void _enqueueLifecycle(Future<void> Function() work) {
+    _lifecycle = _lifecycle.then((_) async {
+      try {
+        await work();
+      } on Object {
+        // Quiet: a failed release or restore must not wedge the next
+        // lifecycle hand, and the surface's own open/close already
+        // fold errors into the notice or the fail-closed close.
+      }
+    });
   }
 
   Future<void> _open() async {
@@ -213,6 +239,19 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         );
       case ScanShootClosed():
         Navigator.of(context).pop();
+      case ScanShootFailed():
+        // A photo that was not taken is never presented as one that
+        // was: drop the preview, then close, then the notice. No
+        // row — a malfunction is not a refusal.
+        setState(() {
+          _shooting = false;
+          _granted = false;
+          _openFailed = true;
+        });
+        _enqueueLifecycle(() async {
+          await WidgetsBinding.instance.endOfFrame;
+          await widget.controller?.close();
+        });
     }
   }
 
@@ -281,23 +320,26 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 ? controller.camera.buildPreview()
                 : const SizedBox.shrink(),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.screenMargin,
-                vertical: Spacing.cardPadding,
-              ),
-              // The one recommended action: the Done button's own
-              // register, 48dp minimum, `scanShutter` spoken whole —
-              // no glyph (the pinned set admits no new one), no
-              // second control anywhere on the surface.
-              child: HechoButton(
-                label: AppStrings.of(context).scanShutter,
-                onTap: _onShoot,
+          if (_granted)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.screenMargin,
+                  vertical: Spacing.cardPadding,
+                ),
+                // The one recommended action: the Done button's own
+                // register, 48dp minimum, `scanShutter` spoken whole —
+                // no glyph (the pinned set admits no new one), no
+                // second control anywhere on the surface. Absent until
+                // the grant stands — a dead shutter is not an honest
+                // one (the failed-open branch's own rule).
+                child: HechoButton(
+                  label: AppStrings.of(context).scanShutter,
+                  onTap: _onShoot,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -77,7 +77,7 @@ class _FakeCamera implements CameraShell {
   _FakeCamera({this.openOutcome});
 
   CameraOpenOutcome? openOutcome;
-  List<int>? shotBytes = [1, 2, 3];
+  CameraShotOutcome shotOutcome = const CameraShotCaptured([1, 2, 3]);
   final openedCalls = <void>[];
   final disposedCalls = <void>[];
 
@@ -87,7 +87,7 @@ class _FakeCamera implements CameraShell {
 
   /// When set, [takePicture] parks on this completer before
   /// answering — the shot's in-flight window.
-  Completer<List<int>?>? shotGate;
+  Completer<CameraShotOutcome>? shotGate;
 
   @override
   Future<CameraOpenOutcome> open() async {
@@ -100,12 +100,12 @@ class _FakeCamera implements CameraShell {
   }
 
   @override
-  Future<List<int>?> takePicture() async {
+  Future<CameraShotOutcome> takePicture() async {
     final gate = shotGate;
     if (gate != null) {
       await gate.future;
     }
-    return shotBytes;
+    return shotOutcome;
   }
 
   @override
@@ -149,14 +149,23 @@ class _GatedWriteFiles implements FilesPort {
 
 /// The gate fake: pass, refusal, or a throwing detector.
 class _FakeGate implements FaceGatePort {
-  _FakeGate(this.outcome);
+  _FakeGate(this.outcome, {this.hold});
 
   final Object? outcome; // FaceGatePass | FaceGateRefusal | Exception
   final gatedPaths = <String>[];
+  final Completer<void>? hold;
+  final started = Completer<void>();
 
   @override
   Future<FaceGateOutcome> gate(String framePath) async {
     gatedPaths.add(framePath);
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    final hold = this.hold;
+    if (hold != null) {
+      await hold.future;
+    }
     final outcome = this.outcome;
     if (outcome is FaceGateOutcome) {
       return outcome;
@@ -406,7 +415,7 @@ void main() {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final gate = _FakeGate(const FaceGatePass());
-      final camera = _FakeCamera()..shotBytes = null;
+      final camera = _FakeCamera()..shotOutcome = const CameraShotNone();
       final controller = await openGranted(store, files, camera, gate: gate);
       final outcome = await controller.shoot();
       expect(outcome, isA<ScanShootClosed>());
@@ -448,7 +457,7 @@ void main() {
         'close-epoch guard)', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
-      final camera = _FakeCamera()..shotGate = Completer<List<int>?>();
+      final camera = _FakeCamera()..shotGate = Completer<CameraShotOutcome>();
       final gate = _FakeGate(const FaceGatePass());
       final controller = ScanController(
         store: store,
@@ -464,7 +473,7 @@ void main() {
       // unlinks beneath the unresolved shot.
       await controller.close();
       expect(files.unlinkedScans, hasLength(1));
-      camera.shotGate!.complete([9, 9, 9]);
+      camera.shotGate!.complete(const CameraShotCaptured([9, 9, 9]));
       expect(await shooting, isA<ScanShootClosed>());
       // Nothing was written after the close — the captured identity's
       // directory is not recreated — and nothing was gated.
@@ -476,6 +485,51 @@ void main() {
         hasLength(1),
         reason: 'the stale path unlinks nothing new: it created nothing',
       );
+    });
+
+    test('a lost grant at the shutter is a system problem: the failed '
+        'outcome, no permission_refused row, the camera tears down', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera()..shotOutcome = const CameraShotAccessLost();
+      final controller = await openGranted(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+      );
+      expect(await controller.shoot(), isA<ScanShootFailed>());
+      expect(
+        store.entries,
+        isEmpty,
+        reason: 'a malfunction is never recorded as a refusal',
+      );
+      expect(files.writtenFrames, isEmpty);
+      expect(
+        camera.disposedCalls,
+        isEmpty,
+        reason: 'the surface drops the preview before close',
+      );
+    });
+
+    test('a close during the gate does not append face_refused — a late '
+        'refusal after exit is not a privacy decision', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final hold = Completer<void>();
+      final gate = _FakeGate(const FaceGateRefusal(), hold: hold);
+      final controller = await openGranted(
+        store,
+        files,
+        _FakeCamera(),
+        gate: gate,
+      );
+      final shooting = controller.shoot();
+      await gate.started.future;
+      await controller.close();
+      hold.complete();
+      expect(await shooting, isA<ScanShootClosed>());
+      expect(store.entries, isEmpty);
     });
 
     test('a close landing inside the write itself unlinks the recreated '

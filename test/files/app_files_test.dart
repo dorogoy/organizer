@@ -180,6 +180,29 @@ void main() {
       expect(await File(two).readAsBytes(), [2, 2]);
     });
 
+    test('a rename failure deletes the sibling staging file — no .tmp '
+        'lingers beside the planted destination', () async {
+      await files.writeScanFrame('scan-1', [1, 1]);
+      final scanDir = Directory(
+        '${root.path}${Platform.pathSeparator}$scanCacheScope'
+        '${Platform.pathSeparator}scan-1',
+      );
+      File('${scanDir.path}${Platform.pathSeparator}$scanFrameFileName')
+          .deleteSync();
+      Directory('${scanDir.path}${Platform.pathSeparator}$scanFrameFileName')
+          .createSync();
+      expect(await files.writeScanFrame('scan-1', [2, 2, 2]), '');
+      String namedOf(FileSystemEntity entity) =>
+          entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
+      final names = scanDir.listSync().map(namedOf).toList();
+      expect(names, [scanFrameFileName]);
+      expect(
+        names.where((name) => name.endsWith(stagingSuffix)),
+        isEmpty,
+        reason: 'the staging sibling died with the failed rename',
+      );
+    });
+
     test('a re-write replaces the standing frame — one rename, no '
         'staging file behind', () async {
       await files.writeScanFrame('scan-1', [1, 1]);

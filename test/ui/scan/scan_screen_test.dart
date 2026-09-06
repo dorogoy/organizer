@@ -76,15 +76,16 @@ class _FakeCamera implements CameraShell {
     this.openOutcome,
     this.throwOnOpen = false,
     this.throwOnShoot = false,
+    this.shotOutcome = const CameraShotCaptured([1]),
   });
 
   final CameraOpenOutcome? openOutcome;
   final bool throwOnOpen;
   final bool throwOnShoot;
+  final CameraShotOutcome shotOutcome;
 
   final openedCalls = <void>[];
   final disposedCalls = <void>[];
-  List<int>? shotBytes = [1];
 
   /// When set, [open] parks on this completer before answering.
   Completer<CameraOpenOutcome>? openGate;
@@ -105,11 +106,11 @@ class _FakeCamera implements CameraShell {
   }
 
   @override
-  Future<List<int>?> takePicture() async {
+  Future<CameraShotOutcome> takePicture() async {
     if (throwOnShoot) {
       throw StateError('shoot seam threw');
     }
-    return shotBytes;
+    return shotOutcome;
   }
 
   @override
@@ -195,8 +196,13 @@ void main() {
     // shape.
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text(strings.scanShutter), findsOneWidget);
+    expect(
+      find.text(strings.scanShutter),
+      findsNothing,
+      reason: 'a dead shutter is not an honest one — absent until granted',
+    );
     expect(find.byKey(_FakeCamera.previewKey), findsNothing);
+    expect(find.byType(ScanScreen), findsOneWidget);
 
     camera.openGate!.complete(CameraOpenOutcome.granted);
     await tester.pumpAndSettle();
@@ -363,7 +369,7 @@ void main() {
       'empty frame and nothing resolves — the honest nothing', (tester) async {
     await launch(tester, null);
     expect(find.byType(ScanScreen), findsOneWidget);
-    expect(find.text(strings.scanShutter), findsOneWidget);
+    expect(find.text(strings.scanShutter), findsNothing);
     expect(find.byKey(_FakeCamera.previewKey), findsNothing);
   });
 
@@ -379,6 +385,25 @@ void main() {
     expect(find.text(strings.scanOpenFailed), findsOneWidget);
     expect(find.text(strings.scanShutter), findsNothing);
     expect(store.entries, isEmpty);
+    expect(find.byType(ErrorWidget), findsNothing);
+  });
+
+  testWidgets('a lost grant at the shutter keeps the surface with the '
+      'honest notice — no pop that would read as a taken photo, no '
+      'permission_refused row', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera(shotOutcome: const CameraShotAccessLost());
+    final gate = _FakeGate(const FaceGatePass());
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsOneWidget);
+    expect(find.text(strings.scanOpenFailed), findsOneWidget);
+    expect(find.text(strings.scanShutter), findsNothing);
+    expect(store.entries, isEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
     expect(find.byType(ErrorWidget), findsNothing);
   });
 
@@ -433,9 +458,10 @@ void main() {
     );
     expect(
       find.text(strings.scanShutter),
-      findsOneWidget,
-      reason: 'the surface itself stands',
+      findsNothing,
+      reason: 'the released lens has no live shutter',
     );
+    expect(find.byType(ScanScreen), findsOneWidget);
 
     // The return: the fast path re-opens (granted again — no dialog
     // on this side of the seam) and the preview is back.
@@ -443,6 +469,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(camera.openedCalls, hasLength(2));
     expect(find.byKey(_FakeCamera.previewKey), findsOneWidget);
+    expect(find.text(strings.scanShutter), findsOneWidget);
     expect(
       store.entries,
       isEmpty,

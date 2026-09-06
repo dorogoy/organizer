@@ -272,3 +272,14 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
   summary: The Kotlin half of the `camera` channel (staged ask, empty-grants→`interrupted`, result forwarding) has no executable verification — wire contracts pin constant values only, and the repo ships no Kotlin test infra at all.
   evidence: Verification-gap review 2026-09-05 — inverting the empty-grants branch to `refused` or dropping MainActivity's forward keeps `make gate`/`make check` green; extends the standing F4 androidTest deferral (CredentialKeystore/CredentialsChannel round-trip, same missing infra) — one Kotlin test leg should cover all hand-written channels.
+
+## Deferred from: code review of 5-2-the-camera-entry-and-shooting-the-frame (2026-09-06)
+
+- ARCHITECTURE-SPINE AD-11 still reads “three channels” (notify / dictate / credentials) after story 5.2 shipped the fourth (`dev.dorogoy.organizer/camera`). The spec change log records the AD-11 growth; the spine and “three Kotlin channels of AD-7” wording were not updated. A later channel story will read a stale count. Docs-only; not a runtime defect of this diff.
+
+## Seeded for: Epic 5 retrospective (2026-09-06)
+
+- source_spec: `_bmad-output/implementation-artifacts/5-2-the-camera-entry-and-shooting-the-frame.md`
+  summary: Product principle for the Epic 5 retro — do not hide problems that are external to the app (OS, plugin, hardware). The user must be told; a quiet close that reads as success is a lie, and folding a malfunction into the user's refusal is the other lie. Forced by the 5.2 review: a lost CAMERA grant at the shutter after a granted preview now surfaces `scanOpenFailed` (no `permission_refused` row). Decide whether this is the epic-wide rule for the rest of the scan chain (5.3–5.7) and whether the remaining quiet-close matrix rows (missed shot, detector error past retry) get renegotiated.
+  evidence: Sergio, 2026-09-06, after the 5.2 code-review decision on `takePicture` `CameraAccessDenied`; story section “Topics for Epic 5 retro”; related earlier deferral on shoot-side vs open-side asymmetry (story 5.2 review 2026-09-05).
+

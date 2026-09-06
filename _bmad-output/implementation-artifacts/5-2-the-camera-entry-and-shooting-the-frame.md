@@ -217,3 +217,26 @@ context:
 
 - Every I/O matrix row against fakes, including the close-epoch races (late grant, shoot vs exit)
   [`scan_controller_test.dart:1`](../../test/scan/scan_controller_test.dart#L1)
+
+### Review Findings
+
+- [x] [Review][Patch] `takePicture` CameraAccessDenied after a granted preview must surface `scanOpenFailed` — system problem, never a quiet close that reads as “foto hecha”, never a `permission_refused` row [`lib/plugins/camera/plugin_camera_shell.dart:153`]
+- [x] [Review][Patch] Epoch-check after `gate.gate()` and skip lifecycle close/reopen while a shoot is in flight [`lib/scan/scan_controller.dart:231`]
+- [x] [Review][Patch] Serialize resume open against in-flight close; do not overwrite `_scanId` without unlinking; drop `CameraPreview` before dispose [`lib/ui/scan/scan_screen.dart:102`]
+- [x] [Review][Patch] Do not render a live shutter before grant (or after `_granted` is cleared); cover the parked-open tap [`lib/ui/scan/scan_screen.dart:185`]
+- [x] [Review][Patch] Delete the plugin JPEG on the `takePicture` throw path, not only after a successful return [`lib/plugins/camera/plugin_camera_shell.dart:153`]
+- [x] [Review][Patch] Delete the scan-frame staging file on write failure — the “unreachable” comment is false [`lib/files/app_files.dart:263`]
+- [x] [Review][Patch] Repair the spliced `cameraEntryVisible` / `cameraRefusalStanding` dartdoc [`packages/core/lib/derive/camera_entry.dart:37`]
+- [x] [Review][Patch] Cover `settingChanged(camera_enabled)` mint/silence in the command tests [`packages/core/lib/commands/settings_commands.dart:69`]
+- [x] [Review][Patch] Drive `PluginCameraShell.open` so initialize `CameraAccessDenied` after a granted ask returns `denied` [`lib/plugins/camera/plugin_camera_shell.dart:107`]
+
+- [x] [Review][Defer] Kotlin `camera` channel empty-grants mapping has no executable test [`android/app/src/main/kotlin/dev/dorogoy/organizer/CameraChannel.kt:92`] — deferred, pre-existing (androidTest infra; already recorded 2026-09-05)
+- [x] [Review][Defer] ARCHITECTURE-SPINE AD-11 still says three channels after this story shipped the fourth [`_bmad-output/planning-artifacts/architecture/architecture-organizer-2026-08-26/ARCHITECTURE-SPINE.md`] — deferred, pre-existing
+
+## Topics for Epic 5 retro
+
+Seeded 2026-09-06 by Sergio after the 5.2 code-review decision on a lost CAMERA grant at the shutter.
+
+**Do not hide problems that are external to the app.** An OS, plugin, or hardware malfunction is the user's to know — never a quiet close that reads as success, never folded into the user's refusal. The example that forced the call: after a granted preview, `takePicture` throwing `CameraAccessDenied` used to pop the scan as if the photo had been taken. The patch now keeps the surface and states `scanOpenFailed`, with no `permission_refused` row.
+
+The principle is broader than that one path. The frozen matrix still quiet-closes a missed shot and a detector error past retry (fail-closed, no false privacy row). Open-side interruptions already communicate. The retro should decide whether “external problems are communicated” is the epic-wide rule for the rest of the scan chain (5.3–5.7 wait, slice, abandonment) and whether the remaining quiet-close rows get renegotiated.
