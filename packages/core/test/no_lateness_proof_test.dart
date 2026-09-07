@@ -646,7 +646,9 @@ final class KitchenSink {
       // (who authored the line), outside origin arithmetic and never
       // an obligation. Since Story 4.6 the nullable rescue pair: the
       // parent a step rescues and the step's verbatim estimate — a
-      // genesis fact and a duration, never a deferral.
+      // genesis fact and a duration, never a deferral. Since Story
+      // 5.7 the nullable step text: a scan step's own words, the
+      // task itself, never a deadline.
       expect(
         _classOwnFields('PoolFact', 'pool/pool_fact.dart'),
         equals([
@@ -659,6 +661,7 @@ final class KitchenSink {
           'dictated',
           'rescueOf',
           'estimateSeconds',
+          'stepText',
         ]),
       );
     });
@@ -990,6 +993,7 @@ final class KitchenSink {
           'dictated',
           'rescueOf',
           'estimateSeconds',
+          'stepText',
         ]),
       );
     });
@@ -1070,11 +1074,20 @@ final class KitchenSink {
       // The rescue step's fact payload (Story 4.6, FR-5): the
       // inherited origin, the step's own text, the parent it rescues
       // and its verbatim estimate — a genesis fact and a duration,
-      // never a deadline or a deferral (AD-1, AD-14). The size is law
-      // (`instant`), never data.
+      // never a deadline or a deferral (AD-1, AD-14). Since Story
+      // 5.7 the size rides the payload as the ONE fixed banding's
+      // own output (`sizeOfEstimateSeconds` — instant across the
+      // rescue band), the single duration→size rule's answer, never
+      // an independent value.
       expect(
         _recordFields('commands/rescue_commands.dart', 'RescueStepFactContent'),
-        equals(['origin', 'originContext', 'rescueOf', 'estimateSeconds']),
+        equals([
+          'origin',
+          'size',
+          'originContext',
+          'rescueOf',
+          'estimateSeconds',
+        ]),
       );
     });
 
@@ -1101,12 +1114,13 @@ final class KitchenSink {
     });
 
     test('EligibleDayAnchor', () {
-      // The one predicate's item half (Story 4.6): a size and a
-      // no-earlier-than instant — a recorded birth, never a target
-      // (AD-24).
+      // The one predicate's item half (Story 4.6): an effective
+      // estimate and a no-earlier-than instant — a recorded birth and
+      // the one duration the low-energy ceiling reads (Story 5.7's
+      // estimate-first read), never a target (AD-24).
       expect(
         _recordFields('derive/eligible_day.dart', 'EligibleDayAnchor'),
-        equals(['size', 'noEarlierThanUtcMicros']),
+        equals(['estimateSeconds', 'noEarlierThanUtcMicros']),
       );
     });
 
@@ -1118,6 +1132,45 @@ final class KitchenSink {
       expect(
         _recordFields('slicer/rescue_steps.dart', 'RescueStep'),
         equals(['text', 'durationSeconds']),
+      );
+    });
+
+    test('ScanStep', () {
+      // One parsed scan step (Story 5.7, FR-16): its non-empty text
+      // and its verbatim duration in minutes — the scan contract's
+      // whole yield, never a deadline or an ordering field (the
+      // steps land as independent facts, ordered by creation).
+      expect(
+        _recordFields('slicer/scan_steps.dart', 'ScanStep'),
+        equals(['text', 'durationMinutes']),
+      );
+    });
+
+    test('ScanSlice', () {
+      // One parsed scan slice (Story 5.7, FR-16): the space's
+      // description — the Origin Context every step fact of the
+      // slice shares — plus the steps themselves; retained source
+      // text and work, never a deadline or a plan identity.
+      expect(
+        _recordFields('slicer/scan_steps.dart', 'ScanSlice'),
+        equals(['description', 'steps']),
+      );
+    });
+
+    test('ScanSliceFactSeed', () {
+      // One landed scan step's fact payload (Story 5.7, FR-16): the
+      // origin, the banding's size, the shared Origin Context, the
+      // step's own words and its verbatim estimate — genesis facts
+      // and durations, never a deadline or a deferral (AD-1).
+      expect(
+        _recordFields('commands/scan_commands.dart', 'ScanSliceFactSeed'),
+        equals([
+          'origin',
+          'size',
+          'originContext',
+          'stepText',
+          'estimateSeconds',
+        ]),
       );
     });
 
@@ -1174,10 +1227,11 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the thirty-eight
-    // declarations above (thirty classes, eight record typedefs) —
-    // Story 4-4 adds the slicer port's sealed request union, its two
-    // outcomes and the three request kinds.
+    // The frozen census, keyed by (path, name): the fifty-two
+    // declarations this map freezes — Story 4-4 adds the slicer port's
+    // sealed request union, its two outcomes and the three request
+    // kinds; Story 5.7 adds the scan parse's two records and the scan
+    // landing's fact seed.
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -1211,6 +1265,11 @@ final class KitchenSink {
       'commands/rescue_commands.dart:RescueStepSeed',
       'derive/eligible_day.dart:EligibleDayAnchor',
       'slicer/rescue_steps.dart:RescueStep',
+      // Story 5.7: the scan parse's own yield — the parsed step and
+      // the parsed slice — and the scan landing's fact seed.
+      'slicer/scan_steps.dart:ScanStep',
+      'slicer/scan_steps.dart:ScanSlice',
+      'commands/scan_commands.dart:ScanSliceFactSeed',
       'ports/recognizer_port.dart:RecognizerOutcome',
       'energy/energy.dart:EnergyObservation',
       'curation/curation.dart:CurationObservation',

@@ -10,6 +10,7 @@ import 'package:core/ports/files_port.dart';
 import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/slicer/rescue_steps.dart';
+import 'package:core/slicer/scan_steps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -1166,18 +1167,36 @@ void main() {
       expect(rescueWireDurationField, names.durationSeconds);
     });
 
-    test('the Local stub\'s canned body parses in core — the debug '
-        'stub stays inside the runtime contract', () async {
+    test('the Local stub\'s canned bodies parse in core — each flight '
+        'inside its own runtime contract', () async {
       const stub = LocalSlicer(cannedMarker: 'rebanada enlatada');
-      final outcome = await stub.slice(rescue);
-      final steps = parseRescueSteps((outcome as SlicerDelivered).responseBody);
-      expect(steps, isNotNull);
+      // The scan flight, driven through a typed scan request.
+      final scan = parseScanSlice(
+        (await stub.slice(
+          scanRequest(Uint8List(0), 'prompt'),
+        ) as SlicerDelivered).responseBody,
+      );
+      expect(scan, isNotNull);
       // Literals, deliberately not the stub's own constants: a paired
-      // stub-plus-constant change must fail here, not stay green.
-      expect(steps!.length, 2);
-      expect(steps.first.durationSeconds, 30);
-      expect(steps.last.durationSeconds, 45);
-      expect(steps.first.text, 'rebanada enlatada');
+      // stub-plus-constant change must fail here, not stay green. The
+      // scan body speaks the scan contract since Story 5.7 — the one
+      // flight the stub can drive on a device.
+      expect(scan!.steps.length, 2);
+      expect(scan.description, 'rebanada enlatada');
+      expect(scan.steps.first.durationMinutes, 3);
+      expect(scan.steps.last.durationMinutes, 5);
+      expect(scan.steps.first.text, 'rebanada enlatada');
+      // The rescue flight (branched in 5.7's review): the pre-5.7
+      // values, parsed by the rescue parse — a scan-shaped answer to
+      // a rescue request would fail this pin by construction.
+      final rescueSteps = parseRescueSteps(
+        (await stub.slice(rescue) as SlicerDelivered).responseBody,
+      );
+      expect(rescueSteps, isNotNull);
+      expect(rescueSteps!.length, 2);
+      expect(rescueSteps.first.durationSeconds, 30);
+      expect(rescueSteps.last.durationSeconds, 45);
+      expect(rescueSteps.first.text, 'rebanada enlatada');
     });
 
     test('a gemini-dialect extraction — the joined text parts of the '

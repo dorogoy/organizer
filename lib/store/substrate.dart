@@ -118,6 +118,14 @@ const String poolFactsRescueOfUpgrade =
 const String poolFactsEstimateSecondsUpgrade =
     'ALTER TABLE pool_facts ADD COLUMN estimate_seconds INTEGER NULL';
 
+/// Schema v10's additive upgrade of `pool_facts` (Story 5.7, AD-23):
+/// the one nullable step-text column — a scan step's own words, the
+/// task itself where a rescue step keeps its text in the Origin
+/// Context — added by ALTER TABLE only, on the same pattern. A named
+/// infrastructure identifier on the store module's terms (AD-15).
+const String poolFactsStepTextUpgrade =
+    'ALTER TABLE pool_facts ADD COLUMN step_text TEXT NULL';
+
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
 /// statement itself, so no second copy of either name exists to drift.
@@ -139,8 +147,8 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 9 (Story 4.6): the only change from 8
-/// is the three nullable columns above, and every later change is
+/// migration (AD-2). schemaVersion 10 (Story 5.7): the only change from 9
+/// is the nullable step-text column above, and every later change is
 /// additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -154,7 +162,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -208,7 +216,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// log's slice-cause column and the pool's two rescue columns the
   /// same way, so a v8 install upgrades with its rows unchanged too
   /// — old rows with a null cause, deriving as no slice history, and
-  /// old facts with null rescue fields, deriving as no chain. Every
+  /// old facts with null rescue fields, deriving as no chain. The
+  /// v9→v10 step adds the pool's step-text column the same way, so
+  /// a v9 install upgrades with its rows unchanged too — old facts
+  /// with a null step text, deriving exactly as before. Every
   /// step runs inside the one transaction and adds only an absent
   /// column, and the mechanism is
   /// drift's; the outcomes — triggers present after first open on a
@@ -246,6 +257,9 @@ class SubstrateDatabase extends _$SubstrateDatabase {
         await _addColumnIfAbsent(logEntriesSliceCauseUpgrade);
         await _addColumnIfAbsent(poolFactsRescueOfUpgrade);
         await _addColumnIfAbsent(poolFactsEstimateSecondsUpgrade);
+      }
+      if (from < 10) {
+        await _addColumnIfAbsent(poolFactsStepTextUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

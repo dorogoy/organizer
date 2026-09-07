@@ -85,7 +85,12 @@ List<RescueStep>? parseRescueSteps(String body) {
   final Object? decoded;
   try {
     decoded = jsonDecode(body);
-  } on FormatException {
+  } on Object {
+    // The one-fold contract: any body that will not yield its slice
+    // answers null — non-JSON (FormatException) and a body so deeply
+    // nested the decoder overflows its stack (StackOverflowError, an
+    // Error) alike; the same protective fold the scan parse (new in
+    // 5.7) keeps on this pre-existing sibling.
     return null;
   }
   if (decoded is! Map) {

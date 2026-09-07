@@ -5,13 +5,16 @@ import 'package:core/commands/permission_commands.dart';
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/face_gate_port.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/slicer/scan_steps.dart';
 import 'package:uuid/uuid.dart';
 
+import '../egress/local_slicer.dart';
 import '../plugins/camera/camera_shell.dart';
 import '../session/log_write_queue.dart';
 
@@ -72,11 +75,19 @@ sealed class ScanConsentOutcome {
   const ScanConsentOutcome();
 }
 
-/// The slice was delivered (interim by decision of 2026-09-06, P2-A):
-/// nothing lands and no row stands — the landing is 5.7's, and the
-/// caller closes the scan quietly to the Dispenser. The dispatch
-/// wiring above this arm — mint order, token, cap-in-binding, failure
-/// mapping — is permanent.
+/// The slice was delivered and its steps landed as pool facts
+/// (Story 5.7, FR-16): each parsed step is a fact — origin `cloud`
+/// (BYOK) or `local` (the debug stub), estimate `duration_minutes ×
+/// 60`, size from the one fixed banding, the space description as
+/// Origin Context, the step's own words as `stepText` — and nothing
+/// is dealt: the facts are not candidates until 5.9 wires Epic
+/// material into the weave, so the caller closes the scan quietly
+/// to the Dispenser (the one-card landing is 5.9's). A body that
+/// parses but violates the step contract never reaches this arm —
+/// it folds into [ScanConsentFailed] under `malformedResponse`, the
+/// declared mapping. The dispatch wiring above this arm — mint
+/// order, token, cap-in-binding, failure mapping — is permanent
+/// since 5.5.
 final class ScanConsentDelivered extends ScanConsentOutcome {
   const ScanConsentDelivered();
 }
@@ -114,7 +125,7 @@ final class ScanConsentStale extends ScanConsentOutcome {
 ///
 /// Every real resolution unlinks the scan's directory — refusal,
 /// declined consent, pre-gate no-provider refusal, gate exit (system
-/// back), provider failure, delivered-interim discard, epoch-stale
+/// back), provider failure, delivered step landing, epoch-stale
 /// late landing, the wait's abandonment (`scan_abandoned`, Story
 /// 5.6), surface exit, permission failure, detector failure,
 /// surface disposal — so no frame lingers past its scan (the 5.4
@@ -563,9 +574,10 @@ class ScanController {
   /// prompt and the in-memory identities, and nothing else — no plan
   /// history, no album contents, no device or location identifier
   /// enters the request (FR-25, NFR4) — and the cache unlinked on
-  /// every resolution: delivered (the interim discard, P2-A — the
-  /// landing is 5.7's), failed (the raw cause for the standing
-  /// `noSlicerCauseFromFailure` map), or the close epoch's stale
+  /// every resolution: delivered (the steps land as pool facts,
+  /// Story 5.7 — nothing dealt, the one-card landing is 5.9's),
+  /// failed (the raw cause for the standing `noSlicerCauseFromFailure`
+  /// map, beside its one `slice_failed` row), or the close epoch's stale
   /// answer (no routing; the close already unlinked — and, since
   /// Story 5.6, minted the wait's one `scan_abandoned` row).
   ///
@@ -625,6 +637,11 @@ class ScanController {
         _sliceInFlight = false;
         await _unlinkCaptured(scanId);
         _frameBytes = null;
+        // The resolution is a failed dispatch: its one row mints here
+        // exactly as the typed failure arm's does below (Story 5.7,
+        // FR-26 b — a throw-resolved providerUnreachable is a failure
+        // on record, never an outcome inferred from absent facts).
+        await _appendScanSliceFailed(SlicerFailureCause.providerUnreachable);
         return const ScanConsentFailed(SlicerFailureCause.providerUnreachable);
       }
       if (_epoch != epoch) {
@@ -638,10 +655,40 @@ class ScanController {
       _sliceInFlight = false;
       await _unlinkCaptured(scanId);
       _frameBytes = null;
-      return switch (outcome) {
-        SlicerDelivered() => const ScanConsentDelivered(),
-        SlicerFailed(:final cause) => ScanConsentFailed(cause),
-      };
+      switch (outcome) {
+        case SlicerDelivered(:final responseBody):
+          // The landing (Story 5.7, FR-16): the delivered body is
+          // parsed in pure core AFTER the port returned — the egress
+          // seam stays byte-untouched — and each parsed step lands as
+          // a pool fact through the core's single sanctioned minter.
+          // The image is already gone: the unlink above discarded it
+          // the moment the resolution stood, the plan's facts being
+          // the record that survives (FR-16, FR-25).
+          final slice = parseScanSlice(responseBody);
+          if (slice == null) {
+            // A body that parses but violates the step contract folds
+            // into the declared mapping — one `slice_failed` row under
+            // the existing `malformedResponse` cause, surfaced by the
+            // existing provider-unresponsive string, never an eighth
+            // cause, and nothing is dealt as-is (the one fold
+            // `parseScanSlice`'s own contract keeps).
+            await _appendScanSliceFailed(SlicerFailureCause.malformedResponse);
+            return const ScanConsentFailed(
+              SlicerFailureCause.malformedResponse,
+            );
+          }
+          await _appendScanLanded(
+            slice,
+            origin: slicer is LocalSlicer ? Origin.local : Origin.cloud,
+          );
+          return const ScanConsentDelivered();
+        case SlicerFailed(:final cause):
+          // A failed dispatch resolves on record (Story 5.7, FR-26
+          // b): one `slice_failed` row carrying the raw cause, then
+          // the standing 4-5 mapping the caller routes.
+          await _appendScanSliceFailed(cause);
+          return ScanConsentFailed(cause);
+      }
     } finally {
       // A stale grant may finish after close has opened a new scan. Do
       // not clear that newer scan's wait flag from the old dispatch.
@@ -687,15 +734,75 @@ class ScanController {
   /// departure is the resolution cause, so the row stands whatever
   /// else races it.
   Future<void> _appendScanAbandoned() => _appendMinted(() => scanAbandoned());
+
+  /// Appends exactly one `slice_failed` row through the scan's single
+  /// sanctioned failure minter (Story 5.7, FR-16, FR-26 b, AD-21) —
+  /// on [_appendScanAbandoned]'s own shape: no in-closure epoch
+  /// re-check, because the dispatch's resolution is what makes the
+  /// row true (a violation arm's `malformedResponse` or a failed
+  /// dispatch's raw cause alike), and the row mints only after the
+  /// resolution survived the caller's existing epoch checks.
+  Future<void> _appendScanSliceFailed(SlicerFailureCause cause) =>
+      _appendMinted(() => scanSliceFailed(cause: cause));
+
+  /// Lands a delivered slice's steps as pool facts (Story 5.7,
+  /// FR-16): the seeds come from the core's single sanctioned minter
+  /// — origin, banding size, the description as Origin Context, the
+  /// step's own words, the verbatim estimate — and the shell mints
+  /// only the id, the instant and the offset: one resolution instant
+  /// for the whole slice, one v7 id per fact. All facts of one slice
+  /// share that single resolution instant, and the plan's ORDER is
+  /// the store's snapshot order — this landing appends the steps in
+  /// the body's slice order and `readPoolFacts`' rowid tiebreak
+  /// preserves it among the tied instants — which is the contract
+  /// 5.9's "first step" consumption reads; no ordinal column exists
+  /// by design (AD-3's replay order is the one order the store
+  /// guarantees). Per-fact appends, no cross-fact transaction (the
+  /// substrate is insert-only and a partial plan derives honestly);
+  /// the whole landing rides the shared `LogWriteQueue`, serialized
+  /// against every other write the shell owns, and a failing store
+  /// is absorbed quietly — the house write-queue discipline.
+  Future<void> _appendScanLanded(ScanSlice slice, {required Origin origin}) {
+    final now = nowOf();
+    return writeQueue
+        .enqueue(() async {
+          for (final seed in scanSliceLanded(
+            origin: origin,
+            description: slice.description,
+            steps: slice.steps,
+          )) {
+            await store.appendPoolFact((
+              id: idMinter.v7(),
+              origin: seed.origin,
+              size: seed.size,
+              instantUtcMicros: now.microsecondsSinceEpoch,
+              offsetSeconds: now.timeZoneOffset.inSeconds,
+              originContext: seed.originContext,
+              dictated: null,
+              rescueOf: null,
+              estimateSeconds: seed.estimateSeconds,
+              stepText: seed.stepText,
+            ));
+          }
+        })
+        .catchError((Object _) {});
+  }
 }
 
-/// The scan prompt (Story 5.5): the Slicer's step contract for a photo
-/// scan — real actions on what the frame shows, every step tagged 3–5
-/// minutes, JSON only. Provider-facing instruction, never UI copy: the
-/// rescue prompt's precedent (the access layer composes that one,
-/// also not ARB) — AD-15's literal ban is on copy reaching a widget,
-/// and this never reaches one. It rides the dispatch verbatim and is
-/// the payload's only prose. One line, like the rescue contract's
-/// canonical schema — the literal-audit's allowance is per-declaration.
+/// The scan prompt (Story 5.5; the description clause Story 5.7):
+/// the Slicer's step contract for a photo scan — real actions on
+/// what the frame shows, every step tagged 3–5 minutes, a one-line
+/// description of the space as it stands (FR-16's retained Origin
+/// Context), JSON only. Provider-facing instruction, never UI copy:
+/// the rescue prompt's precedent (the access layer composes that
+/// one, also not ARB) — AD-15's literal ban is on copy reaching a
+/// widget, and this never reaches one. It rides the dispatch
+/// verbatim and is the payload's only prose. One line, like the
+/// rescue contract's canonical schema — the literal-audit's
+/// allowance is per-declaration. The JSON shape's four field names
+/// are interpolated from `scan_steps.dart`'s own wire-name consts
+/// (`rescue_contract.dart`'s single-source precedent — no copy can
+/// drift); parity is pinned from the test side (prompt ↔ parse ↔
+/// Local stub).
 const String _scanPrompt =
-    'Eres el asistente de una app móvil de organización del hogar. Recibirás una foto real de un espacio doméstico desordenado. Tu tarea es convertirla en un plan corto que una persona pueda ejecutar hoy mismo, paso a paso. Escribe cada paso como una acción concreta y directa sobre objetos que se vean en la foto — no inventes objetos ni espacios, y da un orden ejecutable de principio a fin. Cada paso lleva su duración como un número entero de minutos entre 3 y 5. Responde únicamente con un objeto JSON con la forma {"steps": [{"text": "…", "duration_minutes": 4}]}, y nada más.';
+    'Eres el asistente de una app móvil de organización del hogar. Recibirás una foto real de un espacio doméstico desordenado. Tu tarea es convertirla en un plan corto que una persona pueda ejecutar hoy mismo, paso a paso. Escribe cada paso como una acción concreta y directa sobre objetos que se vean en la foto — no inventes objetos ni espacios, y da un orden ejecutable de principio a fin. La respuesta incluye también una descripción: una frase que describa el espacio tal como está. Cada paso lleva su duración como un número entero de minutos entre 3 y 5. Responde únicamente con un objeto JSON con la forma {"$scanWireDescriptionField": "…", "$scanWireStepsField": [{"$scanWireTextField": "…", "$scanWireDurationField": 4}]}, y nada más.';

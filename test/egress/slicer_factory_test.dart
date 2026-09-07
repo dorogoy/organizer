@@ -1,19 +1,21 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
+import 'package:core/slicer/rescue_steps.dart';
+import 'package:core/slicer/scan_steps.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:organizer/egress/byok_slicer.dart';
 import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/egress/managed_slicer.dart';
-import 'package:organizer/egress/rescue_contract.dart';
 import 'package:organizer/egress/slicer_factory.dart';
 import 'package:organizer/platform/credentials/credentials_cipher.dart';
 import 'package:organizer/vault/credential_vault.dart';
+
+import '../../tool/check_core_purity.dart';
 
 /// The port's second and third shapes plus the factory's gate
 /// (Story 4-4, AD-9): the Local stub's canned marker body, the
@@ -23,23 +25,47 @@ import 'package:organizer/vault/credential_vault.dart';
 /// either shape.
 void main() {
   group('the Local shape — canned, unmistakable', () {
-    test('every step of the canned body carries the marker', () async {
+    test('each flight\'s canned body carries the marker in every slot '
+        'and parses against its OWN contract — the scan shape via '
+        'parseScanSlice, the rescue shape via parseRescueSteps '
+        '(Story 5.7)', () async {
       const slicer = LocalSlicer(cannedMarker: 'marca local');
-      final outcome = await slicer.slice(
-        const RescueSliceRequest(originContext: 'x', task: 'y'),
+      // The scan flight: description + `duration_minutes` 3–5, core's
+      // own wire names — the scan parse is its single reader, so a
+      // stub drift from the contract fails this pin.
+      final scan = parseScanSlice(
+        (await slicer.slice(
+          ScanSliceRequest(
+            imageBytes: Uint8List(0),
+            prompt: '',
+            scanId: 'scan-1',
+            consent: mintScanConsent(scanId: 'scan-1'),
+          ),
+        ) as SlicerDelivered).responseBody,
       );
-      final body = jsonDecode(
-        (outcome as SlicerDelivered).responseBody,
-      ) as Map<String, dynamic>;
-      // The canned body's field names derive from the canonical
-      // schema's parse — the single source, never restated here.
-      final names = rescueSchemaFieldNames();
-      final steps = body[names.steps] as List;
-      expect(steps, hasLength(2));
-      for (final step in steps) {
-        expect((step as Map)[names.text], 'marca local');
-        expect(step[names.durationSeconds] as int, lessThanOrEqualTo(60));
-        expect(step[names.durationSeconds] as int, greaterThan(0));
+      expect(scan, isNotNull);
+      expect(scan!.description, 'marca local');
+      expect(scan.steps, hasLength(2));
+      for (final step in scan.steps) {
+        expect(step.text, 'marca local');
+        expect(step.durationMinutes, greaterThanOrEqualTo(3));
+        expect(step.durationMinutes, lessThanOrEqualTo(5));
+      }
+      // The rescue flight: steps + `duration_seconds` 1–60 (the
+      // pre-5.7 values) — a scan-shaped answer here would break the
+      // rescue flight by construction, so this pin reads the rescue
+      // parse, never the scan one.
+      final rescue = parseRescueSteps(
+        (await slicer.slice(
+          const RescueSliceRequest(originContext: 'x', task: 'y'),
+        ) as SlicerDelivered).responseBody,
+      );
+      expect(rescue, isNotNull);
+      expect(rescue, hasLength(2));
+      for (final step in rescue!) {
+        expect(step.text, 'marca local');
+        expect(step.durationSeconds, greaterThanOrEqualTo(1));
+        expect(step.durationSeconds, lessThanOrEqualTo(60));
       }
     });
 
@@ -136,7 +162,34 @@ void main() {
               continue;
             }
             if (normalized.startsWith('lib/')) {
-              final source = entity.readAsStringSync();
+              // Comment/string-masked source (the census tooling's
+              // `maskCommentsAndStrings` discipline, the no-lateness
+              // proof's import precedent): only code moves this pin —
+              // a doc comment mentioning either shape is not a call
+              // site.
+              final source = maskCommentsAndStrings(entity.readAsStringSync());
+              // Story 5.7's one sanctioned exception: the scan
+              // controller names LocalSlicer exactly once — the
+              // origin derivation (`local` on the debug stub,
+              // `cloud` on BYOK), the landing's own expression.
+              // Every other reference, and ManagedSlicer anywhere,
+              // stays an offender.
+              if (normalized == 'lib/scan/scan_controller.dart') {
+                expect(
+                  RegExp('LocalSlicer').allMatches(source),
+                  hasLength(1),
+                  reason:
+                      'the scan controller names LocalSlicer for the '
+                      'origin derivation alone — a second reference is '
+                      'a call site this rule cannot see',
+                );
+                expect(
+                  source.contains('ManagedSlicer'),
+                  isFalse,
+                  reason: 'the Managed shape is never wired anywhere',
+                );
+                continue;
+              }
               if (source.contains('LocalSlicer') ||
                   source.contains('ManagedSlicer')) {
                 offenders.add(normalized);

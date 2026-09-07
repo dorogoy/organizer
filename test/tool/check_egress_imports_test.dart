@@ -83,8 +83,9 @@ void main() {
       expect(findings.single.message, contains('../egress/byok_wire.dart'));
     });
 
-    test('the shell root alone may import the factory — anywhere else it '
-        'is a finding', () {
+    test('the shell root alone may import the factory, and the scan '
+        'controller alone the Local stub — anywhere else it is a '
+        'finding', () {
       const source =
           "import 'package:organizer/egress/slicer_factory.dart';\n"
           'var build = buildSlicer;\n';
@@ -105,9 +106,32 @@ void main() {
         ).where((finding) => finding.message.contains('egress import')),
         isNotEmpty,
       );
-      // The composition exception is exactly one file, one import.
+      // Story 5.7's composition read: the scan controller names the
+      // Local stub's type for the landing's origin derivation
+      // (`local` on the debug path, `cloud` on BYOK) — a type check,
+      // never a call into the shape.
+      const localTypeCheck =
+          "import 'package:organizer/egress/local_slicer.dart';\n"
+          'var isLocal = slicer is LocalSlicer;\n';
+      expect(
+        scanDartSource(
+          file: 'lib/scan/scan_controller.dart',
+          source: localTypeCheck,
+        ).where((finding) => finding.message.contains('egress import')),
+        isEmpty,
+      );
+      expect(
+        scanDartSource(
+          file: 'lib/ui/screen.dart',
+          source: localTypeCheck,
+        ).where((finding) => finding.message.contains('egress import')),
+        isNotEmpty,
+      );
+      // The composition exceptions are exactly two files, one import
+      // each.
       expect(egressImportsLegalByFile, {
         'lib/main.dart': {'slicer_factory.dart'},
+        'lib/scan/scan_controller.dart': {'local_slicer.dart'},
       });
       expect(egressImportsLegalAnywhere, {'provider_allowlist.dart'});
     });

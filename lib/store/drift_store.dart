@@ -37,6 +37,7 @@ class DriftStore implements StorePort {
             dictated: Value(fact.dictated),
             rescueOf: Value(fact.rescueOf),
             estimateSeconds: Value(fact.estimateSeconds),
+            stepText: Value(fact.stepText),
           ),
         );
   }
@@ -73,6 +74,12 @@ class DriftStore implements StorePort {
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async {
     final query = _db.select(_db.poolFacts);
+    // The rowid tiebreak IS the landing-order contract for
+    // same-instant facts (Story 5.7): one landed slice's facts share
+    // the single resolution instant and append in the body's step
+    // order, so the tiebreak reads the plan back in order — 5.9's
+    // "first step" consumption. No ordinal column exists by design
+    // (AD-3's replay order is the one order the store guarantees).
     query.orderBy([
       (row) => OrderingTerm.asc(row.instantUtcMicros),
       (_) => OrderingTerm.asc(CustomExpression<int>(rowIdColumnName)),
@@ -93,6 +100,7 @@ class DriftStore implements StorePort {
             dictated: row.dictated,
             rescueOf: row.rescueOf,
             estimateSeconds: row.estimateSeconds,
+            stepText: row.stepText,
           ),
     ];
   }

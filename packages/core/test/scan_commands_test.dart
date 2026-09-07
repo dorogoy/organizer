@@ -1,6 +1,7 @@
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:test/test.dart';
 
@@ -294,6 +295,123 @@ void main() {
               '(the departure asserts nothing beyond itself)',
         );
       }
+    });
+  });
+
+  group('the scan landing minters (Story 5.7, FR-16, FR-27, FR-26 b)', () {
+    test('scanSliceLanded seeds one fact per step — the banding size, '
+        'the verbatim estimate, the shared description, the step\'s own '
+        'words, and nothing else', () {
+      final seeds = scanSliceLanded(
+        origin: Origin.cloud,
+        description: 'Un rincón con cajas',
+        steps: const [
+          (text: 'Recoger la caja de arriba', durationMinutes: 3),
+          (text: 'Botar los papeles del suelo', durationMinutes: 5),
+        ],
+      );
+      expect(seeds, hasLength(2));
+      for (var i = 0; i < seeds.length; i++) {
+        final seed = seeds[i];
+        expect(seed.origin, Origin.cloud);
+        // The ONE banding: 180–300 s is maintenance by construction —
+        // never an independent value.
+        expect(seed.size, Size.maintenance);
+        expect(seed.estimateSeconds, [180, 300][i]);
+        expect(seed.originContext, 'Un rincón con cajas');
+        expect(seed.stepText, isNotNull);
+      }
+      expect(seeds.first.stepText, 'Recoger la caja de arriba');
+      expect(seeds.last.stepText, 'Botar los papeles del suelo');
+      // No id, instant or offset rides a seed: the shell mints those
+      // (the shape is frozen — the no-lateness census pins the fields).
+    });
+
+    test('scanSliceFailed mints exactly one slice_failed row carrying '
+        'the cause wire name and no item pair — the scan\'s single '
+        'sanctioned failure writer', () {
+      final contents = scanSliceFailed(
+        cause: SlicerFailureCause.malformedResponse,
+      );
+      expect(contents, hasLength(1));
+      final content = contents.single;
+      expect(content.kind, same(LogKind.sliceFailed));
+      expect(content.kind.name, 'slice_failed');
+      expect(
+        content.itemId,
+        isNull,
+        reason:
+            'no item exists — the scan '
+            'died before any fact',
+      );
+      expect(content.itemOrigin, isNull);
+      expect(content.sliceCause, 'malformedResponse');
+      // Nothing else rides the row.
+      expect(content.stack, isNull);
+      expect(content.settingKey, isNull);
+      expect(content.settingValue, isNull);
+      expect(content.settingTextValue, isNull);
+      expect(content.pocketMinutes, isNull);
+      expect(content.energyLevel, isNull);
+      expect(content.reportValue, isNull);
+      expect(content.reportWeek, isNull);
+      expect(content.permission, isNull);
+    });
+
+    test('the cause-only slice_failed row converts back at the read '
+        'boundary — the scan shape, pair-absent by design (Story 5.7)', () {
+      LogEntryRecord record({
+        String? itemId,
+        Origin? itemOrigin,
+        String? sliceCause = 'invalidKey',
+      }) => (
+        id: '0190dddd-0000-7000-8000-000000000005',
+        kind: 'slice_failed',
+        instantUtcMicros: 7000,
+        offsetSeconds: 3600,
+        itemId: itemId,
+        itemOrigin: itemOrigin,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: sliceCause,
+      );
+      final conversion = convertLogEntryRecord(record());
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry! as SliceEntry;
+      expect(entry.kind, same(LogKind.sliceFailed));
+      expect(entry.itemId, isNull);
+      expect(entry.itemOrigin, isNull);
+      expect(entry.cause, SlicerFailureCause.invalidKey);
+      // The rescue shape still converts beside it: a full pair plus
+      // the cause is the rescue failure's own row.
+      final rescueConversion = convertLogEntryRecord(
+        record(itemId: 'cap-a', itemOrigin: Origin.manual),
+      );
+      expect(rescueConversion.flaw, isNull);
+      final rescueEntry = rescueConversion.entry! as SliceEntry;
+      expect(rescueEntry.itemId, 'cap-a');
+      expect(rescueEntry.itemOrigin, Origin.manual);
+      // And a half pair is excluded whichever family it came from.
+      expect(
+        convertLogEntryRecord(record(itemOrigin: Origin.manual)).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      expect(
+        convertLogEntryRecord(record(itemId: 'cap-a')).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      // A scan slice_failed without its cause asserts nothing.
+      expect(
+        convertLogEntryRecord(record(sliceCause: null)).flaw,
+        LogRecordFlaw.sliceCauseAbsent,
+      );
     });
   });
 }

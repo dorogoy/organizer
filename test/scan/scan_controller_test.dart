@@ -19,10 +19,13 @@ import 'package:core/ports/files_port.dart';
 import 'package:core/ports/scan_consent.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/pool/pool_fact.dart';
+import 'package:core/slicer/scan_steps.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/scan/scan_controller.dart';
 
@@ -73,6 +76,37 @@ class _ThrowingAppendStore implements StorePort {
   Future<void> appendLogEntry(LogEntryRecord entry) async {
     throw StateError('append failed');
   }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose `appendPoolFact` throws on its SECOND call — the
+/// landing's partial-plan window (the first fact stands, the rest
+/// dies) — on the throwing store's own shape (the dictation suite's
+/// precedent, applied to the fact append).
+class _ThrowingFactStore implements StorePort {
+  _ThrowingFactStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _appended = 0;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {
+    _appended++;
+    if (_appended >= 2) {
+      throw StateError('append failed');
+    }
+    await _inner.appendPoolFact(fact);
+  }
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async =>
+      _inner.appendLogEntry(entry);
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
@@ -241,11 +275,16 @@ class _FakeGate implements FaceGatePort {
 /// The Slicer fake: the requests the tests read (bytes, prompt, scanId,
 /// token), the outcome the tests steer, and an in-flight window the
 /// close epoch races against.
+/// A canonical scan-shaped delivered body — one step, tagged 4
+/// minutes — the fake's default outcome since the landing parses it
+/// (Story 5.7).
+const String _scanBody =
+    '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": '
+    '[{"text": "Recoger una caja", "duration_minutes": 4}]}';
+
 class _FakeSlicer implements SlicerPort {
   _FakeSlicer({SlicerOutcome? outcome})
-    : outcome =
-          outcome ??
-          const SlicerDelivered('[{"text": "x", "duration_minutes": 4}]');
+    : outcome = outcome ?? const SlicerDelivered(_scanBody);
 
   SlicerOutcome outcome;
 
@@ -696,7 +735,7 @@ void main() {
     Future<(ScanController, ScanShootGatePassed)> standingScan(
       _RecordingStore store,
       _RecordingFiles files, {
-      _FakeSlicer? slicer,
+      SlicerPort? slicer,
       Future<String?> Function()? readSelectedProvider,
     }) async {
       final controller = ScanController(
@@ -764,19 +803,165 @@ void main() {
       final request = slicer.requests.single;
       expect(request.imageBytes, [1, 2, 3]);
       expect(request.scanId, passed.scanId);
-      expect(request.prompt, isNotEmpty);
       expect(request.consent, isA<ScanConsent>());
       // AD-8's binding, pinned on the dispatched object itself: the
       // token is minted for the standing scan — a wrong-binding
       // regression would throw scanIdMismatch inside every slice and
       // fold to a misleading providerUnreachable.
       expect(request.consent.scanId, passed.scanId);
+      // The prompt parity pin (Story 5.7): the JSON shape the prompt
+      // shows carries the four wire names the core parse owns — a
+      // renamed field in either direction fails here.
+      expect(request.prompt, contains('"$scanWireDescriptionField"'));
+      expect(request.prompt, contains('"$scanWireStepsField"'));
+      expect(request.prompt, contains('"$scanWireTextField"'));
+      expect(request.prompt, contains('"$scanWireDurationField"'));
+      expect(request.prompt, contains('"description"'));
+      expect(request.prompt, contains('"duration_minutes"'));
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
       expect(files.unlinkedScans, [passed.scanId]);
       // One decision and one token: a second accept is nothing at all.
       expect(await controller.grantConsent(), isA<ScanConsentStale>());
       expect(slicer.requests, hasLength(1));
       expect(store.entries, hasLength(1));
+    });
+
+    test('a delivered slice lands as facts — one per parsed step, the '
+        'description as Origin Context, the banding size, the verbatim '
+        'estimate, nothing dealt and no extra rows (Story 5.7, FR-16, '
+        'FR-27)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerDelivered(
+          '{"description": "Un rincón con cajas apiladas", "steps": ['
+          '{"text": "Recoger la caja de arriba", "duration_minutes": 3},'
+          '{"text": "Doblar la ropa del sofá", "duration_minutes": 4},'
+          '{"text": "Botar los papeles del suelo", "duration_minutes": 5}]}',
+        );
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentDelivered>());
+      // Exactly the three steps landed, in the body's own order, and
+      // nothing else: no scan slice_returned, no deal, no card row.
+      expect(store.facts, hasLength(3));
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      final instant = _fixedClock().microsecondsSinceEpoch;
+      final ids = <String>{};
+      for (var i = 0; i < store.facts.length; i++) {
+        final fact = store.facts[i];
+        expect(fact.id, isNotEmpty);
+        ids.add(fact.id);
+        // A BYOK-path fake: the cloud origin, set at genesis.
+        expect(fact.origin, Origin.cloud);
+        // The ONE banding: 180–300 s is maintenance, by construction.
+        expect(fact.size, Size.maintenance);
+        // The estimate is verbatim minutes × 60.
+        expect(fact.estimateSeconds, [180, 240, 300][i]);
+        // The description is the Origin Context every step shares.
+        expect(fact.originContext, 'Un rincón con cajas apiladas');
+        // The step's own words ride their own column.
+        expect(fact.stepText, isNotNull);
+        expect(fact.dictated, isNull);
+        expect(fact.rescueOf, isNull);
+        // One resolution instant for the whole slice, the shell's own
+        // mint (AD-3), and the offset in force at it.
+        expect(fact.instantUtcMicros, instant);
+        expect(fact.offsetSeconds, _fixedClock().timeZoneOffset.inSeconds);
+      }
+      expect(ids, hasLength(3), reason: 'one shell-minted id per fact');
+      expect(files.unlinkedScans, [
+        passed.scanId,
+      ], reason: 'the image died with the resolution (FR-16, FR-25)');
+    });
+
+    test('the landing\'s store order IS the plan\'s step order — all '
+        'facts of one slice share the single resolution instant, and '
+        '`readPoolFacts` returns them in the body\'s own step order '
+        '(Story 5.7, AD-3 — 5.9\'s "first step" consumption; no '
+        'ordinal column exists by design)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerDelivered(
+          '{"description": "Un rincón con cajas apiladas", "steps": ['
+          '{"text": "Recoger la caja de arriba", "duration_minutes": 3},'
+          '{"text": "Doblar la ropa del sofá", "duration_minutes": 4},'
+          '{"text": "Botar los papeles del suelo", "duration_minutes": 5}]}',
+        );
+      final (controller, _) = await standingScan(store, files, slicer: slicer);
+      expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
+      // The snapshot reads the plan back in the body\'s step order:
+      // the landing appends in slice order and the read\'s rowid
+      // tiebreak preserves it among the tied instants.
+      final facts = await store.readPoolFacts();
+      expect(facts.map((fact) => fact.stepText), [
+        'Recoger la caja de arriba',
+        'Doblar la ropa del sofá',
+        'Botar los papeles del suelo',
+      ]);
+      // And the whole slice shares the one resolution instant — the
+      // shell\'s own mint, the tie the rowid tiebreak breaks.
+      expect(facts.map((fact) => fact.instantUtcMicros).toSet(), hasLength(1));
+    });
+
+    test('a delivered body that violates the step contract folds into '
+        'the declared mapping: one slice_failed row under '
+        'malformedResponse, the failed outcome, nothing dealt, never '
+        'an eighth cause (Story 5.7, FR-16, FR-29, AD-21)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      // Parses as JSON, violates the contract: no description, a step
+      // tagged outside 3–5.
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerDelivered(
+          '{"steps": [{"text": "Recoger", "duration_minutes": 9}]}',
+        );
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentFailed>());
+      expect(
+        (outcome as ScanConsentFailed).cause,
+        SlicerFailureCause.malformedResponse,
+      );
+      expect(store.facts, isEmpty, reason: 'a violating body lands nothing');
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'slice_failed',
+      ]);
+      final row = store.entries[1];
+      expect(row.itemId, isNull);
+      expect(row.itemOrigin, isNull);
+      expect(row.sliceCause, 'malformedResponse');
+      expect(row.permission, isNull);
+      expect(row.settingKey, isNull);
+      expect(row.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('the Local stub delivers the local origin — the debug path '
+        'mints cloud nowhere (Story 5.7, FR-16)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      const slicer = LocalSlicer(cannedMarker: 'marca local');
+      final (controller, _) = await standingScan(store, files, slicer: slicer);
+      expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
+      expect(store.facts, hasLength(2));
+      for (final fact in store.facts) {
+        expect(fact.origin, Origin.local);
+        expect(fact.size, Size.maintenance);
+        expect(fact.estimateSeconds, inInclusiveRange(180, 300));
+        expect(fact.originContext, 'marca local');
+        expect(fact.stepText, 'marca local');
+      }
     });
 
     test('a failed dispatch surfaces the raw cause for the standing '
@@ -797,6 +982,17 @@ void main() {
         (outcome as ScanConsentFailed).cause,
         SlicerFailureCause.invalidKey,
       );
+      // The failure is on record (Story 5.7, FR-26 b): one
+      // `slice_failed` row carrying the raw cause verbatim, no item
+      // pair, nothing inferred from absence.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'slice_failed',
+      ]);
+      final row = store.entries[1];
+      expect(row.sliceCause, 'invalidKey');
+      expect(row.itemId, isNull);
+      expect(store.facts, isEmpty);
       expect(files.unlinkedScans, [passed.scanId]);
     });
 
@@ -828,6 +1024,11 @@ void main() {
         'consent_granted',
         'scan_abandoned',
       ]);
+      // A stale resolution lands NOTHING (Story 5.7): the delivered
+      // body that answered after the close is discarded whole — no
+      // facts, no slice_failed row — the entries above stay exactly
+      // the act's and the departure's rows.
+      expect(store.facts, isEmpty);
       final abandonment = store.entries[1];
       expect(abandonment.itemId, isNull);
       expect(abandonment.permission, isNull);
@@ -868,6 +1069,9 @@ void main() {
         'consent_granted',
         'scan_abandoned',
       ]);
+      // Nothing was ever dispatched, so nothing can land: no facts,
+      // no slice_failed — the entries above stay exactly two.
+      expect(store.facts, isEmpty);
       expect(files.unlinkedScans, [passed.scanId]);
     });
 
@@ -930,7 +1134,11 @@ void main() {
       await controller.close();
       unlinkBrake.complete();
       expect(await granting, isA<ScanConsentFailed>());
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'slice_failed',
+      ], reason: 'the failed resolution is on record (Story 5.7)');
+      expect(store.entries[1].sliceCause, 'invalidKey');
       // The accepted double, asserted exactly rather than masked: the
       // resolution's tail unlink recorded first, then the close's own
       // — the port's delete is idempotent, the second a quiet no-op.
@@ -963,7 +1171,14 @@ void main() {
       await controller.close();
       unlinkBrake.complete();
       expect(await granting, isA<ScanConsentFailed>());
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      expect(
+        store.entries.map((entry) => entry.kind),
+        ['consent_granted', 'slice_failed'],
+        reason:
+            'the throw folded to providerUnreachable is a failed '
+            'dispatch on record (Story 5.7)',
+      );
+      expect(store.entries[1].sliceCause, 'providerUnreachable');
       // The accepted double, asserted exactly rather than masked: the
       // resolution's tail unlink recorded first, then the close's own
       // — the port's delete is idempotent, the second a quiet no-op.
@@ -1004,6 +1219,39 @@ void main() {
       expect(inner.entries, isEmpty, reason: 'nothing landed, nothing escaped');
     });
 
+    test('a failing store on the landing\'s fact appends is absorbed '
+        'quietly — a delivered body still resolves delivered, the '
+        'unlink stands, and the partial plan derives honestly (the '
+        'landing\'s own catchError, the abandonment suite\'s '
+        'throwing-store sibling)', () async {
+      final inner = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerDelivered(
+          '{"description": "Un rincón con cajas apiladas", "steps": ['
+          '{"text": "Recoger la caja de arriba", "duration_minutes": 3},'
+          '{"text": "Doblar la ropa del sofá", "duration_minutes": 4}]}',
+        );
+      final controller = ScanController(
+        store: _ThrowingFactStore(inner),
+        files: files,
+        camera: _FakeCamera()
+          ..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      // The second fact append throws (absorbed): no throw escapes the
+      // wait — the outcome is delivered, the one landed fact stands.
+      expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
+      expect(inner.facts, hasLength(1));
+      expect(files.unlinkedScans, isNotEmpty);
+    });
+
     test('a double close mid-wait (the lifecycle release, then the '
         'dispose) mints exactly one scan_abandoned row — the flag clears '
         'with the mint, so close stays idempotent for the row (Story '
@@ -1023,6 +1271,9 @@ void main() {
         'consent_granted',
         'scan_abandoned',
       ], reason: 'the departure is one act — its row is one row');
+      // The delivered resolution answered stale: it landed nothing —
+      // no facts, no slice_failed (Story 5.7).
+      expect(store.facts, isEmpty);
     });
 
     test('a stale grant cannot clear a newer scan\'s abandonment flag '
@@ -1073,6 +1324,9 @@ void main() {
         'consent_granted',
         'scan_abandoned',
       ]);
+      // Both delivered bodies answered stale: neither landed
+      // anything — no facts, no slice_failed (Story 5.7).
+      expect(store.facts, isEmpty);
     });
 
     test('a close after the resolution mints nothing — every '
@@ -1160,6 +1414,13 @@ void main() {
         SlicerFailureCause.providerUnreachable,
       );
       expect(slicer.requests, hasLength(1));
+      // The fold is a failed dispatch all the same: its row lands with
+      // the folded cause (Story 5.7, FR-26 b).
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'slice_failed',
+      ]);
+      expect(store.entries[1].sliceCause, 'providerUnreachable');
       expect(files.unlinkedScans, [passed.scanId]);
     });
 

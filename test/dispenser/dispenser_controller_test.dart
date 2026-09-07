@@ -3199,6 +3199,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
 
     test('read deals the standing capture by its own line — the '
@@ -3505,6 +3506,7 @@ void main() {
             dictated: null,
             rescueOf: null,
             estimateSeconds: null,
+            stepText: null,
           ),
         ]);
         final dealt = await openSessionAndReadFirstDeal(store);
@@ -3665,6 +3667,7 @@ void main() {
         dictated: null,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       );
 
       // Three eligible days of declines, each its own closed sitting.
@@ -3775,6 +3778,7 @@ void main() {
         dictated: null,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       );
       List<LogEntryRecord> decline(int day) {
         final at = DateTime.utc(2026, 8, day, 10);

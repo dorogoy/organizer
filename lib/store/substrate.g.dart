@@ -101,6 +101,17 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _stepTextMeta = const VerificationMeta(
+    'stepText',
+  );
+  late final GeneratedColumn<String> stepText = GeneratedColumn<String>(
+    'step_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -112,6 +123,7 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
     dictated,
     rescueOf,
     estimateSeconds,
+    stepText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -198,6 +210,12 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         ),
       );
     }
+    if (data.containsKey('step_text')) {
+      context.handle(
+        _stepTextMeta,
+        stepText.isAcceptableOrUnknown(data['step_text']!, _stepTextMeta),
+      );
+    }
     return context;
   }
 
@@ -243,6 +261,10 @@ class PoolFacts extends Table with TableInfo<PoolFacts, PoolFact> {
         DriftSqlType.int,
         data['${effectivePrefix}estimate_seconds'],
       ),
+      stepText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}step_text'],
+      ),
     );
   }
 
@@ -265,6 +287,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
   final bool? dictated;
   final String? rescueOf;
   final int? estimateSeconds;
+  final String? stepText;
   const PoolFact({
     required this.id,
     required this.origin,
@@ -275,6 +298,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     this.dictated,
     this.rescueOf,
     this.estimateSeconds,
+    this.stepText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -295,6 +319,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     }
     if (!nullToAbsent || estimateSeconds != null) {
       map['estimate_seconds'] = Variable<int>(estimateSeconds);
+    }
+    if (!nullToAbsent || stepText != null) {
+      map['step_text'] = Variable<String>(stepText);
     }
     return map;
   }
@@ -318,6 +345,9 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       estimateSeconds: estimateSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(estimateSeconds),
+      stepText: stepText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stepText),
     );
   }
 
@@ -336,6 +366,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       dictated: serializer.fromJson<bool?>(json['dictated']),
       rescueOf: serializer.fromJson<String?>(json['rescue_of']),
       estimateSeconds: serializer.fromJson<int?>(json['estimate_seconds']),
+      stepText: serializer.fromJson<String?>(json['step_text']),
     );
   }
   @override
@@ -351,6 +382,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       'dictated': serializer.toJson<bool?>(dictated),
       'rescue_of': serializer.toJson<String?>(rescueOf),
       'estimate_seconds': serializer.toJson<int?>(estimateSeconds),
+      'step_text': serializer.toJson<String?>(stepText),
     };
   }
 
@@ -364,6 +396,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     Value<bool?> dictated = const Value.absent(),
     Value<String?> rescueOf = const Value.absent(),
     Value<int?> estimateSeconds = const Value.absent(),
+    Value<String?> stepText = const Value.absent(),
   }) => PoolFact(
     id: id ?? this.id,
     origin: origin ?? this.origin,
@@ -378,6 +411,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     estimateSeconds: estimateSeconds.present
         ? estimateSeconds.value
         : this.estimateSeconds,
+    stepText: stepText.present ? stepText.value : this.stepText,
   );
   PoolFact copyWithCompanion(PoolFactsCompanion data) {
     return PoolFact(
@@ -398,6 +432,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
       estimateSeconds: data.estimateSeconds.present
           ? data.estimateSeconds.value
           : this.estimateSeconds,
+      stepText: data.stepText.present ? data.stepText.value : this.stepText,
     );
   }
 
@@ -412,7 +447,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           ..write('originContext: $originContext, ')
           ..write('dictated: $dictated, ')
           ..write('rescueOf: $rescueOf, ')
-          ..write('estimateSeconds: $estimateSeconds')
+          ..write('estimateSeconds: $estimateSeconds, ')
+          ..write('stepText: $stepText')
           ..write(')'))
         .toString();
   }
@@ -428,6 +464,7 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
     dictated,
     rescueOf,
     estimateSeconds,
+    stepText,
   );
   @override
   bool operator ==(Object other) =>
@@ -441,7 +478,8 @@ class PoolFact extends DataClass implements Insertable<PoolFact> {
           other.originContext == this.originContext &&
           other.dictated == this.dictated &&
           other.rescueOf == this.rescueOf &&
-          other.estimateSeconds == this.estimateSeconds);
+          other.estimateSeconds == this.estimateSeconds &&
+          other.stepText == this.stepText);
 }
 
 class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
@@ -454,6 +492,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
   final Value<bool?> dictated;
   final Value<String?> rescueOf;
   final Value<int?> estimateSeconds;
+  final Value<String?> stepText;
   final Value<int> rowid;
   const PoolFactsCompanion({
     this.id = const Value.absent(),
@@ -465,6 +504,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     this.dictated = const Value.absent(),
     this.rescueOf = const Value.absent(),
     this.estimateSeconds = const Value.absent(),
+    this.stepText = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PoolFactsCompanion.insert({
@@ -477,6 +517,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     this.dictated = const Value.absent(),
     this.rescueOf = const Value.absent(),
     this.estimateSeconds = const Value.absent(),
+    this.stepText = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        origin = Value(origin),
@@ -493,6 +534,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Expression<bool>? dictated,
     Expression<String>? rescueOf,
     Expression<int>? estimateSeconds,
+    Expression<String>? stepText,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -505,6 +547,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       if (dictated != null) 'dictated': dictated,
       if (rescueOf != null) 'rescue_of': rescueOf,
       if (estimateSeconds != null) 'estimate_seconds': estimateSeconds,
+      if (stepText != null) 'step_text': stepText,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -519,6 +562,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     Value<bool?>? dictated,
     Value<String?>? rescueOf,
     Value<int?>? estimateSeconds,
+    Value<String?>? stepText,
     Value<int>? rowid,
   }) {
     return PoolFactsCompanion(
@@ -531,6 +575,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
       dictated: dictated ?? this.dictated,
       rescueOf: rescueOf ?? this.rescueOf,
       estimateSeconds: estimateSeconds ?? this.estimateSeconds,
+      stepText: stepText ?? this.stepText,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -565,6 +610,9 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
     if (estimateSeconds.present) {
       map['estimate_seconds'] = Variable<int>(estimateSeconds.value);
     }
+    if (stepText.present) {
+      map['step_text'] = Variable<String>(stepText.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -583,6 +631,7 @@ class PoolFactsCompanion extends UpdateCompanion<PoolFact> {
           ..write('dictated: $dictated, ')
           ..write('rescueOf: $rescueOf, ')
           ..write('estimateSeconds: $estimateSeconds, ')
+          ..write('stepText: $stepText, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1611,6 +1660,7 @@ typedef $PoolFactsCreateCompanionBuilder = PoolFactsCompanion Function({
   Value<bool?> dictated,
   Value<String?> rescueOf,
   Value<int?> estimateSeconds,
+  Value<String?> stepText,
   Value<int> rowid,
 });
 typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
@@ -1623,6 +1673,7 @@ typedef $PoolFactsUpdateCompanionBuilder = PoolFactsCompanion Function({
   Value<bool?> dictated,
   Value<String?> rescueOf,
   Value<int?> estimateSeconds,
+  Value<String?> stepText,
   Value<int> rowid,
 });
 
@@ -1677,6 +1728,11 @@ class $PoolFactsFilterComposer
 
   ColumnFilters<int> get estimateSeconds => $composableBuilder(
     column: $table.estimateSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stepText => $composableBuilder(
+    column: $table.stepText,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1734,6 +1790,11 @@ class $PoolFactsOrderingComposer
     column: $table.estimateSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get stepText => $composableBuilder(
+    column: $table.stepText,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $PoolFactsAnnotationComposer
@@ -1779,6 +1840,9 @@ class $PoolFactsAnnotationComposer
     column: $table.estimateSeconds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get stepText =>
+      $composableBuilder(column: $table.stepText, builder: (column) => column);
 }
 
 class $PoolFactsTableManager
@@ -1818,6 +1882,7 @@ class $PoolFactsTableManager
                 Value<bool?> dictated = const Value.absent(),
                 Value<String?> rescueOf = const Value.absent(),
                 Value<int?> estimateSeconds = const Value.absent(),
+                Value<String?> stepText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion(
                 id: id,
@@ -1829,6 +1894,7 @@ class $PoolFactsTableManager
                 dictated: dictated,
                 rescueOf: rescueOf,
                 estimateSeconds: estimateSeconds,
+                stepText: stepText,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1842,6 +1908,7 @@ class $PoolFactsTableManager
                 Value<bool?> dictated = const Value.absent(),
                 Value<String?> rescueOf = const Value.absent(),
                 Value<int?> estimateSeconds = const Value.absent(),
+                Value<String?> stepText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PoolFactsCompanion.insert(
                 id: id,
@@ -1853,6 +1920,7 @@ class $PoolFactsTableManager
                 dictated: dictated,
                 rescueOf: rescueOf,
                 estimateSeconds: estimateSeconds,
+                stepText: stepText,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -80,6 +80,7 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'logEntriesSliceCauseUpgrade',
     'poolFactsRescueOfUpgrade',
     'poolFactsEstimateSecondsUpgrade',
+    'poolFactsStepTextUpgrade',
     'additiveAlterShape',
     'tableInfoPragmaTemplate',
     'tableInfoPragmaSlot',

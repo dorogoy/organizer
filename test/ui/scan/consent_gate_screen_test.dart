@@ -315,7 +315,9 @@ void main() {
       'exactly one dispatch, and nothing reads as progress (UX-DR56, '
       'FR-16)', (tester) async {
     final slicer = _FakeSlicer(
-      const SlicerDelivered('[{"text": "x", "duration_minutes": 4}]'),
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
     );
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
@@ -365,8 +367,11 @@ void main() {
   testWidgets('the pencil moves: fixed-duration pumps advance the '
       'painter\'s phase off the rest pose — a frozen-at-rest regression '
       'fails here (the loop is live, Story 5.6)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, _, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -440,7 +445,11 @@ void main() {
   testWidgets('a rapid double-tap on the decline takes one decision — '
       'exactly one consent_declined row (the surface and the controller '
       'agree)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     // The second tap is a real gesture at the first's own spot: the
@@ -458,7 +467,11 @@ void main() {
   testWidgets('the wait copy belongs to the accept arm alone — a decline '
       'never renders Creando tareas, not even for the instant before the '
       'route replaces the gate', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateDecline));
@@ -476,7 +489,11 @@ void main() {
   testWidgets('a close landing mid-decline pops the gate — the decline '
       'surface never claims a decline whose row does not stand (the '
       'stale arm mirrors the accept\'s)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, store, _, _) = await standingController(slicer);
     // The append hangs in flight: the window where a real departure
     // (the lifecycle close) can land between the answer and the row's
@@ -498,7 +515,11 @@ void main() {
 
   testWidgets('the system back pops the gate — leaving is not declining, '
       'the OS gesture is the way out (no PopScope dead-end)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.binding.handlePopRoute();
@@ -511,7 +532,11 @@ void main() {
       'the return holds (5.2\'s release contract carried past it)', (
     tester,
   ) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, _, files, camera) = await standingController(slicer);
     await pumpGate(tester, controller);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -530,7 +555,11 @@ void main() {
       'closes — the hold-open rule, no unlink, no camera release', (
     tester,
   ) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    );
     final (controller, _, files, camera) = await standingController(slicer);
     await pumpGate(tester, controller);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -550,8 +579,11 @@ void main() {
       'close\'s unlink the only one, no routing for the late landing', (
     tester,
   ) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, files, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -575,8 +607,11 @@ void main() {
       'with exactly one scan_abandoned beside the act\'s consent_granted, '
       'and the late landing records nothing more (Story 5.6, FR-16, '
       'AD-8, UX-DR52 — the OS gesture is the one exit)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, files, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -606,8 +641,11 @@ void main() {
       'abandonment — one row, the wait beneath it cancelled and '
       'discarded, nothing queued on the resume (Story 5.6, FR-16, '
       'AD-8)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, files, camera) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -639,8 +677,11 @@ void main() {
   testWidgets('a transient inactive occlusion mid-wait holds: the wait '
       'stands, no scan_abandoned row — and the resolution that follows '
       'mints none either (the 5.2/5.5 contract)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -669,8 +710,11 @@ void main() {
   testWidgets('reduced motion: the pencil rests at its authored pose — '
       'the loop stops for the OS setting while the title still '
       'communicates the activity (Story 5.6, UX-DR56)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     // The OS setting through the production path: the root MediaQuery
@@ -696,8 +740,11 @@ void main() {
   testWidgets('reduced motion toggled mid-wait: the running loop stops '
       'at the authored rest pose and restarts when the setting clears '
       '(Story 5.6)', (tester) async {
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -734,8 +781,11 @@ void main() {
       AppLifecycleState.hidden,
       AppLifecycleState.detached,
     ]) {
-      final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-        ..gate = Completer<void>();
+      final slicer = _FakeSlicer(
+        const SlicerDelivered(
+          '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+        ),
+      )..gate = Completer<void>();
       final (controller, store, files, camera) = await standingController(
         slicer,
       );
@@ -770,8 +820,11 @@ void main() {
     await tester.binding.setSurfaceSize(const ui.Size(320, 480));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
-      ..gate = Completer<void>();
+    final slicer = _FakeSlicer(
+      const SlicerDelivered(
+        '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+      ),
+    )..gate = Completer<void>();
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     // The 200% body pushes the pair below the fold on the short

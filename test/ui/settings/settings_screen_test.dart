@@ -823,6 +823,7 @@ void main() {
       dictated: dictated,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
 
     testWidgets('the dictated-count line counts the pool\'s dictated '

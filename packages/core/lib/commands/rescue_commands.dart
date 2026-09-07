@@ -41,12 +41,16 @@ import 'package:core/weave/weave.dart';
 /// text as its Origin Context, its verbatim Slicer estimate, its
 /// parent's id through `rescueOf`, and the origin inherited from the
 /// parent (AD-14 — re-slice is mechanism, not re-authorship). The
-/// size is the fixed `instant` band and never rides the payload: it
-/// is law, not data. The shell completes each fact, minting the
-/// UUIDv7 id, the instant and the offset in force, before the port
-/// sees it.
+/// size rides the payload too, but only as the ONE fixed banding's
+/// own output (`sizeOfEstimateSeconds`, Story 5.7's single
+/// duration→size rule — instant across the rescue band's 1–60 s,
+/// byte-identical to the pre-5.7 landing): it is the banding's
+/// answer, never an independent value. The shell completes each
+/// fact, minting the UUIDv7 id, the instant and the offset in
+/// force, before the port sees it.
 typedef RescueStepFactContent = ({
   Origin origin,
+  Size size,
   String originContext,
   String rescueOf,
   int estimateSeconds,
@@ -169,7 +173,9 @@ typedef RescueStepSeed = ({String id, RescueStep step});
 /// ([parseRescueSteps]' own contract already bounds them 2–4 × 1–60 s,
 /// each step's text at most `rescueStepTextMost` code units) become
 /// transient pool facts — origin inherited from the parent,
-/// size `instant`, estimate verbatim — and the supersede pair lands:
+/// size from the one fixed banding (`sizeOfEstimateSeconds` —
+/// instant across the rescue band), estimate verbatim — and the
+/// supersede pair lands:
 /// the `slice_returned` row clears the standing dealt-but-unanswered
 /// card (the walk's rule), and the bundled next `card_dealt` resolves
 /// over the log as it will be once the rows append, with the fresh
@@ -245,7 +251,7 @@ RescueReturnedContent rescueReturned({
       PoolFact(
         id: seed.id,
         origin: origin,
-        size: Size.instant,
+        size: sizeOfEstimateSeconds(seed.step.durationSeconds),
         instantUtcMicros: instantUtcMicros,
         offsetSeconds: offsetSeconds,
         originContext: seed.step.text,
@@ -267,6 +273,7 @@ RescueReturnedContent rescueReturned({
       for (final seed in seeds)
         (
           origin: origin,
+          size: sizeOfEstimateSeconds(seed.step.durationSeconds),
           originContext: seed.step.text,
           rescueOf: itemId,
           estimateSeconds: seed.step.durationSeconds,

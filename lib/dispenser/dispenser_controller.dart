@@ -14,7 +14,6 @@ import 'package:core/log/log_entry.dart';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
-import 'package:core/pool/pool_fact.dart' as pool;
 import 'package:core/settings/settings.dart';
 import 'package:core/slicer/rescue_steps.dart';
 import 'package:core/weave/session.dart';
@@ -680,13 +679,17 @@ class DispenserController {
             await store.appendPoolFact((
               id: seeds[i].id,
               origin: fact.origin,
-              size: pool.Size.instant,
+              // The seed's own size — the ONE fixed banding's output
+              // (Story 5.7: `sizeOfEstimateSeconds` core-side; the
+              // shell never re-derives or hardcodes a size here).
+              size: fact.size,
               instantUtcMicros: landingNow.microsecondsSinceEpoch,
               offsetSeconds: landingNow.timeZoneOffset.inSeconds,
               originContext: fact.originContext,
               dictated: null,
               rescueOf: fact.rescueOf,
               estimateSeconds: fact.estimateSeconds,
+              stepText: null,
             ));
           }
           for (final content in returned.entries) {

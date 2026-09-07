@@ -712,6 +712,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     ),
     (
       id: 'step-s1',
@@ -723,6 +724,7 @@ void main() {
       dictated: null,
       rescueOf: 'step-parent',
       estimateSeconds: 45,
+      stepText: null,
     ),
     (
       id: 'step-s2',
@@ -734,6 +736,7 @@ void main() {
       dictated: null,
       rescueOf: 'step-parent',
       estimateSeconds: 60,
+      stepText: null,
     ),
   ];
 
@@ -2718,6 +2721,7 @@ void main() {
         dictated: null,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       ),
     ]);
     await SessionController(
@@ -2786,6 +2790,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
     LogEntryRecord seedRow(
       String kind,
@@ -2890,6 +2895,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
     LogEntryRecord seedRow(
       String kind,
@@ -3005,6 +3011,7 @@ void main() {
         dictated: null,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       );
       LogEntryRecord seedRow(
         String kind,
@@ -3098,6 +3105,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
     LogEntryRecord seedRow(
       String kind,
@@ -3225,6 +3233,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
     LogEntryRecord seedRow(
       String kind,

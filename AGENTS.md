@@ -32,3 +32,7 @@ Per session:
 - Restore after tests: `settings put system font_scale 1.0`, `cmd uimode night no`, `date -s @<host epoch>`; stop with `$ADB -s emulator-5554 emu kill`.
 
 Reference run with full evidence: story 2-7's spec, `_bmad-output/implementation-artifacts/2-7-warm-return.md` → Manual Verification.
+
+## Subagent dispatch (BMAD builds)
+
+- Implementation handoffs in BMAD build workflows (bmad-build step-03 and patch dispatches) go to a dev subagent: `bmad-dev` (project override in `.pi/agents/` — no model pin, inherits the session's model, implements the handed spec directly) for stories and dense work; `bmad-flash-dev` (global, glm-5.3-flash) for lightweight mechanical tasks only — trivial fixes, doc/comment updates, small additive pins. The flash agent must escalate back if the task is not simple. Review layers still require session-model-capability subagents per the workflow's own rule.
