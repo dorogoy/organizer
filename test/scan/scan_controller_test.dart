@@ -254,10 +254,15 @@ class _FakeSlicer implements SlicerPort {
   Object? throwOnSlice;
   final requests = <ScanSliceRequest>[];
   Completer<void>? gate;
+  Completer<void>? sliceStarted;
 
   @override
   Future<SlicerOutcome> slice(SlicerRequest request) async {
     requests.add(request as ScanSliceRequest);
+    final started = sliceStarted;
+    if (started != null && !started.isCompleted) {
+      started.complete();
+    }
     final gate = this.gate;
     if (gate != null) {
       await gate.future;
@@ -899,6 +904,63 @@ void main() {
       expect(camera.disposedCalls, isNotEmpty);
     });
 
+    test('a failed resolution that parks in its tail unlink cannot mint '
+        'scan_abandoned when close lands (Story 5.6)', () async {
+      final store = _RecordingStore();
+      final unlinkBrake = Completer<void>();
+      final files = _RecordingFiles()..unlinkGate = unlinkBrake;
+      final slicer = _FakeSlicer()
+        ..outcome = const SlicerFailed(SlicerFailureCause.invalidKey);
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: _FakeCamera()
+          ..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final granting = controller.grantConsent();
+      await Future<void>.delayed(Duration.zero);
+      expect(files.unlinkedScans, isNotEmpty);
+      await controller.close();
+      unlinkBrake.complete();
+      expect(await granting, isA<ScanConsentFailed>());
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    });
+
+    test('a throwing resolution that parks in its tail unlink cannot mint '
+        'scan_abandoned when close lands (Story 5.6)', () async {
+      final store = _RecordingStore();
+      final unlinkBrake = Completer<void>();
+      final files = _RecordingFiles()..unlinkGate = unlinkBrake;
+      final slicer = _FakeSlicer()..throwOnSlice = StateError('seam threw');
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: _FakeCamera()
+          ..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final granting = controller.grantConsent();
+      await Future<void>.delayed(Duration.zero);
+      expect(files.unlinkedScans, isNotEmpty);
+      await controller.close();
+      unlinkBrake.complete();
+      expect(await granting, isA<ScanConsentFailed>());
+      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    });
+
     test('a failing store on the abandonment append is absorbed quietly — '
         'close() mid-dispatch still completes, the unlink and the camera '
         'dispose still happen, nothing escapes (the row writer\'s '
@@ -950,6 +1012,56 @@ void main() {
         'consent_granted',
         'scan_abandoned',
       ], reason: 'the departure is one act — its row is one row');
+    });
+
+    test('a stale grant cannot clear a newer scan\'s abandonment flag '
+        'after the controller is reused (Story 5.6)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera()
+        ..shotOutcome = const CameraShotCaptured([1, 2, 3]);
+      final oldGate = Completer<void>();
+      final slicer = _FakeSlicer()..gate = oldGate;
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: camera,
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      slicer.sliceStarted = Completer<void>();
+      final oldGrant = controller.grantConsent();
+      await slicer.sliceStarted!.future;
+      await controller.close();
+
+      // Reuse the singleton controller for a new scan while the old
+      // provider call is still unresolved.
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final newGate = Completer<void>();
+      slicer
+        ..gate = newGate
+        ..sliceStarted = Completer<void>();
+      final newGrant = controller.grantConsent();
+      await slicer.sliceStarted!.future;
+
+      // The old stale landing must not clear the new wait's flag.
+      oldGate.complete();
+      expect(await oldGrant, isA<ScanConsentStale>());
+      await controller.close();
+      newGate.complete();
+      expect(await newGrant, isA<ScanConsentStale>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+        'consent_granted',
+        'scan_abandoned',
+      ]);
     });
 
     test('a close after the resolution mints nothing — every '

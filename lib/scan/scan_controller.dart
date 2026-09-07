@@ -647,7 +647,11 @@ class ScanController {
         SlicerFailed(:final cause) => ScanConsentFailed(cause),
       };
     } finally {
-      _sliceInFlight = false;
+      // A stale grant may finish after close has opened a new scan. Do
+      // not clear that newer scan's wait flag from the old dispatch.
+      if (_epoch == epoch) {
+        _sliceInFlight = false;
+      }
     }
   }
 

@@ -18,6 +18,8 @@
 // accept arm: fixed-duration pumps only — the pencil repeats
 // forever and never settles.
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:core/ports/face_gate_port.dart';
 import 'package:core/ports/files_port.dart';
@@ -33,6 +35,8 @@ import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/no_slicer/no_slicer_surface.dart';
+import 'package:organizer/ui/glyphs/glyph_canvas.dart';
+import 'package:organizer/ui/glyphs/pencil_glyph.dart';
 import 'package:organizer/ui/scan/consent_gate_screen.dart';
 import 'package:organizer/ui/scan/writing_pencil.dart';
 import 'package:organizer/ui/tokens.dart';
@@ -142,6 +146,37 @@ DateTime _fixedClock() => DateTime.utc(2026, 9, 6, 10);
 /// from the pencil's 2400 ms loop period (the loop never settles;
 /// only the popped subtree's disposal ends the scheduling).
 const Duration routePopSettle = Duration(milliseconds: 600);
+
+Future<Uint8List> _rasterize(CustomPainter painter) async {
+  const imageSize = 160;
+  const renderSize = 160.0;
+  final recorder = ui.PictureRecorder();
+  painter.paint(Canvas(recorder), const Size.square(renderSize));
+  final image = await recorder.endRecording().toImage(imageSize, imageSize);
+  final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  image.dispose();
+  return data!.buffer.asUint8List();
+}
+
+int _opaquePixels(Uint8List pixels) {
+  var count = 0;
+  for (var index = 3; index < pixels.length; index += 4) {
+    if (pixels[index] != 0) {
+      count++;
+    }
+  }
+  return count;
+}
+
+int _differentBytes(Uint8List first, Uint8List second) {
+  var count = 0;
+  for (var index = 0; index < first.length; index++) {
+    if (first[index] != second[index]) {
+      count++;
+    }
+  }
+  return count;
+}
 
 void main() {
   final strings = AppStringsEs();
@@ -300,6 +335,15 @@ void main() {
     // animation.
     expect(find.text(strings.scanWaitTitle), findsOneWidget);
     expect(find.byType(WritingPencil), findsOneWidget);
+    final waitRow = find.ancestor(
+      of: find.text(strings.scanWaitTitle),
+      matching: find.byType(Row),
+    );
+    expect(waitRow, findsOneWidget);
+    expect(
+      find.descendant(of: waitRow, matching: find.byType(WritingPencil)),
+      findsOneWidget,
+    );
     // No progress semantics exist anywhere on the surface: no bar, no
     // spinner, no ring — the wait is deliberately uncapped.
     expect(find.byType(LinearProgressIndicator), findsNothing);
@@ -340,6 +384,57 @@ void main() {
           'the pencil is moving — an animation frozen at phase '
           'zero fails here',
     );
+  });
+
+  testWidgets('the painter renders the authored rest pose and moves in '
+      'both palettes — a blank or rotated wait affordance fails', (
+    tester,
+  ) async {
+    for (final (mass, ink) in [
+      (IconMassPalette.iconMassNeutral, FieldPalette.inkPrimary),
+      (DarkPalette.iconMassNeutralDark, DarkPalette.inkPrimaryDark),
+    ]) {
+      final rendered = await tester.runAsync(() async {
+        final authored = await _rasterize(
+          TreatmentPainter(
+            scale: 160 / 24,
+            massColor: mass,
+            lineColor: ink,
+            massPaths: [PencilGlyph.shaftPath()],
+            linePaths: PencilGlyph.linePaths(),
+          ),
+        );
+        final rest = await _rasterize(
+          WritingPencilPainter(
+            scale: 160 / 24,
+            phase: 0,
+            massColor: mass,
+            lineColor: ink,
+          ),
+        );
+        final moved = await _rasterize(
+          WritingPencilPainter(
+            scale: 160 / 24,
+            phase: 0.125,
+            massColor: mass,
+            lineColor: ink,
+          ),
+        );
+        return (authored, rest, moved);
+      });
+      final (authored, rest, moved) = rendered!;
+      expect(_opaquePixels(rest), greaterThan(0));
+      expect(
+        _differentBytes(authored, rest),
+        0,
+        reason: 'phase zero must equal the authored pencil',
+      );
+      expect(
+        _differentBytes(rest, moved),
+        greaterThan(0),
+        reason: 'a nonzero phase must move the rendered pencil',
+      );
+    }
   });
 
   testWidgets('a rapid double-tap on the decline takes one decision — '

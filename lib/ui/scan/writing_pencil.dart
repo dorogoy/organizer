@@ -180,7 +180,9 @@ class WritingPencilPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final sweep = 2 * math.pi * phase;
     final glide = math.sin(sweep);
-    final wobble = math.sin(sweep + _wobblePhaseOffset) * _wobbleDegrees;
+    final wobble =
+        (math.sin(sweep + _wobblePhaseOffset) - math.sin(_wobblePhaseOffset)) *
+        _wobbleDegrees;
 
     canvas.save();
     canvas.scale(scale, scale);

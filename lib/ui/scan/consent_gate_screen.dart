@@ -276,15 +276,17 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
                     // routes on with nothing standing in, never a
                     // copy that claims task creation on a refusal.
                     _accepted
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               WritingPencil(size: _scanWaitPencilSize),
-                              const SizedBox(height: Spacing.cardPadding),
-                              Text(
-                                strings.scanWaitTitle,
-                                style: theme.textTheme.bodyMedium,
-                                textAlign: TextAlign.center,
+                              const SizedBox(width: Spacing.cardPadding),
+                              Expanded(
+                                child: Text(
+                                  strings.scanWaitTitle,
+                                  style: theme.textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ],
                           )
