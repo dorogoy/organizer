@@ -1,5 +1,6 @@
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:test/test.dart';
 
@@ -223,23 +224,36 @@ void main() {
     test('the row converts back at the read boundary as a moment — '
         'never unclassifiedKind (the R1 lesson), no drift schema '
         'change (AD-23)', () {
-      LogEntryRecord record({String? itemId, String? permission}) => (
+      LogEntryRecord record({
+        String? itemId,
+        Origin? itemOrigin,
+        String? stack,
+        String? settingKey,
+        int? settingValue,
+        String? settingTextValue,
+        int? pocketMinutes,
+        int? energyLevel,
+        int? reportValue,
+        int? reportWeek,
+        String? permission,
+        String? sliceCause,
+      }) => (
         id: '0190dddd-0000-7000-8000-000000000004',
         kind: 'scan_abandoned',
         instantUtcMicros: 7000,
         offsetSeconds: 3600,
         itemId: itemId,
-        itemOrigin: null,
-        stack: null,
-        settingKey: null,
-        settingValue: null,
-        settingTextValue: null,
-        pocketMinutes: null,
-        energyLevel: null,
-        reportValue: null,
-        reportWeek: null,
+        itemOrigin: itemOrigin,
+        stack: stack,
+        settingKey: settingKey,
+        settingValue: settingValue,
+        settingTextValue: settingTextValue,
+        pocketMinutes: pocketMinutes,
+        energyLevel: energyLevel,
+        reportValue: reportValue,
+        reportWeek: reportWeek,
         permission: permission,
-        sliceCause: null,
+        sliceCause: sliceCause,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -257,6 +271,29 @@ void main() {
         convertLogEntryRecord(record(permission: 'camera')).flaw,
         LogRecordFlaw.permissionOnNonPermissionKind,
       );
+      // Every remaining payload family probed on its own — a read-side
+      // drift that admits any one field fails here.
+      final payloaded = <LogEntryRecord>[
+        record(itemOrigin: Origin.cloud),
+        record(stack: 'a-stack'),
+        record(settingKey: 'a-key'),
+        record(settingValue: 3),
+        record(settingTextValue: 'a-text'),
+        record(pocketMinutes: 15),
+        record(energyLevel: 1),
+        record(reportValue: 3),
+        record(reportWeek: 32),
+        record(sliceCause: 'invalid_key'),
+      ];
+      for (final row in payloaded) {
+        expect(
+          convertLogEntryRecord(row).flaw,
+          isNotNull,
+          reason:
+              'a scan_abandoned row carrying any payload is excluded '
+              '(the departure asserts nothing beyond itself)',
+        );
+      }
     });
   });
 }

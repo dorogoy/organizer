@@ -26,57 +26,57 @@ class PencilGlyph extends IconGlyph {
   static double get axisY => math.sin(-math.pi / 4);
 
   /// The perpendicular unit's x — offsets by half a width.
-  static const double perpendicularX = 0.70710678;
+  static const double _perpendicularX = 0.70710678;
 
   /// The perpendicular unit's y.
-  static const double perpendicularY = 0.70710678;
+  static const double _perpendicularY = 0.70710678;
 
   /// The eraser end S, x — the axis origin.
-  static const double eraserX = 4.6;
+  static const double _eraserX = 4.6;
 
   /// The eraser end S, y.
-  static const double eraserY = 19.4;
+  static const double _eraserY = 19.4;
 
   /// The shaft's length along the axis, to the tip base T0.
-  static const double shaftLength = 13.4;
+  static const double _shaftLength = 13.4;
 
   /// The tip's length beyond T0, to the point P.
-  static const double tipLength = 5.66;
+  static const double _tipLength = 5.66;
 
   /// Half the pencil's width — the perpendicular offset.
-  static const double halfWidth = 1.7;
+  static const double _halfWidth = 1.7;
 
   /// The ferrule's distance along the axis from the eraser end.
-  static const double ferruleAt = 2.2;
+  static const double _ferruleAt = 2.2;
 
   /// The point [distance] user units along the axis from the eraser
   /// end.
-  static Offset alongAxis(double distance) =>
-      Offset(eraserX + axisX * distance, eraserY + axisY * distance);
+  static Offset _alongAxis(double distance) =>
+      Offset(_eraserX + axisX * distance, _eraserY + axisY * distance);
 
   /// [point] offset half a width along the perpendicular's positive
   /// direction.
-  static Offset plusPerpendicular(Offset point) => Offset(
-    point.dx + perpendicularX * halfWidth,
-    point.dy + perpendicularY * halfWidth,
+  static Offset _plusPerpendicular(Offset point) => Offset(
+    point.dx + _perpendicularX * _halfWidth,
+    point.dy + _perpendicularY * _halfWidth,
   );
 
   /// [point] offset half a width along the perpendicular's negative
   /// direction.
-  static Offset minusPerpendicular(Offset point) => Offset(
-    point.dx - perpendicularX * halfWidth,
-    point.dy - perpendicularY * halfWidth,
+  static Offset _minusPerpendicular(Offset point) => Offset(
+    point.dx - _perpendicularX * _halfWidth,
+    point.dy - _perpendicularY * _halfWidth,
   );
 
   /// The shaft's rectangle, eraser end to tip base — the colour
   /// plate's whole holding, filled, no stroke.
   static Path shaftPath() {
-    final t0 = alongAxis(shaftLength);
-    final s = Offset(eraserX, eraserY);
-    final sPlus = plusPerpendicular(s);
-    final sMinus = minusPerpendicular(s);
-    final t0Plus = plusPerpendicular(t0);
-    final t0Minus = minusPerpendicular(t0);
+    final t0 = _alongAxis(_shaftLength);
+    final s = Offset(_eraserX, _eraserY);
+    final sPlus = _plusPerpendicular(s);
+    final sMinus = _minusPerpendicular(s);
+    final t0Plus = _plusPerpendicular(t0);
+    final t0Minus = _minusPerpendicular(t0);
     return Path()
       ..moveTo(sPlus.dx, sPlus.dy)
       ..lineTo(t0Plus.dx, t0Plus.dy)
@@ -90,20 +90,20 @@ class PencilGlyph extends IconGlyph {
   /// caps and joins.
   static List<Path> linePaths() {
     final shaft = shaftPath();
-    final t0 = alongAxis(shaftLength);
-    final tipPoint = alongAxis(shaftLength + tipLength);
-    final ferrule = alongAxis(ferruleAt);
+    final t0 = _alongAxis(_shaftLength);
+    final tipPoint = _alongAxis(_shaftLength + _tipLength);
+    final ferrule = _alongAxis(_ferruleAt);
     return [
       Path()..addPath(shaft, Offset.zero),
       Path()
-        ..moveTo(plusPerpendicular(t0).dx, plusPerpendicular(t0).dy)
+        ..moveTo(_plusPerpendicular(t0).dx, _plusPerpendicular(t0).dy)
         ..lineTo(tipPoint.dx, tipPoint.dy)
-        ..lineTo(minusPerpendicular(t0).dx, minusPerpendicular(t0).dy),
+        ..lineTo(_minusPerpendicular(t0).dx, _minusPerpendicular(t0).dy),
       Path()
-        ..moveTo(plusPerpendicular(ferrule).dx, plusPerpendicular(ferrule).dy)
+        ..moveTo(_plusPerpendicular(ferrule).dx, _plusPerpendicular(ferrule).dy)
         ..lineTo(
-          minusPerpendicular(ferrule).dx,
-          minusPerpendicular(ferrule).dy,
+          _minusPerpendicular(ferrule).dx,
+          _minusPerpendicular(ferrule).dy,
         ),
     ];
   }

@@ -55,6 +55,7 @@
 // centered, 480 max-width, the 200% floor through SingleChildScrollView,
 // system back as OS pop.
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:flutter/material.dart';
@@ -276,19 +277,46 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
                     // routes on with nothing standing in, never a
                     // copy that claims task creation on a refusal.
                     _accepted
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              WritingPencil(size: _scanWaitPencilSize),
-                              const SizedBox(width: Spacing.cardPadding),
-                              Expanded(
-                                child: Text(
-                                  strings.scanWaitTitle,
-                                  style: theme.textTheme.bodyMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
+                        ? Center(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                // The pair stands centered — the
+                                // register's standing-alone mark, never
+                                // a stretched row's flush-left anchor.
+                                // Below the width where the register
+                                // size fits beside a wrapped title the
+                                // PENCIL yields (each half the width
+                                // minus the gap — the no-measuring
+                                // proxy for the longest title word),
+                                // so `beside` holds at every width
+                                // and nothing overflows horizontally
+                                // — the 200% floor's own decision.
+                                final pencil = math.max(
+                                  24.0,
+                                  math.min(
+                                    _scanWaitPencilSize,
+                                    (constraints.maxWidth -
+                                            Spacing.cardPadding) /
+                                        2,
+                                  ),
+                                );
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    WritingPencil(size: pencil),
+                                    const SizedBox(width: Spacing.cardPadding),
+                                    Flexible(
+                                      child: Text(
+                                        strings.scanWaitTitle,
+                                        style: theme.textTheme.bodyMedium,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           )
                         : const SizedBox.shrink()
                   else

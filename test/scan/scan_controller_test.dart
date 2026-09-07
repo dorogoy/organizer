@@ -931,6 +931,11 @@ void main() {
       unlinkBrake.complete();
       expect(await granting, isA<ScanConsentFailed>());
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      // The accepted double, asserted exactly rather than masked: the
+      // resolution's tail unlink recorded first, then the close's own
+      // — the port's delete is idempotent, the second a quiet no-op.
+      final scanId = files.writtenFrames.single.$1;
+      expect(files.unlinkedScans, [scanId, scanId]);
     });
 
     test('a throwing resolution that parks in its tail unlink cannot mint '
@@ -959,6 +964,11 @@ void main() {
       unlinkBrake.complete();
       expect(await granting, isA<ScanConsentFailed>());
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      // The accepted double, asserted exactly rather than masked: the
+      // resolution's tail unlink recorded first, then the close's own
+      // — the port's delete is idempotent, the second a quiet no-op.
+      final scanId = files.writtenFrames.single.$1;
+      expect(files.unlinkedScans, [scanId, scanId]);
     });
 
     test('a failing store on the abandonment append is absorbed quietly — '
@@ -975,6 +985,7 @@ void main() {
         camera: camera..shotOutcome = const CameraShotCaptured([1, 2, 3]),
         gate: _FakeGate(const FaceGatePass()),
         slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
         idMinter: const Uuid(),
         nowOf: _fixedClock,
       );

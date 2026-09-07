@@ -484,37 +484,33 @@ class ScanController {
     ));
   }
 
-  /// Appends exactly one `permission_refused` {camera} row through
-  /// the core's single sanctioned minter — the dictation seam's own
-  /// shape: the instant minted at entry, before any await, a v7 id per
-  /// row, the shared `LogWriteQueue` serializing the append against
-  /// every other write the shell owns. A failing store is absorbed
-  /// quietly — the queue recovers and nothing surfaces.
-  Future<void> _appendPermissionRefusal() {
+  /// Enqueues one core minter's rows — every row writer's common
+  /// body, the capture controller's own idiom: the instant minted at
+  /// entry, before any await, a v7 id per row, the shared
+  /// `LogWriteQueue` serializing the append against every other write
+  /// the shell owns, and a quiet absorption of a failing store. The
+  /// one deliberate variant is [_appendConsentDeclined], whose
+  /// in-closure epoch re-check the row's own truth demands.
+  Future<void> _appendMinted(Iterable<LogEntryContent> Function() mint) {
     final now = nowOf();
     return writeQueue
         .enqueue(() async {
-          for (final content in permissionRefuse(Permission.camera)) {
+          for (final content in mint()) {
             await _appendContent(content, now);
           }
         })
         .catchError((Object _) {});
   }
 
+  /// Appends exactly one `permission_refused` {camera} row through
+  /// the core's single sanctioned minter — the dictation seam's own
+  /// shape.
+  Future<void> _appendPermissionRefusal() =>
+      _appendMinted(() => permissionRefuse(Permission.camera));
+
   /// Appends exactly one `face_refused` row through the core's single
-  /// sanctioned minter, on the same shape as the permission refusal:
-  /// the instant minted at entry, a v7 id, the shared queue, and a
-  /// quiet absorption of a failing store.
-  Future<void> _appendFaceRefused() {
-    final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          for (final content in faceRefused()) {
-            await _appendContent(content, now);
-          }
-        })
-        .catchError((Object _) {});
-  }
+  /// sanctioned minter, on the same shape as the permission refusal.
+  Future<void> _appendFaceRefused() => _appendMinted(() => faceRefused());
 
   /// The decline tap (Story 5.5, FR-25, FR-29, AD-21): exactly one
   /// payload-less `consent_declined` row through the kind's single
@@ -680,38 +676,17 @@ class ScanController {
 
   /// Appends exactly one `consent_granted` row through the core's
   /// single sanctioned minter — instrumentation only, carrying no
-  /// capability; the token itself never touches the log. The same
-  /// shape as every row writer above.
-  Future<void> _appendConsentGranted() {
-    final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          for (final content in consentGranted()) {
-            await _appendContent(content, now);
-          }
-        })
-        .catchError((Object _) {});
-  }
+  /// capability; the token itself never touches the log.
+  Future<void> _appendConsentGranted() => _appendMinted(() => consentGranted());
 
   /// Appends exactly one `scan_abandoned` row through the core's
-  /// single sanctioned minter (Story 5.6, FR-16, AD-8, AD-21) — the
-  /// same shape as every row writer above: the instant minted at
-  /// entry, a v7 id, the shared queue, and a quiet absorption of a
-  /// failing store. Unlike [_appendConsentDeclined] there is NO
-  /// close-epoch re-check inside the closure: the decline's row
-  /// asserts a decision a close can void, while the abandonment's
-  /// row is made true BY the close — the departure is the resolution
-  /// cause, so the row stands whatever else races it.
-  Future<void> _appendScanAbandoned() {
-    final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          for (final content in scanAbandoned()) {
-            await _appendContent(content, now);
-          }
-        })
-        .catchError((Object _) {});
-  }
+  /// single sanctioned minter (Story 5.6, FR-16, AD-8, AD-21). Unlike
+  /// [_appendConsentDeclined] there is NO close-epoch re-check inside
+  /// the closure: the decline's row asserts a decision a close can
+  /// void, while the abandonment's row is made true BY the close — the
+  /// departure is the resolution cause, so the row stands whatever
+  /// else races it.
+  Future<void> _appendScanAbandoned() => _appendMinted(() => scanAbandoned());
 }
 
 /// The scan prompt (Story 5.5): the Slicer's step contract for a photo

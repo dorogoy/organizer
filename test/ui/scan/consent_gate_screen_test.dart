@@ -693,6 +693,113 @@ void main() {
     expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
   });
 
+  testWidgets('reduced motion toggled mid-wait: the running loop stops '
+      'at the authored rest pose and restarts when the setting clears '
+      '(Story 5.6)', (tester) async {
+    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
+      ..gate = Completer<void>();
+    final (controller, store, _, _) = await standingController(slicer);
+    await pumpGate(tester, controller);
+    await tester.tap(find.text(strings.consentGateSend));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      pencilPainterOf(tester).phase,
+      moreOrLessEquals(0.125, epsilon: 0.02),
+    );
+    // The setting lands mid-flight: the ticker stops, and the rendered
+    // pose is the authored rest (phase zero), never a frozen mid-glide.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pump();
+    expect(pencilPainterOf(tester).phase, 0);
+    // Cleared: the loop restarts — the phase advances again.
+    tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(pencilPainterOf(tester).phase, allOf(greaterThan(0), lessThan(1)));
+    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    slicer.gate!.complete();
+    await tester.pump();
+    await tester.pump(routePopSettle);
+    expect(find.byType(ConsentGateScreen), findsNothing);
+  });
+
+  testWidgets('a real departure (hidden, then detached in a fresh scan) '
+      'mid-wait closes the scan as an abandonment — the same one-row '
+      'answer as paused, the three backgrounding states sharing one arm '
+      '(Story 5.6, FR-16, AD-8)', (tester) async {
+    for (final state in [
+      AppLifecycleState.hidden,
+      AppLifecycleState.detached,
+    ]) {
+      final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
+        ..gate = Completer<void>();
+      final (controller, store, files, camera) = await standingController(
+        slicer,
+      );
+      await pumpGate(tester, controller);
+      await tester.tap(find.text(strings.consentGateSend));
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(state);
+      await tester.pump();
+      // The gate stands, but the scan beneath it closed: unlinked,
+      // camera released, exactly the departure's row beside the act's.
+      expect(find.byType(ConsentGateScreen), findsOneWidget);
+      expect(files.unlinkedScans, isNotEmpty);
+      expect(camera.disposedCalls, isNotEmpty);
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ], reason: '$state closes like paused — one abandonment row');
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      slicer.gate!.complete();
+      await tester.pump();
+      await tester.pump(routePopSettle);
+      expect(find.byType(ConsentGateScreen), findsNothing);
+    }
+  });
+
+  testWidgets('200% font scale on a 320-wide surface: the wait pair holds '
+      'beside — the pencil yields below its register size, the title '
+      'wraps, and nothing overflows horizontally (UX-DR14, NFR6, '
+      'Story 5.6)', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'))
+      ..gate = Completer<void>();
+    final (controller, store, _, _) = await standingController(slicer);
+    await pumpGate(tester, controller);
+    // The 200% body pushes the pair below the fold on the short
+    // surface — scroll it into view before the tap.
+    await tester.ensureVisible(find.text(strings.consentGateSend));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.consentGateSend));
+    await tester.pump();
+    expect(find.text(strings.scanWaitTitle), findsOneWidget);
+    // The pencil yielded: below the 320-wide floor the register size
+    // (160) would not fit beside a wrapped title, so the mark cedes
+    // size — `beside` holds. A RenderFlex overflow would throw here.
+    expect(tester.getSize(find.byType(WritingPencil)).width, lessThan(160));
+    final pair = tester.getRect(
+      find.ancestor(
+        of: find.text(strings.scanWaitTitle),
+        matching: find.byType(Row),
+      ),
+    );
+    expect(pair.right, lessThan(321), reason: 'the pair stays on-surface');
+    expect(pair.left, greaterThan(-1), reason: 'nothing bleeds left');
+    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    slicer.gate!.complete();
+    await tester.pump();
+    await tester.pump(routePopSettle);
+    expect(find.byType(ConsentGateScreen), findsNothing);
+  });
+
   testWidgets('the null-controller test seam: the pair renders and a tap '
       'answers nothing — no route, no throw', (tester) async {
     await pumpGate(tester, null);
