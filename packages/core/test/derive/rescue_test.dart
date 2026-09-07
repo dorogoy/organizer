@@ -703,7 +703,7 @@ void main() {
         eligibleDayOfAnchor(
           entries: entries,
           anchor: (
-            size: Size.focus,
+            estimateSeconds: focusEstimateSeconds,
             noEarlierThanUtcMicros: eligibleDayUnboundedStart,
           ),
           day: dayOf(1),

@@ -74,6 +74,7 @@ class CaptureController {
         dictated: captured.fact.dictated,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       ));
       final content = captured.entry;
       await store.appendLogEntry((

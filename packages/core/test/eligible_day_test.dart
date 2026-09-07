@@ -14,6 +14,7 @@ PoolFact _fact(
   String id = 'cap-a',
   Size size = Size.focus,
   String line = 'Llamar al dentista',
+  int? estimateSeconds,
 }) => PoolFact(
   id: id,
   origin: Origin.manual,
@@ -21,6 +22,7 @@ PoolFact _fact(
   instantUtcMicros: micros,
   offsetSeconds: 0,
   originContext: line,
+  estimateSeconds: estimateSeconds,
 );
 
 SessionStartEntry _started(int micros, {String id = 'start'}) =>
@@ -169,6 +171,30 @@ void main() {
       expect(eligible(entries, focus, dayOf(2)), isFalse);
       expect(eligible(entries, maintenance, dayOf(2)), isFalse);
       expect(eligible(entries, instant, dayOf(2)), isTrue);
+    });
+
+    test('the ceiling reads the ESTIMATE, never the size canonical '
+        '(Story 5.7): a synthetic maintenance fact whose estimate is '
+        '≤ 60 s is admitted on a 🔴 day exactly as an instant one is, '
+        'and a scan estimate (180–300 s) is not', () {
+      final synthetic = _fact(
+        _day(1),
+        id: 'cap-s',
+        size: Size.maintenance,
+        estimateSeconds: 45,
+      );
+      final scanStep = _fact(
+        _day(1),
+        id: 'cap-scan',
+        size: Size.maintenance,
+        estimateSeconds: 240,
+      );
+      final entries = [
+        _energySet(_at(2, 8), EnergyLevel.low),
+        _started(_at(2, 10)),
+      ];
+      expect(eligible(entries, synthetic, dayOf(2)), isTrue);
+      expect(eligible(entries, scanStep, dayOf(2)), isFalse);
     });
 
     test('the last row at or before the start wins; a row after the '

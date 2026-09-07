@@ -26,16 +26,19 @@
 // The wait's exits: OS back remains the one way out (UX-DR52 — no
 // PopScope, leaving is abandoning, and the controller's close mints
 // the departure's one `scan_abandoned` row); the answer itself ends
-// it — delivered the interim quiet pop, failed the no-Slicer
-// mapping, stale the pop. The pair is gone the frame the answer
+// it — delivered the quiet close to the Dispenser (the steps land
+// as pool facts, Story 5.7 — nothing is dealt and no surface shows
+// them; the one-card landing is 5.9's), failed the no-Slicer mapping
+// (beside its one `slice_failed` row), stale the pop. The pair is gone the frame the answer
 // lands and never returns.
 //
 // The terminal routing (the I/O matrix): decline → the no-Slicer
 // surface's own `consentDeclined` cause — no re-ask, no persuasion,
 // no second attempt; delivered → quiet close to the Dispenser (the
-// interim discard, P2-A — nothing lands, no row; 5.7 replaces
-// exactly this arm); failed → the standing `noSlicerCauseFromFailure`
-// map, the 4-5 mapping unchanged; stale → pop, the scan already ended
+// steps land as pool facts, Story 5.7 — nothing is dealt and no
+// surface shows them; the one-card landing is 5.9's); failed → the
+// standing `noSlicerCauseFromFailure` map, the 4-5 mapping unchanged
+// (beside its one `slice_failed` row); stale → pop, the scan already ended
 // (leaving is not declining, no decline row). The system back is the
 // OS pop — leaving before an answer is neither declining nor
 // abandoning: no row, the scan closes quietly through the
@@ -209,8 +212,10 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
     }
     switch (outcome) {
       case ScanConsentDelivered():
-        // The interim discard (P2-A): nothing lands, no row — the
-        // scan closes to the Dispenser. 5.7 replaces exactly this arm.
+        // The landed facts' quiet pop (Story 5.7): the steps are pool
+        // facts now — no surface shows them yet (5.9 wires Epic
+        // material into the weave and owns the one-card landing), so
+        // the scan closes to the Dispenser with nothing dealt.
         Navigator.of(context).pop();
       case ScanConsentFailed(:final cause):
         Navigator.of(context).pushReplacement(

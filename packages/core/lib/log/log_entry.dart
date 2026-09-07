@@ -458,27 +458,32 @@ final class PermissionRefusedEntry extends LogEntry {
   final Permission permission;
 }
 
-/// A `slice_*` row (Story 4.6, FR-5, AD-21): the Rescue Mode channel's
-/// own shape — a user act naming the rescued pool item, its kind one of
-/// the three (`slice_requested` the activation, `slice_returned` the
-/// delivered re-slice, `slice_failed` the terminal failure), and — on
-/// `slice_failed` alone — the port's closed failure cause. The rows
-/// append on the same terms as a photo scan (the Slicer-call series
-/// closes over the rescue channel), the activation resets the refusal
-/// counter whatever follows, and nothing here queues, retries or
-/// persists a pending state: a fresh rescue is a fresh `slice_requested`
-/// by construction. The type offers no other field, so no prompt, no
-/// delivered body, no provider and no key may ride along — the history
-/// records THAT a slice happened and, on failure, which of the seven
-/// causes it met, never the conversation itself.
+/// A `slice_*` row (Story 4.6, FR-5, AD-21; the pair renegotiated
+/// Story 5.7): the Rescue Mode channel's own shape — a user act
+/// naming the rescued pool item, its kind one of the three
+/// (`slice_requested` the activation, `slice_returned` the
+/// delivered re-slice, `slice_failed` the terminal failure) — and,
+/// on `slice_failed` alone, the port's closed failure cause. Since
+/// Story 5.7 the item pair is optional ON `slice_failed` alone: a
+/// rescue failure names the parent it failed, while a scan failure
+/// carries no pair at all — no item exists, the scan died before
+/// any fact — so its row holds the cause only; the two content
+/// kinds still require the pair. The rows append on the same terms
+/// as a photo scan (the Slicer-call series closes over both
+/// channels), and nothing here queues, retries or persists a
+/// pending state: a fresh rescue is a fresh `slice_requested` by
+/// construction. The type offers no other field, so no prompt, no
+/// delivered body, no provider and no key may ride along — the
+/// history records THAT a slice happened and, on failure, which of
+/// the seven causes it met, never the conversation itself.
 final class SliceEntry extends LogEntry {
   const SliceEntry({
     required super.id,
     required super.instantUtcMicros,
     required super.offsetSeconds,
     required this.kind,
-    required this.itemId,
-    required this.itemOrigin,
+    this.itemId,
+    this.itemOrigin,
     this.cause,
   });
 
@@ -486,13 +491,18 @@ final class SliceEntry extends LogEntry {
   @override
   final LogKind kind;
 
-  /// The rescued pool item's id — the parent, never a step: the depth
-  /// cap lives in the command boundary, so a step's row cannot exist.
-  final String itemId;
+  /// The rescued pool item's id — the parent, never a step: the
+  /// depth cap lives in the command boundary, so a step's row
+  /// cannot exist. Non-null exactly on rescue rows; null only on a
+  /// scan `slice_failed` row, where no item exists — the scan died
+  /// before any fact (Story 5.7). Every walk and derivation reads
+  /// the pair by comparison only, so a null pair names nothing and
+  /// matches nothing.
+  final String? itemId;
 
   /// The rescued item's origin, which every item-referencing entry
-  /// carries too (AD-14).
-  final Origin itemOrigin;
+  /// carries too (AD-14) — null exactly when [itemId] is.
+  final Origin? itemOrigin;
 
   /// The port's failure cause — non-null exactly on `slice_failed`
   /// rows, the whole payload the failure history keeps. A stored name
@@ -679,7 +689,12 @@ bool _isSliceKind(LogKind kind) =>
 /// of the three the [Permission] enum names — and nothing else
 /// (Story 3.4, the crash shape: no item pair), and a `slice_*` row
 /// (Story 4.6) its full item pair plus — on `slice_failed` alone — a
-/// cause the [slicerFailureCauseByName] map knows, and nothing else.
+/// cause the [slicerFailureCauseByName] map knows, and nothing
+/// else — renegotiated Story 5.7: a scan `slice_failed` converts
+/// with its cause and NO item pair (the scan died before any
+/// fact), while the two content kinds and a rescue failure still
+/// require the full pair, and a half pair excludes the row
+/// whichever family it came from.
 /// An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
@@ -1042,11 +1057,29 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   }
 
   if (_isSliceKind(kind)) {
-    if (itemIdIsAbsent && record.itemOrigin == null) {
-      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
-    }
-    if (itemIdIsAbsent || record.itemOrigin == null) {
-      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    // The pair rule splits by family (Story 5.7): the two content
+    // kinds and a rescue failure carry the full pair; a scan failure
+    // carries none. A half pair excludes the row whichever family it
+    // came from — the pair travels whole or not at all — and an
+    // EMPTY itemId counts as absent on both halves (the house rule
+    // above), so a pairless scan row stored with itemId = "" converts
+    // as the shape it is instead of reading halfItemPair.
+    final carriesItem =
+        (record.itemId?.isNotEmpty ?? false) || record.itemOrigin != null;
+    if (kind != LogKind.sliceFailed) {
+      if (itemIdIsAbsent && record.itemOrigin == null) {
+        return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+      }
+      if (itemIdIsAbsent || record.itemOrigin == null) {
+        return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+      }
+    } else {
+      if (sliceCauseIsAbsent) {
+        return (entry: null, flaw: LogRecordFlaw.sliceCauseAbsent);
+      }
+      if (carriesItem && (itemIdIsAbsent || record.itemOrigin == null)) {
+        return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+      }
     }
     if (record.stack != null) {
       return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
@@ -1069,11 +1102,7 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     var cause = record.sliceCause == null
         ? null
         : slicerFailureCauseByName[record.sliceCause!];
-    if (kind == LogKind.sliceFailed) {
-      if (sliceCauseIsAbsent) {
-        return (entry: null, flaw: LogRecordFlaw.sliceCauseAbsent);
-      }
-    } else {
+    if (kind != LogKind.sliceFailed) {
       cause = null;
       if (carriesCause) {
         return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
@@ -1085,8 +1114,8 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
         kind: kind,
-        itemId: record.itemId!,
-        itemOrigin: record.itemOrigin!,
+        itemId: itemIdIsAbsent ? null : record.itemId,
+        itemOrigin: record.itemOrigin,
         cause: cause,
       ),
       flaw: null,

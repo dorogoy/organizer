@@ -67,37 +67,51 @@ import 'package:core/weave/weave.dart';
 const int captureDealWindowEligibleDays = 3;
 
 /// The item half of the one predicate as an anchor (Story 4.6's
-/// refactor): the taxonomy size the energy clause reads, and the
-/// creation instant no eligible day's witness start may precede. A
-/// pool fact is one anchor — its own size, its own creation; a shipped
-/// catalogue entry is the fact-less one, its size off the entry and
-/// its start unbounded ([eligibleDayUnboundedStart]) — the same
-/// single predicate, AD-24's law, never a second copy of it.
-typedef EligibleDayAnchor = ({Size size, int noEarlierThanUtcMicros});
+/// refactor; renegotiated Story 5.7): the EFFECTIVE estimate the
+/// energy clause reads — a Slicer step's own tag verbatim, else the
+/// size's canonical (`estimateSecondsOf`) — and the creation
+/// instant no eligible day's witness start may precede. A pool fact
+/// is one anchor — its own effective estimate, its own creation; a
+/// shipped catalogue entry is the fact-less one, its estimate off
+/// the entry's size and its start unbounded
+/// ([eligibleDayUnboundedStart]) — the same single predicate,
+/// AD-24's law, never a second copy of it. The estimate, never the
+/// size, is what the low-energy ceiling admits by (Story 5.7's one
+/// duration→size jurisdiction): a synthetic maintenance fact whose
+/// estimate is ≤ 60 s is admitted on a 🔴 day exactly as an instant
+/// one is.
+typedef EligibleDayAnchor = ({int estimateSeconds, int noEarlierThanUtcMicros});
 
 /// The fact-less anchor's start: no instant a session start could name
 /// precedes it, so a catalogue item's days are bounded by the log
 /// alone — "no earlier than" = ever (Story 4.6, FR-5).
 const int eligibleDayUnboundedStart = -1;
 
-/// The anchor of a pool fact — its own size, its own creation instant
-/// (Story 3.3's original item half, now one adapter beside the
-/// catalogue's).
-EligibleDayAnchor eligibleDayAnchorOfFact(PoolFact fact) =>
-    (size: fact.size, noEarlierThanUtcMicros: fact.instantUtcMicros);
+/// The anchor of a pool fact — its own effective estimate (the
+/// step's tag verbatim, else its size's canonical, Story 5.7) and
+/// its own creation instant (Story 3.3's original item half, now
+/// one adapter beside the catalogue's).
+EligibleDayAnchor eligibleDayAnchorOfFact(PoolFact fact) => (
+  estimateSeconds: fact.estimateSeconds ?? estimateSecondsOf(fact.size),
+  noEarlierThanUtcMicros: fact.instantUtcMicros,
+);
 
-/// Whether [size] survives the energy derived at [start]'s own start
-/// (AD-24's retrospective per-session reading of the one low-energy
-/// ceiling): the last `energy_set` row of the start's own domestic
-/// day at or before the start instant — exact-instant ties resolved
-/// to the later-in-input row, the energy seam's own convention —
+/// Whether an item's EFFECTIVE estimate survives the energy derived
+/// at [start]'s own start (AD-24's retrospective per-session reading
+/// of the one low-energy ceiling; Story 5.7's estimate-first read):
+/// the last `energy_set` row of the start's own domestic day at or
+/// before the start instant — exact-instant ties resolved to the
+/// later-in-input row, the energy seam's own convention —
 /// defaulting 🟢. A 🔴 start admits only estimates within
 /// [lowEnergyMaxEstimateSeconds]; every other level admits all
-/// sizes, and no size is excluded on any other clause.
-bool _sizeNotExcludedAtStart(
+/// estimates, and nothing is excluded on any other clause. The
+/// estimate — a Slicer step's own tag verbatim, else the size's
+/// canonical — is what the ceiling reads, never the size alone:
+/// the one duration→size jurisdiction (`sizeOfEstimateSeconds`).
+bool _estimateNotExcludedAtStart(
   List<LogEntry> entries,
   SessionStartEntry start,
-  Size size,
+  int estimateSeconds,
   Day day,
   Calendar calendar,
 ) {
@@ -117,7 +131,7 @@ bool _sizeNotExcludedAtStart(
     }
   }
   return level != EnergyLevel.low ||
-      estimateSecondsOf(size) <= lowEnergyMaxEstimateSeconds;
+      estimateSeconds <= lowEnergyMaxEstimateSeconds;
 }
 
 /// AD-24's one eligibility predicate: whether [day] is an eligible day
@@ -166,7 +180,13 @@ bool eligibleDayOfAnchor({
     if (calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds) != day) {
       continue;
     }
-    if (_sizeNotExcludedAtStart(entries, entry, anchor.size, day, calendar)) {
+    if (_estimateNotExcludedAtStart(
+      entries,
+      entry,
+      anchor.estimateSeconds,
+      day,
+      calendar,
+    )) {
       return true;
     }
   }

@@ -44,13 +44,14 @@ import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/session.dart';
 
-/// The item's EligibleDay genesis (Story 4.6): the taxonomy size the
-/// predicate's energy clause reads, and the instant no eligible day's
-/// witness start may precede — a pool fact's creation, or the
-/// unbounded start for a shipped entry. Activation is not a second
-/// genesis; it filters skips in [rescueDeclineDays]. A step has no
-/// counter at all: its declines feed dissolution, never rescue (the
-/// depth cap).
+/// The item's EligibleDay genesis (Story 4.6): the EFFECTIVE
+/// estimate the predicate's energy clause reads — a Slicer step's
+/// own tag verbatim, else the size's canonical (Story 5.7) — and
+/// the instant no eligible day's witness start may precede — a
+/// pool fact's creation, or the unbounded start for a shipped
+/// entry. Activation is not a second genesis; it filters skips in
+/// [rescueDeclineDays]. A step has no counter at all: its declines
+/// feed dissolution, never rescue (the depth cap).
 EligibleDayAnchor? _anchorOf({
   required List<PoolFact> poolFacts,
   required Catalogue catalogue,
@@ -64,13 +65,16 @@ EligibleDayAnchor? _anchorOf({
       if (fact.rescueOf != null) {
         return null;
       }
-      return (size: fact.size, noEarlierThanUtcMicros: fact.instantUtcMicros);
+      return (
+        estimateSeconds: fact.estimateSeconds ?? estimateSecondsOf(fact.size),
+        noEarlierThanUtcMicros: fact.instantUtcMicros,
+      );
     }
   }
   for (final entry in catalogue.entries) {
     if (entry.id == itemId) {
       return (
-        size: entry.size,
+        estimateSeconds: estimateSecondsOf(entry.size),
         noEarlierThanUtcMicros: eligibleDayUnboundedStart,
       );
     }
@@ -221,7 +225,7 @@ Set<String> dissolvedChainParentIds({
       if (eligibleDayOfAnchor(
         entries: bounded,
         anchor: (
-          size: fact.size,
+          estimateSeconds: fact.estimateSeconds ?? estimateSecondsOf(fact.size),
           noEarlierThanUtcMicros: fact.instantUtcMicros,
         ),
         day: day,

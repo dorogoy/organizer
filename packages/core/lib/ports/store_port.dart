@@ -16,6 +16,7 @@ library;
 
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/slicer/rescue_steps.dart';
+import 'package:core/slicer/scan_steps.dart';
 
 /// An inert pool-fact DTO: a shell-minted UUIDv7 id, the origin set at
 /// genesis, the taxonomy size, and the creation instant plus the local
@@ -27,8 +28,9 @@ import 'package:core/slicer/rescue_steps.dart';
 /// the keyboard did, null on old rows. Additively since schema v9
 /// (Story 4.6), the nullable rescue pair: the parent item id a rescue
 /// step rescues, and the Slicer's verbatim duration estimate in
-/// seconds — non-null exactly on rescue steps. No owner, no
-/// date-only value.
+/// seconds — non-null exactly on rescue steps. Additively since
+/// schema v10 (Story 5.7), the nullable step text: a scan step's
+/// own words, null everywhere else. No owner, no date-only value.
 typedef PoolFactRecord = ({
   String id,
   Origin origin,
@@ -39,6 +41,7 @@ typedef PoolFactRecord = ({
   bool? dictated,
   String? rescueOf,
   int? estimateSeconds,
+  String? stepText,
 });
 
 /// An inert log-entry DTO: id, kind (as its wire name — unknown kinds are
@@ -94,16 +97,21 @@ typedef LogEntryRecord = ({
 /// this port). Nothing is validated beyond the rescue pair's own
 /// AD-23-style tolerance (Story 4.6): the record is field-identical to
 /// the fact (AD-5), a row this build could not parse never reached the
-/// snapshot (the adapter excluded it at the read), and the two rescue
-/// columns — the only ones whose value space the record's types cannot
-/// speak for — normalize here rather than flow raw into the pocket,
+/// snapshot (the adapter excluded it at the read), and the three
+/// free-text/number columns whose value space the record's types
+/// cannot speak for — the rescue pair and the scan step text —
+/// normalize here rather than flow raw into the pocket,
 /// the 🔴 ceiling and the retirement arithmetic:
-/// an `estimateSeconds` outside the rescue contract's 1–60 band (a
-/// corrupt 0, negative or absurd tag) reads as absent, so the fact's
-/// size default charges exactly as a pre-4-6 fact's did; a `rescueOf`
+/// an `estimateSeconds` outside the UNION of the two Slicer
+/// contracts (the rescue band 1–60 s and the scan band 180–300 s,
+/// Story 5.7 — a corrupt 0, negative, absurd or seam value) reads
+/// as absent, so the fact's size default charges exactly as a
+/// pre-4-6 fact's did; a `rescueOf`
 /// that is empty or whitespace reads as absent, so a mangled row
 /// derives as an ordinary fact rather than the head of a chain named
-/// by nothing. Quiet tolerance, never a repair write (AD-23).
+/// by nothing; a `stepText` that is empty or whitespace reads as
+/// absent on the `rescueOf` precedent. Quiet tolerance, never a
+/// repair write (AD-23).
 List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
   for (final record in records)
     PoolFact(
@@ -119,12 +127,24 @@ List<PoolFact> poolFactsOf(List<PoolFactRecord> records) => [
           : record.rescueOf,
       estimateSeconds:
           (record.estimateSeconds == null ||
-              record.estimateSeconds! < rescueStepSecondsLeast ||
-              record.estimateSeconds! > rescueStepSecondsMost)
+              !_inSlicerBand(record.estimateSeconds!))
           ? null
           : record.estimateSeconds,
+      stepText: (record.stepText == null || record.stepText!.trim().isEmpty)
+          ? null
+          : record.stepText,
     ),
 ];
+
+/// Whether [seconds] sits inside the union of the two Slicer contracts
+/// — the rescue band (1–60 s, `rescue_steps.dart`) or the scan band
+/// (180–300 s, `scan_steps.dart`, Story 5.7) — the read clamp's own
+/// tolerance question, stated once: an estimate outside both reads as
+/// absent, so the fact's size default charges exactly as a pre-4-6
+/// fact's did (AD-23, quiet tolerance, never a repair write).
+bool _inSlicerBand(int seconds) =>
+    (seconds >= rescueStepSecondsLeast && seconds <= rescueStepSecondsMost) ||
+    (seconds >= scanStepSecondsLeast && seconds <= scanStepSecondsMost);
 
 abstract interface class StorePort {
   /// Appends one pool fact. Failing to append rejects the caller's act.

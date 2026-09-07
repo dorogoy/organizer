@@ -145,7 +145,11 @@ class _FakeGate implements FaceGatePort {
 /// matrix's delivered and failed arms).
 class _FakeSlicer implements SlicerPort {
   _FakeSlicer({SlicerOutcome? outcome})
-    : outcome = outcome ?? const SlicerDelivered('[{"text": "x"}]');
+    : outcome =
+          outcome ??
+          const SlicerDelivered(
+            '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
+          );
 
   SlicerOutcome outcome;
   final requests = <ScanSliceRequest>[];
@@ -495,12 +499,14 @@ void main() {
     await tester.pump();
     await tester.pump(routePopSettle);
     // Delivered: the scan closes to the Dispenser — the launch surface
-    // is back, nothing landed, no second answer exists.
+    // is back, the steps landed as facts (Story 5.7; nothing dealt,
+    // the one-card landing is 5.9's), no second answer exists.
     expect(find.byType(ConsentGateScreen), findsNothing);
     expect(find.text(launchWord), findsOneWidget);
     expect(slicer.requests, hasLength(1));
     expect(store.entries, hasLength(1));
     expect(store.entries.single.kind, 'consent_granted');
+    expect(store.facts, hasLength(1), reason: 'the delivered slice landed');
     expect(files.unlinkedScans, isNotEmpty);
   });
 
@@ -533,7 +539,15 @@ void main() {
     await tester.pump(routePopSettle);
     expect(find.byType(NoSlicerSurface), findsOneWidget);
     expect(find.text(strings.noSlicerInvalidKey), findsOneWidget);
-    expect(store.entries.single.kind, 'consent_granted');
+    // The failure is on record beside the grant (Story 5.7, FR-26
+    // b): the raw cause verbatim, no item pair, nothing inferred from
+    // absence.
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'slice_failed',
+    ]);
+    expect(store.entries[1].sliceCause, 'invalidKey');
+    expect(store.entries[1].itemId, isNull);
     expect(files.unlinkedScans, isNotEmpty);
   });
 

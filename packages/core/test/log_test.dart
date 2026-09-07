@@ -1469,5 +1469,65 @@ void main() {
         LogRecordFlaw.itemPairAbsent,
       );
     });
+
+    test('the scan shape (Story 5.7): a slice_failed converts with its '
+        'cause and NO item pair — the scan died before any fact — '
+        'while a half pair is excluded whichever family it came from', () {
+      final conversion = convertLogEntryRecord(
+        _record('slice_failed', sliceCause: 'invalidKey'),
+      );
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry as SliceEntry;
+      expect(entry.itemId, isNull);
+      expect(entry.itemOrigin, isNull);
+      expect(entry.cause, SlicerFailureCause.invalidKey);
+      // A half pair on a scan failure is excluded exactly like a
+      // rescue row's: the pair travels whole or not at all.
+      expect(
+        convertLogEntryRecord(
+          _record(
+            'slice_failed',
+            itemOrigin: Origin.cloud,
+            sliceCause: 'invalidKey',
+          ),
+        ).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      expect(
+        convertLogEntryRecord(
+          _record(
+            'slice_failed',
+            itemId: 'scan-gone',
+            sliceCause: 'invalidKey',
+          ),
+        ).flaw,
+        LogRecordFlaw.halfItemPair,
+      );
+      // And the rescue failure shape still converts beside the scan's.
+      final rescue = convertLogEntryRecord(
+        _record(
+          'slice_failed',
+          itemId: 'cap-a',
+          itemOrigin: Origin.manual,
+          sliceCause: 'invalidKey',
+        ),
+      );
+      expect(rescue.flaw, isNull);
+      expect((rescue.entry as SliceEntry).itemId, 'cap-a');
+    });
+
+    test('an EMPTY itemId counts as an absent pair on a scan failure '
+        'too — the house rule the half-pair check reads (Story 5.7): a '
+        '`slice_failed` stored with itemId = "" and no origin converts '
+        'as the pairless scan shape', () {
+      final conversion = convertLogEntryRecord(
+        _record('slice_failed', itemId: '', sliceCause: 'invalidKey'),
+      );
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry as SliceEntry;
+      expect(entry.itemId, isNull);
+      expect(entry.itemOrigin, isNull);
+      expect(entry.cause, SlicerFailureCause.invalidKey);
+    });
   });
 }

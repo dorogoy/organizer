@@ -13,9 +13,10 @@ import '../tool/check_core_purity.dart';
 /// `LogEntryContent` are constructed only in the Dispenser's seven
 /// user-act append sites plus the session, settings, capture and crash
 /// channels the census maps enumerate, the adapter's store module owns
-/// the only drift insert companions, and the one pool-fact write the
-/// shell owns is the capture channel's single sanctioned append (the
-/// adapter apart, nothing else calls `appendPoolFact`).
+/// the only drift insert companions, and the pool-fact writes the
+/// shell owns are the capture channel's, the rescue landing's and the
+/// scan landing's single sanctioned appends each (the adapter apart,
+/// nothing else calls `appendPoolFact`).
 /// Masking reuses `tool/check_core_purity.dart`'s
 /// `maskCommentsAndStrings` (the `test/tool/` import precedent), so
 /// prose and string contents cannot move the identifier pins — only a
@@ -390,6 +391,15 @@ void main() {
           '_appendScanAbandoned wrapper on the shared content copier '
           '(Story 5.6)',
     );
+    expect(
+      RegExp(r'\bscanSliceFailed\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core scanSliceFailed command invocation — the '
+          'scan channel\'s single sanctioned failure row, minted only '
+          'through the _appendScanSliceFailed wrapper on the shared '
+          'content copier (Story 5.7)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -507,14 +517,17 @@ void main() {
     );
 
     // No pool-fact write path exists in the shell besides the capture
-    // channel and the rescue landing: the only `appendPoolFact` calls
-    // in lib/ are the capture controller's single sanctioned append
-    // (Story 3.2 — the pool's first writer, one fact then the entry
-    // referencing it) and the Dispenser controller's single sanctioned
-    // append (Story 4.6 — the rescue steps' landing, the facts the
-    // `slice_returned` row names), the adapter's own implementation is
-    // an override declaration with no receiver, and zero other call
-    // sites or tear-offs reference it.
+    // channel and the two Slicer landings: the only `appendPoolFact`
+    // calls in lib/ are the capture controller's single sanctioned
+    // append (Story 3.2 — the pool's first writer, one fact then the
+    // entry referencing it), the Dispenser controller's single
+    // sanctioned append (Story 4.6 — the rescue steps' landing, the
+    // facts the `slice_returned` row names) and the scan controller's
+    // single sanctioned append (Story 5.7 — the delivered scan's step
+    // facts, one call inside the landing loop over the core's seeds),
+    // the adapter's own implementation is an override declaration with
+    // no receiver, and zero other call sites or tear-offs reference
+    // it.
     final poolWrites = <String>[];
     for (final file in _dartFilesUnder('lib')) {
       final source = _withoutComments(file.readAsStringSync());
@@ -539,6 +552,20 @@ void main() {
               'the rescue channel holds exactly one pool-fact append — '
               'the steps'
               ' landing; a second would be a silent writer',
+        );
+        continue;
+      }
+      if (_key(file) == 'lib/scan/scan_controller.dart') {
+        // The scan channel's own sanctioned call, pinned by count
+        // (Story 5.7): the delivered slice's step facts, one append
+        // inside the landing loop over the core's seeds.
+        expect(
+          RegExp(r'\.\s*appendPoolFact\s*\(').allMatches(source),
+          hasLength(1),
+          reason:
+              'the scan channel holds exactly one pool-fact append — '
+              'the delivered steps landing; a second would be a silent '
+              'writer',
         );
         continue;
       }

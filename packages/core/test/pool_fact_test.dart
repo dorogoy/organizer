@@ -1,4 +1,5 @@
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/weave/weave.dart' show lowEnergyMaxEstimateSeconds;
 import 'package:test/test.dart';
 
 void main() {
@@ -18,6 +19,44 @@ void main() {
   test('the size taxonomy has exactly the three 1-3-5 members (FR-27)', () {
     expect(Size.values, hasLength(3));
     expect(Size.values, <Size>[Size.instant, Size.maintenance, Size.focus]);
+  });
+
+  test('the ONE duration→size rule bands every estimate: ≤ 60 s instant, '
+      '61–599 s maintenance, ≥ 600 s focus — the 9:00–9:59 seam declared '
+      'maintenance (Story 5.7, FR-27)', () {
+    expect(bandInstantMostSeconds, 60);
+    expect(bandMaintenanceMostSeconds, 599);
+    for (final seconds in [0, 1, 30, 60]) {
+      expect(
+        sizeOfEstimateSeconds(seconds),
+        Size.instant,
+        reason: '$seconds s bands instant',
+      );
+    }
+    for (final seconds in [61, 180, 300, 420, 599]) {
+      expect(
+        sizeOfEstimateSeconds(seconds),
+        Size.maintenance,
+        reason:
+            '$seconds s bands maintenance — the scan band 180–300 '
+            'included, and the declared seam 540–599 closest to nine '
+            'minutes',
+      );
+    }
+    for (final seconds in [600, 601, 900]) {
+      expect(
+        sizeOfEstimateSeconds(seconds),
+        Size.focus,
+        reason: '$seconds s bands focus',
+      );
+    }
+  });
+
+  test('the instant band\'s ceiling IS the 🔴 day\'s — one number, '
+      'two declarations (Story 5.7, FR-27, FR-4)', () {
+    // The identity both docs claim: two independent literals could
+    // drift with no failing test — this pin is the drift\'s failure.
+    expect(bandInstantMostSeconds, lowEnergyMaxEstimateSeconds);
   });
 
   test('a pool fact carries id, origin, size and instant plus offset', () {

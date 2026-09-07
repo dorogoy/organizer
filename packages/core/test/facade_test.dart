@@ -695,6 +695,7 @@ void main() {
       dictated: null,
       rescueOf: null,
       estimateSeconds: null,
+      stepText: null,
     );
 
     test('a standing capture precedes same-size catalogue work — the '

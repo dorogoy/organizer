@@ -155,89 +155,124 @@ void main() {
     expect(const FaceGatePass(), isA<FaceGateOutcome>());
   });
 
-  group(
-    'the pool-fact read boundary\'s rescue sanitation (Story 4.6, AD-23)',
-    () {
-      PoolFactRecord record({String? rescueOf, int? estimateSeconds}) => (
-        id: '019123ab-cdef-7abc-8def-0123456789ab',
-        origin: Origin.manual,
-        size: Size.instant,
-        instantUtcMicros: 1758900000123456,
-        offsetSeconds: 0,
-        originContext: 'Buscar el desengrasante',
-        dictated: null,
-        rescueOf: rescueOf,
-        estimateSeconds: estimateSeconds,
-      );
+  group('the pool-fact read boundary\'s rescue and scan sanitation '
+      '(Stories 4.6 and 5.7, AD-23)', () {
+    PoolFactRecord record({
+      String? rescueOf,
+      int? estimateSeconds,
+      String? stepText,
+    }) => (
+      id: '019123ab-cdef-7abc-8def-0123456789ab',
+      origin: Origin.manual,
+      size: Size.instant,
+      instantUtcMicros: 1758900000123456,
+      offsetSeconds: 0,
+      originContext: 'Buscar el desengrasante',
+      dictated: null,
+      rescueOf: rescueOf,
+      estimateSeconds: estimateSeconds,
+      stepText: stepText,
+    );
 
-      test('a well-formed rescue pair passes verbatim — the band\'s own '
-          'edges included', () {
-        for (final estimate in [1, 45, 60]) {
-          final fact = poolFactsOf([
-            record(rescueOf: 'cap-a', estimateSeconds: estimate),
-          ]).single;
-          expect(fact.rescueOf, 'cap-a');
-          expect(fact.estimateSeconds, estimate);
-        }
-      });
+    test('a well-formed rescue pair passes verbatim — the band\'s own '
+        'edges included', () {
+      for (final estimate in [1, 45, 60]) {
+        final fact = poolFactsOf([
+          record(rescueOf: 'cap-a', estimateSeconds: estimate),
+        ]).single;
+        expect(fact.rescueOf, 'cap-a');
+        expect(fact.estimateSeconds, estimate);
+      }
+    });
 
-      test('an out-of-band estimate reads as absent — a corrupt 0, '
-          'negative or absurd tag never reaches the pocket, the 🔴 '
-          'ceiling or the retirement arithmetic; the size default '
-          'charges exactly as a pre-4-6 fact\'s did', () {
-        for (final estimate in [0, -5, 61, 999999]) {
-          final fact = poolFactsOf([
-            record(rescueOf: 'cap-a', estimateSeconds: estimate),
-          ]).single;
-          expect(
-            fact.estimateSeconds,
-            isNull,
-            reason: 'estimate=$estimate is outside the 1–60 band',
-          );
-          expect(
-            fact.rescueOf,
-            'cap-a',
-            reason:
-                'the parent half is untouched by the estimate\'s '
-                'own corruption',
-          );
-        }
-      });
+    test('an out-of-band estimate reads as absent — a corrupt 0, '
+        'negative or absurd tag never reaches the pocket, the 🔴 '
+        'ceiling or the retirement arithmetic; the size default '
+        'charges exactly as a pre-4-6 fact\'s did', () {
+      for (final estimate in [0, -5, 61, 999999]) {
+        final fact = poolFactsOf([
+          record(rescueOf: 'cap-a', estimateSeconds: estimate),
+        ]).single;
+        expect(
+          fact.estimateSeconds,
+          isNull,
+          reason: 'estimate=$estimate is outside the 1–60 band',
+        );
+        expect(
+          fact.rescueOf,
+          'cap-a',
+          reason:
+              'the parent half is untouched by the estimate\'s '
+              'own corruption',
+        );
+      }
+    });
 
-      test('an empty or whitespace rescueOf reads as absent — a mangled '
-          'row derives as an ordinary fact, never the head of a chain '
-          'named by nothing', () {
-        for (final parent in ['', '   ']) {
-          final fact = poolFactsOf([
-            record(rescueOf: parent, estimateSeconds: 45),
-          ]).single;
-          expect(fact.rescueOf, isNull, reason: 'rescueOf="$parent"');
-          expect(
-            fact.estimateSeconds,
-            45,
-            reason:
-                'the estimate half is untouched by the parent\'s '
-                'own corruption',
-          );
-        }
-      });
+    test('an empty or whitespace rescueOf reads as absent — a mangled '
+        'row derives as an ordinary fact, never the head of a chain '
+        'named by nothing', () {
+      for (final parent in ['', '   ']) {
+        final fact = poolFactsOf([
+          record(rescueOf: parent, estimateSeconds: 45),
+        ]).single;
+        expect(fact.rescueOf, isNull, reason: 'rescueOf="$parent"');
+        expect(
+          fact.estimateSeconds,
+          45,
+          reason:
+              'the estimate half is untouched by the parent\'s '
+              'own corruption',
+        );
+      }
+    });
 
-      test('a lone half survives as stored — halves normalize '
-          'independently, never as a pair', () {
-        final parentOnly = poolFactsOf([record(rescueOf: 'cap-a')]).single;
-        expect(parentOnly.rescueOf, 'cap-a');
-        expect(parentOnly.estimateSeconds, isNull);
-        final estimateOnly = poolFactsOf([record(estimateSeconds: 45)]).single;
-        expect(estimateOnly.rescueOf, isNull);
-        expect(estimateOnly.estimateSeconds, 45);
-      });
+    test('a lone half survives as stored — halves normalize '
+        'independently, never as a pair', () {
+      final parentOnly = poolFactsOf([record(rescueOf: 'cap-a')]).single;
+      expect(parentOnly.rescueOf, 'cap-a');
+      expect(parentOnly.estimateSeconds, isNull);
+      final estimateOnly = poolFactsOf([record(estimateSeconds: 45)]).single;
+      expect(estimateOnly.rescueOf, isNull);
+      expect(estimateOnly.estimateSeconds, 45);
+    });
 
-      test('an ordinary fact\'s null pair passes as null — the '
-          'pre-4-6 shape is unchanged', () {
-        final fact = poolFactsOf([record()]).single;
-        expect(fact.rescueOf, isNull);
-        expect(fact.estimateSeconds, isNull);
-      });
-    },
-  );
+    test('an ordinary fact\'s null pair passes as null — the '
+        'pre-4-6 shape is unchanged', () {
+      final fact = poolFactsOf([record()]).single;
+      expect(fact.rescueOf, isNull);
+      expect(fact.estimateSeconds, isNull);
+      expect(fact.stepText, isNull);
+    });
+
+    test('the scan band survives the read (Story 5.7): 180–300 '
+        'passes verbatim, and the seam between the two contracts — '
+        '61–179 and anything over 300 — reads absent, quiet '
+        'tolerance, never a repair write', () {
+      for (final estimate in [180, 240, 300]) {
+        final fact = poolFactsOf([record(estimateSeconds: estimate)]).single;
+        expect(fact.estimateSeconds, estimate);
+        expect(fact.stepText, isNull);
+      }
+      for (final estimate in [61, 100, 179, 301, 999999]) {
+        final fact = poolFactsOf([record(estimateSeconds: estimate)]).single;
+        expect(
+          fact.estimateSeconds,
+          isNull,
+          reason: 'estimate=$estimate sits in neither Slicer contract',
+        );
+      }
+    });
+
+    test('a step text passes verbatim, and an empty or whitespace one '
+        'reads as absent — the rescueOf precedent (Story 5.7)', () {
+      final fact = poolFactsOf([
+        record(estimateSeconds: 240, stepText: 'Recoger la caja'),
+      ]).single;
+      expect(fact.stepText, 'Recoger la caja');
+      for (final text in ['', '   ']) {
+        final blank = poolFactsOf([record(stepText: text)]).single;
+        expect(blank.stepText, isNull, reason: 'stepText="$text"');
+      }
+    });
+  });
 }

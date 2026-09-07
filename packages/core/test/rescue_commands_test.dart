@@ -400,6 +400,14 @@ void main() {
           returned.facts[i].estimateSeconds,
           _seeds[i].step.durationSeconds,
         );
+        // The ONE banding's output (Story 5.7): instant across the
+        // rescue band's 1–60 s, byte-identical to the pre-5.7 landing
+        // — and the scan's stepText stays a scan-only column.
+        expect(
+          returned.facts[i].size,
+          sizeOfEstimateSeconds(_seeds[i].step.durationSeconds),
+        );
+        expect(returned.facts[i].size, Size.instant);
       }
 
       expect(returned.entries, hasLength(2));

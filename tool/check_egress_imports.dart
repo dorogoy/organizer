@@ -51,9 +51,14 @@ const List<String> egressImportAllowlist = [
 const Set<String> egressImportsLegalAnywhere = {'provider_allowlist.dart'};
 
 /// The composition-root exception: `lib/main.dart` wires the factory
-/// (the story's own Code Map), so it alone may import it.
+/// (the story's own Code Map), so it alone may import it. Story 5.7
+/// adds the scan controller's one composition read: the landing's
+/// origin derivation names the Local stub's type (`local` on the
+/// debug path, `cloud` on BYOK) — a type check the spec itself
+/// expresses there, never a call into the shape.
 const Map<String, Set<String>> egressImportsLegalByFile = {
   'lib/main.dart': {'slicer_factory.dart'},
+  'lib/scan/scan_controller.dart': {'local_slicer.dart'},
 };
 
 /// HTTP-client packages (by package name) whose import is forbidden

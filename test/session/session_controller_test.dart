@@ -300,6 +300,7 @@ void main() {
         dictated: null,
         rescueOf: null,
         estimateSeconds: null,
+        stepText: null,
       ),
     ]);
     await buildController(store).handleAppOpen();
