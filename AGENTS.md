@@ -32,3 +32,7 @@ Per session:
 - Restore after tests: `settings put system font_scale 1.0`, `cmd uimode night no`, `date -s @<host epoch>`; stop with `$ADB -s emulator-5554 emu kill`.
 
 Reference run with full evidence: story 2-7's spec, `_bmad-output/implementation-artifacts/2-7-warm-return.md` → Manual Verification.
+
+## Subagent dispatch (BMAD builds)
+
+- Implementation handoffs in BMAD build workflows (bmad-build step-03 and patch dispatches) go to the `bmad-dev` subagent, not `general-purpose`. The project-level `.pi/agents/bmad-dev.md` overrides the global one: no model pin — it inherits the session's model — and it implements the handed spec directly (no workflow re-run). Review layers still require session-model-capability subagents per the workflow's own rule.
