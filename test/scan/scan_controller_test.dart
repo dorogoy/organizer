@@ -31,11 +31,23 @@ class _RecordingStore implements StorePort {
   final List<PoolFactRecord> facts = [];
   final List<LogEntryRecord> entries = [];
 
+  /// Optional brake on the append: when set, the next append parks on
+  /// this completer — the race tests' window for landing a close
+  /// mid-write (the UI suite's own _RecordingStore pattern).
+  Completer<void>? appendGate;
+
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    final gate = appendGate;
+    if (gate != null) {
+      appendGate = null;
+      await gate.future;
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async =>
@@ -46,12 +58,41 @@ class _RecordingStore implements StorePort {
       List.unmodifiable(entries);
 }
 
+/// A store whose `appendLogEntry` always throws — the quiet-absorption
+/// queue path's own row (the dictation suite's precedent).
+class _ThrowingAppendStore implements StorePort {
+  _ThrowingAppendStore(this._inner);
+
+  final _RecordingStore _inner;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async =>
+      _inner.appendPoolFact(fact);
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    throw StateError('append failed');
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
 /// The Files fake: every write and unlink recorded, the frame's path
 /// handed to the gate exactly as production hands it.
 class _RecordingFiles implements FilesPort {
   final writtenFrames = <(String, List<int>)>[];
   final unlinkedScans = <String>[];
   var framePathToReturn = '/cache/scan_cache/x/frame.jpg';
+
+  /// Optional brake on the scan unlink: when set, the next unlink
+  /// parks on this completer — the resolution's tail-unlink race
+  /// window.
+  Completer<void>? unlinkGate;
 
   @override
   Future<List<int>?> read(String scope, String name) async => null;
@@ -69,7 +110,14 @@ class _RecordingFiles implements FilesPort {
   }
 
   @override
-  Future<void> unlinkScan(String scanId) async => unlinkedScans.add(scanId);
+  Future<void> unlinkScan(String scanId) async {
+    unlinkedScans.add(scanId);
+    final gate = unlinkGate;
+    if (gate != null) {
+      unlinkGate = null;
+      await gate.future;
+    }
+  }
 
   @override
   Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
@@ -747,9 +795,11 @@ void main() {
       expect(files.unlinkedScans, [passed.scanId]);
     });
 
-    test('a close mid-dispatch turns the late resolution into a stale '
-        "answer: no routing data, the close already unlinked, the act's "
-        "row stands (5.2's epoch discipline)", () async {
+    test('a close mid-dispatch mints exactly one scan_abandoned row and '
+        'turns the late resolution into a stale answer: no routing data, '
+        'the close already unlinked, the act\'s rows the only two '
+        '(Story 5.6, AD-8 — the departure is the resolution cause; 5.2\'s '
+        'epoch discipline)', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final slicer = _FakeSlicer()..gate = Completer<void>();
@@ -766,15 +816,169 @@ void main() {
       // The close's unlink was the only one: the stale answer unlinked
       // nothing new and recreated nothing.
       expect(files.unlinkedScans, [passed.scanId]);
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      // The wait was left standing: the grant at the tap, then exactly
+      // one payload-less scan_abandoned for the departure — nothing
+      // more lands when the late resolution answers stale.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ]);
+      final abandonment = store.entries[1];
+      expect(abandonment.itemId, isNull);
+      expect(abandonment.permission, isNull);
+      expect(abandonment.sliceCause, isNull);
+      expect(
+        abandonment.instantUtcMicros,
+        _fixedClock().microsecondsSinceEpoch,
+      );
+    });
+
+    test('a close landing while the consent_granted append stands dispatches '
+        'NOTHING — cancelled and discarded: zero slice calls (no egress, no '
+        'token consumption), and the rows are exactly the act\'s and the '
+        'departure\'s (the pre-dispatch epoch re-check)', () async {
+      final appendBrake = Completer<void>();
+      final store = _RecordingStore()..appendGate = appendBrake;
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer();
+      final (controller, passed) = await standingScan(
+        store,
+        files,
+        slicer: slicer,
+      );
+      final granting = controller.grantConsent();
+      // The act's own row parks on the store's brake: the departure
+      // lands mid-append, behind it on the shared queue.
+      await Future<void>.delayed(Duration.zero);
+      final closing = controller.close();
+      appendBrake.complete();
+      await closing;
+      expect(await granting, isA<ScanConsentStale>());
+      expect(
+        slicer.requests,
+        isEmpty,
+        reason: 'a departure must not be followed by egress',
+      );
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ]);
+      expect(files.unlinkedScans, [passed.scanId]);
+    });
+
+    test('a close landing during the resolution\'s tail unlink mints '
+        'nothing — the flag cleared before the unlink await, the outcome '
+        'still routes, the close still completes', () async {
+      final store = _RecordingStore();
+      final unlinkBrake = Completer<void>();
+      final files = _RecordingFiles()..unlinkGate = unlinkBrake;
+      final camera = _FakeCamera();
+      final slicer = _FakeSlicer();
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: camera..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final granting = controller.grantConsent();
+      // The slice resolved; the resolution parks in its tail unlink.
+      await Future<void>.delayed(Duration.zero);
+      await controller.close();
+      unlinkBrake.complete();
+      expect(await granting, isA<ScanConsentDelivered>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+      ], reason: 'the dispatch resolved — a close after it abandons nothing');
+      expect(files.unlinkedScans.toSet(), {files.writtenFrames.single.$1});
+      expect(camera.disposedCalls, isNotEmpty);
+    });
+
+    test('a failing store on the abandonment append is absorbed quietly — '
+        'close() mid-dispatch still completes, the unlink and the camera '
+        'dispose still happen, nothing escapes (the row writer\'s '
+        'catchError, now awaited inside close)', () async {
+      final inner = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      final controller = ScanController(
+        store: _ThrowingAppendStore(inner),
+        files: files,
+        camera: camera..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final granting = controller.grantConsent();
+      // The grant append threw (absorbed); the dispatch parks on the
+      // slicer's gate — the abandonment row's own append will throw
+      // the same way inside close.
+      await Future<void>.delayed(Duration.zero);
+      await controller.close();
+      slicer.gate!.complete();
+      expect(await granting, isA<ScanConsentStale>());
+      expect(files.unlinkedScans, isNotEmpty);
+      expect(camera.disposedCalls, isNotEmpty);
+      expect(inner.entries, isEmpty, reason: 'nothing landed, nothing escaped');
+    });
+
+    test('a double close mid-wait (the lifecycle release, then the '
+        'dispose) mints exactly one scan_abandoned row — the flag clears '
+        'with the mint, so close stays idempotent for the row (Story '
+        '5.6)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      final (controller, _) = await standingScan(store, files, slicer: slicer);
+      final granting = controller.grantConsent();
+      // Both departure paths converge on close: the backgrounded
+      // lifecycle handler and the gate's own disposal.
+      await controller.close();
+      await controller.close();
+      slicer.gate!.complete();
+      expect(await granting, isA<ScanConsentStale>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ], reason: 'the departure is one act — its row is one row');
+    });
+
+    test('a close after the resolution mints nothing — every '
+        'grantConsent exit clears the in-flight flag, so the delivered '
+        'arm\'s own dispose stays rowless (Story 5.6)', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final slicer = _FakeSlicer();
+      final (controller, _) = await standingScan(store, files, slicer: slicer);
+      expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
+      await controller.close();
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+      ], reason: 'no dispatch stands at the close — no abandonment exists');
     });
 
     test('a decline after the scan ended is nothing at all — no row, '
-        'no second unlink', () async {
+        'no second unlink (and a close before any answer mints no '
+        'scan_abandoned: leaving before consent is neither declining '
+        'nor abandoning, Story 5.6)', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final (controller, passed) = await standingScan(store, files);
       await controller.close();
+      expect(
+        store.entries,
+        isEmpty,
+        reason: 'no dispatch stood at the close — nothing was abandoned',
+      );
       expect(await controller.declineConsent(), isFalse);
       expect(store.entries, isEmpty);
       expect(files.unlinkedScans, [passed.scanId]);

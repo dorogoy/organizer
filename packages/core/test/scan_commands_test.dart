@@ -194,4 +194,69 @@ void main() {
       );
     });
   });
+
+  group('the scan-abandonment minter (Story 5.6, FR-16, AD-8, AD-21)', () {
+    test('mints exactly one payload-less scan_abandoned row', () {
+      final contents = scanAbandoned();
+      expect(contents, hasLength(1));
+      final content = contents.single;
+      expect(content.kind, same(LogKind.scanAbandoned));
+      expect(content.kind.name, 'scan_abandoned');
+      // The `app_opened` precedent: no payload at all — no item pair,
+      // no stack, no setting, no pocket, no energy, no report, no
+      // permission, no cause. The departure asserts nothing beyond
+      // itself: no capability, no scan identity, no re-ask.
+      expect(content.itemId, isNull);
+      expect(content.itemOrigin, isNull);
+      expect(content.stack, isNull);
+      expect(content.settingKey, isNull);
+      expect(content.settingValue, isNull);
+      expect(content.settingTextValue, isNull);
+      expect(content.pocketMinutes, isNull);
+      expect(content.energyLevel, isNull);
+      expect(content.reportValue, isNull);
+      expect(content.reportWeek, isNull);
+      expect(content.permission, isNull);
+      expect(content.sliceCause, isNull);
+    });
+
+    test('the row converts back at the read boundary as a moment — '
+        'never unclassifiedKind (the R1 lesson), no drift schema '
+        'change (AD-23)', () {
+      LogEntryRecord record({String? itemId, String? permission}) => (
+        id: '0190dddd-0000-7000-8000-000000000004',
+        kind: 'scan_abandoned',
+        instantUtcMicros: 7000,
+        offsetSeconds: 3600,
+        itemId: itemId,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: permission,
+        sliceCause: null,
+      );
+      final conversion = convertLogEntryRecord(record());
+      expect(conversion.flaw, isNull);
+      final entry = conversion.entry!;
+      expect(entry, isA<MomentEntry>());
+      expect(entry.kind, same(LogKind.scanAbandoned));
+      // A scan_abandoned row carrying any payload is excluded, never
+      // coerced: an item pair or permission on the row reads as its
+      // own kind's violation.
+      expect(
+        convertLogEntryRecord(record(itemId: 'an-item')).flaw,
+        LogRecordFlaw.itemOnNonItemKind,
+      );
+      expect(
+        convertLogEntryRecord(record(permission: 'camera')).flaw,
+        LogRecordFlaw.permissionOnNonPermissionKind,
+      );
+    });
+  });
 }

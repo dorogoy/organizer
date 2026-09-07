@@ -142,6 +142,13 @@ MomentEntry _declined(int micros, {String id = 'decline'}) => MomentEntry(
   kind: LogKind.consentDeclined,
 );
 
+MomentEntry _abandoned(int micros, {String id = 'abandon'}) => MomentEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.scanAbandoned,
+);
+
 void main() {
   // "Now" for every read — Saturday 2026-08-29 12:00 UTC, the house
   // matrix clock. The 48 h boundary lands Thursday 2026-08-27 12:00.
@@ -381,6 +388,35 @@ void main() {
         ]),
         isTrue,
         reason: 'the anchor is the open — the decline moved it not at all',
+      );
+    });
+
+    test('an abandonment is never contact — the user walking away from '
+        'the wait is not the user using it (Story 5.6, FR-16, AD-8, '
+        'AD-21, the same-pass rule pinned: the moment default holds, '
+        'warm return is unmoved by a departure)', () {
+      // Alone before the open at any distance: not contact, so not
+      // due — the naming table's user-act register never means
+      // engagement, and no greeting owes on a walk-away.
+      expect(
+        due([_abandoned(before(const Duration(hours: 96))), _opened(now)]),
+        isFalse,
+        reason:
+            'an abandonment logs, but is not contact — no greeting '
+            'owes on it',
+      );
+      // The discriminating shape: the abandonment sits 47 h before
+      // the read and must not move the anchor off the 49 h-old open.
+      // Had the kind defaulted to contact, the predicate would read
+      // false — the open's contact still anchors the greeting.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _abandoned(before(const Duration(hours: 47))),
+          _opened(now),
+        ]),
+        isTrue,
+        reason: 'the anchor is the open — the abandonment moved it not at all',
       );
     });
 

@@ -374,6 +374,15 @@ void main() {
           'exactly one core faceRefused command invocation — the scan '
           'channel\'s face refusal (Story 5.2)',
     );
+    expect(
+      RegExp(r'\bscanAbandoned\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core scanAbandoned command invocation — the scan '
+          'channel\'s wait abandonment, minted only by close() through the '
+          '_appendScanAbandoned wrapper on the shared content copier '
+          '(Story 5.6)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own

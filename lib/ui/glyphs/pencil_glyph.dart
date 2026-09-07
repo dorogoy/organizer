@@ -1,6 +1,12 @@
 // Lápiz — the manual-entry affordance (utility glyph, neutral mass). Its
 // axis is already 45° up-right, so the mass slides along its length and
 // crosses 0% of its width — strictly axial, no exception needed.
+//
+// The drawing's geometry lives HERE and nowhere else (Story 5.6's
+// single-sourcing rule, arrived at in review): the wait's
+// WritingPencilPainter consumes these same static builders, so the
+// static pencil IS the wait's resting pose — one drawing, two
+// readers, zero drift.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +17,97 @@ import 'glyph_canvas.dart';
 class PencilGlyph extends IconGlyph {
   const PencilGlyph(super.size, {super.key});
 
+  /// The pencil's axial unit, x — cos(−45°), 45° up-right: the same
+  /// direction as the global offset vector, so the mass's
+  /// displacement is strictly axial.
+  static double get axisX => math.cos(-math.pi / 4);
+
+  /// The pencil's axial unit, y — sin(−45°).
+  static double get axisY => math.sin(-math.pi / 4);
+
+  /// The perpendicular unit's x — offsets by half a width.
+  static const double perpendicularX = 0.70710678;
+
+  /// The perpendicular unit's y.
+  static const double perpendicularY = 0.70710678;
+
+  /// The eraser end S, x — the axis origin.
+  static const double eraserX = 4.6;
+
+  /// The eraser end S, y.
+  static const double eraserY = 19.4;
+
+  /// The shaft's length along the axis, to the tip base T0.
+  static const double shaftLength = 13.4;
+
+  /// The tip's length beyond T0, to the point P.
+  static const double tipLength = 5.66;
+
+  /// Half the pencil's width — the perpendicular offset.
+  static const double halfWidth = 1.7;
+
+  /// The ferrule's distance along the axis from the eraser end.
+  static const double ferruleAt = 2.2;
+
+  /// The point [distance] user units along the axis from the eraser
+  /// end.
+  static Offset alongAxis(double distance) =>
+      Offset(eraserX + axisX * distance, eraserY + axisY * distance);
+
+  /// [point] offset half a width along the perpendicular's positive
+  /// direction.
+  static Offset plusPerpendicular(Offset point) => Offset(
+    point.dx + perpendicularX * halfWidth,
+    point.dy + perpendicularY * halfWidth,
+  );
+
+  /// [point] offset half a width along the perpendicular's negative
+  /// direction.
+  static Offset minusPerpendicular(Offset point) => Offset(
+    point.dx - perpendicularX * halfWidth,
+    point.dy - perpendicularY * halfWidth,
+  );
+
+  /// The shaft's rectangle, eraser end to tip base — the colour
+  /// plate's whole holding, filled, no stroke.
+  static Path shaftPath() {
+    final t0 = alongAxis(shaftLength);
+    final s = Offset(eraserX, eraserY);
+    final sPlus = plusPerpendicular(s);
+    final sMinus = minusPerpendicular(s);
+    final t0Plus = plusPerpendicular(t0);
+    final t0Minus = minusPerpendicular(t0);
+    return Path()
+      ..moveTo(sPlus.dx, sPlus.dy)
+      ..lineTo(t0Plus.dx, t0Plus.dy)
+      ..lineTo(t0Minus.dx, t0Minus.dy)
+      ..lineTo(sMinus.dx, sMinus.dy)
+      ..close();
+  }
+
+  /// The line layer: the shaft's outline, the tip's two edges meeting
+  /// at the point, and the ferrule's cross line — stroked with round
+  /// caps and joins.
+  static List<Path> linePaths() {
+    final shaft = shaftPath();
+    final t0 = alongAxis(shaftLength);
+    final tipPoint = alongAxis(shaftLength + tipLength);
+    final ferrule = alongAxis(ferruleAt);
+    return [
+      Path()..addPath(shaft, Offset.zero),
+      Path()
+        ..moveTo(plusPerpendicular(t0).dx, plusPerpendicular(t0).dy)
+        ..lineTo(tipPoint.dx, tipPoint.dy)
+        ..lineTo(minusPerpendicular(t0).dx, minusPerpendicular(t0).dy),
+      Path()
+        ..moveTo(plusPerpendicular(ferrule).dx, plusPerpendicular(ferrule).dy)
+        ..lineTo(
+          minusPerpendicular(ferrule).dx,
+          minusPerpendicular(ferrule).dy,
+        ),
+    ];
+  }
+
   @override
   TreatmentPainter painterFor(BuildContext context) {
     final (mass, ink) = glyphPlates(
@@ -19,57 +116,12 @@ class PencilGlyph extends IconGlyph {
       darkMass: DarkPalette.iconMassNeutralDark,
     );
 
-    // Local frame: the pencil's own 45° axis. Axis unit a = (cos −45°,
-    // sin −45°); perpendicular p = (0.707, 0.707). Eraser end S, tip base
-    // T0 (13.4u along), point P (5.66u further): 19.1u total, so the 1.92u
-    // offset slides the mass ~10% along its length.
-    final aX = math.cos(-math.pi / 4);
-    final aY = math.sin(-math.pi / 4);
-    const pX = 0.70710678, pY = 0.70710678;
-    const sX = 4.6, sY = 19.4;
-    const shaft = 13.4, tip = 5.66, halfWidth = 1.7;
-
-    Offset along(double x, double y, double d) =>
-        Offset(x + aX * d, y + aY * d);
-
-    final t0 = along(sX, sY, shaft);
-    final tipPoint = along(sX, sY, shaft + tip);
-    final sPlus = Offset(sX + pX * halfWidth, sY + pY * halfWidth);
-    final sMinus = Offset(sX - pX * halfWidth, sY - pY * halfWidth);
-    final t0Plus = Offset(t0.dx + pX * halfWidth, t0.dy + pY * halfWidth);
-    final t0Minus = Offset(t0.dx - pX * halfWidth, t0.dy - pY * halfWidth);
-    final ferrule = along(sX, sY, 2.2);
-    final ferrulePlus = Offset(
-      ferrule.dx + pX * halfWidth,
-      ferrule.dy + pY * halfWidth,
-    );
-    final ferruleMinus = Offset(
-      ferrule.dx - pX * halfWidth,
-      ferrule.dy - pY * halfWidth,
-    );
-
-    final shaftPath = Path()
-      ..moveTo(sPlus.dx, sPlus.dy)
-      ..lineTo(t0Plus.dx, t0Plus.dy)
-      ..lineTo(t0Minus.dx, t0Minus.dy)
-      ..lineTo(sMinus.dx, sMinus.dy)
-      ..close();
-
     return TreatmentPainter(
       scale: size / 24,
       massColor: mass,
       lineColor: ink,
-      massPaths: [shaftPath],
-      linePaths: [
-        Path()..addPath(shaftPath, Offset.zero),
-        Path()
-          ..moveTo(t0Plus.dx, t0Plus.dy)
-          ..lineTo(tipPoint.dx, tipPoint.dy)
-          ..lineTo(t0Minus.dx, t0Minus.dy),
-        Path()
-          ..moveTo(ferrulePlus.dx, ferrulePlus.dy)
-          ..lineTo(ferruleMinus.dx, ferruleMinus.dy),
-      ],
+      massPaths: [shaftPath()],
+      linePaths: linePaths(),
     );
   }
 }
