@@ -9,8 +9,12 @@
 // The story ends at the face gate: a refused frame lands on the one
 // calm surface (`NoSlicerSurface`, cause `personInFrame`) whose copy
 // is the offer to reframe — the way on is retapping Cámara, the same
-// tap count as anything else — and a passing frame closes quietly
-// (5.5 wires the continuation).
+// tap count as anything else — and a passing frame hands the scan to
+// the consent gate (Story 5.5): the pre-gate provider read decides —
+// no provider selected, the gate never renders and the no-key surface
+// replaces this route (consent is never asked for a request that
+// cannot be made); a selected provider pushes the gate, which owns
+// the scan's terminal close from there.
 //
 // The ruling's system-problem notice: an **interrupted** ask (the
 // system swallowed the dialog — no answer existed) and a **failed
@@ -33,12 +37,15 @@ import 'dart:async';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:flutter/material.dart';
 
+import '../../egress/provider_allowlist.dart';
 import '../../plugins/camera/camera_shell.dart';
 import '../../scan/scan_controller.dart';
 import '../../strings/app_strings.dart';
 import '../dispenser/task_card.dart';
 import '../no_slicer/no_slicer_surface.dart';
+import '../settings/slicer_access_section.dart';
 import '../tokens.dart';
+import 'consent_gate_screen.dart';
 
 /// The surface's width bound on wide grounds — CaptureScreen's own
 /// layout bound (a layout bound, not a gap; the tokenized side rule
@@ -80,6 +87,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   /// tap is the controller's own guard's to absorb.
   bool _shooting = false;
 
+  /// Whether the gate-pass continuation handed the scan's terminal
+  /// close to the consent gate (Story 5.5): the gate screen owns the
+  /// close from there, so this surface's disposal must not run it —
+  /// or the standing scan (and its frame) would die beneath the gate.
+  bool _consentHandedOff = false;
+
   /// Whether this surface's own open is in flight — the staged
   /// permission moment. The lifecycle's release hands never run
   /// inside this window: the ask owns the moment, and the system
@@ -97,9 +110,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   void dispose() {
     // Every exit path ends the scan: the system back, the refusal's
     // replacement, the quiet closes — disposal is the last of them,
-    // and the controller's close is idempotent.
+    // and the controller's close is idempotent. The one exception is
+    // the consent handoff: the gate screen owns the close once the
+    // continuation replaced this route with the gate.
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(widget.controller?.close());
+    if (!_consentHandedOff) {
+      unawaited(widget.controller?.close());
+    }
     super.dispose();
   }
 
@@ -199,8 +216,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   /// The shutter tap (FR-25): the shoot runs to its terminal outcome,
   /// then the surface leaves — a refusal replaces this route with the
   /// one calm surface, everything else pops. The outcome arrives with
-  /// the scan's directory already unlinked and the row already
-  /// appended; navigation is all that is left. A throwing seam is the
+  /// the row already appended and — refusal, closed and failed — the
+  /// scan's directory already unlinked; the one exception is the
+  /// gate-pass arm, whose directory deliberately stands: the consent
+  /// phase owns the unlink from there (Story 5.5). Navigation is all
+  /// that is left. A throwing seam is the
   /// fail-closed quiet close — the flight flag resets, nothing is
   /// surfaced, and the pop is the same one every quiet close takes.
   Future<void> _onShoot() async {
@@ -237,6 +257,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 const NoSlicerSurface(cause: NoSlicerCause.personInFrame),
           ),
         );
+      case ScanShootGatePassed():
+        await _continueToConsent(controller);
       case ScanShootClosed():
         Navigator.of(context).pop();
       case ScanShootFailed():
@@ -253,6 +275,64 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           await widget.controller?.close();
         });
     }
+  }
+
+  /// The gate-pass continuation (Story 5.5): the pre-gate checks run
+  /// fail-closed, before anything renders — no read seam or no slicer
+  /// seam behind the controller (the half-wired test composition) is
+  /// the quiet pop every closed scan takes, the gate seam's own rule.
+  /// Then the provider read: null, or an id the frozen allowlist does
+  /// not carry (the derivation gates charset, not membership), means
+  /// the request cannot be made — consent is never asked, and the
+  /// no-key surface replaces this route, its disposal closing the
+  /// scan quietly. A throwing read is the same fail-closed quiet pop.
+  /// A selected, allowlisted provider pushes the consent gate — with
+  /// the provider's rendered name, the one display-name truth — and
+  /// hands the scan's terminal close to it: this surface's disposal
+  /// no longer closes, or the standing scan would die beneath the
+  /// gate.
+  Future<void> _continueToConsent(ScanController controller) async {
+    final read = controller.readSelectedProvider;
+    if (read == null || controller.slicer == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    String? providerId;
+    try {
+      providerId = await read();
+    } on Object {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final selected = providerId;
+    if (selected == null || allowlistEntryById(selected) == null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) =>
+              const NoSlicerSurface(cause: NoSlicerCause.noKey),
+        ),
+      );
+      return;
+    }
+    setState(() => _consentHandedOff = true);
+    // The lens is never needed again past the handoff — every path
+    // off the gate ends the scan — so it releases here, not at the
+    // gate's own close: no privacy indicator stands lit through the
+    // consent ask (the frame itself survives in the scan's cache).
+    unawaited(controller.releaseCamera());
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => ConsentGateScreen(
+          controller: controller,
+          providerName: providerNameOf(AppStrings.of(context), selected),
+        ),
+      ),
+    );
   }
 
   @override

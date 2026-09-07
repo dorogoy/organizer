@@ -40,8 +40,8 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s eighteen kinds (18 since Story 5.4 '
-        'added consent_granted)', () {
+    test('holds exactly the build\'s nineteen kinds (19 since Story 5.5 '
+        'added consent_declined)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -61,6 +61,7 @@ void main() {
         LogKind.sliceFailed,
         LogKind.faceRefused,
         LogKind.consentGranted,
+        LogKind.consentDeclined,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -68,6 +69,7 @@ void main() {
         'card_dealt',
         'card_done',
         'card_skipped',
+        'consent_declined',
         'consent_granted',
         'crash_recorded',
         'energy_set',
@@ -82,7 +84,7 @@ void main() {
         'slice_requested',
         'slice_returned',
       ]);
-      expect(LogKind.knownByName, hasLength(18));
+      expect(LogKind.knownByName, hasLength(19));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {

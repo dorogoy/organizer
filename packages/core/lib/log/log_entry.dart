@@ -16,12 +16,16 @@
 /// appending on the same terms as a photo scan), since Story 5.2 the
 /// seventeenth kind `face_refused` (FR-25, AD-21 — the on-device face
 /// gate's refusal, a payload-less system event on the `app_opened`
-/// precedent: no drift schema change, no item pair, no cause), and
+/// precedent: no drift schema change, no item pair, no cause),
 /// since Story 5.4 the eighteenth kind `consent_granted` (AD-8,
 /// FR-26 b — the consent act's payload-less user-act row:
 /// instrumentation only, carrying no capability and no scan identity;
 /// the consent token itself is never persisted, never exported, never
-/// reconstructible from the log). A new kind
+/// reconstructible from the log), and since Story 5.5 the nineteenth
+/// kind `consent_declined` (FR-25, FR-26, AD-21 — the declined
+/// consent's payload-less system event: a decline record that asserts
+/// nothing, logged for the audit trail but never contact — no
+/// capability, no scan identity, no re-ask). A new kind
 /// is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
@@ -106,6 +110,7 @@ final class LogKind {
   static const sliceFailed = LogKind._('slice_failed', known: true);
   static const faceRefused = LogKind._('face_refused', known: true);
   static const consentGranted = LogKind._('consent_granted', known: true);
+  static const consentDeclined = LogKind._('consent_declined', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -127,6 +132,7 @@ final class LogKind {
     'slice_failed': sliceFailed,
     'face_refused': faceRefused,
     'consent_granted': consentGranted,
+    'consent_declined': consentDeclined,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -199,8 +205,10 @@ final class ItemActEntry extends LogEntry {
 /// A moment in the product's life with no pool-item referent and no
 /// payload (`session_ended`, `app_opened`, and — since Story 5.2 —
 /// `face_refused`, the face gate's refusal on the `app_opened`
-/// precedent, and — since Story 5.4 — `consent_granted`, the consent
-/// act's user-act row, equally payload-less). `session_started` left
+/// precedent — since Story 5.4 — `consent_granted`, the consent
+/// act's user-act row, and — since Story 5.5 — `consent_declined`,
+/// the declined consent's system-event record, all equally
+/// payload-less). `session_started` left
 /// this family in Story 2.2: it carries the declared pocket, so it has
 /// its own subtype below.
 final class MomentEntry extends LogEntry {
@@ -630,7 +638,8 @@ bool _isMoment(LogKind kind) =>
     kind == LogKind.sessionEnded ||
     kind == LogKind.appOpened ||
     kind == LogKind.faceRefused ||
-    kind == LogKind.consentGranted;
+    kind == LogKind.consentGranted ||
+    kind == LogKind.consentDeclined;
 
 /// Whether [kind] is one of the three `slice_*` kinds (Story 4.6).
 bool _isSliceKind(LogKind kind) =>

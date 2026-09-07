@@ -88,12 +88,18 @@ void main() {
   // spine-pinned plugin, the face gate over the measured ML Kit
   // interim rule, and the scan controller over the same store, the
   // shared write queue and the same Files root the vault holds — one
-  // substrate, every adapter composed here at the root.
+  // substrate, every adapter composed here at the root. Since Story
+  // 5.5 it also holds the consent phase's two seams: the Slicer — the
+  // SAME instance the Dispenser's rescue path holds (one production
+  // SlicerPort) — and the selected-provider read off the settings
+  // derivation, the pre-gate availability read.
   final scan = ScanController(
     store: store,
     files: files,
     camera: PluginCameraShell(),
     gate: const MlKitFaceGate(),
+    slicer: slicer,
+    readSelectedProvider: settings.readSelectedProvider,
     writeQueue: logWrites,
   );
   // The route-awareness observer (Story 5.2): registered with the

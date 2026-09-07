@@ -256,6 +256,13 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'canonicalSchemaPropertyNotObjectFailure',
   },
   'lib/egress/slicer_factory.dart': {'localSlicerEnvironmentKey'},
+  // Story 5.5: the scan prompt — the Slicer's step contract the scan
+  // dispatch rides (real actions on what the frame shows, 3–5-minute
+  // tags, JSON only). Provider-facing instruction, never widget copy,
+  // on the rescue contract's own terms (its prompt pieces live under
+  // lib/egress/ on this same allowance): AD-15's ban is on copy
+  // reaching a widget, and this never reaches one.
+  'lib/scan/scan_controller.dart': {'_scanPrompt'},
   'lib/ui/settings/slicer_access_section.dart': {'uncoveredProviderRender'},
 };
 
