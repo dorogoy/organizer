@@ -25,7 +25,12 @@
 /// kind `consent_declined` (FR-25, FR-26, AD-21 — the declined
 /// consent's payload-less system event: a decline record that asserts
 /// nothing, logged for the audit trail but never contact — no
-/// capability, no scan identity, no re-ask). A new kind
+/// capability, no scan identity, no re-ask), and since Story 5.6 the
+/// twentieth kind `scan_abandoned` (FR-16, AD-8, AD-21 — the
+/// unbounded wait's honest departure: a payload-less **user act** on
+/// the naming table's own register, the user leaving the scan surface
+/// or backgrounding the app mid-wait — AD-8's resolution cause —
+/// logged for the audit trail but never contact). A new kind
 /// is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
@@ -111,6 +116,7 @@ final class LogKind {
   static const faceRefused = LogKind._('face_refused', known: true);
   static const consentGranted = LogKind._('consent_granted', known: true);
   static const consentDeclined = LogKind._('consent_declined', known: true);
+  static const scanAbandoned = LogKind._('scan_abandoned', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -133,6 +139,7 @@ final class LogKind {
     'face_refused': faceRefused,
     'consent_granted': consentGranted,
     'consent_declined': consentDeclined,
+    'scan_abandoned': scanAbandoned,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -207,7 +214,9 @@ final class ItemActEntry extends LogEntry {
 /// `face_refused`, the face gate's refusal on the `app_opened`
 /// precedent — since Story 5.4 — `consent_granted`, the consent
 /// act's user-act row, and — since Story 5.5 — `consent_declined`,
-/// the declined consent's system-event record, all equally
+/// the declined consent's system-event record, and — since Story 5.6 —
+/// `scan_abandoned`, the mid-wait departure's user-act record (the
+/// naming table's own register, never contact), all equally
 /// payload-less). `session_started` left
 /// this family in Story 2.2: it carries the declared pocket, so it has
 /// its own subtype below.
@@ -639,7 +648,8 @@ bool _isMoment(LogKind kind) =>
     kind == LogKind.appOpened ||
     kind == LogKind.faceRefused ||
     kind == LogKind.consentGranted ||
-    kind == LogKind.consentDeclined;
+    kind == LogKind.consentDeclined ||
+    kind == LogKind.scanAbandoned;
 
 /// Whether [kind] is one of the three `slice_*` kinds (Story 4.6).
 bool _isSliceKind(LogKind kind) =>

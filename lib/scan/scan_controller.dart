@@ -115,7 +115,8 @@ final class ScanConsentStale extends ScanConsentOutcome {
 /// Every real resolution unlinks the scan's directory — refusal,
 /// declined consent, pre-gate no-provider refusal, gate exit (system
 /// back), provider failure, delivered-interim discard, epoch-stale
-/// late landing, surface exit, permission failure, detector failure,
+/// late landing, the wait's abandonment (`scan_abandoned`, Story
+/// 5.6), surface exit, permission failure, detector failure,
 /// surface disposal — so no frame lingers past its scan (the 5.4
 /// sweep stays the crash backstop; the gate pass itself is not a
 /// resolution: the frame survives it for the consent act). The
@@ -189,6 +190,13 @@ class ScanController {
   /// scan, so a rapid second tap on either action is nothing at all —
   /// no second row, no second token (one exists; consumption is once).
   bool _consentTaken = false;
+
+  /// Whether a granted consent's dispatch stands (Story 5.6): set
+  /// once the grant guards pass — the wait has begun — and cleared on
+  /// every [grantConsent] exit and by the [close] that mints it, so
+  /// [close] mints exactly one `scan_abandoned` row for a departure
+  /// mid-wait and nothing for a post-resolution dispose.
+  bool _sliceInFlight = false;
 
   /// The shoot's in-flight guard: one shutter tap owns the surface
   /// until its flow settles, so a rapid second tap is nothing at all —
@@ -384,11 +392,34 @@ class ScanController {
   /// gate is not declining: no row, the scan just closes) — ends
   /// here; no frame outlives its scan, and the bumped epoch retires
   /// every in-flight landing, the dispatch's included.
+  ///
+  /// Since Story 5.6 (FR-16, AD-8, AD-21) a dispatch standing at the
+  /// close means the user left the wait — back or background, the
+  /// departure is the resolution cause — and exactly one payload-less
+  /// `scan_abandoned` row is minted for it through the core's single
+  /// sanctioned minter, enqueued before the terminal steps so the
+  /// queue's row order keeps the act's own chronology (the grant at
+  /// the tap, the abandonment at the departure). The append mirrors
+  /// `_appendConsentGranted`, not `_appendConsentDeclined`: no
+  /// in-closure epoch re-check, because the close is what makes the
+  /// row true. The in-flight flag clears here, so the dispose that
+  /// follows a lifecycle release — and every later close — mints
+  /// nothing more; leaving before an answer (no dispatch standing)
+  /// mints nothing either: leaving before consent is neither
+  /// declining nor abandoning.
   Future<void> close() async {
+    final Future<void>? abandonment;
+    if (_sliceInFlight) {
+      _sliceInFlight = false;
+      abandonment = _appendScanAbandoned();
+    } else {
+      abandonment = null;
+    }
     _epoch++;
     _open = false;
     await _unlinkScan();
     await camera.dispose();
+    await abandonment;
   }
 
   /// Releases the camera while the standing scan survives (Story
@@ -453,37 +484,33 @@ class ScanController {
     ));
   }
 
-  /// Appends exactly one `permission_refused` {camera} row through
-  /// the core's single sanctioned minter — the dictation seam's own
-  /// shape: the instant minted at entry, before any await, a v7 id per
-  /// row, the shared `LogWriteQueue` serializing the append against
-  /// every other write the shell owns. A failing store is absorbed
-  /// quietly — the queue recovers and nothing surfaces.
-  Future<void> _appendPermissionRefusal() {
+  /// Enqueues one core minter's rows — every row writer's common
+  /// body, the capture controller's own idiom: the instant minted at
+  /// entry, before any await, a v7 id per row, the shared
+  /// `LogWriteQueue` serializing the append against every other write
+  /// the shell owns, and a quiet absorption of a failing store. The
+  /// one deliberate variant is [_appendConsentDeclined], whose
+  /// in-closure epoch re-check the row's own truth demands.
+  Future<void> _appendMinted(Iterable<LogEntryContent> Function() mint) {
     final now = nowOf();
     return writeQueue
         .enqueue(() async {
-          for (final content in permissionRefuse(Permission.camera)) {
+          for (final content in mint()) {
             await _appendContent(content, now);
           }
         })
         .catchError((Object _) {});
   }
 
+  /// Appends exactly one `permission_refused` {camera} row through
+  /// the core's single sanctioned minter — the dictation seam's own
+  /// shape.
+  Future<void> _appendPermissionRefusal() =>
+      _appendMinted(() => permissionRefuse(Permission.camera));
+
   /// Appends exactly one `face_refused` row through the core's single
-  /// sanctioned minter, on the same shape as the permission refusal:
-  /// the instant minted at entry, a v7 id, the shared queue, and a
-  /// quiet absorption of a failing store.
-  Future<void> _appendFaceRefused() {
-    final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          for (final content in faceRefused()) {
-            await _appendContent(content, now);
-          }
-        })
-        .catchError((Object _) {});
-  }
+  /// sanctioned minter, on the same shape as the permission refusal.
+  Future<void> _appendFaceRefused() => _appendMinted(() => faceRefused());
 
   /// The decline tap (Story 5.5, FR-25, FR-29, AD-21): exactly one
   /// payload-less `consent_declined` row through the kind's single
@@ -539,7 +566,8 @@ class ScanController {
   /// every resolution: delivered (the interim discard, P2-A — the
   /// landing is 5.7's), failed (the raw cause for the standing
   /// `noSlicerCauseFromFailure` map), or the close epoch's stale
-  /// answer (no routing; the close already unlinked).
+  /// answer (no routing; the close already unlinked — and, since
+  /// Story 5.6, minted the wait's one `scan_abandoned` row).
   ///
   /// Absent [slicer], or no standing scan, or a second decision —
   /// the answer is [ScanConsentStale]: nothing half-wired dispatches
@@ -553,45 +581,74 @@ class ScanController {
       return const ScanConsentStale();
     }
     _consentTaken = true;
+    // The wait has begun (Story 5.6): a dispatch stands from here to
+    // the resolution, so a close landing anywhere inside it is the
+    // user abandoning the wait. Every exit below clears the flag, so
+    // an ordinary post-resolution dispose mints nothing.
+    _sliceInFlight = true;
     final epoch = _epoch;
-    // The mint at the tap — AD-8's ordering realized with its first
-    // production caller. One token exists.
-    final consent = mintScanConsent(scanId: scanId);
-    await _appendConsentGranted();
-    final SlicerOutcome outcome;
     try {
-      outcome = await slicer.slice(
-        ScanSliceRequest(
-          imageBytes: bytes,
-          prompt: _scanPrompt,
-          scanId: scanId,
-          consent: consent,
-        ),
-      );
-    } on Object {
-      // A throw is a malfunction, never a taxonomy value (the rescue
-      // path's own containment, byok's folding precedent): resolve as
-      // the provider-unreachable arm, the cache unlinked on this real
-      // resolution — unless the close won the race, which is the
-      // stale answer below.
+      // The mint at the tap — AD-8's ordering realized with its first
+      // production caller. One token exists.
+      final consent = mintScanConsent(scanId: scanId);
+      await _appendConsentGranted();
       if (_epoch != epoch) {
+        // A close won the race before the dispatch began: cancelled
+        // and discarded — the slicer is never called (no egress, no
+        // token consumption, nothing queued), the close already
+        // minted the wait's scan_abandoned row, and the stale answer
+        // routes nothing.
         return const ScanConsentStale();
       }
+      final SlicerOutcome outcome;
+      try {
+        outcome = await slicer.slice(
+          ScanSliceRequest(
+            imageBytes: bytes,
+            prompt: _scanPrompt,
+            scanId: scanId,
+            consent: consent,
+          ),
+        );
+      } on Object {
+        // A throw is a malfunction, never a taxonomy value (the rescue
+        // path's own containment, byok's folding precedent): resolve as
+        // the provider-unreachable arm, the cache unlinked on this real
+        // resolution — unless the close won the race, which is the
+        // stale answer below.
+        if (_epoch != epoch) {
+          return const ScanConsentStale();
+        }
+        // The dispatch has resolved: a close landing during the tail
+        // unlink below mints nothing — the flag clears before the
+        // await (the finally clear stays as the early arms' backstop).
+        _sliceInFlight = false;
+        await _unlinkCaptured(scanId);
+        _frameBytes = null;
+        return const ScanConsentFailed(SlicerFailureCause.providerUnreachable);
+      }
+      if (_epoch != epoch) {
+        // The scan closed while the dispatch stood: a stale answer —
+        // no routing, nothing recreated, the close already unlinked
+        // (and its own scan_abandoned row already stands).
+        return const ScanConsentStale();
+      }
+      // Same as the throw arm: the resolution owns the rest, so a
+      // close during the tail unlink mints nothing.
+      _sliceInFlight = false;
       await _unlinkCaptured(scanId);
       _frameBytes = null;
-      return const ScanConsentFailed(SlicerFailureCause.providerUnreachable);
+      return switch (outcome) {
+        SlicerDelivered() => const ScanConsentDelivered(),
+        SlicerFailed(:final cause) => ScanConsentFailed(cause),
+      };
+    } finally {
+      // A stale grant may finish after close has opened a new scan. Do
+      // not clear that newer scan's wait flag from the old dispatch.
+      if (_epoch == epoch) {
+        _sliceInFlight = false;
+      }
     }
-    if (_epoch != epoch) {
-      // The scan closed while the dispatch stood: a stale answer —
-      // no routing, nothing recreated, the close already unlinked.
-      return const ScanConsentStale();
-    }
-    await _unlinkCaptured(scanId);
-    _frameBytes = null;
-    return switch (outcome) {
-      SlicerDelivered() => const ScanConsentDelivered(),
-      SlicerFailed(:final cause) => ScanConsentFailed(cause),
-    };
   }
 
   /// Appends exactly one `consent_declined` row through the core's
@@ -619,18 +676,17 @@ class ScanController {
 
   /// Appends exactly one `consent_granted` row through the core's
   /// single sanctioned minter — instrumentation only, carrying no
-  /// capability; the token itself never touches the log. The same
-  /// shape as every row writer above.
-  Future<void> _appendConsentGranted() {
-    final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          for (final content in consentGranted()) {
-            await _appendContent(content, now);
-          }
-        })
-        .catchError((Object _) {});
-  }
+  /// capability; the token itself never touches the log.
+  Future<void> _appendConsentGranted() => _appendMinted(() => consentGranted());
+
+  /// Appends exactly one `scan_abandoned` row through the core's
+  /// single sanctioned minter (Story 5.6, FR-16, AD-8, AD-21). Unlike
+  /// [_appendConsentDeclined] there is NO close-epoch re-check inside
+  /// the closure: the decline's row asserts a decision a close can
+  /// void, while the abandonment's row is made true BY the close — the
+  /// departure is the resolution cause, so the row stands whatever
+  /// else races it.
+  Future<void> _appendScanAbandoned() => _appendMinted(() => scanAbandoned());
 }
 
 /// The scan prompt (Story 5.5): the Slicer's step contract for a photo

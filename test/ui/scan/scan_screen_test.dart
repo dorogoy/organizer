@@ -159,6 +159,13 @@ class _FakeSlicer implements SlicerPort {
 
 DateTime _fixedClock() => DateTime.utc(2026, 9, 5, 10);
 
+/// The route-pop settle window (the consent gate suite's own
+/// constant): one fixed-duration pump long enough for a Material
+/// route's exit/replacement transition to finish and the gone
+/// subtree to dispose — deliberately NOT derived from the wait
+/// pencil's 2400 ms loop period, which never settles.
+const Duration routePopSettle = Duration(milliseconds: 600);
+
 void main() {
   final strings = AppStringsEs();
 
@@ -483,7 +490,10 @@ void main() {
     await tester.tap(find.text(strings.scanShutter));
     await tester.pumpAndSettle();
     await tester.tap(find.text(strings.consentGateSend));
-    await tester.pumpAndSettle();
+    // Fixed-duration pumps from the accept arm onward: the wait's
+    // pencil repeats forever and never settles (Story 5.6).
+    await tester.pump();
+    await tester.pump(routePopSettle);
     // Delivered: the scan closes to the Dispenser — the launch surface
     // is back, nothing landed, no second answer exists.
     expect(find.byType(ConsentGateScreen), findsNothing);
@@ -518,7 +528,9 @@ void main() {
     await tester.tap(find.text(strings.scanShutter));
     await tester.pumpAndSettle();
     await tester.tap(find.text(strings.consentGateSend));
-    await tester.pumpAndSettle();
+    // Fixed-duration pumps: the wait's pencil never settles (5.6).
+    await tester.pump();
+    await tester.pump(routePopSettle);
     expect(find.byType(NoSlicerSurface), findsOneWidget);
     expect(find.text(strings.noSlicerInvalidKey), findsOneWidget);
     expect(store.entries.single.kind, 'consent_granted');

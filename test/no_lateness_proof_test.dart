@@ -192,12 +192,19 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The absolute ban, sixteen wire names wide: every user-act and
-    // moment kind — and, since Story 3.4, the `permission_refused`
-    // system event, since Story 4.6 the three `slice_*` rescue rows,
-    // since Story 5.2 the `face_refused` scan row — exists in the
-    // shell only inside the core's own constants: a quoted wire name
-    // in lib/ is a minter that bypasses the vocabulary.
+    // The ban list, sixteen wire names wide — deliberately not
+    // exhaustive by kind: the scan chain's `consent_granted`,
+    // `consent_declined` and `scan_abandoned` rows are minted only
+    // through the core's sanctioned minters and are fenced by the
+    // exact per-file append census and the `scanAbandoned(` ×1
+    // invocation pin below instead (Story 5.6's recorded decision —
+    // `bannedWireNames` unchanged). What the list does claim: every
+    // wire name it carries — the user-act and moment kinds it lists,
+    // the `permission_refused` system event since Story 3.4, the
+    // three `slice_*` rescue rows since 4.6, the `face_refused` scan
+    // row since 5.2 — exists in the shell only inside the core's own
+    // constants: a quoted wire name in lib/ is a minter that
+    // bypasses the vocabulary.
     // (crash_recorded is not banned here: the crash channel's constant
     // idiom is pinned below.)
     const bannedWireNames = [
@@ -373,6 +380,15 @@ void main() {
       reason:
           'exactly one core faceRefused command invocation — the scan '
           'channel\'s face refusal (Story 5.2)',
+    );
+    expect(
+      RegExp(r'\bscanAbandoned\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core scanAbandoned command invocation — the scan '
+          'channel\'s wait abandonment, minted only by close() through the '
+          '_appendScanAbandoned wrapper on the shared content copier '
+          '(Story 5.6)',
     );
 
     // The append-site census, exact per file: `appendLogEntry` calls
