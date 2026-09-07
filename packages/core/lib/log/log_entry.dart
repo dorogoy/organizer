@@ -205,7 +205,7 @@ final class ItemActEntry extends LogEntry {
 /// A moment in the product's life with no pool-item referent and no
 /// payload (`session_ended`, `app_opened`, and — since Story 5.2 —
 /// `face_refused`, the face gate's refusal on the `app_opened`
-/// precedent, — since Story 5.4 — `consent_granted`, the consent
+/// precedent — since Story 5.4 — `consent_granted`, the consent
 /// act's user-act row, and — since Story 5.5 — `consent_declined`,
 /// the declined consent's system-event record, all equally
 /// payload-less). `session_started` left

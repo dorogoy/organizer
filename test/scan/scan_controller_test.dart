@@ -674,7 +674,8 @@ void main() {
         files,
         slicer: slicer,
       );
-      await controller.declineConsent();
+      // The decline stood: one row, one unlink, the slicer untouched.
+      expect(await controller.declineConsent(), isTrue);
       expect(store.entries, hasLength(1));
       final row = store.entries.single;
       expect(row.kind, 'consent_declined');
@@ -685,8 +686,9 @@ void main() {
       expect(row.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
       expect(files.unlinkedScans, [passed.scanId]);
       expect(slicer.requests, isEmpty);
-      // One decision exists: a second decline is nothing at all.
-      await controller.declineConsent();
+      // One decision exists: a second decline is nothing at all —
+      // and it carries no routing data.
+      expect(await controller.declineConsent(), isFalse);
       expect(store.entries, hasLength(1));
       expect(files.unlinkedScans, [passed.scanId]);
     });
@@ -711,6 +713,11 @@ void main() {
       expect(request.scanId, passed.scanId);
       expect(request.prompt, isNotEmpty);
       expect(request.consent, isA<ScanConsent>());
+      // AD-8's binding, pinned on the dispatched object itself: the
+      // token is minted for the standing scan — a wrong-binding
+      // regression would throw scanIdMismatch inside every slice and
+      // fold to a misleading providerUnreachable.
+      expect(request.consent.scanId, passed.scanId);
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
       expect(files.unlinkedScans, [passed.scanId]);
       // One decision and one token: a second accept is nothing at all.
@@ -768,7 +775,7 @@ void main() {
       final files = _RecordingFiles();
       final (controller, passed) = await standingScan(store, files);
       await controller.close();
-      await controller.declineConsent();
+      expect(await controller.declineConsent(), isFalse);
       expect(store.entries, isEmpty);
       expect(files.unlinkedScans, [passed.scanId]);
     });
@@ -785,7 +792,7 @@ void main() {
         slicer: slicer,
       );
       final granting = controller.grantConsent();
-      await controller.declineConsent();
+      expect(await controller.declineConsent(), isFalse);
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
       slicer.gate!.complete();
       expect(await granting, isA<ScanConsentDelivered>());
@@ -803,7 +810,7 @@ void main() {
       // The close lands while the decision stands — between the
       // once-guard and the append's commit.
       await controller.close();
-      await declining;
+      expect(await declining, isFalse);
       expect(store.entries, isEmpty);
       expect(files.unlinkedScans, [passed.scanId]);
     });

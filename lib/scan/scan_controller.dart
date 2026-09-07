@@ -391,6 +391,18 @@ class ScanController {
     await camera.dispose();
   }
 
+  /// Releases the camera while the standing scan survives (Story
+  /// 5.5's review): the consent handoff never shoots again — every
+  /// path off the gate ends the scan — so the lens does not stand
+  /// open (and the OS privacy indicator does not stay lit) through
+  /// the open-ended consent ask, the one surface asking permission
+  /// to send a photo. The scan's own terminal paths are untouched:
+  /// [close] still runs after this and disposes again, idempotently.
+  Future<void> releaseCamera() async {
+    _open = false;
+    await camera.dispose();
+  }
+
   Future<void> _unlinkScan() async {
     final scanId = _scanId;
     if (scanId == null) {
@@ -490,21 +502,29 @@ class ScanController {
   /// mid-decision folds into nothing — leaving is not declining, and
   /// no row claims a privacy decision that was never answered. A
   /// failing store is absorbed quietly.
-  Future<void> declineConsent() async {
+  ///
+  /// Returns whether the decline stood — true when the row committed
+  /// and the cache unlinked under the standing scan; false on every
+  /// fold (no scan, a second decision, or a close landing
+  /// mid-decision). A false answer carries no routing data: the
+  /// caller pops, never the decline surface — no surface may claim a
+  /// decline whose row does not stand.
+  Future<bool> declineConsent() async {
     final scanId = _scanId;
     final epoch = _epoch;
     if (scanId == null || _consentTaken) {
-      return;
+      return false;
     }
     _consentTaken = true;
     await _appendConsentDeclined(epoch);
     if (_epoch != epoch) {
       // The scan closed while the decision stood: the stale arm —
       // no routing data, and the close already unlinked the cache.
-      return;
+      return false;
     }
     await _unlinkCaptured(scanId);
     _frameBytes = null;
+    return true;
   }
 
   /// The accept tap (Story 5.5, AD-8, FR-25): the consent act's whole

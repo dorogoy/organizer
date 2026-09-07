@@ -34,11 +34,23 @@ import 'package:organizer/ui/theme.dart';
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
 
+  /// Optional brake on the append: when set, the next append hangs on
+  /// this completer — the race tests' window for landing a close
+  /// mid-write.
+  Completer<void>? appendGate;
+
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    final gate = appendGate;
+    if (gate != null) {
+      appendGate = null;
+      await gate.future;
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async => const [];
@@ -274,6 +286,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(slicer.requests, isEmpty);
     expect(store.entries.map((entry) => entry.kind), ['consent_declined']);
+  });
+
+  testWidgets('the wait copy belongs to the accept arm alone — a decline '
+      'never renders Creando tareas, not even for the instant before the '
+      'route replaces the gate', (tester) async {
+    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final (controller, store, _, _) = await standingController(slicer);
+    await pumpGate(tester, controller);
+    await tester.tap(find.text(strings.consentGateDecline));
+    await tester.pump();
+    // The pair is gone (one answer stands) but the wait text is not
+    // there: the boundaries scope it to the accept arm.
+    expect(find.text(strings.scanWaitTitle), findsNothing);
+    expect(find.text(strings.consentGateDecline), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.byType(NoSlicerSurface), findsOneWidget);
+    expect(find.text(strings.noSlicerConsentDeclined), findsOneWidget);
+    expect(store.entries.map((entry) => entry.kind), ['consent_declined']);
+  });
+
+  testWidgets('a close landing mid-decline pops the gate — the decline '
+      'surface never claims a decline whose row does not stand (the '
+      'stale arm mirrors the accept\'s)', (tester) async {
+    final slicer = _FakeSlicer(const SlicerDelivered('[{"text": "x"}]'));
+    final (controller, store, _, _) = await standingController(slicer);
+    // The append hangs in flight: the window where a real departure
+    // (the lifecycle close) can land between the answer and the row's
+    // commit.
+    final appendGate = Completer<void>();
+    store.appendGate = appendGate;
+    await pumpGate(tester, controller);
+    await tester.tap(find.text(strings.consentGateDecline));
+    await tester.pump();
+    await controller.close();
+    appendGate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    // The decline surface never renders for a scan that already ended.
+    expect(find.byType(NoSlicerSurface), findsNothing);
+    expect(find.text(strings.noSlicerConsentDeclined), findsNothing);
+    expect(find.text(strings.scanWaitTitle), findsNothing);
   });
 
   testWidgets('the system back pops the gate — leaving is not declining, '

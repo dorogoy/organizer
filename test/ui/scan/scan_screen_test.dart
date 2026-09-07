@@ -257,7 +257,7 @@ void main() {
     expect(texts.toSet(), {strings.scanShutter});
   });
 
-  testWidgets('a passing gate with a selected provider but NO slicer '
+  testWidgets('a passing gate with NO slicer '
       'seam: the gate never renders — the half-wired composition folds '
       'closed with the same quiet pop (the gate-seam convention)', (
     tester,
@@ -273,6 +273,33 @@ void main() {
         camera,
         gate: _FakeGate(const FaceGatePass()),
         readSelectedProvider: () async => 'gemini',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.text(launchWord), findsOneWidget);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+  });
+
+  testWidgets('a passing gate with NO read seam: the gate never renders '
+      'either — the half-wired mirror arm folds closed with the same '
+      'quiet pop (the gate-seam convention)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera();
+    await launch(
+      tester,
+      controllerWith(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: _FakeSlicer(),
       ),
     );
     await tester.pumpAndSettle();
@@ -342,15 +369,17 @@ void main() {
 
   testWidgets('a passing gate with a selected provider replaces the '
       'route with the consent gate — the frame survives the pass, no row '
-      'stands (the consent continuation, Story 5.5)', (tester) async {
+      'stands, and the camera is already released at the handoff (the '
+      'consent continuation, Story 5.5)', (tester) async {
     final store = _RecordingStore();
     final files = _RecordingFiles();
+    final camera = _FakeCamera();
     await launch(
       tester,
       controllerWith(
         store,
         files,
-        _FakeCamera(),
+        camera,
         gate: _FakeGate(const FaceGatePass()),
         slicer: _FakeSlicer(),
         readSelectedProvider: () async => 'gemini',
@@ -366,6 +395,9 @@ void main() {
       find.text(strings.consentGateBody(strings.providerNameGemini)),
       findsOneWidget,
     );
+    // The lens released at the handoff: no privacy indicator stands
+    // lit through the open-ended consent ask.
+    expect(camera.disposedCalls, isNotEmpty);
     expect(store.entries, isEmpty);
     expect(files.unlinkedScans, isEmpty);
   });

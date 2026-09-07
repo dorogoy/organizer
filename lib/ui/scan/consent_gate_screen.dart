@@ -14,10 +14,12 @@
 // dimming, no confirmation, no delay. `Enviar la foto` sits in the
 // first, unfavourable slot — the recorded residual asymmetry
 // (UX-DR52): reading order, not solved. After an answer the pair is
-// replaced by the static `Creando tareas` text — no pencil, no
-// progress semantics (UX-DR56's animated wait is 5.6's) — so no
-// second answer exists, and the controller's own once-guards back
-// the swap up.
+// gone — no second answer exists, and the controller's own
+// once-guards back that up. The static `Creando tareas` text stands
+// in on the accept arm alone (the boundaries scope it there); a
+// decline routes on with nothing standing in — no copy ever claims
+// task creation on a refusal, and no pencil or progress semantics
+// exist yet (UX-DR56's animated wait is 5.6's).
 //
 // The terminal routing (the I/O matrix): decline → the no-Slicer
 // surface's own `consentDeclined` cause — no re-ask, no persuasion,
@@ -84,6 +86,12 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
   /// no second answer exists.
   bool _answered = false;
 
+  /// Whether the standing answer was the accept: the static wait text
+  /// belongs to the accept arm alone (the frozen boundaries scope it
+  /// there) — a decline routes on with nothing standing in, so no
+  /// copy ever claims task creation on a refusal.
+  bool _accepted = false;
+
   @override
   void initState() {
     super.initState();
@@ -130,22 +138,31 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
   /// cache unlinked, the slicer never called — then the no-Slicer
   /// surface's own cause replaces this route. No confirmation, no
   /// delay, no re-ask. Absent (the test seam), a tap answers nothing:
-  /// the pair stays, nothing routes.
+  /// the pair stays, nothing routes. A decline that did not stand (a
+  /// close landing mid-decision — the stale arm) pops instead: no
+  /// surface may claim a decline whose row does not stand.
   Future<void> _decline() async {
     final controller = widget.controller;
     if (_answered || controller == null) {
       return;
     }
     setState(() => _answered = true);
-    await controller.declineConsent();
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) =>
-              const NoSlicerSurface(cause: NoSlicerCause.consentDeclined),
-        ),
-      );
+    final took = await controller.declineConsent();
+    if (!mounted) {
+      return;
     }
+    if (!took) {
+      // The scan ended while the decision stood: the stale arm — the
+      // gate pops like the accept's own, leaving is not declining.
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) =>
+            const NoSlicerSurface(cause: NoSlicerCause.consentDeclined),
+      ),
+    );
   }
 
   /// The accept tap (AD-8): the token minted, the row appended, the
@@ -158,7 +175,10 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
     if (_answered || controller == null) {
       return;
     }
-    setState(() => _answered = true);
+    setState(() {
+      _answered = true;
+      _accepted = true;
+    });
     final outcome = await controller.grantConsent();
     if (!mounted) {
       return;
@@ -220,17 +240,22 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
                   // largest interior gap the dispenser card holds.
                   const SizedBox(height: Spacing.taskToActions),
                   if (_answered)
-                    // The answer stands: the static wait text — no
-                    // pencil, no progress semantics, no percentage and
-                    // no timeout (the animated wait is 5.6's). No
-                    // action remains tappable: no second answer exists.
-                    Center(
-                      child: Text(
-                        strings.scanWaitTitle,
-                        style: theme.textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    )
+                    // The answer stands: no second answer exists. The
+                    // static wait text — no pencil, no progress
+                    // semantics, no percentage and no timeout (the
+                    // animated wait is 5.6's) — renders on the accept
+                    // arm alone; a decline routes on with nothing
+                    // standing in, never a copy that claims task
+                    // creation on a refusal.
+                    _accepted
+                        ? Center(
+                            child: Text(
+                              strings.scanWaitTitle,
+                              style: theme.textTheme.bodyMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : const SizedBox.shrink()
                   else
                     // `action-equal-pair` (UX-DR26), composed inline —
                     // the declared exception, never a reusable

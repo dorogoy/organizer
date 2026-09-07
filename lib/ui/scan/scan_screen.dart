@@ -320,6 +320,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       return;
     }
     setState(() => _consentHandedOff = true);
+    // The lens is never needed again past the handoff — every path
+    // off the gate ends the scan — so it releases here, not at the
+    // gate's own close: no privacy indicator stands lit through the
+    // consent ask (the frame itself survives in the scan's cache).
+    unawaited(controller.releaseCamera());
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => ConsentGateScreen(

@@ -3,7 +3,7 @@ title: 'Story 5.5: The consent gate'
 type: 'feature'
 created: '2026-09-06'
 status: 'done'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: '45d31a92f4b999394292c59ee6d1349e44f60a36'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
@@ -65,7 +65,7 @@ context:
 
 - `lib/scan/scan_controller.dart` -- THE seam. `ScanShootOutcome` :17-52 (sealed: Refused/Closed/Failed) gains a fourth arm carrying the standing scan's identity; gate-pass quiet close :264-266 (`return const ScanShootClosed();`) becomes that arm — the frame survives. Frame write :218, epoch guards :213/:223/:235/:246-251, `_unlinkScan` :293-301 / `_unlinkCaptured` :303-315, `close()` :281-290 (still unlinks — the gate-exit path), ctor :82-90 (gains the `SlicerPort` seam; `gate` :100-104 is the optional-seam pattern to copy), rows via `LogWriteQueue` :333-363. Gains: the consent-phase API (decline = row + unlink; grant = mint + row + bytes + slice + unlink-on-every-resolution) and the scan prompt as a private code const (provider instruction, not UI copy — the rescue prompt's precedent lives in the access layer, also not ARB).
 - `packages/core/lib/commands/scan_commands.dart` -- `faceRefused()` :28-49 is the pattern; gains `consentDeclined()` — payload-less system-event row, single sanctioned minter, doc per AD-21 (a decline logs, but is not contact).
-- `packages/core/lib/log/log_entry.dart` -- kinds :99-117 + `knownByName` :119-135 + `_isMoment` :~620; `consentDeclined` joins as the nineteenth kind, **not** a moment, **not** a user act (`warm_return.dart:100`'s set stays untouched — pin the non-contact).
+- `packages/core/lib/log/log_entry.dart` -- kinds :99-117 + `knownByName` :119-135 + `_isMoment` :~620; `consentDeclined` joins as the nineteenth kind — a **moment** (renegotiated 2026-09-06, review loop 1: the planned `_isMoment` exclusion is impossible — a known payload-less kind outside the item-act/moment families converts as `unclassifiedKind` and vanishes from every read, destroying FR-26's audit trail), **not** a user act (`warm_return.dart:100`'s set stays untouched — pin the non-contact).
 - `packages/core/lib/ports/slicer_port.dart` -- `ScanSliceRequest` :47-70 (fields pinned; do not touch), `SlicerOutcome` :144+ (`SlicerDelivered`/`SlicerFailed`), `SlicerFailureCause` :96+ (eight causes).
 - `packages/core/lib/ports/no_slicer_cause.dart` -- `noSlicerCauseFromFailure` :86-95 (the standing map the failure arm reuses); `consentDeclined` :44-49 and `noKey` already exist.
 - `lib/ui/scan/scan_screen.dart` -- `_onShoot` :222-284: the `ScanShootClosed` pop arm :257-258 becomes the consent continuation (pre-gate provider read, gate push, decline/delivered/failed routing); the `personInFrame` pushReplacement :234-239 is the navigation grammar.
@@ -80,7 +80,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [x] `packages/core/lib/log/log_entry.dart` -- add the `consentDeclined` kind (payload-less system event, nineteenth), `knownByName` row, `_isMoment` excluded; docs naming it a decline record that asserts nothing -- the vocabulary grows additively (AD-23)
+- [x] `packages/core/lib/log/log_entry.dart` -- add the `consentDeclined` kind (payload-less system event, nineteenth), `knownByName` row, `_isMoment` included (renegotiated 2026-09-06, review loop 1 — the read boundary has no branch for a payload-less non-moment; see the Spec Change Log); docs naming it a decline record that asserts nothing -- the vocabulary grows additively (AD-23)
 - [x] `packages/core/lib/commands/scan_commands.dart` -- `consentDeclined()`: exactly one payload-less content row, the kind's single sanctioned minter, doc: logged decline, never contact, no capability -- no second writer can appear silently
 - [x] `packages/core/test/log_test.dart` + `scan_commands_test.dart` + `warm_return_test.dart` -- kinds census 18→19, `knownByName` length, minter row shape, and the pin that `consent_declined` is not a user act -- the set assignments are the same-pass rule's
 - [x] `packages/core/test/no_lateness_proof_test.dart` -- mint census gains `lib/scan/scan_controller.dart` as the one production mint caller (consumeAllowed unchanged: the dispatch) -- the 5.4 census renegotiates additively, exactly as its comment promises
@@ -104,6 +104,7 @@ context:
 ## Spec Change Log
 
 - **2026-09-06 — Sergio's planning decisions folded into the frozen intent.** P1: the face gate stays face-only; the composition reopen is answered (kept banked, 3 FN/12 ceiling recorded), reopening at the Epic 5 retro. P2 (A): the success arm ships as an interim discard — unlink + quiet close, no landing, no rows — replaced whole by 5.7. P3: shoot-side quiet closes are not renegotiated here; the retro owns the epic-wide rule.
+- **2026-09-06 — Review loop 1 decisions.** R1: `consent_declined` is classified as a moment (`_isMoment`) — the planned exclusion is impossible without breaking AC-6/FR-26 (a known payload-less kind outside the item-act/moment families converts as `unclassifiedKind` and vanishes from every read); the Code Map and Execution task 1 are amended to match the landed code, whose non-contact guarantee stands independently at `warm_return.dart:100`. R2: the `no_literal_strings` allowance for `_scanPrompt` was edited inside the story commit without the halt-and-ask the frozen Ask-First rule required; reviewed and approved late by Sergio on 2026-09-06 — the allowance stands.
 
 ## Design Notes
 
@@ -201,3 +202,16 @@ context:
 
 - The composition pin: deleting either seam from main fails this test.
   [`pin:274`](../../test/ui/app_test.dart#L274)
+
+### Review Findings
+
+- [x] [Review][Decision] `consent_declined` is a moment; the spec says "not a moment" — Code Map and Execution task 1 demand `_isMoment` excluded, but a known payload-less kind outside the item-act/moment families converts as `LogRecordFlaw.unclassifiedKind` (`log_entry.dart:1122`) and vanishes from every read, destroying FR-26's audit trail. The landed code follows AC-6 (readable row; non-contact independently pinned at `warm_return.dart:100`); the spec text is the contradictory half. Decide: amend the spec wording to record the renegotiation (AD-23), not the code. — Resolved 2026-09-06: spec amended (Code Map, task 1, Spec Change Log R1); the code stands.
+- [x] [Review][Decision] The literal audit was edited in the same commit as the constant it excuses (`tool/check_no_literal_strings.dart:265`) — the frozen Ask-First rule required halting and surfacing before editing audits or ARB metadata. Confirm the sign-off happened in session, or record it now. — Resolved 2026-09-06: Sergio confirmed the halt-and-ask did not happen; the allowance is approved late and recorded (Spec Change Log R2).
+- [x] [Review][Patch] Stale-decline race routes a decline the log never recorded [lib/scan/scan_controller.dart:493, lib/ui/scan/consent_gate_screen.dart:134] — `declineConsent()` returns void, so a close landing mid-decline (row suppressed by the in-closure epoch check) still ends in `pushReplacement(NoSlicerSurface(consentDeclined))` with no row behind it; mirror the grant's typed outcome and pop on stale; add the missing surface race test. — Fixed: `declineConsent()` returns whether the decline stood; the gate pops on the stale arm; controller and surface race tests pin it.
+- [x] [Review][Patch] The camera stays open behind the consent gate [lib/ui/scan/scan_screen.dart:322] — `_consentHandedOff` skips the scan screen's close and nothing releases the camera until an answer or departure: the OS privacy indicator stays lit through the unbounded consent ask, on the very surface asking permission to send a photo, and no path needs the camera again; release it at handoff. — Fixed: `ScanController.releaseCamera()` called at the consent handoff; pinned by the continuation test.
+- [x] [Review][Patch] Token–scanId binding pinned only as a type [test/scan/scan_controller_test.dart:713] — the test is titled "the token minted bound to the standing scanId" but asserts only `isA<ScanConsent>()`; a binding regression makes every accept throw `scanIdMismatch` inside `slice()` and fold to a misleading `providerUnreachable`. Assert `request.consent.scanId == passed.scanId` (the getter is public). — Fixed: asserted on the dispatched request.
+- [x] [Review][Patch] Wait copy renders on decline [lib/ui/scan/consent_gate_screen.dart:222] — the pair swaps to static `scanWaitTitle` ("Creando tareas") on both arms; the frozen boundaries scope the wait text to accept. Show it only on accept. — Fixed: the swap is per-arm (`_accepted`); pinned by a decline-arm test.
+- [x] [Review][Patch] Half-wired read-seam arm untested [test/ui/scan/scan_screen_test.dart:260] — the NO-slicer arm has its quiet-pop test; the mirror case (read seam absent, slicer present, same branch) does not. Pin it. — Fixed: the mirror test stands beside the NO-slicer one.
+- [x] [Review][Patch] Story status advanced before review closed [5-5-the-consent-gate.md:5] — frontmatter `done` vs sprint-status `review`; 5-4's pattern reaches `done` only after review passes. — Resolved: the review loop closed with every patch applied; story and sprint-status now read `done` together.
+- [x] [Review][Patch] Punctuation in the MomentEntry doc [packages/core/lib/log/log_entry.dart:208] — "precedent, — since Story 5.4 —" reads broken; drop the comma. — Fixed.
+- [x] [Review][Defer] Scan prompt content pinned by no test [lib/scan/scan_controller.dart:624] — deferred; already recorded in `deferred-work.md` (response-side validation lands with 5.7's suite), no duplicate entry needed.
