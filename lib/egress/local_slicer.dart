@@ -10,15 +10,16 @@
 //
 // The canned body answers each flight in its OWN contract, branched
 // on the port's typed request shape (never string sniffing): a
-// `ScanSliceRequest` gets the scan body (description +
-// `duration_minutes` — the one flight this stub can drive on a
-// device, Story 5.7), a `RescueSliceRequest` the rescue body (steps
-// + `duration_seconds` 1–60, the pre-5.7 values — a scan-shaped
-// answer would break the rescue flight by construction,
-// `parseRescueSteps` rejecting it every time); genesis rides the
-// rescue shape until 5.8 authors its own. Both bodies' field names
-// are core's own wire names (`scan_steps.dart`, `rescue_steps.dart`
-// — the parses the landings read), so the stub cannot drift from
+// `ScanSliceRequest` or a `GenesisSliceRequest` gets the scan body
+// (description + `duration_minutes` — the two flights this stub
+// can drive on a device, Stories 5.7 and 5.8, whose prompts both
+// pin the scan JSON contract), a `RescueSliceRequest` the rescue
+// body (steps + `duration_seconds` 1–60, the pre-5.7 values — a
+// scan-shaped answer would break the rescue flight by construction,
+// `parseRescueSteps` rejecting it every time). Both bodies' field
+// names are core's own wire names (`scan_steps.dart`,
+// `rescue_steps.dart` — the parses the landings read), so the stub
+// cannot drift from
 // the wire's contract; the parity — prompt field names ↔ parses ↔
 // these bodies — is pinned from the test side.
 import 'dart:convert';
@@ -57,7 +58,9 @@ final class LocalSlicer implements SlicerPort {
 
   @override
   Future<SlicerOutcome> slice(SlicerRequest request) async => SlicerDelivered(
-    request is ScanSliceRequest ? _scanCannedBody() : _rescueCannedBody(),
+    request is ScanSliceRequest || request is GenesisSliceRequest
+        ? _scanCannedBody()
+        : _rescueCannedBody(),
   );
 
   /// The canned scan body: a JSON object shaped like a scan answer —

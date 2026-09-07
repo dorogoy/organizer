@@ -291,31 +291,45 @@ void main() {
     );
   });
 
-  testWidgets('the intermediate surface is honestly empty — the Ajustes '
-      'way-out is its only content (epics.md:889, UX-DR25)', (tester) async {
+  testWidgets('the genesis surface behind Nuevo proyecto: typed entry '
+      'is its one recommended action, Volver and Ajustes its quiet ways '
+      'out — no heading, no chrome beyond the one pill (Story 5.8, '
+      'UX-DR25, FR-11)', (tester) async {
     final store = _RecordingStore();
     await launch(tester, store);
 
     await tester.tap(find.text(AppStringsEs().newProjectLink));
     await tester.pumpAndSettle();
 
-    // No heading, no chrome, no placeholder for Epic 5's genesis: the
-    // census is exactly the one way-out string (the Text and RichText
-    // channels double-report one widget, so the census reads a set).
-    expect(textsOf(tester).toSet(), {AppStringsEs().settingsWayOut});
+    // No heading, no chrome: the census is exactly the body copy, the
+    // field's hint, the one action and the two ways out (the Text and
+    // RichText channels double-report one widget, so the census reads
+    // a set).
+    expect(textsOf(tester).toSet(), {
+      AppStringsEs().genesisBody,
+      AppStringsEs().genesisFieldHint,
+      AppStringsEs().genesisAnalyze,
+      AppStringsEs().genesisBack,
+      AppStringsEs().settingsWayOut,
+    });
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byType(Icon), findsNothing);
 
-    // The way-out holds the same quiet grammar: ink-secondary prose in
-    // a 48dp opaque band, no pastel mass.
-    final wayOut = find.text(AppStringsEs().settingsWayOut);
-    final style = tester.widget<Text>(wayOut).style!;
-    expect(style.color, FieldPalette.inkSecondary);
-    expect(style.fontFamily, FontFamilies.lexend);
-    final band = tester.renderObject<RenderBox>(
-      find.ancestor(of: wayOut, matching: find.byType(GestureDetector)),
-    );
-    expect(band.size.height, greaterThanOrEqualTo(48));
+    // Both ways out hold the quiet grammar: ink-secondary prose in a
+    // 48dp opaque band, no pastel mass.
+    for (final label in [
+      AppStringsEs().genesisBack,
+      AppStringsEs().settingsWayOut,
+    ]) {
+      final wayOut = find.text(label);
+      final style = tester.widget<Text>(wayOut).style!;
+      expect(style.color, FieldPalette.inkSecondary);
+      expect(style.fontFamily, FontFamilies.lexend);
+      final band = tester.renderObject<RenderBox>(
+        find.ancestor(of: wayOut, matching: find.byType(GestureDetector)),
+      );
+      expect(band.size.height, greaterThanOrEqualTo(48));
+    }
     expect(
       find.descendant(
         of: find.byType(GestureDetector),
@@ -1203,7 +1217,7 @@ void main() {
     });
 
     testWidgets('disabling the camera changes nothing behind Nuevo '
-        'proyecto — the intermediate surface\'s census is identical '
+        'proyecto — the genesis surface\'s census is identical '
         '(FR-16)', (tester) async {
       // The texts the whole tree carries, every channel included.
       List<String> censusOf(WidgetTester tester) {
@@ -1225,9 +1239,9 @@ void main() {
 
       // Through the real chain, both ways: a Dispenser whose camera
       // is enabled, and one whose log holds the disable row — each
-      // opens `Nuevo proyecto`, and the two intermediate surfaces
-      // carry the identical census (the one way-out string, nothing
-      // referencing the photo).
+      // opens `Nuevo proyecto`, and the two genesis surfaces carry
+      // the identical census (the typed surface\'s own strings plus
+      // the way-out, nothing referencing the photo).
       Future<Set<String>> nuevoProyectoCensus(_RecordingStore store) async {
         await tester.pumpWidget(harness(store));
         await tester.pumpAndSettle();
@@ -1264,7 +1278,13 @@ void main() {
       ));
       final disabledCensus = await nuevoProyectoCensus(disabled);
       expect(disabledCensus, enabledCensus);
-      expect(enabledCensus, {AppStringsEs().settingsWayOut});
+      expect(enabledCensus, {
+        AppStringsEs().genesisBody,
+        AppStringsEs().genesisFieldHint,
+        AppStringsEs().genesisAnalyze,
+        AppStringsEs().genesisBack,
+        AppStringsEs().settingsWayOut,
+      });
       expect(
         disabled.entries,
         hasLength(1),

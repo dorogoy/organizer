@@ -11,12 +11,13 @@ import '../tool/check_core_purity.dart';
 /// needs re-planning — plus the shell's write-path census: the card and
 /// moment wire names appear nowhere in `lib/`, records over core
 /// `LogEntryContent` are constructed only in the Dispenser's seven
-/// user-act append sites plus the session, settings, capture and crash
-/// channels the census maps enumerate, the adapter's store module owns
-/// the only drift insert companions, and the pool-fact writes the
-/// shell owns are the capture channel's, the rescue landing's and the
-/// scan landing's single sanctioned appends each (the adapter apart,
-/// nothing else calls `appendPoolFact`).
+/// user-act append sites plus the session, settings, capture, scan and
+/// genesis channels the census maps enumerate, the adapter's store
+/// module owns the only drift insert companions, and the pool-fact
+/// writes the shell owns are the capture channel's, the rescue
+/// landing's and the scan and genesis landings' single sanctioned
+/// appends each (the adapter apart, nothing else calls
+/// `appendPoolFact`).
 /// Masking reuses `tool/check_core_purity.dart`'s
 /// `maskCommentsAndStrings` (the `test/tool/` import precedent), so
 /// prose and string contents cannot move the identifier pins — only a
@@ -400,6 +401,34 @@ void main() {
           'through the _appendScanSliceFailed wrapper on the shared '
           'content copier (Story 5.7)',
     );
+    final genesis = sources['lib/genesis/genesis_controller.dart'];
+    expect(genesis, isNotNull, reason: 'the genesis channel is gone');
+    final genesisSource = genesis ?? '';
+    expect(
+      RegExp(r'\bconsentGranted\s*\(').allMatches(genesisSource),
+      hasLength(1),
+      reason:
+          'exactly one core consentGranted command invocation — the '
+          'genesis channel\'s consent act row, the scan channel\'s own '
+          'minter (Story 5.8)',
+    );
+    expect(
+      RegExp(r'\bscanAbandoned\s*\(').allMatches(genesisSource),
+      hasLength(1),
+      reason:
+          'exactly one core scanAbandoned command invocation — the '
+          'genesis channel\'s wait abandonment, minted only by close() '
+          'through the _appendScanAbandoned wrapper (Story 5.8, the scan '
+          'channel\'s own minter)',
+    );
+    expect(
+      RegExp(r'\bscanSliceFailed\s*\(').allMatches(genesisSource),
+      hasLength(1),
+      reason:
+          'exactly one core scanSliceFailed command invocation — the '
+          'genesis channel\'s single sanctioned failure row (Story 5.8, '
+          'the scan channel\'s own minter)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -448,6 +477,10 @@ void main() {
         // camera permission refusal and the face refusal — through
         // one shared content copier.
         'lib/scan/scan_controller.dart': 1,
+        // Story 5.8: the genesis channel's rows — the consent act,
+        // the wait's abandonment, the failure arms — through one
+        // shared content copier of its own.
+        'lib/genesis/genesis_controller.dart': 1,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -463,6 +496,7 @@ void main() {
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
         'lib/scan/scan_controller.dart': 1,
+        'lib/genesis/genesis_controller.dart': 1,
       },
       reason:
           'records constructed over core LogEntryContent exist '
@@ -517,17 +551,19 @@ void main() {
     );
 
     // No pool-fact write path exists in the shell besides the capture
-    // channel and the two Slicer landings: the only `appendPoolFact`
+    // channel and the three Slicer landings: the only `appendPoolFact`
     // calls in lib/ are the capture controller's single sanctioned
     // append (Story 3.2 — the pool's first writer, one fact then the
     // entry referencing it), the Dispenser controller's single
     // sanctioned append (Story 4.6 — the rescue steps' landing, the
-    // facts the `slice_returned` row names) and the scan controller's
+    // facts the `slice_returned` row names), the scan controller's
     // single sanctioned append (Story 5.7 — the delivered scan's step
-    // facts, one call inside the landing loop over the core's seeds),
-    // the adapter's own implementation is an override declaration with
-    // no receiver, and zero other call sites or tear-offs reference
-    // it.
+    // facts, one call inside the landing loop over the core's seeds)
+    // and the genesis controller's single sanctioned append (Story
+    // 5.8 — the delivered typed slice's step facts, the same landing
+    // loop over the same seeds); the adapter's own implementation is
+    // an override declaration with no receiver, and zero other call
+    // sites or tear-offs reference it.
     final poolWrites = <String>[];
     for (final file in _dartFilesUnder('lib')) {
       final source = _withoutComments(file.readAsStringSync());
@@ -566,6 +602,20 @@ void main() {
               'the scan channel holds exactly one pool-fact append — '
               'the delivered steps landing; a second would be a silent '
               'writer',
+        );
+        continue;
+      }
+      if (_key(file) == 'lib/genesis/genesis_controller.dart') {
+        // The genesis channel's own sanctioned call, pinned by count
+        // (Story 5.8): the delivered typed slice's step facts, one
+        // append inside the same landing loop over the same seeds.
+        expect(
+          RegExp(r'\.\s*appendPoolFact\s*\(').allMatches(source),
+          hasLength(1),
+          reason:
+              'the genesis channel holds exactly one pool-fact append '
+              '— the delivered steps landing; a second would be a '
+              'silent writer',
         );
         continue;
       }

@@ -264,6 +264,15 @@ const Map<String, Set<String>> namedConstantAllowance = {
   // lib/egress/ on this same allowance): AD-15's ban is on copy
   // reaching a widget, and this never reaches one.
   'lib/scan/scan_controller.dart': {'_scanPrompt'},
+  // Story 5.8: the genesis prompt's two pieces — the same contract
+  // for a described project instead of a photographed space, the
+  // user's description interpolated between them at the controller
+  // seam (`rescuePromptFor`'s own composition idiom, never widget
+  // copy, the scan prompt's own terms).
+  'lib/genesis/genesis_controller.dart': {
+    '_genesisPromptHead',
+    '_genesisPromptTail',
+  },
   'lib/ui/settings/slicer_access_section.dart': {'uncoveredProviderRender'},
 };
 

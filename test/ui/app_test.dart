@@ -17,11 +17,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/capture/dictation_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
+import 'package:organizer/genesis/genesis_controller.dart';
 import 'package:organizer/main.dart';
 import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
+import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/tokens.dart';
 
 /// A quiet store over an empty catalogue — the home resolves through it
@@ -278,8 +280,82 @@ void main() {
             'the pre-gate availability read must come from the '
             'settings derivation',
       );
+      // The typed genesis seam (Story 5.8) rides the same composed
+      // slicer, the same settings read and the one shared write
+      // queue — optional named args vanish silently, so dropping the
+      // seam would ship typed genesis dead (the pill disabled in
+      // production, `Nuevo proyecto` answering nothing) with every
+      // suite green. Bounded by the statement's semicolon, like the
+      // pins above, so the scan seam's own `slicer:` cannot satisfy
+      // it.
+      expect(
+        RegExp(r'GenesisController\([^;]*?slicer:\s*slicer').hasMatch(source),
+        isTrue,
+        reason: 'the typed genesis channel must hold the composed slicer',
+      );
+      expect(
+        RegExp(
+          r'GenesisController\([^;]*?readSelectedProvider:\s*settings\.readSelectedProvider',
+        ).hasMatch(source),
+        isTrue,
+        reason:
+            'the fail-closed provider read must come from the '
+            'settings derivation, the scan seam\'s own rule',
+      );
+      expect(
+        RegExp(r'GenesisController\([^;]*?writeQueue:\s*logWrites')
+            .hasMatch(source),
+        isTrue,
+        reason: 'the genesis rows ride the one shared write queue',
+      );
+      // And both hand-downs inside main.dart: the OrganizerApp
+      // construction and the Dispenser home it builds — losing
+      // either orphans the seam with the composition pins above
+      // still green.
+      expect(
+        source.split('genesis: genesis,').length - 1,
+        2,
+        reason:
+            'the seam is handed down twice inside main.dart — '
+            'OrganizerApp and the Dispenser home it builds',
+      );
     },
   );
+
+  testWidgets('the genesis seam is exercised: OrganizerApp hands its '
+      'GenesisController down to the `Nuevo proyecto` surface (Story '
+      '5.8, FR-11)', (tester) async {
+    final genesis = GenesisController(store: _EmptyCatalogueStore());
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: _EmptyCatalogueStore(),
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          genesis: genesis,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen),
+    );
+    expect(identical(dispenser.genesis, genesis), isTrue);
+
+    // And the third hop, through the real push: the footer's quiet
+    // departure opens the typed genesis surface carrying the SAME
+    // controller — deleting the hand-off at the push site renders
+    // the surface controller-less with every composition pin green.
+    await tester.tap(find.text('Nuevo proyecto'));
+    await tester.pumpAndSettle();
+    final surface = tester.widget<NuevoProyectoScreen>(
+      find.byType(NuevoProyectoScreen),
+    );
+    expect(identical(surface.genesis, genesis), isTrue);
+  });
 }
 
 /// The dictation seam's absent platform: a recognizer that answers

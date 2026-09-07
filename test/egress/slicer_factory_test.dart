@@ -26,8 +26,9 @@ import '../../tool/check_core_purity.dart';
 void main() {
   group('the Local shape — canned, unmistakable', () {
     test('each flight\'s canned body carries the marker in every slot '
-        'and parses against its OWN contract — the scan shape via '
-        'parseScanSlice, the rescue shape via parseRescueSteps '
+        'and parses against its OWN contract — the scan and genesis '
+        'flights via parseScanSlice (both prompts pin the scan JSON '
+        'contract, Story 5.8), the rescue shape via parseRescueSteps '
         '(Story 5.7)', () async {
       const slicer = LocalSlicer(cannedMarker: 'marca local');
       // The scan flight: description + `duration_minutes` 3–5, core's
@@ -51,6 +52,23 @@ void main() {
         expect(step.durationMinutes, greaterThanOrEqualTo(3));
         expect(step.durationMinutes, lessThanOrEqualTo(5));
       }
+      // The genesis flight (Story 5.8): the same scan-contract canned
+      // body — the genesis prompt pins the same four wire names, so
+      // the same parse reads it; the stub no longer answers genesis
+      // in the rescue dialect.
+      final genesis = parseScanSlice(
+        (await slicer.slice(
+          const GenesisSliceRequest(text: 'un proyecto de fotos'),
+        ) as SlicerDelivered).responseBody,
+      );
+      expect(genesis, isNotNull);
+      expect(genesis!.description, 'marca local');
+      expect(genesis.steps, hasLength(2));
+      for (final step in genesis.steps) {
+        expect(step.text, 'marca local');
+        expect(step.durationMinutes, greaterThanOrEqualTo(3));
+        expect(step.durationMinutes, lessThanOrEqualTo(5));
+      }
       // The rescue flight: steps + `duration_seconds` 1–60 (the
       // pre-5.7 values) — a scan-shaped answer here would break the
       // rescue flight by construction, so this pin reads the rescue
@@ -69,23 +87,48 @@ void main() {
       }
     });
 
-    test(
-      'the canned answer is request-independent — recognisably canned',
-      () async {
-        const slicer = LocalSlicer(cannedMarker: 'marca local');
-        final first = await slicer.slice(
-          const GenesisSliceRequest(text: 'un proyecto'),
-        );
-        final second = await slicer.slice(
-          const RescueSliceRequest(originContext: 'a', task: 'b'),
-        );
-        expect(
-          (first as SlicerDelivered).responseBody,
-          (second as SlicerDelivered).responseBody,
-          reason: 'no request fact enters the canned body',
-        );
-      },
-    );
+    test('the canned answer is request-independent — recognisably canned, '
+        'and each flight keeps its own dialect (Story 5.8: genesis joins '
+        'the scan dialect)', () async {
+      const slicer = LocalSlicer(cannedMarker: 'marca local');
+      // No request fact enters the canned body: two different
+      // genesis texts answer identically.
+      final first = await slicer.slice(
+        const GenesisSliceRequest(text: 'un proyecto de fotos'),
+      );
+      final second = await slicer.slice(
+        const GenesisSliceRequest(text: 'otro proyecto distinto'),
+      );
+      expect(
+        (first as SlicerDelivered).responseBody,
+        (second as SlicerDelivered).responseBody,
+        reason: 'no request fact enters the canned body',
+      );
+      // The flight dialects stay apart: genesis answers in the scan
+      // contract (the parse both entrances share), rescue in its
+      // own — never one flight answered in the other's dialect.
+      final scan = await slicer.slice(
+        ScanSliceRequest(
+          imageBytes: Uint8List(0),
+          prompt: '',
+          scanId: 'scan-1',
+          consent: mintScanConsent(scanId: 'scan-1'),
+        ),
+      );
+      expect(
+        (scan as SlicerDelivered).responseBody,
+        first.responseBody,
+        reason: 'scan and genesis share the one scan contract',
+      );
+      final rescue = await slicer.slice(
+        const RescueSliceRequest(originContext: 'a', task: 'b'),
+      );
+      expect(
+        (rescue as SlicerDelivered).responseBody,
+        isNot(first.responseBody),
+        reason: 'the rescue dialect stays its own',
+      );
+    });
   });
 
   group('the Managed shape — inert, third', () {
@@ -168,18 +211,20 @@ void main() {
               // a doc comment mentioning either shape is not a call
               // site.
               final source = maskCommentsAndStrings(entity.readAsStringSync());
-              // Story 5.7's one sanctioned exception: the scan
-              // controller names LocalSlicer exactly once — the
-              // origin derivation (`local` on the debug stub,
-              // `cloud` on BYOK), the landing's own expression.
+              // Story 5.7's sanctioned exceptions: the scan and
+              // genesis controllers each name LocalSlicer exactly
+              // once — the origin derivation (`local` on the debug
+              // stub, `cloud` on BYOK), the landing's own expression
+              // (5.8 grows the scan idiom to the typed channel).
               // Every other reference, and ManagedSlicer anywhere,
               // stays an offender.
-              if (normalized == 'lib/scan/scan_controller.dart') {
+              if (normalized == 'lib/scan/scan_controller.dart' ||
+                  normalized == 'lib/genesis/genesis_controller.dart') {
                 expect(
                   RegExp('LocalSlicer').allMatches(source),
                   hasLength(1),
                   reason:
-                      'the scan controller names LocalSlicer for the '
+                      'the channel names LocalSlicer for the '
                       'origin derivation alone — a second reference is '
                       'a call site this rule cannot see',
                 );

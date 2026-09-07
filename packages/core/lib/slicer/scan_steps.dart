@@ -76,6 +76,20 @@ const String scanWireTextField = 'text';
 /// The step object's duration wire name.
 const String scanWireDurationField = 'duration_minutes';
 
+/// The response-contract sentence every Slicer prompt ends with —
+/// the one shared, single-source copy (Story 5.8's review: two
+/// hand-maintained copies could drift phrasing — and therefore
+/// provider behaviour — on one entrance while every parity pin
+/// stayed green). Both the scan prompt and the genesis prompt
+/// interpolate this const; the shell-side parity tests pin that
+/// they do. Provider-facing instruction prose, never UI copy —
+/// the prompt precedent (not ARB, AD-15 never reaches a widget).
+const String scanResponseContract =
+    'Responde únicamente con un objeto JSON con la forma '
+    '"$scanWireDescriptionField": "…", "$scanWireStepsField": '
+    '[{"$scanWireTextField": "…", "$scanWireDurationField": 4}]}, '
+    'y nada más.';
+
 /// One parsed scan step: its trimmed non-empty text and its verbatim
 /// duration in minutes — the text becomes the fact's `stepText`, the
 /// minutes its estimate (`minutes × 60`).
