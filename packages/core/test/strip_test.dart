@@ -70,7 +70,12 @@ void main() {
     entries: entries,
     instantUtcMicros: at ?? now,
     offsetSeconds: offset,
-    excludeResidents: excludeResidents,
+    // The 5.12 translation of the 2-5 wrapper: the established-
+    // install read — the once-ever offer excluded, exactly as a
+    // process whose first opening already ended reads it — so the
+    // 2.5/2.6 matrices keep resolving exactly as they shipped (the
+    // `resolveExcludingReport` precedent, one story on).
+    excludeResidents: {...excludeResidents, StripResident.firstRunCuration},
   );
 
   // The 2-5 wrapper: the read this build's shell makes — the report
@@ -560,11 +565,15 @@ void main() {
         'own-offset read)', () {
       // 02:30 UTC on 2026-08-30, read with +02:00: the wall clock
       // reads 04:30 Sunday — past the boundary — so the due week is
-      // the Sunday\'s own (the −0 arm).
+      // the Sunday\'s own (the −0 arm). Both reads carry the
+      // established-install exclusion (the `resolve` wrapper\'s own
+      // shape, held in the 5.12 translation) so the week — not the
+      // once-ever offer — is what the frame decides.
       final sundayFrame = deriveStrip(
         entries: [_opened(utcMicros(2026, 8, 29, 9))],
         instantUtcMicros: utcMicros(2026, 8, 30, 2, 30),
         offsetSeconds: 7200,
+        excludeResidents: const {StripResident.firstRunCuration},
       );
       expect(sundayFrame?.resident, StripResident.weeklySelfReport);
       expect(sundayFrame?.reportWeekOrdinal, weekOfAug24);
@@ -576,6 +585,7 @@ void main() {
         entries: [_opened(utcMicros(2026, 8, 29, 9))],
         instantUtcMicros: utcMicros(2026, 8, 30, 2, 30),
         offsetSeconds: 0,
+        excludeResidents: const {StripResident.firstRunCuration},
       );
       expect(saturdayFrame?.resident, StripResident.weeklySelfReport);
       expect(saturdayFrame?.reportWeekOrdinal, weekOfAug17);
@@ -704,6 +714,189 @@ void main() {
         }),
         isNull,
       );
+      // And the reads wrote nothing (AD-3).
+      expect(entries, hasLength(2));
+    });
+  });
+
+  group('the once-ever first-run curation offer (Story 5.12, FR-31, '
+      'AD-21)', () {
+    /// The unexcluded read — a fresh process over a fresh install,
+    /// before any tap or ✕ spends the offer.
+    StripState? resolveFresh(List<LogEntry> entries, [int? at]) => deriveStrip(
+      entries: entries,
+      instantUtcMicros: at ?? now,
+      offsetSeconds: offset,
+    );
+
+    test('the first opening ever — today\'s open as the day\'s earliest '
+        'row — holds the offer: rarest wins, the report and the check-in '
+        'displaced (matrix: fresh install)', () {
+      final entries = [
+        _opened(utcMicros(2026, 8, 29, 9)),
+        _started(utcMicros(2026, 8, 29, 9, 0, 1)),
+      ];
+      final state = resolveFresh(entries);
+      expect(state?.resident, StripResident.firstRunCuration);
+      expect(state?.reportWeekOrdinal, isNull);
+      // The empty log holds it too — clause 1\'s literal reading, the
+      // crossing case a bare log never reaches in production.
+      expect(resolveFresh([])?.resident, StripResident.firstRunCuration);
+      // And an energy answer today silences nothing — the offer\'s
+      // gates are the opening and history alone.
+      expect(
+        resolveFresh([
+          _opened(utcMicros(2026, 8, 29, 9)),
+          _energy(utcMicros(2026, 8, 29, 9, 30), EnergyLevel.low),
+        ])?.resident,
+        StripResident.firstRunCuration,
+      );
+    });
+
+    test('a second opening the same day — never eligible again, '
+        'whatever else the day holds (matrix: any later opening, '
+        'restart after dismissing)', () {
+      expect(
+        resolveFresh([
+          _opened(utcMicros(2026, 8, 29, 9)),
+          _ended(utcMicros(2026, 8, 29, 9, 30)),
+          _opened(utcMicros(2026, 8, 29, 10)),
+          _started(utcMicros(2026, 8, 29, 10, 0, 1)),
+        ]),
+        isNull,
+        reason:
+            'the day\'s first opening was consumed — the offer is a '
+            'fact of history now, never styled as anything owed',
+      );
+    });
+
+    test('an app_opened from an earlier day — not eligible: the '
+        'install is not on its first opening ever (matrix: any later '
+        'day, kill-and-reopen)', () {
+      expect(
+        resolveFresh([
+          _opened(utcMicros(2026, 8, 28, 9)),
+          _ended(utcMicros(2026, 8, 28, 9, 30)),
+          _opened(utcMicros(2026, 8, 29, 9)),
+          _started(utcMicros(2026, 8, 29, 9, 0, 1)),
+        ])?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the offer is gone and the ordinary walk stands',
+      );
+    });
+
+    test('a first-ever sitting crossing 04:00 — the open is from an '
+        'earlier day, so not eligible; the ordinary residents read the '
+        'crossing as they always did (matrix: first-ever crossing)', () {
+      expect(
+        resolveFresh([
+          _opened(utcMicros(2026, 8, 28, 23)),
+          _started(utcMicros(2026, 8, 28, 23, 0, 1)),
+        ], utcMicros(2026, 8, 29, 5))?.resident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the crossed-into day\'s first opening is underway, but '
+            'the install is older than today — history, not the '
+            'first opening ever',
+      );
+    });
+
+    test('each row\'s own stored offset scopes its history (AD-4)', () {
+      // An open at 01:00 UTC on the 29th stored with +02:00: its own
+      // wall clock reads 03:00 on the 29th, before 04:00, so its
+      // domestic day label is the 28th — an earlier day, so the offer
+      // is not eligible however the caller\'s frame reads it.
+      expect(
+        resolveFresh([
+          _opened(
+            utcMicros(2026, 8, 29, 1),
+            offsetSeconds: 7200,
+            id: 'traveller-open',
+          ),
+        ])?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the open\'s own frame puts it on the 28th — history',
+      );
+      // The same instants with no offset: both opens land on their
+      // own days and the offer stays gone the same way.
+      expect(
+        resolveFresh([
+          _opened(utcMicros(2026, 8, 28, 9)),
+          _opened(utcMicros(2026, 8, 29, 9)),
+        ])?.resident,
+        StripResident.weeklySelfReport,
+      );
+    });
+
+    test('compares domestic day labels across the UTC date line (AD-4)', () {
+      // Today is 29 Aug in UTC+14, whose domestic day starts at 14:00 UTC
+      // on the 28th. The prior open is 28 Aug in UTC-14, whose own domestic
+      // day starts at 18:00 UTC on the 28th. The earlier label therefore has
+      // a later UTC start instant; UTC-start ordering must not resurrect the
+      // once-ever offer.
+      expect(
+        deriveStrip(
+          entries: [
+            _opened(
+              utcMicros(2026, 8, 28, 20),
+              offsetSeconds: -14 * 60 * 60,
+              id: 'west-open',
+            ),
+          ],
+          instantUtcMicros: utcMicros(2026, 8, 29, 2),
+          offsetSeconds: 14 * 60 * 60,
+        )?.resident,
+        StripResident.weeklySelfReport,
+      );
+    });
+
+    test('ignores a future app_opened row in the historical clause', () {
+      // The future row would name the prior domestic day in UTC-14, but it
+      // is not part of the log at this read instant. Removing the historical
+      // timestamp guard would incorrectly consume the first-run offer.
+      expect(
+        deriveStrip(
+          entries: [
+            _opened(
+              utcMicros(2026, 8, 29, 13),
+              offsetSeconds: -14 * 60 * 60,
+              id: 'future-open',
+            ),
+          ],
+          instantUtcMicros: utcMicros(2026, 8, 29, 12),
+          offsetSeconds: 0,
+        )?.resident,
+        StripResident.firstRunCuration,
+      );
+    });
+
+    test('excluded through the seam — the displaced instruments take '
+        'the slot in the same read, and the read writes nothing '
+        '(matrix: exclusion seam)', () {
+      final entries = [
+        _opened(utcMicros(2026, 8, 29, 9)),
+        _started(utcMicros(2026, 8, 29, 9, 0, 1)),
+      ];
+      expect(resolveFresh(entries)?.resident, StripResident.firstRunCuration);
+      final excluded = deriveStrip(
+        entries: entries,
+        instantUtcMicros: now,
+        offsetSeconds: offset,
+        excludeResidents: const {StripResident.firstRunCuration},
+      );
+      expect(excluded?.resident, StripResident.weeklySelfReport);
+      // Both rarer instruments excluded: the check-in surfaces —
+      // displaced, not consumed.
+      final checkIn = deriveStrip(
+        entries: entries,
+        instantUtcMicros: now,
+        offsetSeconds: offset,
+        excludeResidents: const {
+          StripResident.firstRunCuration,
+          StripResident.weeklySelfReport,
+        },
+      );
+      expect(checkIn?.resident, StripResident.energyCheckIn);
       // And the reads wrote nothing (AD-3).
       expect(entries, hasLength(2));
     });

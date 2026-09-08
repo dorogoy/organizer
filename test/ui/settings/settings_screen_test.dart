@@ -303,13 +303,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // No heading, no chrome: the census is exactly the body copy, the
-    // field's hint, the one action and the two ways out (the Text and
-    // RichText channels double-report one widget, so the census reads
-    // a set).
+    // field's hint, the one action, the quiet curation entry below it
+    // (Story 5.12, E1) and the two ways out (the Text and RichText
+    // channels double-report one widget, so the census reads a set).
     expect(textsOf(tester).toSet(), {
       AppStringsEs().genesisBody,
       AppStringsEs().genesisFieldHint,
       AppStringsEs().genesisAnalyze,
+      AppStringsEs().curationHouseGroups,
       AppStringsEs().genesisBack,
       AppStringsEs().settingsWayOut,
     });
@@ -1303,6 +1304,7 @@ void main() {
         AppStringsEs().genesisBody,
         AppStringsEs().genesisFieldHint,
         AppStringsEs().genesisAnalyze,
+        AppStringsEs().curationHouseGroups,
         AppStringsEs().genesisBack,
         AppStringsEs().settingsWayOut,
       });
@@ -1420,9 +1422,9 @@ void main() {
       );
     });
 
-    testWidgets('nothing curation renders behind Nuevo proyecto — the '
-        'genesis surface\'s census carries no curation string '
-        '(FR-31, NFR3)', (tester) async {
+    testWidgets('behind Nuevo proyecto the genesis surface carries only '
+        '5.12\'s house-groups entry — none of the Settings curation '
+        'strings or cluster names render (FR-31, NFR3)', (tester) async {
       await useTallSurface(tester);
       final store = _RecordingStore();
       await launch(tester, store);

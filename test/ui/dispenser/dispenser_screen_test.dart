@@ -29,6 +29,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/strip.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -47,12 +48,14 @@ import 'package:organizer/session/session_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
+import 'package:organizer/ui/dispenser/ambient_strip.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/dispenser/zone_marker.dart';
 import 'package:organizer/ui/glyphs/camera_glyph.dart';
 import 'package:organizer/ui/glyphs/pencil_glyph.dart';
+import 'package:organizer/ui/settings/curation_screen.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/glyphs/leaf_glyph.dart';
 import 'package:organizer/ui/scan/scan_screen.dart';
@@ -537,6 +540,34 @@ const _longCard = Card(
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 
+/// An install-day `app_opened` — a row from the day before the fixed
+/// Saturday clock, seeding an ESTABLISHED install (the 5.12
+/// translation): with an opening on any earlier day in the log, the
+/// once-ever first-run curation offer is not eligible, so surfaces
+/// pinning other residents keep rendering exactly as they shipped.
+/// 20:00 keeps it inside 48 h of every later read, so the warm-return
+/// greeting stays out of the pins.
+LogEntryRecord _installOpen() => (
+  id: 'install-open',
+  kind: 'app_opened',
+  instantUtcMicros: DateTime.utc(2026, 8, 28, 20).microsecondsSinceEpoch,
+  offsetSeconds: 0,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  settingTextValue: null,
+  pocketMinutes: null,
+  energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
+  permission: null,
+  sliceCause: null,
+  cluster: null,
+  enabled: null,
+);
+
 Rect _rect(WidgetTester tester, Finder finder) {
   final box = tester.renderObject<RenderBox>(finder);
   return box.localToGlobal(Offset.zero) & box.size;
@@ -637,6 +668,11 @@ Widget _harness(
   DispenserController controller, {
   Future<void> Function()? sessionSettled,
 
+  /// The Settings seam (the 5.12 push test): threaded exactly as main
+  /// threads it, so the pushed E1 surface reads and writes through the
+  /// real controller.
+  SettingsController? settings,
+
   /// Distinct keys are required whenever two harnesses are pumped in
   /// one test: a second pump at the same tree position silently
   /// reuses the first screen's element and committed view (State
@@ -650,6 +686,7 @@ Widget _harness(
     key: screenKey,
     controller: controller,
     sessionSettled: sessionSettled,
+    settings: settings,
   ),
 );
 
@@ -3511,8 +3548,11 @@ void main() {
 
     // The control: the same launch with no gap in the log at all — and
     // its own appended rows are asserted, so the comparison baseline is
-    // itself pinned to a normal opening.
-    final controlStore = _RecordingStore();
+    // itself pinned to a normal opening. The install-day open (the
+    // 5.12 translation) keeps the once-ever offer out of the census —
+    // a normal day of an established install, 16 h inside the warm
+    // window, so the control still renders no greeting.
+    final controlStore = _RecordingStore()..entries.add(_installOpen());
     await SessionController(
       store: controlStore,
       strings: AppStringsEs(),
@@ -3520,6 +3560,7 @@ void main() {
       nowOf: _fixedClock,
     ).handleAppOpen();
     expect(controlStore.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
       'app_opened',
       'session_started',
       'card_dealt',
@@ -3534,6 +3575,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
     expect(controlStore.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
       'app_opened',
       'session_started',
       'card_dealt',
@@ -5290,13 +5332,16 @@ void main() {
     /// death would have left it — the start instant injectable so a
     /// pocket sits elapsed or unelapsed at the fixed 12:00 clock. The
     /// sitting is seeded beside week 1389's report answered — the week
-    /// a Saturday read judges due — so the strip below the offer keeps
-    /// holding the check-in exactly as Story 2.5 shipped it.
+    /// a Saturday read judges due — and the install-day open, so the
+    /// strip below the offer keeps holding the check-in exactly as
+    /// Story 2.5 shipped it (the 5.12 translation: the once-ever
+    /// offer stays out of an established install's matrices).
     void seedPocketedStart(
       _RecordingStore store,
       int pocketMinutes, {
       DateTime? at,
     }) {
+      store.entries.add(_installOpen());
       store.entries.add((
         id: 'seed-week-answered',
         kind: 'report_answered',
@@ -6057,6 +6102,170 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(CameraGlyph), findsNothing);
       expect(find.byType(PencilGlyph), findsOneWidget);
+    });
+  });
+
+  group('the once-ever first-run curation offer (Story 5.12, FR-31, E1)', () {
+    testWidgets('accepting the offer drops a stale refresh read', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final stale = Completer<DispenserView>();
+      final action = Completer<DispenserView>();
+      final controller = _QueuedReadController([first, stale, action]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      final accept = tester
+          .widget<CurationOfferStrip>(find.byType(CurationOfferStrip))
+          .onAccept;
+
+      // A foreground refresh started before the tap remains in flight.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      accept();
+      await tester.pump();
+      action.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+
+      // The old refresh resolves last carrying the invitation; its older
+      // generation must not overwrite the committed accept or route.
+      stale.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+      expect(find.text(strings.curationInvitation), findsNothing);
+    });
+
+    testWidgets('dismissing the offer drops a stale refresh read', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final stale = Completer<DispenserView>();
+      final action = Completer<DispenserView>();
+      final controller = _QueuedReadController([first, stale, action]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      final dismiss = tester
+          .widget<CurationOfferStrip>(find.byType(CurationOfferStrip))
+          .onDismiss!;
+
+      // Hold a pre-dismiss refresh open, then complete the dismissal's
+      // newer read with a view in which the offer is already absent.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      dismiss();
+      await tester.pump();
+      action.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+
+      // The older read still carries the offer, but cannot restore it.
+      stale.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+    });
+
+    testWidgets('a fresh install\'s launch holds the offer below the '
+        'card; the tap pushes the E1 surface over the real Settings '
+        'seam — the house title, a CurationRow — and back on return the '
+        'offer is gone with a flip writing exactly one row (UX-DR22, '
+        'AD-21)', (tester) async {
+      final strings = AppStringsEs();
+      final store = _RecordingStore();
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final settings = SettingsController(store: store, nowOf: _fixedClock);
+      final controller = buildController(store);
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(
+          controller,
+          sessionSettled: () => session.settled,
+          settings: settings,
+        ),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+
+      // The offer stands below the card; nothing else renders beside
+      // it (rarest wins — check-in and report displaced).
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+      expect(find.text(strings.energyCheckInQuestion), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+
+      // The tap: the E1 surface pushed — the house title over the
+      // rows, the Settings sub-screen's own header absent.
+      await tester.ensureVisible(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+      expect(find.text(strings.curationHouseGroups), findsOneWidget);
+      expect(find.text(strings.settingsCurationGroups), findsNothing);
+      expect(find.byType(CurationRow), findsNWidgets(8));
+
+      // A flip through the real seam: exactly one
+      // cluster_curation_changed row, the offer's own paths still at
+      // zero rows.
+      await tester.tap(find.text(strings.curationClusterAnclas));
+      await tester.pumpAndSettle();
+      expect(
+        store.entries.where(
+          (entry) => entry.kind == 'cluster_curation_changed',
+        ),
+        hasLength(1),
+      );
+
+      // Back: the offer is gone — consumed for the process, the
+      // displaced report holding the slot beneath.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
     });
   });
 }

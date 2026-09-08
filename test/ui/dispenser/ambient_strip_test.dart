@@ -35,6 +35,7 @@ import 'package:organizer/ui/dispenser/ambient_strip.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/glyphs/battery_glyph.dart';
+import 'package:organizer/ui/settings/curation_screen.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
 
@@ -62,6 +63,34 @@ class _RecordingStore implements StorePort {
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
       List.unmodifiable(entries);
+}
+
+/// A store whose reads throw only while armed — the launch read
+/// commits, then a later arm runs over a failing read (the screen
+/// suite's `_FailReadAfterDoneStore` grammar, the arm manual).
+class _FailReadWhileArmedStore implements StorePort {
+  _FailReadWhileArmedStore(this._inner);
+
+  final _RecordingStore _inner;
+  var failReads = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) =>
+      _inner.appendLogEntry(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async {
+    if (failReads) {
+      throw StateError('read failed');
+    }
+    return _inner.readLogEntries();
+  }
 }
 
 /// A fake bundle holding the shipped asset's exact bytes, so the loader
@@ -108,6 +137,35 @@ class _FakeBundle implements AssetBundle {
 }
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
+
+/// An install-day `app_opened` — a row from the day before the fixed
+/// Saturday clock, seeding an ESTABLISHED install (the 5.12
+/// translation the 2.5/2.6 groups take): with an opening on any
+/// earlier day in the log, the once-ever first-run curation offer is
+/// not eligible, so the check-in and report residents keep rendering
+/// exactly as they shipped — the controller suite's `_installOpen`
+/// precedent. 20:00 keeps it inside 48 h of every later read, so the
+/// warm-return greeting stays out of the pins.
+LogEntryRecord _installOpen() => (
+  id: 'install-open',
+  kind: 'app_opened',
+  instantUtcMicros: DateTime.utc(2026, 8, 28, 20).microsecondsSinceEpoch,
+  offsetSeconds: 0,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  settingTextValue: null,
+  pocketMinutes: null,
+  energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
+  permission: null,
+  sliceCause: null,
+  cluster: null,
+  enabled: null,
+);
 
 /// A dealt card for the queued-read fakes (the screen suite's own
 /// `_testCard` shape).
@@ -223,6 +281,7 @@ void main() {
   /// part 3 records.
   Future<DispenserController> launchAndCommit(WidgetTester tester) async {
     final store = _RecordingStore()
+      ..entries.add(_installOpen())
       ..entries.add((
         id: 'seed-week-answered',
         kind: 'report_answered',
@@ -500,6 +559,7 @@ void main() {
       'offer — the offer and the check-in coexist, offer above '
       '(Story 2.5 beside 2.4, UX-DR22)', (tester) async {
     final store = _RecordingStore()
+      ..entries.add(_installOpen())
       ..entries.add((
         id: 'seed-week-answered',
         kind: 'report_answered',
@@ -678,7 +738,7 @@ void main() {
     Future<DispenserController> launchSundayAndCommit(
       WidgetTester tester,
     ) async {
-      final store = _RecordingStore();
+      final store = _RecordingStore()..entries.add(_installOpen());
       final session = SessionController(
         store: store,
         strings: AppStringsEs(),
@@ -1151,6 +1211,314 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(scrollable.position.pixels, greaterThan(0));
       expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+    });
+  });
+
+  group('the once-ever first-run curation offer (Story 5.12, FR-31, '
+      'UX-DR22, E1)', () {
+    /// A fresh install's Saturday launch — no seed rows at all, so the
+    /// log's only `app_opened` is today's and the first opening EVER
+    /// is underway: the offer holds the slot, every other resident
+    /// displaced. The store is a parameter so a read-failure arm can
+    /// wrap it.
+    Future<DispenserController> launchFreshOver(
+      WidgetTester tester,
+      StorePort store,
+    ) async {
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    Future<DispenserController> launchFreshAndCommit(WidgetTester tester) =>
+        launchFreshOver(tester, _RecordingStore());
+
+    testWidgets('renders the invitation sentence verbatim as one '
+        'whole-sentence button with the ✕ — bare chrome, everything '
+        'else displaced (UX-DR22, FR-31)', (tester) async {
+      final controller = await launchFreshAndCommit(tester);
+      final strings = AppStringsEs();
+
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(CurationOfferStrip), findsOneWidget);
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+      final invitation = tester.widget<Text>(
+        find.text(strings.curationInvitation),
+      );
+      final invitationStyle = invitation.style!;
+      expect(invitationStyle.fontFamily, TypeRoles.support.fontFamily);
+      expect(invitationStyle.fontSize, TypeRoles.support.fontSize);
+      expect(invitationStyle.fontWeight, TypeRoles.support.fontWeight);
+      expect(invitationStyle.height, TypeRoles.support.height);
+      expect(invitationStyle.letterSpacing, TypeRoles.support.letterSpacing);
+      expect(invitationStyle.color, FieldPalette.inkSecondary);
+      // Below the card, geometrically.
+      expect(
+        tester.getTopLeft(find.byType(CurationOfferStrip)).dy,
+        greaterThan(tester.getTopLeft(find.byType(TaskCard)).dy),
+      );
+
+      // The whole sentence is one button: the semantics above the
+      // text declares it, and the band holds the 48dp floor as one
+      // opaque target.
+      final sentence = find
+          .ancestor(
+            of: find.text(strings.curationInvitation),
+            matching: find.byType(Semantics),
+          )
+          .first;
+      expect(tester.widget<Semantics>(sentence).properties.button, isTrue);
+      final band = find
+          .ancestor(
+            of: find.text(strings.curationInvitation),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+
+      // Bare chrome: no hairlined wrapper anywhere in the strip — the
+      // offer is the rarest resident, never a persistent one.
+      expect(
+        find.descendant(
+          of: find.byType(CurationOfferStrip),
+          matching: find.byType(Container),
+        ),
+        findsNothing,
+      );
+
+      // The displaced instruments render nothing; the ✕ carries its
+      // own label; reading wrote nothing.
+      expect(find.byType(BatteryGlyph), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+        findsOneWidget,
+      );
+      expect(
+        storeOf(controller).entries
+            .where((entry) => entry.kind == 'energy_set'),
+        isEmpty,
+      );
+    });
+
+    testWidgets('blank padding inside the invitation band accepts it', (
+      tester,
+    ) async {
+      var accepted = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: Scaffold(
+            body: CurationOfferStrip(onAccept: () => accepted = true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final band = find
+          .ancestor(
+            of: find.text(AppStringsEs().curationInvitation),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final bandRect = tester.getRect(band);
+      await tester.tapAt(
+        Offset(bandRect.center.dx + bandRect.width * 0.35, bandRect.center.dy),
+      );
+      expect(accepted, isTrue);
+    });
+
+    testWidgets('the ✕ writes nothing and the offer is gone — the '
+        'displaced report takes the slot in the same opening (matrix: '
+        'dismiss the offer)', (tester) async {
+      final controller = await launchFreshAndCommit(tester);
+      final store = storeOf(controller);
+      final strings = AppStringsEs();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      await tester.ensureVisible(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'a dismissal appends nothing at all',
+      );
+      expect(find.text(strings.curationInvitation), findsNothing);
+      expect(
+        find.text(strings.weeklySelfReportQuestion),
+        findsOneWidget,
+        reason:
+            'the fresh install\'s unanswered week takes the freed slot '
+            '— the 2.6 handoff grammar',
+      );
+      expect(find.text('Hecho'), findsOneWidget);
+    });
+
+    testWidgets('the tap consumes the offer and pushes the E1 surface — '
+        'the house title over the rows; back → the offer never returns '
+        '(matrix: tap the offer)', (tester) async {
+      await launchFreshAndCommit(tester);
+      final strings = AppStringsEs();
+
+      await tester.ensureVisible(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+
+      // The E1 surface: CurationScreen itself, under the house title,
+      // the eight rows verbatim — a CurationRow visible.
+      expect(find.byType(CurationScreen), findsOneWidget);
+      expect(find.text(strings.curationHouseGroups), findsOneWidget);
+      expect(find.text(strings.settingsCurationGroups), findsNothing);
+      expect(find.text(strings.curationClusterAnclas), findsOneWidget);
+      expect(find.byType(CurationRow), findsNWidgets(8));
+
+      // Back: the offer is gone for the process — the committed view
+      // already holds the freed slot, and nothing resurrects it.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+      expect(
+        find.text(strings.weeklySelfReportQuestion),
+        findsOneWidget,
+        reason: 'the displaced report holds the slot beneath the route',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a failing read under the tap is quiet — no push, no '
+        'error surface — and once the read heals the offer never returns: '
+        'the consumption marker held through the failure (matrix: read '
+        'failure under the tap)', (tester) async {
+      final failing = _FailReadWhileArmedStore(_RecordingStore());
+      await launchFreshOver(tester, failing);
+      final strings = AppStringsEs();
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      failing.failReads = true;
+      await tester.ensureVisible(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.curationInvitation));
+      await tester.pumpAndSettle();
+
+      // Quiet: no E1 surface, no error widget, nothing escaping.
+      expect(find.byType(CurationScreen), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      // The read heals and a foreground return re-reads: the offer is
+      // spent for the process — the displaced report holds the slot.
+      failing.failReads = false;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.curationInvitation), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+    });
+
+    testWidgets('a failing read under the ✕ is quiet too — no error '
+        'surface, nothing written — and the healed re-read shows the '
+        'offer never returned either (matrix: read failure under the '
+        'dismissal)', (tester) async {
+      final inner = _RecordingStore();
+      final failing = _FailReadWhileArmedStore(inner);
+      await launchFreshOver(tester, failing);
+      final strings = AppStringsEs();
+      final kindsBefore = inner.entries.map((entry) => entry.kind).toList();
+
+      failing.failReads = true;
+      await tester.ensureVisible(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      // Quiet: no error widget, no exception, and the ✕ wrote nothing.
+      expect(find.byType(CurationScreen), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(
+        inner.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'the failed dismissal appended nothing at all',
+      );
+
+      failing.failReads = false;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.curationInvitation), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsOneWidget);
+    });
+
+    testWidgets('200% font scale: the sentence button and the ✕ hold '
+        'their floors, the strip grows inside the scroll (UX-DR45, '
+        'NFR6)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final strings = AppStringsEs();
+      await launchFreshAndCommit(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      final band = find
+          .ancestor(
+            of: find.text(strings.curationInvitation),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.ambientStripDismiss),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -60),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(scrollable.position.pixels, greaterThan(0));
+      expect(find.text(strings.curationInvitation), findsOneWidget);
     });
   });
 }

@@ -314,6 +314,17 @@ class DispenserController {
   /// report; a null here mints nothing.
   int? _askedReportWeek;
 
+  /// The once-ever curation offer's process-lifetime consumption
+  /// (Story 5.12, FR-31, AD-21): shell state, never a row — the
+  /// offer's once-ever fact is the derivation's own (eligibility is
+  /// historical: the first opening ever, and nothing later), so the
+  /// tap and the ✕ alike only exclude the resident from this
+  /// process's reads. A fresh process after the first opening ended
+  /// needs no marker either: the log's own history already fails the
+  /// derivation's clause, so the offer never returns — nothing
+  /// stored, nothing to re-arm.
+  bool _curationOfferConsumed = false;
+
   /// Reads the card to display (AD-3: a pure computation, never a write).
   /// It runs in the shared log queue, so the pocket and card come from one
   /// post-write snapshot and the clock is read only when that snapshot is
@@ -329,14 +340,16 @@ class DispenserController {
   /// behind the offer and returns with one silent tap, never re-dealt.
   ///
   /// Story 2.5 adds the ambient strip's fact to the same snapshot, and
-  /// Story 2.6 completes it: the strip derivation resolves which
-  /// resident — the report while its due week stands unanswered, else
-  /// the check-in while the day holds no `energy_set` row — with both
-  /// dismissals composed as read-scoped exclusions, so the precedence
-  /// walk itself hands the slot to the next resident in the same
-  /// opening the moment a dismissal frees it (FR-4's deterministic
-  /// handoff, strip.dart's seam). Suppression never writes and never
-  /// stores: the same log without the markers resolves identically.
+  /// Stories 2.6 and 5.12 complete its current residents: the strip
+  /// derivation resolves the once-ever curation offer, the report while
+  /// its due week stands unanswered, or the check-in while the day holds
+  /// no `energy_set` row. Their dismissals and the curation offer's
+  /// accept path are composed as read-scoped exclusions, so the
+  /// precedence walk itself hands the slot to the next resident in the
+  /// same opening the moment a terminal action frees it (FR-4's
+  /// deterministic handoff, strip.dart's seam). Suppression never writes
+  /// and never stores: the same log without the markers resolves
+  /// identically.
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();
@@ -364,6 +377,7 @@ class DispenserController {
     final today = _dayOf(now);
     final excludeResidents = <StripResident>{
       if (_checkInDismissMarker == today) StripResident.energyCheckIn,
+      if (_curationOfferConsumed) StripResident.firstRunCuration,
     };
     final reportMarker = _reportDismissMarker;
     if (reportMarker != null &&
@@ -949,6 +963,30 @@ class DispenserController {
 
   Future<void> _enqueueWrite(Future<void> Function() step) {
     return writeQueue.enqueue(step);
+  }
+
+  /// Consumes the first-run curation offer (Story 5.12, FR-31): the
+  /// tap — the accept half — and deliberately NOT a write. The
+  /// once-ever fact is the derivation's own (eligibility is
+  /// historical), so the offer's paths write zero rows (AD-21); the
+  /// consumption is a plain process-lifetime bool set synchronously
+  /// at entry, and every later read of the process excludes the
+  /// resident through the derivation's `excludeResidents` seam — the
+  /// displaced instruments taking the freed slot in the same opening,
+  /// the check-in's own handoff grammar.
+  Future<DispenserView> consumeCurationOffer() => _spendCurationOffer();
+
+  /// Dismisses the first-run curation offer (Story 5.12, FR-31,
+  /// UX-DR22): the ✕ half — the same terminal consumption, zero
+  /// writes. "Once dismissed it never returns" needs no stored
+  /// dismissal: eligibility ends with the first opening ever, and
+  /// every later opening — this process's or a fresh one's — fails
+  /// the derivation's historical clause on its own rows.
+  Future<DispenserView> dismissCurationOffer() => _spendCurationOffer();
+
+  Future<DispenserView> _spendCurationOffer() {
+    _curationOfferConsumed = true;
+    return read();
   }
 
   /// The domestic day of [now] in its own offset (AD-4's calendar is

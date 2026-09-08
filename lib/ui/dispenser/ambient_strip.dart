@@ -4,9 +4,11 @@
 // ink-secondary, tappable where an accept action exists and never a
 // primary action, ✕ dismissal at 48dp, at most one resident visible.
 //
-// This build holds two residents, one per chrome side of the strip's
-// rule — ephemeral = bare, persistent = hairline. The check-in is
-// bare: the question verbatim plus three battery marks as direct tap
+// This build holds three residents: the check-in (bare, ephemeral),
+// the weekly self-report (hairlined, because it persists until
+// answered, SM-2), and — since Story 5.12 — the once-ever first-run
+// curation offer (bare: it is rarest, never persistent). The check-in
+// is bare: the question verbatim plus three battery marks as direct
 // targets, llena pre-marked as the standing default (the surface's own
 // state, never a written row), selected reading `icon-mass-blue` charge
 // with an `ink-primary` casing, unselected neutral/secondary —
@@ -159,6 +161,63 @@ class _BatteryMark extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The ambient strip holding the once-ever first-run curation offer
+/// (Story 5.12, FR-31, UX-DR22, E1): `curationInvitation` verbatim —
+/// the whole sentence one ≥48dp opaque button, the support role in
+/// ink-secondary — and the ✕ dismissal, bare chrome on the ground
+/// (the offer is the rarest resident, never a persistent one, so no
+/// hairline). One tap on the sentence accepts through [onAccept]
+/// (consume-then-push, the E1 surface — no write); the ✕ dismisses
+/// through [onDismiss] (no write at all). Both are terminal for the
+/// process: the offer's once-ever fact is the derivation's own
+/// history, so it never returns — nothing is stored, nothing is owed
+/// (AD-21).
+class CurationOfferStrip extends StatelessWidget {
+  const CurationOfferStrip({super.key, required this.onAccept, this.onDismiss});
+
+  /// The accept path: the screen consumes the offer and pushes the E1
+  /// surface — never a write.
+  final VoidCallback onAccept;
+
+  /// The dismissal path: shell state only, never a write.
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Semantics(
+            button: true,
+            child: GestureDetector(
+              onTap: onAccept,
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: Spacing.touchTargetMin,
+                ),
+                child: Center(
+                  child: Text(
+                    strings.curationInvitation,
+                    // bodySmall is the wired support role (theme.dart)
+                    // — the strip's sentence register, ink-secondary.
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _DismissMark(onTap: onDismiss),
+      ],
     );
   }
 }

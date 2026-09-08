@@ -527,6 +527,12 @@ abstract class AppStrings {
   /// **'Ajustar grupos de tareas'**
   String get curationInvitation;
 
+  /// The house-framed curation title (Story 5.12, E1): the genesis surface's quiet entry label below Analizar and the pushed E1 surface's own header — the same eight switchable task groups as Settings' sub-screen, one string serving both roles (5.11's entry-label-equals-header idiom). Never a task name, never a count, never a browseable catalogue (FR-31, NL-1).
+  ///
+  /// In es, this message translates to:
+  /// **'Grupos de tu casa'**
+  String get curationHouseGroups;
+
   /// Transformation reward when no Before photo exists — no one-plate diff, no placeholder.
   ///
   /// In es, this message translates to:
