@@ -2,7 +2,7 @@
 title: 'Story 5.12: Curation''s other two homes — the E1 surface and the one-time strip'
 type: 'feature'
 created: '2026-09-08'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: '4cb53f16c9f3a1fda6d737a2a3a5c47ac9ef3695'
 context:
@@ -116,6 +116,12 @@ context:
 ### Review Findings
 
 - [x] [Review][Record] Fresh-log audit conclusion: the empty-`_RecordingStore` launches across the dispenser suites that remained unseeded were each inspected — no strip-absence assertion meets an empty log anywhere except the two census pins and the two genesis A-slim censuses that were renegotiated; a future strip-absence assertion over an empty log would fail correctly (the offer IS eligible there), not mysteriously [`test/ui/dispenser/dispenser_screen_test.dart`]
+- [x] [Review][Patch] Duplicated header comment line after the three-residents rewrite [`lib/ui/dispenser/ambient_strip.dart`]
+- [x] [Review][Patch] `_installOpen` seeded Friday 09:00 put Sunday-noon reads 51 h out — inside warm-return; moved to Friday 20:00 (40 h) in all three suites, comments included [`test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] Stranded reflow lines in `_residentEligible`'s doc comment re-wrapped, wording unchanged [`packages/core/lib/derive/strip.dart`]
+- [x] [Review][Patch] The offer's accept/dismiss read-failure arms were unpinned — matrix error cells ("quiet on read failure", no push) now have two running tests over an armed throwing store: no `CurationScreen`, no `ErrorWidget`, nothing written, consumption held through the failure and the healed re-read [`test/ui/dispenser/ambient_strip_test.dart`]
+- [x] [Review][Patch] Settings test title overstated ("no curation string" behind `Nuevo proyecto`) after 5.12 added the house-groups entry; retitled, assertions untouched [`test/ui/settings/settings_screen_test.dart`]
+- [x] [Review][Defer] The 2.5-era `_onDismissCheckIn` read-failure arm shares the untested shape → `deferred-work.md`
 
 ## Design Notes
 
@@ -136,3 +142,69 @@ context:
 **Manual checks (device, AGENTS.md recipe):**
 - Fresh install (uninstall first): first card under 2 s with the strip beside it; tap → surface, flip a row, back → strip gone; kill + reopen → strip never returns; `Ajustes` → `Contenido de la casa` still the standing route; genesis → quiet entry below `Analizar` opens the same rows under the house title.
 - Pull `organizer_substrate.sqlite`: only the expected `cluster_curation_changed` row(s) — zero rows from the offer's own paths; schema still v11.
+
+## Suggested Review Order
+
+**The once-ever derivation — the story's keystone**
+
+- The eligibility itself: first-opening gate ∧ no earlier-day `app_opened` — "never returns" by construction.
+  [`strip.dart:144`](../../packages/core/lib/derive/strip.dart#L144)
+
+- The historical clause: own-offset day scoping, rows after the read instant excluded (AD-4).
+  [`strip.dart:281`](../../packages/core/lib/derive/strip.dart#L281)
+
+**The two terminal paths — zero writes**
+
+- The process-lifetime marker feeding the read-scoped `excludeResidents` seam (AD-21).
+  [`dispenser_controller.dart:326`](../../lib/dispenser/dispenser_controller.dart#L326)
+
+- Tap and ✕ both land here — set synchronously, then the queued read.
+  [`dispenser_controller.dart:975`](../../lib/dispenser/dispenser_controller.dart#L975)
+
+**The strip surface — the onboarding half**
+
+- The offer resident: sentence verbatim, one ≥48dp button, `_DismissMark`, bare chrome.
+  [`ambient_strip.dart:179`](../../lib/ui/dispenser/ambient_strip.dart#L179)
+
+- The layer's new case — the fall-through era ends.
+  [`dispenser_strip_layer.dart:103`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L103)
+
+- The accept path: consume, commit, guarded push of the E1 surface.
+  [`dispenser_screen.dart:1012`](../../lib/ui/dispenser/dispenser_screen.dart#L1012)
+
+- The dismiss path: same grammar as the check-in's ✕, quiet on read failure.
+  [`dispenser_screen.dart:976`](../../lib/ui/dispenser/dispenser_screen.dart#L976)
+
+**The E1 surface and its genesis entry — the other half**
+
+- The title param: one screen, three homes; Settings' default header stands unchanged.
+  [`curation_screen.dart:76`](../../lib/ui/settings/curation_screen.dart#L76)
+
+- The guarded push from genesis, house title riding the ctor.
+  [`nuevo_proyecto_screen.dart:394`](../../lib/ui/settings/nuevo_proyecto_screen.dart#L394)
+
+- The quiet entry below `Analizar` — the complement to typed entry, A-slim intact.
+  [`nuevo_proyecto_screen.dart:493`](../../lib/ui/settings/nuevo_proyecto_screen.dart#L493)
+
+- The one authored string, signoff'd — entry label and header in one key (5.11's idiom).
+  [`app_es.arb:409`](../../lib/l10n/app_es.arb#L409)
+
+**Proofs**
+
+- The eligibility matrix: first-opening-ever, later openings, crossing, offsets, seam, precedence.
+  [`strip_test.dart:722`](../../packages/core/test/strip_test.dart#L722)
+
+- Zero-row consume/dismiss, exclusion on re-read, never-returns across processes.
+  [`dispenser_controller_test.dart:3063`](../../test/dispenser/dispenser_controller_test.dart#L3063)
+
+- The offer's rendering plus the review-pinned read-failure arms — quiet, no push, consumption held.
+  [`ambient_strip_test.dart:1217`](../../test/ui/dispenser/ambient_strip_test.dart#L1217)
+
+- Tap → E1 surface end to end: house title, eight rows, one funnel row, strip gone on return.
+  [`dispenser_screen_test.dart:6109`](../../test/ui/dispenser/dispenser_screen_test.dart#L6109)
+
+- The genesis half: entry present, wait-body absence, push wiring.
+  [`nuevo_proyecto_screen_test.dart:254`](../../test/ui/settings/nuevo_proyecto_screen_test.dart#L254)
+
+- The title override pin; Settings' default header regression rides 5.11's suite.
+  [`curation_screen_test.dart:297`](../../test/ui/settings/curation_screen_test.dart#L297)
