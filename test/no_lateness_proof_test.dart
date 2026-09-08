@@ -242,13 +242,28 @@ void main() {
       '|remaining|deadline',
       caseSensitive: false,
     );
-    // A positive control per language family, so a broken or emptied
-    // RegExp cannot pass the pin vacuously.
-    expect(pattern.hasMatch('holgura'), isTrue);
-    expect(pattern.hasMatch('Te restan 3 pasos'), isTrue);
-    expect(pattern.hasMatch('vencimiento'), isTrue);
-    expect(pattern.hasMatch('daysRemaining'), isTrue);
-    expect(pattern.hasMatch('deadline'), isTrue);
+    // A positive control for every alternative, so removing one branch
+    // from the RegExp cannot pass the pin while that vocabulary family
+    // goes unscanned.
+    for (final sample in [
+      'buffer',
+      'slack',
+      'holgura',
+      'Te restan 3 pasos',
+      'quedan 3 pasos',
+      'faltan 3 pasos',
+      'plazo',
+      'vencimiento',
+      'atraso',
+      'daysRemaining',
+      'deadline',
+    ]) {
+      expect(
+        pattern.hasMatch(sample),
+        isTrue,
+        reason: 'positive control missing for "$sample"',
+      );
+    }
     final findings = <String>[];
     for (final file in uiFiles) {
       final masked = _withoutComments(file.readAsStringSync());

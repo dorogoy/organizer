@@ -92,6 +92,10 @@ context:
 - [x] [Review][Patch] Three unpinned edges — all-steps-skipped-today (no head on any draw, full-R entry stands), nonzero domestic offsets (the anchor is each offset's own 04:00-local day start; ± symmetric frames coincide, the zero-offset anchor stands apart), and group-key discrimination (same context + different instants, and same instant + different contexts, each two entries). [packages/core/test/weave_test.dart:4654]
 - [x] [Review][Patch] Code Map stale against the landed code — anchors refreshed to landed lines. [_bmad-output/implementation-artifacts/5-10-invisible-buffers.md]
 - [Review][Reject] Duplicate-fact-id collisions across groups (ids are the substrate's primary key — unreachable from the shell's UUIDv7 minter); `originContext` null-vs-"null" key collision (pre-existing 5.9 key expression, unchanged here); scanning beyond `lib/ui` (the no-literal-strings lint plus the codegen check make the ARB the only copy source); census widget-type brittleness (the 1-11 census discipline itself); masking ARB metadata (the metadata is part of the table under the same law); the unit-level `log`-immutability expects (decorative alone, but the store-boundary sibling owns the real pin).
+<!-- bmad:code-review 2026-09-08 — layers: blind-hunter, edge-case-hunter, verification-gap, acceptance-auditor -->
+
+- [x] [Review][Patch] Add an executable `Origin.local` Epic fixture through `composeDay`/`nextDeal` and `epicBufferedTargets`; the shared grouping predicate admits local facts, but all current buffer/compose fixtures use `_scanStep`'s `Origin.cloud` default, so the local path can regress unobserved. [packages/core/test/weave_test.dart:4717]
+- [x] [Review][Patch] Make the masked surface scan's anti-vacuity guard cover every forbidden regex alternative (`buffer`, `slack`, `quedan`, `faltan`, `plazo`, and `atras` are currently unpinned); removing one alternative leaves the test green while that vocabulary can reach a surface. [test/no_lateness_proof_test.dart:245]
 
 ## Spec Change Log
 

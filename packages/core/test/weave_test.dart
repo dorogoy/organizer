@@ -4714,6 +4714,56 @@ void main() {
       );
     });
 
+    test('a local-origin active Epic reaches both the buffer derivation '
+        'and the Focus resolver', () {
+      final landed = utcMicros(2026, 8, 28, 9);
+      final steps = [
+        _scanStep(
+          'local-s1',
+          landed,
+          'Proyecto local',
+          origin: Origin.local,
+          stepText: 'Paso local uno',
+        ),
+        _scanStep(
+          'local-s2',
+          landed,
+          'Proyecto local',
+          origin: Origin.local,
+          stepText: 'Paso local dos',
+        ),
+      ];
+      final log = [
+        _epicActivated(landed + 1000000, 'local-s1', origin: Origin.local),
+        _sessionStarted(now - 1000000),
+      ];
+      final dayStart = const Calendar().dayOf(now, 0).startUtcMicros;
+
+      expect(targetsOf(steps, log, at: now), {
+        'local-s1': dayStart + 2 * 2 * _microsPerDay,
+      });
+
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(composition.focus?.id, 'local-s1');
+      expect(composition.focus?.origin, Origin.local);
+
+      final deal = nextDeal(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(deal?.id, 'local-s1');
+      expect(deal?.origin, Origin.local);
+    });
+
     test('seven days of total absence move the horizon silently later '
         '— the same remaining count, an eight-days-later horizon, zero '
         'rows written for the gap, and the head composes at return '
