@@ -169,3 +169,11 @@ context:
 
 - Scan's prompt ends with the same shared sentence.
   [`scan_controller_test.dart:826`](../../test/scan/scan_controller_test.dart#L826)
+
+### Review Findings
+
+- [x] [Review][Patch] Restore the opening object brace in `scanResponseContract`; the shared contract sent by both scan and genesis prompts is not valid JSON as written [`packages/core/lib/slicer/scan_steps.dart:87`](../../packages/core/lib/slicer/scan_steps.dart#L87)
+- [x] [Review][Patch] Clear `_departed` when the surface resumes; after an idle pause or background transition, the screen can appear active while every later `Analizar` attempt is silently abandoned [`lib/ui/settings/nuevo_proyecto_screen.dart:156`](../../lib/ui/settings/nuevo_proyecto_screen.dart#L156)
+- [x] [Review][Patch] Keep the abandonment guard active through terminal parsing and persistence; `close()` can otherwise miss `scan_abandoned` and allow terminal facts or failure rows after departure [`lib/genesis/genesis_controller.dart:185`](../../lib/genesis/genesis_controller.dart#L185)
+- [x] [Review][Patch] Snapshot the consented description at tap time; the dispatch currently reads the mutable text field after awaiting the provider lookup [`lib/ui/settings/nuevo_proyecto_screen.dart:212`](../../lib/ui/settings/nuevo_proyecto_screen.dart#L212)
+- [x] [Review][Patch] Align the input limit with the parser's UTF-16 code-unit bound; `LengthLimitingTextInputFormatter` counts grapheme clusters and can admit more than 400 code units [`lib/ui/settings/nuevo_proyecto_screen.dart:428`](../../lib/ui/settings/nuevo_proyecto_screen.dart#L428)

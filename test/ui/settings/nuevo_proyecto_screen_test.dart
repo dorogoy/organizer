@@ -21,6 +21,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/slicer/scan_steps.dart' show scanDescriptionTextMost;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
@@ -376,6 +377,73 @@ void main() {
     expect(find.byType(NuevoProyectoScreen), findsOneWidget);
     expect(find.text(strings.scanWaitTitle), findsNothing);
     expect(find.text(strings.genesisAnalyze), findsOneWidget);
+  });
+
+  testWidgets('an idle departure does not brick the next act after resume', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final slicer = _FakeSlicer(const SlicerDelivered(deliveredBody));
+    await pumpSurface(tester, controllerOf(store, slicer));
+    await tester.enterText(find.byType(TextField), 'Ordenar el trastero');
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    await tester.tap(find.text(strings.genesisAnalyze));
+    await tester.pumpAndSettle();
+    expect(find.text('launch-surface'), findsOneWidget);
+    expect(slicer.requests, hasLength(1));
+    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+  });
+
+  testWidgets('the dispatch uses the description consented at tap time', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final slicer = _FakeSlicer(const SlicerDelivered(deliveredBody));
+    final readGate = Completer<String?>();
+    await pumpSurface(
+      tester,
+      controllerOf(store, slicer, read: () => readGate.future),
+    );
+    const consented = 'Ordenar el trastero';
+    await tester.enterText(find.byType(TextField), consented);
+    await tester.pump();
+    await tester.tap(find.text(strings.genesisAnalyze));
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField), 'Texto cambiado');
+    readGate.complete('gemini');
+    await tester.pumpAndSettle();
+
+    expect(slicer.requests, hasLength(1));
+    expect(slicer.requests.single.text, contains(consented));
+    expect(slicer.requests.single.text, isNot(contains('Texto cambiado')));
+  });
+
+  testWidgets('the description formatter enforces the parser UTF-16 bound', (
+    tester,
+  ) async {
+    await pumpSurface(tester, null);
+    final emoji = String.fromCharCode(0x1F600);
+    await tester.enterText(
+      find.byType(TextField),
+      emoji * scanDescriptionTextMost,
+    );
+
+    final controller = tester
+        .widget<TextField>(find.byType(TextField))
+        .controller!;
+    expect(controller.text.length, scanDescriptionTextMost);
+    expect(controller.text, emoji * (scanDescriptionTextMost ~/ 2));
   });
 
   testWidgets('no key at Analizar: the no-key surface replaces this '

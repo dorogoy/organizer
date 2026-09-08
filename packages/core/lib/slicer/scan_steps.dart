@@ -85,7 +85,7 @@ const String scanWireDurationField = 'duration_minutes';
 /// they do. Provider-facing instruction prose, never UI copy —
 /// the prompt precedent (not ARB, AD-15 never reaches a widget).
 const String scanResponseContract =
-    'Responde únicamente con un objeto JSON con la forma '
+    'Responde únicamente con un objeto JSON con la forma {'
     '"$scanWireDescriptionField": "…", "$scanWireStepsField": '
     '[{"$scanWireTextField": "…", "$scanWireDurationField": 4}]}, '
     'y nada más.';

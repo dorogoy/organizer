@@ -20,6 +20,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/genesis/genesis_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 
 /// The recording store (the scan suite's own contract).
 class _RecordingStore implements StorePort {
@@ -550,6 +551,43 @@ void main() {
       expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
         'scan_abandoned',
+        'consent_granted',
+        'scan_abandoned',
+      ]);
+      expect(store.facts, isEmpty);
+    });
+
+    test('a close during terminal persistence abandons the wait and '
+        'discards the queued landing', () async {
+      final store = _RecordingStore();
+      final queue = LogWriteQueue();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      slicer.sliceStarted = Completer<void>();
+      final controller = GenesisController(
+        store: store,
+        slicer: slicer,
+        writeQueue: queue,
+        nowOf: _fixedClock,
+      );
+      final analyzing = controller.analyze('Ordenar el trastero');
+      await slicer.sliceStarted!.future;
+
+      final blockerGate = Completer<void>();
+      final blockerStarted = Completer<void>();
+      queue.enqueue(() async {
+        blockerStarted.complete();
+        await blockerGate.future;
+      });
+      await blockerStarted.future;
+
+      slicer.gate!.complete();
+      await Future<void>.delayed(Duration.zero);
+      final closing = controller.close();
+      blockerGate.complete();
+      await closing;
+
+      expect(await analyzing, isA<GenesisStale>());
+      expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
         'scan_abandoned',
       ]);

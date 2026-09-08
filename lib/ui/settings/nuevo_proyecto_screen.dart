@@ -77,6 +77,64 @@ const double _analyzeDisabledOpacity = 0.45;
 /// mark.
 const double _genesisWaitPencilSize = 160;
 
+/// Limits user input in the same UTF-16 code units the core parser counts.
+/// Flutter's stock length formatter counts grapheme clusters, which can let
+/// a string exceed the parser's wire bound when it contains supplementary
+/// characters.
+class _Utf16LengthLimitingTextInputFormatter extends TextInputFormatter {
+  const _Utf16LengthLimitingTextInputFormatter(this.maxLength);
+
+  final int maxLength;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.length <= maxLength) {
+      return newValue;
+    }
+
+    var end = maxLength;
+    if (end > 0 &&
+        end < newValue.text.length &&
+        _isLowSurrogate(newValue.text.codeUnitAt(end))) {
+      end--;
+    }
+    final text = newValue.text.substring(0, end);
+    final baseOffset = _boundOffset(newValue.selection.baseOffset, end);
+    final extentOffset = _boundOffset(newValue.selection.extentOffset, end);
+    final composingStart = _boundOffset(newValue.composing.start, end);
+    final composingEnd = _boundOffset(newValue.composing.end, end);
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection(
+        baseOffset: baseOffset,
+        extentOffset: extentOffset,
+        affinity: newValue.selection.affinity,
+        isDirectional: newValue.selection.isDirectional,
+      ),
+      composing: composingStart < composingEnd
+          ? TextRange(start: composingStart, end: composingEnd)
+          : TextRange.empty,
+    );
+  }
+
+  static bool _isLowSurrogate(int codeUnit) =>
+      codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
+
+  static int _boundOffset(int offset, int length) {
+    if (offset < 0) {
+      return 0;
+    }
+    if (offset > length) {
+      return length;
+    }
+    return offset;
+  }
+}
+
 /// The typed genesis surface (FR-11, FR-25). [settings] is the
 /// Settings seam handed down from the Dispenser — the same store
 /// instance, threaded through the whole way-out chain. [genesis] is
@@ -169,6 +227,13 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
         _departed = true;
         unawaited(widget.genesis?.close());
       case AppLifecycleState.resumed:
+        // A departure while the surface was idle must not brick the next
+        // act. Keep the flag during an active read or wait so a real
+        // departure cannot be turned into a dispatch by the resume event.
+        if (!_analyzing && !_waiting) {
+          _departed = false;
+        }
+        break;
       case AppLifecycleState.inactive:
         // The transient occlusion holds: a system dialog or the
         // notification shade is not a departure, and nothing closes
@@ -210,6 +275,7 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
     // One tap owns the surface from here — synchronously, before the
     // first await.
     _analyzing = true;
+    final description = _descriptionController.text.trim();
     final read = controller.readSelectedProvider;
     if (read == null || controller.slicer == null) {
       // Nothing half-wired dispatches: the quiet pop every closed
@@ -259,7 +325,7 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
       return;
     }
     setState(() => _waiting = true);
-    final outcome = await controller.analyze(_descriptionController.text);
+    final outcome = await controller.analyze(description);
     if (!mounted) {
       return;
     }
@@ -427,7 +493,7 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
         // formatter, not `maxLength`: no counter ever renders.
         inputFormatters: [
           FilteringTextInputFormatter.singleLineFormatter,
-          LengthLimitingTextInputFormatter(scanDescriptionTextMost),
+          _Utf16LengthLimitingTextInputFormatter(scanDescriptionTextMost),
         ],
         // The keyboard's Done is the pill's own act — the surface
         // exists for this field, so the natural flow (type, Done)

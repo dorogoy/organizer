@@ -182,8 +182,13 @@ class GenesisController {
         if (_epoch != epoch) {
           return const GenesisStale();
         }
-        _sliceInFlight = false;
-        await _appendGenesisSliceFailed(SlicerFailureCause.providerUnreachable);
+        await _appendGenesisSliceFailed(
+          SlicerFailureCause.providerUnreachable,
+          epoch: epoch,
+        );
+        if (_epoch != epoch) {
+          return const GenesisStale();
+        }
         return const GenesisFailed(SlicerFailureCause.providerUnreachable);
       }
       if (_epoch != epoch) {
@@ -192,9 +197,9 @@ class GenesisController {
         // scan_abandoned row already stands.
         return const GenesisStale();
       }
-      // The resolution owns the rest, so a close during the tail
-      // appends below mints nothing.
-      _sliceInFlight = false;
+      // Keep the wait armed through parsing and terminal persistence. A
+      // close during this tail must still invalidate the resolution and
+      // mint the one abandonment row.
       switch (outcome) {
         case SlicerDelivered(:final responseBody):
           // The landing (5.7 verbatim): the delivered body parses in
@@ -210,19 +215,30 @@ class GenesisController {
             // eighth cause, and nothing is dealt as-is.
             await _appendGenesisSliceFailed(
               SlicerFailureCause.malformedResponse,
+              epoch: epoch,
             );
+            if (_epoch != epoch) {
+              return const GenesisStale();
+            }
             return const GenesisFailed(SlicerFailureCause.malformedResponse);
           }
           await _appendGenesisLanded(
             slice,
             origin: slicer is LocalSlicer ? Origin.local : Origin.cloud,
+            epoch: epoch,
           );
+          if (_epoch != epoch) {
+            return const GenesisStale();
+          }
           return const GenesisDelivered();
         case SlicerFailed(:final cause):
           // A failed dispatch resolves on record (FR-26 b): one
           // `slice_failed` row carrying the raw cause, then the
           // standing 4-5 mapping the caller routes.
-          await _appendGenesisSliceFailed(cause);
+          await _appendGenesisSliceFailed(cause, epoch: epoch);
+          if (_epoch != epoch) {
+            return const GenesisStale();
+          }
           return GenesisFailed(cause);
       }
     } finally {
@@ -313,11 +329,29 @@ class GenesisController {
   Future<void> _appendScanAbandoned() => _appendMinted(() => scanAbandoned());
 
   /// Appends exactly one `slice_failed` row through the scan
-  /// channel's single sanctioned failure minter (FR-26 b) — the
-  /// resolution's own truth, minted only after it survived the
-  /// caller's epoch checks.
-  Future<void> _appendGenesisSliceFailed(SlicerFailureCause cause) =>
-      _appendMinted(() => scanSliceFailed(cause: cause));
+  /// channel's single sanctioned failure minter (FR-26 b). The queue
+  /// closure checks the resolution epoch as well as its caller: a close
+  /// that wins while this write is queued prevents the stale row from
+  /// landing after the abandonment.
+  Future<void> _appendGenesisSliceFailed(
+    SlicerFailureCause cause, {
+    required int epoch,
+  }) {
+    final now = nowOf();
+    return writeQueue
+        .enqueue(() async {
+          if (_epoch != epoch) {
+            return;
+          }
+          for (final content in scanSliceFailed(cause: cause)) {
+            if (_epoch != epoch) {
+              return;
+            }
+            await _appendContent(content, now);
+          }
+        })
+        .catchError((Object _) {});
+  }
 
   /// Lands a delivered slice's steps as pool facts — 5.7's landing
   /// verbatim, the scan channel's own body: the seeds from the
@@ -327,15 +361,25 @@ class GenesisController {
   /// substrate is insert-only and a partial plan derives honestly);
   /// the whole landing riding the shared `LogWriteQueue` and a
   /// failing store absorbed quietly.
-  Future<void> _appendGenesisLanded(ScanSlice slice, {required Origin origin}) {
+  Future<void> _appendGenesisLanded(
+    ScanSlice slice, {
+    required Origin origin,
+    required int epoch,
+  }) {
     final now = nowOf();
     return writeQueue
         .enqueue(() async {
+          if (_epoch != epoch) {
+            return;
+          }
           for (final seed in scanSliceLanded(
             origin: origin,
             description: slice.description,
             steps: slice.steps,
           )) {
+            if (_epoch != epoch) {
+              return;
+            }
             await store.appendPoolFact((
               id: idMinter.v7(),
               origin: seed.origin,
