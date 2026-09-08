@@ -543,12 +543,12 @@ DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 /// translation): with an opening on any earlier day in the log, the
 /// once-ever first-run curation offer is not eligible, so surfaces
 /// pinning other residents keep rendering exactly as they shipped.
-/// 09:00 keeps it inside 48 h of every later read, so the warm-return
+/// 20:00 keeps it inside 48 h of every later read, so the warm-return
 /// greeting stays out of the pins.
 LogEntryRecord _installOpen() => (
   id: 'install-open',
   kind: 'app_opened',
-  instantUtcMicros: DateTime.utc(2026, 8, 28, 9).microsecondsSinceEpoch,
+  instantUtcMicros: DateTime.utc(2026, 8, 28, 20).microsecondsSinceEpoch,
   offsetSeconds: 0,
   itemId: null,
   itemOrigin: null,
@@ -3548,7 +3548,7 @@ void main() {
     // its own appended rows are asserted, so the comparison baseline is
     // itself pinned to a normal opening. The install-day open (the
     // 5.12 translation) keeps the once-ever offer out of the census —
-    // a normal day of an established install, 27 h inside the warm
+    // a normal day of an established install, 16 h inside the warm
     // window, so the control still renders no greeting.
     final controlStore = _RecordingStore()..entries.add(_installOpen());
     await SessionController(

@@ -119,11 +119,10 @@ final class StripState {
 /// every other resident derives not-eligible until its own story
 /// lands its data, so the precedence walk falls through them to the
 /// implemented set (or to nothing). A new resident's eligibility
-/// arrives HERE, in
-/// the same pass as its data — never as a special case inside the
-/// walk. Since Story 5.12 three eligibilities stand: the once-ever
-/// first-run curation offer, the weekly self-report and the daily
-/// check-in.
+/// arrives HERE, in the same pass as its data — never as a special
+/// case inside the walk. Since Story 5.12 three eligibilities stand:
+/// the once-ever first-run curation offer, the weekly self-report and
+/// the daily check-in.
 bool _residentEligible(
   StripResident resident,
   List<LogEntry> entries,

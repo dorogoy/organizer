@@ -1422,9 +1422,9 @@ void main() {
       );
     });
 
-    testWidgets('nothing curation renders behind Nuevo proyecto — the '
-        'genesis surface\'s census carries no curation string '
-        '(FR-31, NFR3)', (tester) async {
+    testWidgets('behind Nuevo proyecto the genesis surface carries only '
+        '5.12\'s house-groups entry — none of the Settings curation '
+        'strings or cluster names render (FR-31, NFR3)', (tester) async {
       await useTallSurface(tester);
       final store = _RecordingStore();
       await launch(tester, store);

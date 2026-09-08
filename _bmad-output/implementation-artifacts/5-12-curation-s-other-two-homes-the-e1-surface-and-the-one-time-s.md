@@ -2,7 +2,7 @@
 title: 'Story 5.12: Curation''s other two homes — the E1 surface and the one-time strip'
 type: 'feature'
 created: '2026-09-08'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 0
 baseline_commit: '4cb53f16c9f3a1fda6d737a2a3a5c47ac9ef3695'
 context:
@@ -90,16 +90,16 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/core/lib/derive/strip.dart` -- replace the `firstRunCuration` false branch with the first-opening-ever derivation (day's-first-opening gate ∧ no prior-day `app_opened`); fix the stale enum/layer comments -- the once-ever fact is derived, never stored
-- [ ] `lib/dispenser/dispenser_controller.dart` -- `consumeCurationOffer`/`dismissCurationOffer`: process-lifetime marker + queued read-refresh through `excludeResidents`, zero writes -- the ✕ and the tap are both terminal
-- [ ] `lib/ui/dispenser/ambient_strip.dart` -- `CurationOfferStrip`: `curationInvitation` sentence, whole-sentence ≥48dp button, `_DismissMark`, bare chrome -- the check-in's sentence-row grammar, nothing else
-- [ ] `lib/ui/dispenser/dispenser_strip_layer.dart` + `lib/ui/dispenser/dispenser_screen.dart` -- new `StripLayer` case + params; wire accept → consume + guarded push of the E1 surface, dismiss → controller call -- the strip's two paths land on the screen, as 2.5/2.6 did
-- [ ] `lib/ui/settings/curation_screen.dart` -- optional `String? title` on `CurationScreen`, header falls back to `settingsCurationGroups` -- the E1 surface without a cloned screen
-- [ ] `lib/ui/settings/nuevo_proyecto_screen.dart` -- quiet `SecondaryTextAction` below `Analizar` in `_composeBody`, guarded push of the titled `CurationScreen(controller: widget.settings)` -- the E1 entry, the complement to typed entry
-- [ ] `lib/l10n/app_es.arb` + `make codegen` -- `curationHouseGroups` = "Grupos de tu casa" (description + x-signoff per checkpoint) -- the one authored string
-- [ ] `packages/core/test/strip_test.dart` -- the firstRunCuration group incl. crossing and occlusion edges -- the eligibility ACs as proof
-- [ ] `test/dispenser/dispenser_controller_test.dart` + `test/ui/dispenser/ambient_strip_test.dart` + `test/ui/dispenser/dispenser_screen_test.dart` -- no-write paths, consumption, push wiring, fresh-log audit -- the strip's behaviour end to end
-- [ ] `test/ui/settings/nuevo_proyecto_screen_test.dart` + `test/ui/settings/curation_screen_test.dart` -- entry row, wait-body absence, push, title override, A-slim intact -- the genesis half's pins
+- [x] `packages/core/lib/derive/strip.dart` -- replace the `firstRunCuration` false branch with the first-opening-ever derivation (day's-first-opening gate ∧ no prior-day `app_opened`); fix the stale enum/layer comments -- the once-ever fact is derived, never stored
+- [x] `lib/dispenser/dispenser_controller.dart` -- `consumeCurationOffer`/`dismissCurationOffer`: process-lifetime marker + queued read-refresh through `excludeResidents`, zero writes -- the ✕ and the tap are both terminal
+- [x] `lib/ui/dispenser/ambient_strip.dart` -- `CurationOfferStrip`: `curationInvitation` sentence, whole-sentence ≥48dp button, `_DismissMark`, bare chrome -- the check-in's sentence-row grammar, nothing else
+- [x] `lib/ui/dispenser/dispenser_strip_layer.dart` + `lib/ui/dispenser/dispenser_screen.dart` -- new `StripLayer` case + params; wire accept → consume + guarded push of the E1 surface, dismiss → controller call -- the strip's two paths land on the screen, as 2.5/2.6 did
+- [x] `lib/ui/settings/curation_screen.dart` -- optional `String? title` on `CurationScreen`, header falls back to `settingsCurationGroups` -- the E1 surface without a cloned screen
+- [x] `lib/ui/settings/nuevo_proyecto_screen.dart` -- quiet `SecondaryTextAction` below `Analizar` in `_composeBody`, guarded push of the titled `CurationScreen(controller: widget.settings)` -- the E1 entry, the complement to typed entry
+- [x] `lib/l10n/app_es.arb` + `make codegen` -- `curationHouseGroups` = "Grupos de tu casa" (description + x-signoff per checkpoint) -- the one authored string
+- [x] `packages/core/test/strip_test.dart` -- the firstRunCuration group incl. crossing and occlusion edges -- the eligibility ACs as proof
+- [x] `test/dispenser/dispenser_controller_test.dart` + `test/ui/dispenser/ambient_strip_test.dart` + `test/ui/dispenser/dispenser_screen_test.dart` -- no-write paths, consumption, push wiring, fresh-log audit -- the strip's behaviour end to end
+- [x] `test/ui/settings/nuevo_proyecto_screen_test.dart` + `test/ui/settings/curation_screen_test.dart` -- entry row, wait-body absence, push, title override, A-slim intact -- the genesis half's pins
 
 **Acceptance Criteria:**
 - Given a fresh install, when the app first opens, then the first card lands in ≤ 2 s with the strip offering `Ajustar grupos de tareas` and nothing else added — no wizard, no welcome (UX-DR34, NFR5).
@@ -112,6 +112,10 @@ context:
 - Given the censuses, when `make check` runs, then the write-path map, kind census (22) and schema pins are all unchanged — this story adds no write anywhere.
 
 ## Spec Change Log
+
+### Review Findings
+
+- [x] [Review][Record] Fresh-log audit conclusion: the empty-`_RecordingStore` launches across the dispenser suites that remained unseeded were each inspected — no strip-absence assertion meets an empty log anywhere except the two census pins and the two genesis A-slim censuses that were renegotiated; a future strip-absence assertion over an empty log would fail correctly (the offer IS eligible there), not mysteriously [`test/ui/dispenser/dispenser_screen_test.dart`]
 
 ## Design Notes
 

@@ -9,7 +9,6 @@
 // answered, SM-2), and — since Story 5.12 — the once-ever first-run
 // curation offer (bare: it is rarest, never persistent). The check-in
 // is bare: the question verbatim plus three battery marks as direct
-// is bare: the question verbatim plus three battery marks as direct
 // targets, llena pre-marked as the standing default (the surface's own
 // state, never a written row), selected reading `icon-mass-blue` charge
 // with an `ink-primary` casing, unselected neutral/secondary —

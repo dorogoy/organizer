@@ -301,10 +301,10 @@ LogEntryRecord _answeredWeek(int week, String id) => (
 /// earlier day in the log, the once-ever first-run curation offer is
 /// not eligible, so the check-in and report matrices keep resolving
 /// exactly as they shipped — the `_answeredWeek` precedent, one
-/// story on. 09:00 keeps it inside 48 h of every later read, so the
+/// story on. 20:00 keeps it inside 48 h of every later read, so the
 /// warm-return derivation stays out of the pin.
 LogEntryRecord _installOpen() =>
-    _moment('app_opened', DateTime.utc(2026, 8, 28, 9), 'install-open');
+    _moment('app_opened', DateTime.utc(2026, 8, 28, 20), 'install-open');
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
   id: id,
