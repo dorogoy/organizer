@@ -26,6 +26,7 @@ import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
+import 'package:organizer/ui/settings/curation_screen.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/settings/settings_screen.dart';
 import 'package:organizer/ui/theme.dart';
@@ -354,8 +355,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // The list scrolls (ListView in the frame idiom) and the quiet
-    // census is exactly the two groups' copy: Tu día's header, row
-    // label and six stepped options (Story 2.1), plus the IA y voz
+    // census is exactly the three groups' copy: Tu día's header, row
+    // label and six stepped options (Story 2.1), the Contenido de la
+    // casa group (Story 5.11 — its header and the one entry row; the
+    // sub-screen is its own route beyond this tree), plus the IA y voz
     // group (Story 4-4) — its header, the four allowlisted provider
     // names, the terms sentences (three unique — the first three
     // entries' shared date reads as one string), the key label and
@@ -387,6 +390,8 @@ void main() {
       es.settingsProviderKeyFreeTierNote,
       es.settingsDictatedCount(0),
       es.settingsCameraLabel,
+      es.settingsGroupHouseContent,
+      es.settingsCurationGroups,
     });
     expect(find.byType(Icon), findsNothing);
 
@@ -458,6 +463,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
     await launch(tester, store);
 
@@ -495,6 +502,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
         (
           id: 'seed-invalid',
@@ -518,6 +527,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
       ]);
     await launch(tester, store);
@@ -634,6 +645,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
       await launch(tester, store);
       await openSettings(tester);
@@ -893,6 +906,8 @@ void main() {
         reportWeek: null,
         permission: 'microphone',
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
 
       // The IA y voz label now names the group header (Story 4-4), so
@@ -1038,6 +1053,8 @@ void main() {
         reportWeek: null,
         permission: 'microphone',
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
 
       // The row stands: refused and not granted — the label renders
@@ -1091,6 +1108,8 @@ void main() {
       reportWeek: null,
       permission: 'camera',
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     testWidgets('the toggle writes exactly one setting_changed '
@@ -1275,6 +1294,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final disabledCensus = await nuevoProyectoCensus(disabled);
       expect(disabledCensus, enabledCensus);
@@ -1290,6 +1311,154 @@ void main() {
         hasLength(1),
         reason: 'the disable row stands untouched by renders',
       );
+    });
+  });
+
+  group('the Contenido de la casa group (Story 5.11, FR-31, UX-DR33)', () {
+    testWidgets('the entry row sits between Tu día and IA y voz, pushes '
+        'the sub-screen behind the isCurrent guard, and system back '
+        'pops it (NFR3)', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      // The group renders exactly once — header plus one entry row,
+      // nothing else curation-shaped in the tree.
+      expect(
+        find.text(AppStringsEs().settingsGroupHouseContent),
+        findsOneWidget,
+      );
+      final entryRow = find.text(AppStringsEs().settingsCurationGroups);
+      expect(entryRow, findsOneWidget);
+      expect(find.byType(CurationScreen), findsNothing);
+
+      // The order: the group header stands between the Tu día row
+      // label and the IA y voz header, in the list's child order.
+      final labels = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((text) => text.data)
+          .toList();
+      expect(
+        labels.indexOf(AppStringsEs().settingsGroupHouseContent),
+        greaterThan(labels.indexOf(AppStringsEs().settingsTimeBag)),
+        reason: 'the group sits after Tu día\'s row',
+      );
+      expect(
+        labels.indexOf(AppStringsEs().settingsGroupHouseContent),
+        lessThan(labels.indexOf(AppStringsEs().settingsAiVoice)),
+        reason: 'the group sits before IA y voz',
+      );
+
+      // The push, through the real entry row.
+      await tester.tap(entryRow);
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+      // Settings stays on the stack below, offstage.
+      expect(find.byType(SettingsScreen, skipOffstage: false), findsOneWidget);
+
+      // System back pops the sub-screen — the settings surface stands.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      // Navigation wrote nothing: the whole chain is pure reading.
+      expect(store.entries, isEmpty);
+    });
+
+    testWidgets('the pushed sub-screen is wired to the Settings '
+        'controller — a row tap appends on the same store', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      final settings = SettingsController(store: store, nowOf: _fixedClock);
+      await tester.pumpWidget(harness(store, settings: settings));
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(AppStringsEs().settingsCurationGroups));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<CurationScreen>(find.byType(CurationScreen)).controller,
+        same(settings),
+      );
+
+      await tester.tap(find.text(AppStringsEs().curationClusterAnclas));
+      await tester.pumpAndSettle();
+      final rows = store.entries.where(
+        (entry) => entry.kind == LogKind.clusterCurationChanged.name,
+      );
+      expect(rows, hasLength(1));
+      expect(rows.single.cluster, 'anclas');
+      expect(rows.single.enabled, isFalse);
+    });
+
+    testWidgets('a rapid double tap on the entry row stacks one '
+        'sub-screen route, not two — the transition guard holds', (
+      tester,
+    ) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(AppStringsEs().settingsCurationGroups));
+      // The second tap lands while the first route is still
+      // transitioning in — the same frame, before any pump.
+      await tester.tap(find.text(AppStringsEs().settingsCurationGroups));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(CurationScreen, skipOffstage: false),
+        findsOneWidget,
+        reason:
+            'a second push during the transition would stack a second '
+            'sub-screen route',
+      );
+    });
+
+    testWidgets('nothing curation renders behind Nuevo proyecto — the '
+        'genesis surface\'s census carries no curation string '
+        '(FR-31, NFR3)', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await tester.tap(find.text(AppStringsEs().newProjectLink));
+      await tester.pumpAndSettle();
+
+      final census = textsOf(tester).toSet();
+      expect(census, isNot(contains(AppStringsEs().settingsGroupHouseContent)));
+      expect(census, isNot(contains(AppStringsEs().settingsCurationGroups)));
+      expect(census, isNot(contains(AppStringsEs().curationClusterAnclas)));
+      expect(census, isNot(contains(AppStringsEs().curationCadenceDaily)));
+    });
+
+    testWidgets('nothing curation renders on the Dispenser tree either — '
+        'no route, no string, the AC\'s own surface (FR-31, NFR3)', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      await launch(tester, store);
+      await tester.pumpAndSettle();
+
+      // The standing card surface — the harness pumps DispenserScreen
+      // as home — carries none of the eight curation strings.
+      final census = textsOf(tester).toSet();
+      expect(census, isNot(contains(AppStringsEs().settingsGroupHouseContent)));
+      expect(census, isNot(contains(AppStringsEs().settingsCurationGroups)));
+      for (final label in [
+        AppStringsEs().curationClusterAnclas,
+        AppStringsEs().curationClusterSosten,
+        AppStringsEs().curationClusterFondo,
+        AppStringsEs().curationCadenceDaily,
+        AppStringsEs().curationCadenceWeekly,
+        AppStringsEs().curationCadenceSeasonal,
+      ]) {
+        expect(census, isNot(contains(label)), reason: label);
+      }
     });
   });
 }

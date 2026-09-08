@@ -1,6 +1,7 @@
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/curation/curation.dart';
 import 'package:core/day/calendar.dart';
+import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:test/test.dart';
 
@@ -405,6 +406,212 @@ void main() {
     });
   });
 
+  group('the log-derived path (Story 5.11, AD-16 — rows reach the '
+      'derivation)', () {
+    test('the wire-name parse round-trips every cluster and excludes '
+        'what it cannot read (AD-23)', () {
+      for (final cluster in CurationCluster.values) {
+        expect(curationClusterOfWireName(cluster.name), cluster);
+      }
+      expect(curationClusterOfWireName(null), isNull);
+      expect(curationClusterOfWireName(''), isNull);
+      expect(
+        curationClusterOfWireName('plantas'),
+        isNull,
+        reason: 'not switchable — the tuple holds eight clusters only',
+      );
+      expect(curationClusterByName, hasLength(8));
+    });
+
+    test('the fold maps every curation entry in log order and nothing '
+        'else', () {
+      final log = <LogEntry>[
+        MomentEntry(
+          id: 'open',
+          instantUtcMicros: 100,
+          offsetSeconds: 0,
+          kind: LogKind.appOpened,
+        ),
+        _row(CurationCluster.anclas, false, wednesday),
+        UnknownEntry(
+          id: 'future',
+          instantUtcMicros: 300,
+          offsetSeconds: 0,
+          kind: LogKind.parse('future_kind'),
+        ),
+        _row(CurationCluster.z2, false, utcMicros(2026, 8, 26, 15)),
+        ItemActEntry(
+          id: 'deal',
+          instantUtcMicros: 500,
+          offsetSeconds: 0,
+          kind: LogKind.cardDealt,
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+        ),
+      ];
+      expect(curationObservationsOf(log), [
+        (
+          cluster: CurationCluster.anclas,
+          enabled: false,
+          instantUtcMicros: wednesday,
+          offsetSeconds: 0,
+        ),
+        (
+          cluster: CurationCluster.z2,
+          enabled: false,
+          instantUtcMicros: utcMicros(2026, 8, 26, 15),
+          offsetSeconds: 0,
+        ),
+      ]);
+      expect(curationObservationsOf(const []), isEmpty);
+    });
+
+    test('a daily row is effective its own day — the fold plus '
+        'activeClustersAt is the whole seam', () {
+      final disabledAtTen = [
+        _row(CurationCluster.anclas, false, utcMicros(2026, 8, 26, 10)),
+      ];
+      expect(
+        activeClustersAt(
+          curationObservationsOf(disabledAtTen),
+          utcMicros(2026, 8, 26, 12),
+        ),
+        _allBut(CurationCluster.anclas),
+      );
+      expect(
+        activeClustersAt(
+          curationObservationsOf(disabledAtTen),
+          utcMicros(2026, 8, 25, 12),
+        ),
+        allCurationClusters,
+        reason: 'the day before sees nothing yet',
+      );
+    });
+
+    test('a fondo row is immediate; a weekly row waits for its next '
+        'week boundary (AD-16 two speeds, from rows)', () {
+      expect(
+        activeClustersAt(
+          curationObservationsOf([
+            _row(CurationCluster.fondo, false, thursday),
+          ]),
+          thursday,
+        ),
+        _allBut(CurationCluster.fondo),
+      );
+      final midWeekZ3 = [
+        _row(CurationCluster.z3, false, utcMicros(2026, 8, 26, 10)),
+      ];
+      // This week keeps z3; the boundary belongs to the new week.
+      expect(
+        activeClustersAt(
+          curationObservationsOf(midWeekZ3),
+          utcMicros(2026, 8, 30, 22),
+        ).contains(CurationCluster.z3),
+        isTrue,
+      );
+      expect(
+        activeClustersAt(curationObservationsOf(midWeekZ3), boundaryExact),
+        _allBut(CurationCluster.z3),
+      );
+    });
+
+    test('two rows for one cluster: the newest effective row wins, and '
+        'a rapid on→off→on reads as on', () {
+      final doubleFlip = [
+        _row(CurationCluster.sosten, true, utcMicros(2026, 8, 26, 9)),
+        _row(CurationCluster.sosten, false, utcMicros(2026, 8, 26, 10)),
+        _row(CurationCluster.sosten, true, utcMicros(2026, 8, 26, 11)),
+      ];
+      expect(
+        activeClustersAt(
+          curationObservationsOf(doubleFlip),
+          utcMicros(2026, 8, 26, 12),
+        ),
+        allCurationClusters,
+      );
+    });
+
+    test('the declared state ignores timing — the control surface’s own '
+        'read, latest row per cluster, default active', () {
+      // A mid-week z3 disable: not yet effective, yet declared — the
+      // switch shows the declaration while composition keeps the zone
+      // (the timing test above pins that half).
+      final midWeekZ3 = _row(
+        CurationCluster.z3,
+        false,
+        utcMicros(2026, 8, 26, 10),
+      );
+      expect(
+        declaredActiveClusters(curationObservationsOf([midWeekZ3])),
+        _allBut(CurationCluster.z3),
+      );
+      // Re-enabling before the boundary supersedes the disable —
+      // latest wins, exactly as a bounced-back user would expect.
+      expect(
+        declaredActiveClusters(
+          curationObservationsOf([
+            midWeekZ3,
+            _row(CurationCluster.z3, true, utcMicros(2026, 8, 27, 9)),
+          ]),
+        ),
+        allCurationClusters,
+      );
+      // No rows: the all-active default (FR-31).
+      expect(
+        declaredActiveClusters(curationObservationsOf([])),
+        allCurationClusters,
+      );
+      // An exact-instant tie resolves to the later-in-input row — the
+      // same tie discipline as the effective read.
+      final tie = utcMicros(2026, 8, 26, 9);
+      expect(
+        declaredActiveClusters(
+          curationObservationsOf([
+            _row(CurationCluster.fondo, false, tie),
+            _row(CurationCluster.fondo, true, tie),
+          ]),
+        ),
+        allCurationClusters,
+      );
+    });
+
+    test('a row is judged in its own stored frame — nonzero offset '
+        'through the fold, not only hand-built observations (AD-4)', () {
+      // z2 disabled at 2026-08-26 10:00 −05:00 (15:00 UTC): domestic
+      // day 2026-08-26 in that frame, week anchored 2026-08-24, closing
+      // at Monday 2026-08-31 04:00 −05:00 = 09:00 UTC.
+      final z2OffRow = _row(
+        CurationCluster.z2,
+        false,
+        utcMicros(2026, 8, 26, 15),
+        offsetSeconds: -18000,
+      );
+      // 08:59 UTC on the 31st is still that frame's Sunday: z2 active.
+      expect(
+        activeClustersAt(
+          curationObservationsOf([z2OffRow]),
+          utcMicros(2026, 8, 31, 8, 59),
+        ).contains(CurationCluster.z2),
+        isTrue,
+      );
+      // 09:00 UTC is the boundary in the row's own frame — z2 turns
+      // away exactly there, and the declared read ignores the timing
+      // either way.
+      expect(
+        activeClustersAt(
+          curationObservationsOf([z2OffRow]),
+          utcMicros(2026, 8, 31, 9),
+        ),
+        _allBut(CurationCluster.z2),
+      );
+      expect(
+        declaredActiveClusters(curationObservationsOf([z2OffRow])),
+        _allBut(CurationCluster.z2),
+      );
+    });
+  });
+
   test('each observation is judged in its own stored frame (AD-4)', () {
     // z2 disabled at 2026-08-26 10:00 −05:00 — domestic day 2026-08-26
     // in that frame, week anchored 2026-08-24, closing at Monday
@@ -433,6 +640,21 @@ void main() {
     );
   });
 }
+
+/// A curation log row (Story 5.11): one `cluster_curation_changed`
+/// entry, the store round-trip's own output shape.
+ClusterCurationChangedEntry _row(
+  CurationCluster cluster,
+  bool enabled,
+  int micros, {
+  int offsetSeconds = 0,
+}) => ClusterCurationChangedEntry(
+  id: 'row-$micros-${cluster.name}-${enabled ? 'on' : 'off'}',
+  instantUtcMicros: micros,
+  offsetSeconds: offsetSeconds,
+  cluster: cluster,
+  enabled: enabled,
+);
 
 Set<CurationCluster> _allBut(CurationCluster removed) => {
   for (final cluster in allCurationClusters)

@@ -1208,6 +1208,8 @@ void main() {
             reportWeek: null,
             permission: null,
             sliceCause: null,
+            cluster: null,
+            enabled: null,
           ),
           (
             id: 'seed-deal',
@@ -1233,6 +1235,8 @@ void main() {
             reportWeek: null,
             permission: null,
             sliceCause: null,
+            cluster: null,
+            enabled: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2814,6 +2818,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     // Three eligible days of declines, each its own closed sitting.
@@ -2919,6 +2925,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     // An eligible decline day: its own closed sitting around the item.
@@ -3035,6 +3043,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
 
       List<LogEntryRecord> decline(int day) => [
@@ -3130,6 +3140,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     // Three eligible days of declines, each its own closed sitting —
@@ -3258,6 +3270,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     List<LogEntryRecord> decline(int day) => [
@@ -3428,6 +3442,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     final gapStore = _RecordingStore()
@@ -3647,6 +3663,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
       (
         id: 'seed-epic-activated',
@@ -3665,6 +3683,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
       (
         id: 'seed-session-started',
@@ -3683,6 +3703,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
       (
         id: 'seed-card-dealt',
@@ -3701,6 +3723,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
       (
         id: 'seed-card-done',
@@ -3719,6 +3743,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
       (
         id: 'seed-session-ended',
@@ -3737,6 +3763,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ),
     ];
 
@@ -3908,6 +3936,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -3985,6 +4015,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4015,6 +4047,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
       ]);
 
@@ -4203,6 +4237,8 @@ void main() {
             reportWeek: null,
             permission: null,
             sliceCause: null,
+            cluster: null,
+            enabled: null,
           ));
         }
         await SessionController(
@@ -4281,6 +4317,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
     }
 
@@ -4598,6 +4636,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await SessionController(
         store: store,
@@ -4730,6 +4770,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
     }
 
@@ -5272,6 +5314,8 @@ void main() {
         reportWeek: 1389,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -5291,6 +5335,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
     }
 
@@ -5437,6 +5483,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));
@@ -5737,6 +5785,8 @@ void main() {
       reportWeek: null,
       permission: 'camera',
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     /// A `setting_changed` {camera_enabled, [value]} row.
@@ -5757,6 +5807,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     Finder entryTarget(Finder glyph) =>
@@ -5900,6 +5952,8 @@ void main() {
         reportWeek: 1389,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       offered.entries.add((
         id: 'seed-pocket',
@@ -5924,6 +5978,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await tester.pumpWidget(_harness(buildController(offered)));
       await tester.pumpAndSettle();

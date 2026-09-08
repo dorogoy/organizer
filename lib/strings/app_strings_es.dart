@@ -190,6 +190,30 @@ class AppStringsEs extends AppStrings {
   String get settingsCameraReactivate => 'Reactivar la cámara';
 
   @override
+  String get settingsGroupHouseContent => 'Contenido de la casa';
+
+  @override
+  String get settingsCurationGroups => 'Grupos de tareas';
+
+  @override
+  String get curationClusterAnclas => 'Hábitos instantáneos';
+
+  @override
+  String get curationClusterSosten => 'Mantenimiento base';
+
+  @override
+  String get curationClusterFondo => 'Cuidados de fondo';
+
+  @override
+  String get curationCadenceDaily => 'diaria';
+
+  @override
+  String get curationCadenceWeekly => 'semanal';
+
+  @override
+  String get curationCadenceSeasonal => 'mensual-estacional';
+
+  @override
   String get providerNameGemini => 'Gemini';
 
   @override

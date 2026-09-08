@@ -276,6 +276,50 @@
     "x-signoff": "Sergio, 2026-09-05"
   },
 
+  "settingsGroupHouseContent": "Contenido de la casa",
+  "@settingsGroupHouseContent": {
+    "description": "Settings — the Contenido de la casa group header (Story 5.11, UX-DR33): the flat platform list's second-of-five quiet group, currently the second of three, holding the one entry row into cluster curation. Quiet support copy, ink-secondary; nothing curation-related renders anywhere else in the tree."
+  },
+
+  "settingsCurationGroups": "Grupos de tareas",
+  "@settingsCurationGroups": {
+    "x-signoff": "Sergio, 2026-09-08",
+    "description": "Settings, Contenido de la casa — the entry row's label (Story 5.11) and the curation sub-screen's own header: the eight switchable task groups. Never a task name, never a count, never a browseable catalogue (FR-31, NL-1)."
+  },
+
+  "curationClusterAnclas": "Hábitos instantáneos",
+  "@curationClusterAnclas": {
+    "x-signoff": "Sergio, 2026-09-08",
+    "description": "Curation row — the anclas cluster's name (Story 5.11): the daily Instant Habits (A12.1). Authored this story, on A12's English gloss as source."
+  },
+
+  "curationClusterSosten": "Mantenimiento base",
+  "@curationClusterSosten": {
+    "x-signoff": "Sergio, 2026-09-08",
+    "description": "Curation row — the sostén cluster's name (Story 5.11): the daily Baseline Upkeep (A12.2–A12.3). Authored this story, on A12's English gloss as source."
+  },
+
+  "curationClusterFondo": "Cuidados de fondo",
+  "@curationClusterFondo": {
+    "x-signoff": "Sergio, 2026-09-08",
+    "description": "Curation row — the fondo cluster's name (Story 5.11): the monthly/seasonal depth work (A12.5). Authored this story, on A12's English gloss as source."
+  },
+
+  "curationCadenceDaily": "diaria",
+  "@curationCadenceDaily": {
+    "description": "Curation row — the cadence word for the daily clusters (anclas, sostén), the row's only description (UX-DR23, FR-31): never a count, never a volume. DESIGN-declared."
+  },
+
+  "curationCadenceWeekly": "semanal",
+  "@curationCadenceWeekly": {
+    "description": "Curation row — the cadence word for the weekly zones z1–z5, the row's only description (UX-DR23, FR-31). DESIGN-declared."
+  },
+
+  "curationCadenceSeasonal": "mensual-estacional",
+  "@curationCadenceSeasonal": {
+    "description": "Curation row — the cadence word for fondo, the row's only description (UX-DR23, FR-31). DESIGN-declared."
+  },
+
   "providerNameGemini": "Gemini",
   "@providerNameGemini": {
     "description": "Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist."

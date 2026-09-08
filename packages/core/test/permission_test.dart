@@ -24,6 +24,8 @@ LogEntryRecord _refusal(Permission permission, int micros) => (
   reportWeek: null,
   permission: permission.name,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 void main() {
@@ -69,6 +71,8 @@ void main() {
         reportWeek: contents.single.reportWeek,
         permission: contents.single.permission?.name,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as PermissionRefusedEntry;
@@ -140,6 +144,8 @@ void main() {
             reportWeek: null,
             permission: 'telepathy',
             sliceCause: null,
+            cluster: null,
+            enabled: null,
           );
         }(),
       ]);

@@ -81,6 +81,7 @@ bool _isUserAct(LogEntry entry) {
     case SettingEntry():
     case EnergySetEntry():
     case ReportAnsweredEntry():
+    case ClusterCurationChangedEntry():
       return true;
     case SliceEntry():
       // The rescue channel splits (Story 4.6, AD-21's own

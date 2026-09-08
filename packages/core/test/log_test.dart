@@ -1,3 +1,4 @@
+import 'package:core/curation/curation.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/slicer_port.dart';
@@ -19,6 +20,8 @@ LogEntryRecord _record(
   int? reportWeek,
   String? permission,
   String? sliceCause,
+  String? cluster,
+  bool? enabled,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -36,12 +39,14 @@ LogEntryRecord _record(
   reportWeek: reportWeek,
   permission: permission,
   sliceCause: sliceCause,
+  cluster: cluster,
+  enabled: enabled,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-one kinds (21 since Story '
-        '5.9 added epic_activated)', () {
+    test('holds exactly the build\'s twenty-two kinds (22 since Story '
+        '5.11 added cluster_curation_changed)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -64,6 +69,7 @@ void main() {
         LogKind.consentDeclined,
         LogKind.scanAbandoned,
         LogKind.epicActivated,
+        LogKind.clusterCurationChanged,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -71,6 +77,7 @@ void main() {
         'card_dealt',
         'card_done',
         'card_skipped',
+        'cluster_curation_changed',
         'consent_declined',
         'consent_granted',
         'crash_recorded',
@@ -88,7 +95,7 @@ void main() {
         'slice_requested',
         'slice_returned',
       ]);
-      expect(LogKind.knownByName, hasLength(21));
+      expect(LogKind.knownByName, hasLength(22));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1334,6 +1341,8 @@ void main() {
           itemId: 'cap-a',
           itemOrigin: Origin.manual,
           sliceCause: 'quotaExhausted',
+          cluster: null,
+          enabled: null,
         ),
       );
       expect(conversion.flaw, isNull);
@@ -1350,6 +1359,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause.name,
+            cluster: null,
+            enabled: null,
           ),
         );
         expect(conversion.flaw, isNull, reason: cause.name);
@@ -1367,6 +1378,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
           ),
         );
         expect(conversion.entry, isNull);
@@ -1387,18 +1400,24 @@ void main() {
           itemId: 'cap-a',
           itemOrigin: Origin.manual,
           sliceCause: 'invalidKey',
+          cluster: null,
+          enabled: null,
         ),
         _record(
           'slice_returned',
           itemId: 'cap-a',
           itemOrigin: Origin.manual,
           sliceCause: 'invalidKey',
+          cluster: null,
+          enabled: null,
         ),
         _record(
           'card_dealt',
           itemId: 'man-a',
           itemOrigin: Origin.shipped,
           sliceCause: 'invalidKey',
+          cluster: null,
+          enabled: null,
         ),
       ]) {
         final conversion = convertLogEntryRecord(record);
@@ -1422,6 +1441,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             stack: '#0      build',
           ),
           LogRecordFlaw.settingOnNonSettingKind: _record(
@@ -1429,6 +1450,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             settingKey: 'time_bag',
           ),
           LogRecordFlaw.pocketOnNonPocketKind: _record(
@@ -1436,6 +1459,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             pocketMinutes: 15,
           ),
           LogRecordFlaw.energyOnNonEnergyKind: _record(
@@ -1443,6 +1468,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             energyLevel: 2,
           ),
           LogRecordFlaw.reportOnNonReportKind: _record(
@@ -1450,6 +1477,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             reportValue: 3,
           ),
           LogRecordFlaw.permissionOnNonPermissionKind: _record(
@@ -1457,6 +1486,8 @@ void main() {
             itemId: 'cap-a',
             itemOrigin: Origin.manual,
             sliceCause: cause,
+            cluster: null,
+            enabled: null,
             permission: 'microphone',
           ),
         };
@@ -1505,6 +1536,8 @@ void main() {
             'slice_failed',
             itemOrigin: Origin.cloud,
             sliceCause: 'invalidKey',
+            cluster: null,
+            enabled: null,
           ),
         ).flaw,
         LogRecordFlaw.halfItemPair,
@@ -1515,6 +1548,8 @@ void main() {
             'slice_failed',
             itemId: 'scan-gone',
             sliceCause: 'invalidKey',
+            cluster: null,
+            enabled: null,
           ),
         ).flaw,
         LogRecordFlaw.halfItemPair,
@@ -1526,6 +1561,8 @@ void main() {
           itemId: 'cap-a',
           itemOrigin: Origin.manual,
           sliceCause: 'invalidKey',
+          cluster: null,
+          enabled: null,
         ),
       );
       expect(rescue.flaw, isNull);
@@ -1544,6 +1581,292 @@ void main() {
       expect(entry.itemId, isNull);
       expect(entry.itemOrigin, isNull);
       expect(entry.cause, SlicerFailureCause.invalidKey);
+    });
+  });
+
+  group('the curation payload path (Story 5.11, FR-31, AD-16, AD-23)', () {
+    test('a well-shaped row converts with its cluster and bit intact — '
+        'the payload rides its own columns, never a setting key', () {
+      final conversion = convertLogEntryRecord(
+        _record('cluster_curation_changed', cluster: 'z3', enabled: false),
+      );
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<ClusterCurationChangedEntry>());
+      expect(entry!.kind, LogKind.clusterCurationChanged);
+      expect(
+        (entry as ClusterCurationChangedEntry).cluster,
+        CurationCluster.z3,
+      );
+      expect(entry.enabled, isFalse);
+      expect(entry.instantUtcMicros, 7000);
+      expect(entry.offsetSeconds, 3600);
+    });
+
+    test('every wire name round-trips — the eight the enum names', () {
+      for (final cluster in CurationCluster.values) {
+        final entry =
+            convertLogEntryRecord(
+                  _record(
+                    'cluster_curation_changed',
+                    cluster: cluster.name,
+                    enabled: true,
+                  ),
+                ).entry
+                as ClusterCurationChangedEntry;
+        expect(entry.cluster, cluster);
+        expect(entry.enabled, isTrue);
+      }
+    });
+
+    test('a row without a cluster is excluded — absent, empty or '
+        'unknown, the permission column\'s own discipline', () {
+      expect(
+        convertLogEntryRecord(
+          _record('cluster_curation_changed', enabled: false),
+        ).flaw,
+        LogRecordFlaw.curationClusterAbsent,
+      );
+      expect(
+        convertLogEntryRecord(
+          _record('cluster_curation_changed', cluster: '', enabled: false),
+        ).flaw,
+        LogRecordFlaw.curationClusterAbsent,
+        reason: 'an empty string is not a value',
+      );
+      expect(
+        convertLogEntryRecord(
+          _record(
+            'cluster_curation_changed',
+            cluster: 'plantas',
+            enabled: false,
+          ),
+        ).flaw,
+        LogRecordFlaw.curationClusterAbsent,
+        reason:
+            'a cluster this build does not know is excluded, never '
+            'coerced — plantas and coche are not switchable (AD-16)',
+      );
+    });
+
+    test('a row without its enabled bit is excluded — the bit is the '
+        'row\'s whole payload beside the cluster it names', () {
+      expect(
+        convertLogEntryRecord(
+          _record('cluster_curation_changed', cluster: 'anclas'),
+        ).flaw,
+        LogRecordFlaw.curationEnabledAbsent,
+      );
+    });
+
+    test('a cluster or enabled payload on any other kind is excluded — '
+        'every payload column rides its own kind and no other', () {
+      // Each kind carries its own required payload, so the conversion
+      // reaches the curation guard rather than its own absent-payload
+      // flaw — the guard is what this test isolates.
+      final rows = <String, LogEntryRecord>{
+        'card_done': _record(
+          'card_done',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          cluster: 'z1',
+        ),
+        'app_opened': _record('app_opened', cluster: 'z1'),
+        'setting_changed': _record(
+          'setting_changed',
+          settingKey: 'time_bag',
+          settingValue: 15,
+          cluster: 'z1',
+        ),
+        'session_started': _record('session_started', cluster: 'z1'),
+        'session_extended': _record(
+          'session_extended',
+          pocketMinutes: 5,
+          cluster: 'z1',
+        ),
+        'energy_set': _record('energy_set', energyLevel: 1, cluster: 'z1'),
+        'report_answered': _record(
+          'report_answered',
+          reportValue: 3,
+          reportWeek: 32,
+          cluster: 'z1',
+        ),
+        'permission_refused': _record(
+          'permission_refused',
+          permission: 'camera',
+          cluster: 'z1',
+        ),
+        'slice_failed': _record(
+          'slice_failed',
+          sliceCause: 'invalidKey',
+          cluster: 'z1',
+        ),
+        // And the twelve the first draft of this test never reached —
+        // the map is now exhaustive over the census, so kind 23 that
+        // forgets its payload entry here fails the test itself.
+        'card_dealt': _record(
+          'card_dealt',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          cluster: 'z1',
+        ),
+        'card_skipped': _record(
+          'card_skipped',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          cluster: 'z1',
+        ),
+        'session_ended': _record('session_ended', cluster: 'z1'),
+        'crash_recorded': _record(
+          'crash_recorded',
+          stack: '#0      build',
+          cluster: 'z1',
+        ),
+        'capture_created': _record(
+          'capture_created',
+          itemId: 'cap-1',
+          itemOrigin: Origin.manual,
+          cluster: 'z1',
+        ),
+        'slice_requested': _record(
+          'slice_requested',
+          itemId: 'scan-1',
+          itemOrigin: Origin.cloud,
+          cluster: 'z1',
+        ),
+        'slice_returned': _record(
+          'slice_returned',
+          itemId: 'scan-1',
+          itemOrigin: Origin.cloud,
+          cluster: 'z1',
+        ),
+        'face_refused': _record('face_refused', cluster: 'z1'),
+        'consent_granted': _record('consent_granted', cluster: 'z1'),
+        'consent_declined': _record('consent_declined', cluster: 'z1'),
+        'scan_abandoned': _record('scan_abandoned', cluster: 'z1'),
+        'epic_activated': _record(
+          'epic_activated',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          cluster: 'z1',
+        ),
+      };
+      // Every known kind but the curation kind itself is in the map.
+      final expectedKinds =
+          LogKind.knownByName.keys
+              .where((name) => name != LogKind.clusterCurationChanged.name)
+              .toList()
+            ..sort();
+      expect(rows.keys.toList()..sort(), expectedKinds);
+      rows.forEach((kind, row) {
+        final conversion = convertLogEntryRecord(row);
+        expect(conversion.entry, isNull, reason: kind);
+        expect(
+          conversion.flaw,
+          LogRecordFlaw.curationOnNonCurationKind,
+          reason: kind,
+        );
+      });
+      final onEnabled = convertLogEntryRecord(
+        _record('app_opened', enabled: true),
+      );
+      expect(onEnabled.entry, isNull);
+      expect(onEnabled.flaw, LogRecordFlaw.curationOnNonCurationKind);
+    });
+
+    test('a curation row carrying any other payload family is '
+        'excluded, never coerced', () {
+      final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+          LogRecordFlaw.itemOnNonItemKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            stack: 'a-stack',
+          ),
+          LogRecordFlaw.stackOffCrashKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            settingTextValue: 'openai',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            energyLevel: 1,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            reportValue: 3,
+          ),
+          LogRecordFlaw.reportOnNonReportKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            permission: 'camera',
+          ),
+          LogRecordFlaw.permissionOnNonPermissionKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            sliceCause: 'invalidKey',
+          ),
+          LogRecordFlaw.causeOnNonFailedKind,
+        ),
+      ];
+      for (final (row, flaw) in payloaded) {
+        expect(
+          convertLogEntryRecord(row).flaw,
+          flaw,
+          reason: 'a curation row carries its own payload and no other',
+        );
+      }
     });
   });
 }

@@ -172,6 +172,8 @@ LogEntryRecord seededProvider(String id, {int at = 100}) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 /// The harness record: everything one test needs over one store.

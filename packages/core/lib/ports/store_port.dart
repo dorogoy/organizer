@@ -70,7 +70,12 @@ typedef PoolFactRecord = ({
 /// [sliceCause] is the slice failure's cause wire name (one of the
 /// eight the `SlicerFailureCause` enum names) and is set only on
 /// `slice_failed`, additively since schema v9 (Story 4.6, FR-5,
-/// AD-23).
+/// AD-23). [cluster] is the curated cluster's wire name (one of the
+/// eight the `CurationCluster` enum names) and [enabled] is the
+/// cluster's new enabled bit, both set only on
+/// `cluster_curation_changed`, additively since schema v11
+/// (Story 5.11, FR-31, AD-16, AD-23 — the payload rides its own
+/// columns, never a `setting_changed` key).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -88,6 +93,8 @@ typedef LogEntryRecord = ({
   int? reportWeek,
   String? permission,
   String? sliceCause,
+  String? cluster,
+  bool? enabled,
 });
 
 /// The pool-fact snapshot's domain objects, in snapshot order — the

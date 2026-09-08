@@ -47,6 +47,8 @@ List<LogEntryContent> permissionRefuse(Permission permission) {
       reportWeek: null,
       permission: permission,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }

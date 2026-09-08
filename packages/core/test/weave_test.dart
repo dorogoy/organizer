@@ -5317,4 +5317,219 @@ void main() {
       );
     });
   });
+
+  group('the log-derived active set (Story 5.11, AD-16 — rows reach the '
+      'weave through `_resolveDay`\'s default, zero call-site changes)', () {
+    ClusterCurationChangedEntry curRow(
+      CurationCluster cluster,
+      bool enabled,
+      int micros,
+    ) => ClusterCurationChangedEntry(
+      id: 'cur-$micros-${cluster.name}',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      cluster: cluster,
+      enabled: enabled,
+    );
+
+    test('a log with no curation rows composes the all-active default '
+        '— the first composed day is never empty (FR-31)', () {
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: const [],
+        instantUtcMicros: utcMicros(2026, 8, 26, 12),
+        offsetSeconds: 0,
+      );
+      expect(composition.focus, isNotNull);
+      expect(composition.maintenance, hasLength(3));
+      expect(composition.instantHabits, hasLength(5));
+    });
+
+    test('a daily flip is effective the very same day\'s compositions '
+        '(AD-16 immediate)', () {
+      // anclas off at Wednesday 10:00 — the same day's composition
+      // holds no instant-habit entry from the anclas cluster.
+      final log = <LogEntry>[
+        curRow(CurationCluster.anclas, false, utcMicros(2026, 8, 26, 10)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 26, 12),
+        offsetSeconds: 0,
+      );
+      expect(
+        composition.instantHabits,
+        isEmpty,
+        reason: 'the six instant entries are all anclas',
+      );
+      expect(composition.maintenance, hasLength(3));
+      expect(
+        composition.focus,
+        isNotNull,
+        reason: 'the day is never empty (FR-31)',
+      );
+      // The override param still wins over the derivation: the seam
+      // the existing tests use is unchanged.
+      expect(
+        composeDay(
+          catalogue: _catalogue,
+          log: log,
+          instantUtcMicros: utcMicros(2026, 8, 26, 12),
+          offsetSeconds: 0,
+          activeClusters: allCurationClusters,
+        ).instantHabits,
+        hasLength(5),
+      );
+    });
+
+    test('a fondo flip is immediate too — the fallback tier reads it '
+        'the same day', () {
+      // All five z1 entries answered by Monday morning; by Thursday
+      // fondo fills — unless fondo left the active set that morning.
+      final answeredZ1 = <LogEntry>[
+        for (final (index, id) in [
+          'zona-z1-a',
+          'zona-z1-b',
+          'zona-z1-c',
+          'zona-z1-d',
+          'zona-z1-e',
+        ].indexed) ...[
+          _dealt(utcMicros(2026, 8, 24, 8 + index), id),
+          _done(utcMicros(2026, 8, 24, 9 + index), id),
+        ],
+      ];
+      final thursday = utcMicros(2026, 8, 27, 12);
+      expect(
+        composeDay(
+          catalogue: _catalogue,
+          log: answeredZ1,
+          instantUtcMicros: thursday,
+          offsetSeconds: 0,
+        ).focus!.id,
+        'fondo-a',
+        reason: 'the all-active default fills the exhausted zone',
+      );
+      final withRow = [
+        ...answeredZ1,
+        curRow(CurationCluster.fondo, false, utcMicros(2026, 8, 27, 8)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: withRow,
+        instantUtcMicros: thursday,
+        offsetSeconds: 0,
+      );
+      expect(
+        composition.focus,
+        isNotNull,
+        reason: 'never an empty day while an eligible entry exists',
+      );
+      expect(
+        composition.focus!.id,
+        'zona-z2-a',
+        reason:
+            'tier 3: fondo is out of the offer, the '
+            "least-recently-dealt eligible entry regardless of zone "
+            'governs (AD-20\'s below-floor fallback)',
+      );
+    });
+
+    test('a weekly-zone flip mid-week serves this week and leaves at '
+        'the boundary (AD-16 next week)', () {
+      // The z2 week (anchored Monday 2026-08-31): z2 disabled the
+      // Wednesday before still serves z2 this week, then the nominal
+      // z2 week passes to z3.
+      final flippedMidPriorWeek = <LogEntry>[
+        curRow(CurationCluster.z2, false, utcMicros(2026, 8, 26, 10)),
+      ];
+      // Wednesday of the PREVIOUS week: the composition stands on its
+      // own week's zone z1, z2 still active in the set.
+      final wednesday = composeDay(
+        catalogue: _catalogue,
+        log: flippedMidPriorWeek,
+        instantUtcMicros: utcMicros(2026, 8, 26, 12),
+        offsetSeconds: 0,
+      );
+      expect(wednesday.focus!.zone, Zone.z1);
+      // The following Monday (the z2 week's first composed day): the
+      // change is effective, the ring skips to z3.
+      final monday = composeDay(
+        catalogue: _catalogue,
+        log: flippedMidPriorWeek,
+        instantUtcMicros: utcMicros(2026, 8, 31, 12),
+        offsetSeconds: 0,
+      );
+      expect(monday.focus!.zone, Zone.z3);
+      expect(monday.focus!.id, 'zona-z3-a');
+    });
+
+    test('every cluster off composes an empty day and deals nothing — '
+        'the shipped all-off behavior, driven now by rows', () {
+      final allOff = <LogEntry>[
+        for (final cluster in allCurationClusters)
+          curRow(cluster, false, utcMicros(2026, 8, 24, 12)),
+      ];
+      // Before the weekly boundary only the daily clusters are
+      // effective-off: instant and maintenance draws stand empty.
+      final sameDay = composeDay(
+        catalogue: _catalogue,
+        log: allOff,
+        instantUtcMicros: utcMicros(2026, 8, 26, 12),
+        offsetSeconds: 0,
+      );
+      expect(sameDay.instantHabits, isEmpty);
+      expect(sameDay.maintenance, isEmpty);
+      expect(
+        sameDay.focus!.zone,
+        Zone.z1,
+        reason: 'the observation week keeps its zone',
+      );
+      // After the boundary everything is off: the composition is
+      // empty and never crashes (FR-31).
+      final nextWeek = composeDay(
+        catalogue: _catalogue,
+        log: allOff,
+        instantUtcMicros: utcMicros(2026, 9, 2, 12),
+        offsetSeconds: 0,
+      );
+      expect(nextWeek.focus, isNull);
+      expect(nextWeek.maintenance, isEmpty);
+      expect(nextWeek.instantHabits, isEmpty);
+      expect(
+        nextDeal(
+          catalogue: _catalogue,
+          log: [_sessionStarted(utcMicros(2026, 9, 2, 11)), ...allOff],
+          instantUtcMicros: utcMicros(2026, 9, 2, 12),
+          offsetSeconds: 0,
+        ),
+        isNull,
+        reason: 'no deal exists — never a crash, never a dead card',
+      );
+    });
+
+    test('curation rows only shrink the pool: the shipped semantics '
+        'hold unedited through the default (regression '
+        'guard for the seam)', () {
+      // One row for sostén off: the maintenance draws drop, the chunk
+      // tier still stands on the weekly zone — the 1-3-5 shape reads
+      // the cluster filter exactly as the explicit param always did.
+      final log = <LogEntry>[
+        curRow(CurationCluster.sosten, false, utcMicros(2026, 8, 26, 8)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: utcMicros(2026, 8, 26, 12),
+        offsetSeconds: 0,
+      );
+      expect(
+        composition.maintenance,
+        isEmpty,
+        reason: 'all four maintenance entries are sostén',
+      );
+      expect(composition.instantHabits, hasLength(5));
+      expect(composition.focus!.zone, Zone.z1);
+    });
+  });
 }

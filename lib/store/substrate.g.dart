@@ -811,6 +811,28 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _clusterMeta = const VerificationMeta(
+    'cluster',
+  );
+  late final GeneratedColumn<String> cluster = GeneratedColumn<String>(
+    'cluster',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -829,6 +851,8 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     reportWeek,
     permission,
     sliceCause,
+    cluster,
+    enabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -961,6 +985,18 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         sliceCause.isAcceptableOrUnknown(data['slice_cause']!, _sliceCauseMeta),
       );
     }
+    if (data.containsKey('cluster')) {
+      context.handle(
+        _clusterMeta,
+        cluster.isAcceptableOrUnknown(data['cluster']!, _clusterMeta),
+      );
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
     return context;
   }
 
@@ -1034,6 +1070,14 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.string,
         data['${effectivePrefix}slice_cause'],
       ),
+      cluster: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cluster'],
+      ),
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      ),
     );
   }
 
@@ -1063,6 +1107,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final int? reportWeek;
   final String? permission;
   final String? sliceCause;
+  final String? cluster;
+  final bool? enabled;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -1080,6 +1126,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.reportWeek,
     this.permission,
     this.sliceCause,
+    this.cluster,
+    this.enabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1123,6 +1171,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || sliceCause != null) {
       map['slice_cause'] = Variable<String>(sliceCause);
+    }
+    if (!nullToAbsent || cluster != null) {
+      map['cluster'] = Variable<String>(cluster);
+    }
+    if (!nullToAbsent || enabled != null) {
+      map['enabled'] = Variable<bool>(enabled);
     }
     return map;
   }
@@ -1169,6 +1223,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       sliceCause: sliceCause == null && nullToAbsent
           ? const Value.absent()
           : Value(sliceCause),
+      cluster: cluster == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cluster),
+      enabled: enabled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(enabled),
     );
   }
 
@@ -1194,6 +1254,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       reportWeek: serializer.fromJson<int?>(json['report_week']),
       permission: serializer.fromJson<String?>(json['permission']),
       sliceCause: serializer.fromJson<String?>(json['slice_cause']),
+      cluster: serializer.fromJson<String?>(json['cluster']),
+      enabled: serializer.fromJson<bool?>(json['enabled']),
     );
   }
   @override
@@ -1216,6 +1278,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'report_week': serializer.toJson<int?>(reportWeek),
       'permission': serializer.toJson<String?>(permission),
       'slice_cause': serializer.toJson<String?>(sliceCause),
+      'cluster': serializer.toJson<String?>(cluster),
+      'enabled': serializer.toJson<bool?>(enabled),
     };
   }
 
@@ -1236,6 +1300,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<int?> reportWeek = const Value.absent(),
     Value<String?> permission = const Value.absent(),
     Value<String?> sliceCause = const Value.absent(),
+    Value<String?> cluster = const Value.absent(),
+    Value<bool?> enabled = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -1255,6 +1321,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     reportWeek: reportWeek.present ? reportWeek.value : this.reportWeek,
     permission: permission.present ? permission.value : this.permission,
     sliceCause: sliceCause.present ? sliceCause.value : this.sliceCause,
+    cluster: cluster.present ? cluster.value : this.cluster,
+    enabled: enabled.present ? enabled.value : this.enabled,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -1296,6 +1364,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       sliceCause: data.sliceCause.present
           ? data.sliceCause.value
           : this.sliceCause,
+      cluster: data.cluster.present ? data.cluster.value : this.cluster,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
     );
   }
 
@@ -1317,7 +1387,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('reportValue: $reportValue, ')
           ..write('reportWeek: $reportWeek, ')
           ..write('permission: $permission, ')
-          ..write('sliceCause: $sliceCause')
+          ..write('sliceCause: $sliceCause, ')
+          ..write('cluster: $cluster, ')
+          ..write('enabled: $enabled')
           ..write(')'))
         .toString();
   }
@@ -1340,6 +1412,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     reportWeek,
     permission,
     sliceCause,
+    cluster,
+    enabled,
   );
   @override
   bool operator ==(Object other) =>
@@ -1360,7 +1434,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.reportValue == this.reportValue &&
           other.reportWeek == this.reportWeek &&
           other.permission == this.permission &&
-          other.sliceCause == this.sliceCause);
+          other.sliceCause == this.sliceCause &&
+          other.cluster == this.cluster &&
+          other.enabled == this.enabled);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1380,6 +1456,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<int?> reportWeek;
   final Value<String?> permission;
   final Value<String?> sliceCause;
+  final Value<String?> cluster;
+  final Value<bool?> enabled;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1398,6 +1476,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.reportWeek = const Value.absent(),
     this.permission = const Value.absent(),
     this.sliceCause = const Value.absent(),
+    this.cluster = const Value.absent(),
+    this.enabled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1417,6 +1497,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.reportWeek = const Value.absent(),
     this.permission = const Value.absent(),
     this.sliceCause = const Value.absent(),
+    this.cluster = const Value.absent(),
+    this.enabled = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1439,6 +1521,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<int>? reportWeek,
     Expression<String>? permission,
     Expression<String>? sliceCause,
+    Expression<String>? cluster,
+    Expression<bool>? enabled,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1458,6 +1542,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (reportWeek != null) 'report_week': reportWeek,
       if (permission != null) 'permission': permission,
       if (sliceCause != null) 'slice_cause': sliceCause,
+      if (cluster != null) 'cluster': cluster,
+      if (enabled != null) 'enabled': enabled,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1479,6 +1565,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<int?>? reportWeek,
     Value<String?>? permission,
     Value<String?>? sliceCause,
+    Value<String?>? cluster,
+    Value<bool?>? enabled,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1498,6 +1586,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       reportWeek: reportWeek ?? this.reportWeek,
       permission: permission ?? this.permission,
       sliceCause: sliceCause ?? this.sliceCause,
+      cluster: cluster ?? this.cluster,
+      enabled: enabled ?? this.enabled,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1553,6 +1643,12 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (sliceCause.present) {
       map['slice_cause'] = Variable<String>(sliceCause.value);
     }
+    if (cluster.present) {
+      map['cluster'] = Variable<String>(cluster.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1578,6 +1674,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('reportWeek: $reportWeek, ')
           ..write('permission: $permission, ')
           ..write('sliceCause: $sliceCause, ')
+          ..write('cluster: $cluster, ')
+          ..write('enabled: $enabled, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1962,6 +2060,8 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> reportWeek,
   Value<String?> permission,
   Value<String?> sliceCause,
+  Value<String?> cluster,
+  Value<bool?> enabled,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -1981,6 +2081,8 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<int?> reportWeek,
   Value<String?> permission,
   Value<String?> sliceCause,
+  Value<String?> cluster,
+  Value<bool?> enabled,
   Value<int> rowid,
 });
 
@@ -2070,6 +2172,16 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<String> get sliceCause => $composableBuilder(
     column: $table.sliceCause,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cluster => $composableBuilder(
+    column: $table.cluster,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2162,6 +2274,16 @@ class $LogEntriesOrderingComposer
     column: $table.sliceCause,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get cluster => $composableBuilder(
+    column: $table.cluster,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -2242,6 +2364,12 @@ class $LogEntriesAnnotationComposer
     column: $table.sliceCause,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get cluster =>
+      $composableBuilder(column: $table.cluster, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
 }
 
 class $LogEntriesTableManager
@@ -2288,6 +2416,8 @@ class $LogEntriesTableManager
                 Value<int?> reportWeek = const Value.absent(),
                 Value<String?> permission = const Value.absent(),
                 Value<String?> sliceCause = const Value.absent(),
+                Value<String?> cluster = const Value.absent(),
+                Value<bool?> enabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -2306,6 +2436,8 @@ class $LogEntriesTableManager
                 reportWeek: reportWeek,
                 permission: permission,
                 sliceCause: sliceCause,
+                cluster: cluster,
+                enabled: enabled,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2326,6 +2458,8 @@ class $LogEntriesTableManager
                 Value<int?> reportWeek = const Value.absent(),
                 Value<String?> permission = const Value.absent(),
                 Value<String?> sliceCause = const Value.absent(),
+                Value<String?> cluster = const Value.absent(),
+                Value<bool?> enabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -2344,6 +2478,8 @@ class $LogEntriesTableManager
                 reportWeek: reportWeek,
                 permission: permission,
                 sliceCause: sliceCause,
+                cluster: cluster,
+                enabled: enabled,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

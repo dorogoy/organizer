@@ -48,6 +48,8 @@ LogEntryRecord _entry({
   reportWeek: reportWeek,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -327,6 +329,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -356,6 +360,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     test(
@@ -435,6 +441,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -454,6 +462,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -473,6 +483,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -588,7 +600,7 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its sixteen declared columns — the two '
+    test('log_entries holds exactly its eighteen declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
         '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
         'AD-23), the nullable energy level column is schema v4\'s '
@@ -597,10 +609,15 @@ void main() {
         'column is schema v7\'s (Story 3.4, AD-17), the nullable '
         'setting text column is schema v8\'s (Story 4.3, AD-22) and '
         'the nullable slice-cause column is schema v9\'s (Story 4.6, '
-        'FR-5, AD-23) — asserted on a brand-new database, so a fresh '
+        'FR-5, AD-23) and the nullable cluster and enabled columns '
+        'are schema v11\'s additive pair (Story 5.11, FR-31, AD-16, '
+        'AD-23 — the curation payload rides its own columns) — '
+        'asserted on a brand-new database, so a fresh '
         'create that dropped it fails here', () async {
       await store.appendLogEntry(_entry());
       expect(await columns('log_entries'), [
+        'cluster',
+        'enabled',
         'energy_level',
         'id',
         'instant_utc_micros',
@@ -660,6 +677,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -695,6 +714,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -730,6 +751,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // An out-of-range level stays stored verbatim too — the entry
       // stays in the log and the core's read boundary excludes it,
@@ -775,6 +798,8 @@ void main() {
         reportWeek: 1394,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -810,6 +835,8 @@ void main() {
         reportWeek: 1394,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -887,13 +914,15 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -971,6 +1000,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -989,6 +1020,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await store.appendLogEntry((
         id: 'new-energy',
@@ -1007,6 +1040,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await store.appendLogEntry((
         id: 'new-report',
@@ -1025,6 +1060,8 @@ void main() {
         reportWeek: 1394,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(5));
@@ -1038,7 +1075,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1120,13 +1157,15 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 10);
+        expect(db.schemaVersion, 11);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList()
             ..sort(),
           [
+            'cluster',
+            'enabled',
             'energy_level',
             'id',
             'instant_utc_micros',
@@ -1194,6 +1233,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
         // ...and a v5 answer row lands beside them just the same.
         await store.appendLogEntry((
@@ -1213,6 +1254,8 @@ void main() {
           reportWeek: 1394,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(4));
@@ -1285,13 +1328,15 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -1364,6 +1409,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // ...and a v5 answer row lands beside them just the same.
       await store.appendLogEntry((
@@ -1383,6 +1430,8 @@ void main() {
         reportWeek: 1394,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(4));
@@ -1455,13 +1504,15 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -1536,6 +1587,8 @@ void main() {
         reportWeek: 1394,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       await db.customInsert(
         'INSERT INTO log_entries '
@@ -1623,7 +1676,7 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -1758,13 +1811,15 @@ void main() {
         'null boolean, and both new shapes append beside them', () async {
       await takeOverWithV6();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -1865,6 +1920,8 @@ void main() {
         reportWeek: null,
         permission: 'microphone',
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
 
       final factsAfter = await store.readPoolFacts();
@@ -2000,13 +2057,15 @@ void main() {
         'text, and a selected_provider row appends beside them', () async {
       await takeOverWithV7();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -2076,6 +2135,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
 
       final logAfter = await store.readLogEntries();
@@ -2152,7 +2213,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 10);
+        expect(db.schemaVersion, 11);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingValue, 15);
@@ -2230,7 +2291,7 @@ void main() {
     test('an empty v8 database upgrades too — no rows, same three '
         'ALTERs, same version bump, appends work', () async {
       await takeOverWithV8(seedRows: false);
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -2254,13 +2315,15 @@ void main() {
         'shapes append beside them', () async {
       await takeOverWithV8();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'cluster',
+          'enabled',
           'energy_level',
           'id',
           'instant_utc_micros',
@@ -2372,6 +2435,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: 'networkUnreachable',
+        cluster: null,
+        enabled: null,
       ));
       final logAfter = await store.readLogEntries();
       expect(logAfter, hasLength(2));
@@ -2401,6 +2466,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
         (
           id: 'v9-returned',
@@ -2419,6 +2486,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
       ]) {
         await store.appendLogEntry(row);
@@ -2496,7 +2565,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 10);
+        expect(db.schemaVersion, 11);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingTextValue, 'openai');
@@ -2575,15 +2644,15 @@ void main() {
         '(slice_cause) re-opens idempotently — the pool\'s pair is '
         'still added, the already-added log column is not', () async {
       await takeOverWithV8Partial(sliceCause: true);
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         await columnsOf('log_entries'),
         containsAll(['slice_cause', 'text_value']),
       );
       expect(
         await columnsOf('log_entries'),
-        hasLength(16),
-        reason: 'slice_cause once, never twice',
+        hasLength(18),
+        reason: 'slice_cause once, never twice — beside v11\'s two',
       );
       expect(
         await columnsOf('pool_facts'),
@@ -2610,8 +2679,8 @@ void main() {
         'estimate_seconds still missing — re-opens idempotently, the '
         'half-upgraded pool columns are not re-added', () async {
       await takeOverWithV8Partial(sliceCause: true, rescueOf: true);
-      expect(db.schemaVersion, 10);
-      expect(await columnsOf('log_entries'), hasLength(16));
+      expect(db.schemaVersion, 11);
+      expect(await columnsOf('log_entries'), hasLength(18));
       expect(await columnsOf('pool_facts'), hasLength(10));
       expect(
         await columnsOf('pool_facts'),
@@ -2724,7 +2793,7 @@ void main() {
     test('an empty v9 database upgrades too — no rows, one ALTER, the '
         'version bump, appends work', () async {
       await takeOverWithV9(seedRows: false);
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -2748,7 +2817,7 @@ void main() {
         '(FR-16, AD-23)', () async {
       await takeOverWithV9();
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -2826,7 +2895,7 @@ void main() {
         'bump re-opens idempotently — a half-upgraded column is not '
         're-added', () async {
       await takeOverWithV9(stepText: true);
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
       final poolColumns =
           (await db.customSelect('PRAGMA table_info(pool_facts)').get())
               .map((row) => row.read<String>('name'))
@@ -2850,6 +2919,317 @@ void main() {
         (await store.readPoolFacts()).last.stepText,
         'Recoger la caja de arriba',
       );
+    });
+  });
+  test('a v10→v11 upgrade companion: the curation payload '
+      'round-trips on a fresh database (Story 5.11, FR-31)', () async {
+    await store.appendLogEntry((
+      id: 'v11-curation',
+      kind: 'cluster_curation_changed',
+      instantUtcMicros: 400,
+      offsetSeconds: 3600,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: 'z3',
+      enabled: false,
+    ));
+    final rows = await store.readLogEntries();
+    expect(rows, hasLength(1));
+    expect(rows.single.kind, 'cluster_curation_changed');
+    expect(rows.single.cluster, 'z3');
+    expect(rows.single.enabled, isFalse);
+  });
+
+  group('the v10→v11 upgrade (Story 5.11, AD-23 — additive, ALTER-only)', () {
+    /// The v10 schema exactly as a v10 install presents it: the v9
+    /// shape plus the pool's step-text column, `user_version` 10 —
+    /// seeded over a memory executor so drift's runner sees version
+    /// 10 and upgrades.
+    Future<void> takeOverWithV10({
+      bool seedRows = true,
+      bool curationColumns = false,
+      bool clusterColumnOnly = false,
+    }) async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL, '
+                  'rescue_of TEXT NULL, '
+                  'estimate_seconds INTEGER NULL, '
+                  'step_text TEXT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'text_value TEXT NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL, '
+                  'slice_cause TEXT NULL'
+                  '${curationColumns
+                      ? ', cluster TEXT NULL, enabled BOOL NULL'
+                      : clusterColumnOnly
+                      ? ', cluster TEXT NULL'
+                      : ''})',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              if (seedRows)
+                "INSERT INTO pool_facts VALUES ('v10-fact', 'cloud', "
+                    "'maintenance', 100, 3600, 'Un salón apilado', NULL, "
+                    'NULL, NULL, NULL)',
+              if (seedRows)
+                "INSERT INTO log_entries VALUES ('v10-setting', "
+                    "'setting_changed', 200, 3600, NULL, NULL, NULL, "
+                    "'time_bag', 20, NULL, NULL, NULL, NULL, NULL, NULL, "
+                    'NULL'
+                    "${curationColumns
+                        ? ', NULL, NULL'
+                        : clusterColumnOnly
+                        ? ', NULL'
+                        : ''})",
+              'PRAGMA user_version = 10',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('an empty v10 database upgrades too — no rows, two ALTERs, the '
+        'version bump, appends work', () async {
+      await takeOverWithV10(seedRows: false);
+      expect(db.schemaVersion, 11);
+      expect(await store.readLogEntries(), isEmpty);
+      expect(await store.readPoolFacts(), isEmpty);
+      await store.appendLogEntry((
+        id: 'v11-first',
+        kind: 'cluster_curation_changed',
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: 'anclas',
+        enabled: true,
+      ));
+      expect((await store.readLogEntries()).single.cluster, 'anclas');
+    });
+
+    test('a seeded v10 database upgrades in place: two ALTERs add the '
+        'cluster and enabled columns, the v10 rows read back unchanged '
+        'with null curation fields, and a curation row round-trips '
+        'beside them (FR-31, AD-23)', () async {
+      await takeOverWithV10();
+
+      expect(db.schemaVersion, 11);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .toList()
+          ..sort(),
+        [
+          'cluster',
+          'enabled',
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'permission',
+          'pocket_minutes',
+          'report_value',
+          'report_week',
+          'setting_key',
+          'setting_value',
+          'slice_cause',
+          'stack',
+          'text_value',
+        ],
+      );
+      expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
+      expect(await _objects(db, 'trigger'), [
+        'log_entries_refuse_delete',
+        'log_entries_refuse_update',
+        'pool_facts_refuse_delete',
+        'pool_facts_refuse_update',
+      ]);
+
+      // The v10 rows ride the migration untouched: the setting keeps
+      // its key and value, and its curation fields read null.
+      final logBefore = await store.readLogEntries();
+      expect(logBefore, hasLength(1));
+      expect(logBefore.single.settingKey, 'time_bag');
+      expect(logBefore.single.settingValue, 20);
+      expect(logBefore.single.cluster, isNull);
+      expect(logBefore.single.enabled, isNull);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET cluster = 'z1' WHERE id = 'v10-setting'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a curation row beside the old
+      // ones, and it round-trips through the boundary intact.
+      await store.appendLogEntry((
+        id: 'v11-curation',
+        kind: 'cluster_curation_changed',
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: 'fondo',
+        enabled: false,
+      ));
+      final logAfter = await store.readLogEntries();
+      expect(logAfter, hasLength(2));
+      expect(logAfter.last.cluster, 'fondo');
+      expect(logAfter.last.enabled, isFalse);
+    });
+
+    test('a v10 install that died after the first v11 ALTER but before '
+        'the second — cluster present, enabled absent — finishes the '
+        'upgrade without re-adding cluster', () async {
+      await takeOverWithV10(clusterColumnOnly: true);
+      expect(db.schemaVersion, 11);
+      final logColumns =
+          (await db.customSelect('PRAGMA table_info(log_entries)').get())
+              .map((row) => row.read<String>('name'))
+              .toList();
+      expect(
+        logColumns,
+        hasLength(18),
+        reason: 'cluster once from the crash, enabled added, never doubled',
+      );
+      expect(logColumns, containsAll(['cluster', 'enabled']));
+      await store.appendLogEntry((
+        id: 'v11-curation',
+        kind: 'cluster_curation_changed',
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: 'anclas',
+        enabled: false,
+      ));
+      expect((await store.readLogEntries()).last.enabled, isFalse);
+    });
+
+    test('a v10 install that died after the two v11 ALTERs but before '
+        'the version bump re-opens idempotently — a half-upgraded '
+        'column is not re-added', () async {
+      await takeOverWithV10(curationColumns: true);
+      expect(db.schemaVersion, 11);
+      final logColumns =
+          (await db.customSelect('PRAGMA table_info(log_entries)').get())
+              .map((row) => row.read<String>('name'))
+              .toList();
+      expect(
+        logColumns,
+        hasLength(18),
+        reason: 'cluster and enabled once, never twice',
+      );
+      expect(logColumns, containsAll(['cluster', 'enabled']));
+      // And the upgraded schema works: a curation row round-trips.
+      await store.appendLogEntry((
+        id: 'v11-curation',
+        kind: 'cluster_curation_changed',
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: 'sosten',
+        enabled: true,
+      ));
+      expect((await store.readLogEntries()).last.enabled, isTrue);
     });
   });
 }

@@ -291,6 +291,8 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   reportWeek: week,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
@@ -310,6 +312,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -329,6 +333,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -1054,6 +1060,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1187,6 +1195,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1633,6 +1643,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
     }
 
@@ -1677,6 +1689,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1706,6 +1720,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1731,6 +1747,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1749,6 +1767,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
       }
 
@@ -1796,6 +1816,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       final view = await buildFor(
         store,
@@ -2372,6 +2394,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2393,6 +2417,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2583,6 +2609,8 @@ void main() {
             reportWeek: null,
             permission: null,
             sliceCause: null,
+            cluster: null,
+            enabled: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3175,6 +3203,8 @@ void main() {
           reportWeek: null,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -3322,6 +3352,8 @@ void main() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     );
 
     test('declarePocket mints the capture as the fresh sitting\'s '

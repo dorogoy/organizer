@@ -1,5 +1,7 @@
+import 'package:core/commands/curation_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/commands/settings_commands.dart';
+import 'package:core/curation/curation.dart';
 import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/permission.dart';
 import 'package:core/log/log_entry.dart';
@@ -46,6 +48,12 @@ import '../vault/credential_vault.dart';
 /// envelopes make switching providers unable to touch another provider's
 /// key. No availability claim is ever written or surfaced: the vault
 /// measures, nothing remembers.
+///
+/// Story 5.11 adds the curation seam (FR-31, AD-16): the derived
+/// active-cluster set over the log's own `cluster_curation_changed`
+/// rows, and one write through the kind's single sanctioned minter —
+/// the payload on its own columns (schema v11), never a
+/// `setting_changed` key, and no feedback beyond the switch itself.
 class SettingsController {
   SettingsController({
     required this.store,
@@ -274,13 +282,62 @@ class SettingsController {
     await vault.deleteCredential(providerId);
   }
 
+  /// Reads the declared active-cluster set (Story 5.11, FR-31, AD-16):
+  /// the log's `cluster_curation_changed` rows folded into
+  /// observations and resolved to each cluster's latest declaration —
+  /// timing aside, a derivation never a stored switch, the same
+  /// discipline every read here holds. With no rows the fold is empty
+  /// and every cluster is active (FR-31: the first composed day is
+  /// never empty). A weekly-zone flip mid-week stands on the switch
+  /// as declared while composition keeps the zone until its next week
+  /// boundary — AD-16's two speeds live in the composition read
+  /// ([activeClustersAt] under the weave), never in the control: a
+  /// switch that springs back reads as a refused act, and the surface
+  /// may carry no copy to explain the spring (UX-DR23).
+  Future<Set<CurationCluster>> readCurationState() async {
+    await _writes;
+    final log = logEntriesOf(await store.readLogEntries());
+    return declaredActiveClusters(curationObservationsOf(log));
+  }
+
+  /// Appends one `cluster_curation_changed` row through the kind's
+  /// single sanctioned minter (Story 5.11, FR-31, AD-21) — the
+  /// instant minted at entry, on the camera write's own shape. The
+  /// payload rides its own columns, never a `setting_changed` key:
+  /// the flip is a user act on the house's own content. The switch is
+  /// the act's whole feedback — no count, no summary, no copy — and a
+  /// value already in force writes nothing: the guard lives here, at
+  /// the one seam every home (this screen and 5.12's two) crosses, so
+  /// no caller has to re-implement it. The state is read inline —
+  /// `readCurationState()` awaits the same write chain this task is
+  /// queued behind, which would deadlock — and writes are rare user
+  /// acts, so the extra read is free.
+  Future<void> writeClusterCuration(CurationCluster cluster, bool enabled) {
+    final now = nowOf();
+    return _enqueueWrite(() async {
+      final log = logEntriesOf(await store.readLogEntries());
+      if (enabled ==
+          declaredActiveClusters(curationObservationsOf(log))
+              .contains(cluster)) {
+        return;
+      }
+      final contents = clusterCurationChanged(
+        cluster: cluster,
+        enabled: enabled,
+      );
+      for (final content in contents) {
+        await _appendContent(content, now);
+      }
+    });
+  }
+
   /// Appends one minted content row — the write paths' shared copier
   /// since Story 5.2 (the dispenser controller's own idiom): one
   /// minted instant per change (the caller's [now]), a v7 id per row,
   /// the offset in force at the mint. The three sanctioned
   /// `setting_changed` writers — the bag's int, the provider's text,
-  /// the camera toggle's 0/1 — all cross the port through this one
-  /// site.
+  /// the camera toggle's 0/1 — and the `cluster_curation_changed`
+  /// copier all cross the port through this one site.
   Future<void> _appendContent(LogEntryContent content, DateTime now) async {
     await store.appendLogEntry((
       id: idMinter.v7(),
@@ -299,6 +356,8 @@ class SettingsController {
       reportWeek: content.reportWeek,
       permission: content.permission?.name,
       sliceCause: content.sliceCause,
+      cluster: content.cluster?.name,
+      enabled: content.enabled,
     ));
   }
 

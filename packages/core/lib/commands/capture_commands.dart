@@ -99,6 +99,8 @@ CaptureContent? captureCreate({
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   );
 }

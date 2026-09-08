@@ -152,6 +152,8 @@ void main() {
         reportWeek: content.entry.reportWeek,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ItemActEntry;

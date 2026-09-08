@@ -157,6 +157,8 @@ void main() {
           reportWeek: null,
           permission: 'microphone',
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ),
       ];
       return entries;

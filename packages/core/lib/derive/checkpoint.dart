@@ -140,6 +140,7 @@ CheckpointState deriveCheckpoint({
       case EnergySetEntry():
       case ReportAnsweredEntry():
       case PermissionRefusedEntry():
+      case ClusterCurationChangedEntry():
       case UnknownEntry():
       case SliceEntry():
         break;

@@ -1,6 +1,6 @@
 // Settings (Story 2.1, UX-DR33): a flat platform list — a ListView in
 // the frame idiom, scrolling at 200% with nothing truncated — whose
-// first and only group is **Tu día**, holding the Time Bag as one row
+// first group is **Tu día**, holding the Time Bag as one row
 // of stepped options. Group headers are quiet support copy; light/dark
 // follows the system with no row anywhere; no settings glyph exists
 // (the ten-glyph set is pinned without one). Setting the bag appends
@@ -27,6 +27,12 @@
 // reactivation affordance (the mic row's own premise twin), whose tap
 // opens the system's app-details screen; no feedback beyond the
 // switch itself, ever.
+//
+// Story 5.11 adds the `Contenido de la casa` group (FR-31, UX-DR33's
+// second of five): one entry row between `Tu día` and `IA y voz` pushing the
+// curation sub-screen of eight cluster switches — the only place in
+// the tree curation renders, nothing visible from or near the
+// Dispenser.
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 
@@ -34,6 +40,7 @@ import '../../settings/settings_controller.dart';
 import '../../strings/app_strings.dart';
 import '../dispenser/duration_chip.dart';
 import '../tokens.dart';
+import 'curation_screen.dart';
 import 'slicer_access_section.dart';
 
 /// The settings surface (FR-7, UX-DR33): the flat platform list. The
@@ -285,8 +292,23 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
             const SizedBox(height: Spacing.taskToActions),
+            // The Contenido de la casa group (Story 5.11, UX-DR33's
+            // second of five): one entry row pushing the curation sub-screen —
+            // the only place in the tree curation renders, and nothing
+            // curation-related stands anywhere else (FR-31, NFR3).
+            Text(
+              AppStrings.of(context).settingsGroupHouseContent,
+              // bodySmall is the wired support role (theme.dart).
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: Spacing.actionGap),
+            _ReactivationRow(
+              label: AppStrings.of(context).settingsCurationGroups,
+              onTap: _openCuration,
+            ),
+            const SizedBox(height: Spacing.taskToActions),
             // The IA y voz group header (Story 4-4, reusing 3.4's
-            // string): the second quiet group of the flat list,
+            // string): the third quiet group of the flat list,
             // holding the BYOK access path's pills, terms lines and
             // key field, and — beneath it — the validator surface's
             // dictation facts, moved under this header from the flat
@@ -373,6 +395,20 @@ class _SettingsScreenState extends State<SettingsScreen>
       await widget.controller?.openCameraAppSettings();
     } catch (_) {
       // Quiet: nothing is surfaced, nothing changes.
+    }
+  }
+
+  /// The Contenido de la casa entry row's push (Story 5.11): the
+  /// curation sub-screen, behind the same rapid-tap guard every push
+  /// this tree owns — a push while another route transitions in
+  /// would stack a second route.
+  void _openCuration() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CurationScreen(controller: widget.controller),
+        ),
+      );
     }
   }
 }
