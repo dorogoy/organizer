@@ -332,13 +332,41 @@ List<Candidate> rescueCandidates(
   ];
 }
 
+/// THE Epic grouping fold (Story 5.9, extracted 5.10): the facts
+/// with `origin ∈ {cloud, local} ∧ rescueOf == null ∧ stepText != null`
+/// sharing one `(instantUtcMicros, originContext)` pair are one
+/// slice's steps — the insert-only grouping key — and the group's
+/// STABLE ID is its first fact in snapshot order. One private helper
+/// behind both Epic derivations (`epicCandidates` and
+/// `epicBufferedTargets`), so the two can never drift on what a group
+/// is: both walk the same groups. (The head rule and the buffer read
+/// those groups differently — the head excludes skipped-today and
+/// superseded steps, the buffer counts every unanswered step — and
+/// that difference belongs to the readers, never to the grouping.)
+/// Keyed by the group key, never the stable id, so a degenerate
+/// duplicate fact id cannot collapse two groups the candidates fold
+/// would keep apart.
+Map<String, List<PoolFact>> _epicStepsByGroupKey(List<PoolFact> poolFacts) {
+  final stepsByGroupKey = <String, List<PoolFact>>{};
+  for (final fact in poolFacts) {
+    if ((fact.origin == Origin.cloud || fact.origin == Origin.local) &&
+        fact.rescueOf == null &&
+        fact.stepText != null) {
+      stepsByGroupKey
+          .putIfAbsent(
+            '${fact.instantUtcMicros}|${fact.originContext}',
+            () => [],
+          )
+          .add(fact);
+    }
+  }
+  return stepsByGroupKey;
+}
+
 /// The active Epic Projects' head steps as a candidate source (Story
 /// 5.9, FR-11, AD-20): an Epic is a **derivation, not a stored
-/// entity** — the facts with `origin ∈ {cloud, local} ∧ rescueOf ==
-/// null ∧ stepText != null` sharing one `(instantUtcMicros,
-/// originContext)` pair are one slice's steps, and that pair is the
-/// insert-only grouping key. The group's stable id is its first fact
-/// in snapshot order; a group whose stable id names no
+/// entity** — the groups of [`_epicStepsByGroupKey`], each with its
+/// first fact's id as the stable id. A group whose stable id names no
 /// `epic_activated` row (`facts.epicActivatedInstantByStableId`) is
 /// dormant and offers nothing — invisible by construction, never by a
 /// guard, so a landing that crashed mid-plan derives honestly as
@@ -367,53 +395,37 @@ List<Candidate> epicCandidates(
   Day day,
   Set<String> supersededParents,
 ) {
-  final factById = <String, PoolFact>{};
-  final stepIdsByGroupKey = <String, List<String>>{};
-  for (final fact in poolFacts) {
-    if ((fact.origin == Origin.cloud || fact.origin == Origin.local) &&
-        fact.rescueOf == null &&
-        fact.stepText != null) {
-      factById[fact.id] = fact;
-      final groupKey = '${fact.instantUtcMicros}|${fact.originContext}';
-      stepIdsByGroupKey.putIfAbsent(groupKey, () => []).add(fact.id);
-    }
-  }
-
   final groups = <({String stableId, PoolFact head, int? servedInstant})>[];
-  for (final stepIds in stepIdsByGroupKey.values) {
-    final stableId = stepIds.first;
+  for (final steps in _epicStepsByGroupKey(poolFacts).values) {
+    final stableId = steps.first.id;
     if (!facts.epicActivatedInstantByStableId.containsKey(stableId)) {
       continue; // Dormant: no activation row names this Epic.
     }
-    String? headId;
-    for (final stepId in stepIds) {
-      if (facts.answeredItemIds.contains(stepId)) {
+    PoolFact? head;
+    for (final step in steps) {
+      if (facts.answeredItemIds.contains(step.id)) {
         continue;
       }
-      if (facts.skippedDaysByItemId[stepId]?.contains(day) ?? false) {
+      if (facts.skippedDaysByItemId[step.id]?.contains(day) ?? false) {
         continue;
       }
-      if (supersededParents.contains(stepId)) {
+      if (supersededParents.contains(step.id)) {
         continue;
       }
-      headId = stepId;
+      head = step;
       break;
     }
-    if (headId == null) {
+    if (head == null) {
       continue; // Every step answered, skipped today, or being rescued.
     }
     int? servedInstant;
-    for (final stepId in stepIds) {
-      final dealt = facts.lastDealtInstantByItemId[stepId];
+    for (final step in steps) {
+      final dealt = facts.lastDealtInstantByItemId[step.id];
       if (dealt != null && (servedInstant == null || dealt > servedInstant)) {
         servedInstant = dealt;
       }
     }
-    groups.add((
-      stableId: stableId,
-      head: factById[headId]!,
-      servedInstant: servedInstant,
-    ));
+    groups.add((stableId: stableId, head: head, servedInstant: servedInstant));
   }
 
   // Activation order (AD-20): the `epic_activated` APPEND order —
@@ -458,6 +470,69 @@ List<Candidate> epicCandidates(
         estimateSeconds: group.head.estimateSeconds,
       ),
   ];
+}
+
+/// The active Epic Projects' buffered completion horizons (Story
+/// 5.10, FR-13, AD-1): the derived target AD-1 names — slack the user
+/// cannot see, cannot configure and cannot spend, so nothing anywhere
+/// renders it. A pure function of `(pool facts, log facts, day)`, like
+/// every derivation: no log row, no column, no `Random`, no wall
+/// clock, nothing stored — recomputed on every derivation, so a
+/// deferral, a skip or seven days of absence moves the horizon
+/// silently later and nothing else (FR-14's rescheduler is not code
+/// for exactly this reason).
+///
+/// THE v1 rule, frozen: `target = day.startUtcMicros + remainingSteps
+/// × 2 × 24 h µs` — derivation-day start plus one serving day and one
+/// slack day per step, whole domestic days over [Day]'s fixed 24 h
+/// frame, never a constructed `Day` (that is [Calendar]'s alone,
+/// AD-4). The × 2 is the smallest whole-number buffer that tolerates
+/// every-other-day engagement standing still; anchoring at the
+/// derivation day's start — never the activation, never the last
+/// serving — is what lets the target SURVIVE absence: an absence
+/// moves it later instead of blowing through it, and "silently
+/// rebalanced" is this recomputation, never a repair.
+///
+/// `remainingSteps` reuses the head rule's own answered set
+/// (`answeredItemIds`, all-time) — no second definition of "done" can
+/// drift — so a step skipped today or superseded by a live rescue
+/// chain still counts: neither retires work (AD-25), and the buffer
+/// must not invent retirements the substrate forbids. Active-only:
+/// dormant Epics (no `epic_activated` row naming the group's stable
+/// id) and all-answered Epics derive no entry — no obligation either
+/// way. The horizon moves later across appended rows for a
+/// non-regressing derivation day: the day is an input, not a clock
+/// law — replaying the same day over the same log is deterministic,
+/// same inputs, same horizon (AD-3), and only a `card_done` shortens
+/// it (work done, never time owed). Nothing calls this
+/// from the weave's own pipeline: no deal, tier or gate reads it; the
+/// surface-invisibility scan (`test/no_lateness_proof_test.dart`)
+/// keeps the words off every surface while the derivation stays
+/// checkable here.
+Map<String, int> epicBufferedTargets(
+  List<PoolFact> poolFacts,
+  LogFacts facts,
+  Day day,
+) {
+  final targets = <String, int>{};
+  for (final steps in _epicStepsByGroupKey(poolFacts).values) {
+    final stableId = steps.first.id;
+    if (!facts.epicActivatedInstantByStableId.containsKey(stableId)) {
+      continue; // Dormant: dormancy asserts nothing.
+    }
+    var remainingSteps = 0;
+    for (final step in steps) {
+      if (!facts.answeredItemIds.contains(step.id)) {
+        remainingSteps++;
+      }
+    }
+    if (remainingSteps == 0) {
+      continue; // Nothing owed; no completion row is minted either.
+    }
+    targets[stableId] =
+        day.startUtcMicros + remainingSteps * 2 * Duration.microsecondsPerDay;
+  }
+  return targets;
 }
 
 /// The week's one active zone (FR-11, FR-31): the nominal ring position

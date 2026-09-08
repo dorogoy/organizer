@@ -3388,11 +3388,12 @@ void main() {
       '«Siempre a tu disposición» above it, the census diff against a '
       'no-gap control is the greeting text alone, and rendering writes '
       'nothing (FR-6, FR-13, FR-14, NFR9)', (tester) async {
-    // The milestone limb of the absence property is vacuous until Epic
-    // Projects exist — Story 5.5 tests it for real once buffers land.
-    // This pin is the vertical half that exists today: the opening
-    // itself, row by row, widget by widget — and, since Story 2.7, the
-    // one deliberate difference a warm opening renders: the greeting.
+    // The milestone limb of the absence property lives in the sibling
+    // test below — an active Epic mid-plan across the same seven days,
+    // tested for real since Story 5.10's buffers landed. This pin is
+    // the vertical half that always existed: the opening itself, row
+    // by row, widget by widget — and, since Story 2.7, the one
+    // deliberate difference a warm opening renders: the greeting.
     final catalogue = await loadEvergreenCatalogue(
       AppStringsEs(),
       bundle: _FakeBundle({catalogueAssetPath: shipped}),
@@ -3590,6 +3591,292 @@ void main() {
       reason:
           'the greeting and its wrap alone changed the tree — no '
           'count, no backlog, no days-away element anywhere',
+    );
+  });
+
+  testWidgets('the seven-day absence with an active Epic mid-plan: the '
+      'standing card at return is the Epic\'s next step in its own '
+      'words, no overdue state or remaining count renders anywhere, '
+      'the census diff against a no-gap control is the greeting alone, '
+      'and rendering writes nothing (FR-13, FR-6, UJ-3, Story 5.10)', (
+    tester,
+  ) async {
+    // The milestone limb of the absence property (Story 5.10): an
+    // active Epic mid-plan — steps landed, activated, one step
+    // answered pre-gap — held across the same seven silent days the
+    // vertical half above pins. The buffered target moved silently
+    // with the absence because it is recomputed, never stored; what
+    // the surface may show is the next step and nothing else.
+
+    // One Epic\'s slice: three cloud-origin steps, one instant, one
+    // Origin Context — the exact shape the scan landing mints.
+    List<PoolFactRecord> epicFacts(DateTime landed) => [
+      for (var i = 1; i <= 3; i++)
+        (
+          id: 'epico-$i',
+          origin: Origin.cloud,
+          size: Size.maintenance,
+          instantUtcMicros: landed.microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          originContext: 'El trastero ordenado',
+          dictated: null,
+          rescueOf: null,
+          estimateSeconds: 180,
+          stepText: 'Paso $i del trastero',
+        ),
+    ];
+
+    // The pre-gap day\'s whole log: the activation, then one sitting
+    // that dealt and answered the FIRST step — mid-plan, exactly as a
+    // real first day with the project leaves the substrate.
+    List<LogEntryRecord> seedRows(DateTime absenceDay) => [
+      (
+        id: 'seed-app-opened',
+        kind: 'app_opened',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+      (
+        id: 'seed-epic-activated',
+        kind: 'epic_activated',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 1000000,
+        offsetSeconds: 0,
+        itemId: 'epico-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+      (
+        id: 'seed-session-started',
+        kind: 'session_started',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 2000000,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+      (
+        id: 'seed-card-dealt',
+        kind: 'card_dealt',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 3000000,
+        offsetSeconds: 0,
+        itemId: 'epico-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+      (
+        id: 'seed-card-done',
+        kind: 'card_done',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 4000000,
+        offsetSeconds: 0,
+        itemId: 'epico-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+      (
+        id: 'seed-session-ended',
+        kind: 'session_ended',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 5000000,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+      ),
+    ];
+
+    // The gap launch: the pre-gap day seven days before the fixed
+    // clock — the vertical half\'s own absence-day arithmetic.
+    final gapStore = _RecordingStore(epicFacts(DateTime.utc(2026, 8, 22, 9)))
+      ..entries.addAll(seedRows(DateTime.utc(2026, 8, 22, 12)));
+    final seeded = gapStore.entries.length;
+    await SessionController(
+      store: gapStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+
+    // The opening rows are exactly the normal opening kinds — nothing
+    // gap-shaped, nothing counting the days away, nothing naming a
+    // target the substrate never stored.
+    expect(gapStore.entries.skip(seeded).map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ]);
+    expect(gapStore.entries.skip(seeded).last.itemId, 'epico-2');
+
+    await tester.pumpWidget(
+      _harness(
+        buildController(gapStore),
+        screenKey: const ValueKey('epic-gap'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // The standing card is the Epic\'s NEXT step\'s own words — the
+    // answered step is behind it, the buffered horizon is nowhere.
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('Paso 2 del trastero'), findsOneWidget);
+    expect(
+      gapStore.entries.skip(seeded).map((entry) => entry.kind).toList(),
+      ['app_opened', 'session_started', 'card_dealt'],
+      reason:
+          'the warm open with an Epic mid-plan appended nothing on '
+          'render — the buffer derivation wrote no row of its own',
+    );
+    final greeting = find.text(AppStringsEs().warmReturnGreeting);
+    expect(greeting, findsOneWidget);
+    expect(
+      _rect(tester, greeting).bottom,
+      lessThan(_rect(tester, find.byType(TaskCard)).top),
+      reason: 'the greeting renders above the committed view',
+    );
+    final gapCensus = _censusOf(tester, ['Paso 2 del trastero']);
+
+    // The control: the identical Epic mid-plan with the pre-gap day
+    // one day before the fixed clock — inside the 48 h window, so no
+    // greeting — and the same next step deals, so every remaining
+    // string and widget is comparable by construction.
+    final controlStore = _RecordingStore(
+      epicFacts(DateTime.utc(2026, 8, 28, 9)),
+    )..entries.addAll(seedRows(DateTime.utc(2026, 8, 28, 12)));
+    await SessionController(
+      store: controlStore,
+      strings: AppStringsEs(),
+      bundle: _FakeBundle({catalogueAssetPath: shipped}),
+      nowOf: _fixedClock,
+    ).handleAppOpen();
+    expect(controlStore.entries.map((entry) => entry.kind).toList(), [
+      'app_opened',
+      'epic_activated',
+      'session_started',
+      'card_dealt',
+      'card_done',
+      'session_ended',
+      'app_opened',
+      'session_started',
+      'card_dealt',
+    ], reason: 'the control appended exactly the normal opening rows');
+    expect(controlStore.entries.last.itemId, 'epico-2');
+
+    await tester.pumpWidget(
+      _harness(
+        buildController(controlStore),
+        screenKey: const ValueKey('epic-control'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text('Paso 2 del trastero'), findsOneWidget);
+    expect(
+      controlStore.entries
+          .skip(seedRows(DateTime.utc(2026, 8, 28, 12)).length)
+          .map((entry) => entry.kind)
+          .toList(),
+      ['app_opened', 'session_started', 'card_dealt'],
+      reason: 'rendering appended nothing here either',
+    );
+    expect(
+      find.text(AppStringsEs().warmReturnGreeting),
+      findsNothing,
+      reason: 'a next-day launch derives no warm return',
+    );
+    final controlCensus = _censusOf(tester, ['Paso 2 del trastero']);
+
+    // The census diff: the greeting text alone — no overdue state, no
+    // remaining count, no days-away copy, no bar anywhere on the warm
+    // open that holds an Epic mid-plan (FR-13, §1.1 P4).
+    final typeLine = RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]* x\d+$');
+    Set<String> stringsOf(List<String> census) => {
+      for (final line in census)
+        if (!typeLine.hasMatch(line)) line,
+    };
+    expect(stringsOf(gapCensus).difference(stringsOf(controlCensus)), {
+      AppStringsEs().warmReturnGreeting,
+    }, reason: 'the greeting text is the only added string');
+    expect(
+      stringsOf(controlCensus).difference(stringsOf(gapCensus)),
+      isEmpty,
+      reason: 'the control renders nothing the warm launch lacks',
+    );
+    Map<String, int> countsOf(List<String> census) => {
+      for (final line in census)
+        if (typeLine.hasMatch(line))
+          line.substring(0, line.lastIndexOf(' x')): int.parse(
+            line.substring(line.lastIndexOf(' x') + 2),
+          ),
+    };
+    final gapCounts = countsOf(gapCensus);
+    final controlCounts = countsOf(controlCensus);
+    final deltas = <String, int>{};
+    for (final name in {...gapCounts.keys, ...controlCounts.keys}) {
+      final delta = (gapCounts[name] ?? 0) - (controlCounts[name] ?? 0);
+      if (delta != 0) {
+        deltas[name] = delta;
+      }
+    }
+    expect(
+      deltas,
+      {'Column': 1, 'SizedBox': 1, 'Text': 1, 'RichText': 1},
+      reason:
+          'the greeting and its wrap alone changed the tree — the '
+          'Epic mid-plan renders no obligation element anywhere',
     );
   });
 

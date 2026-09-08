@@ -4650,4 +4650,621 @@ void main() {
       );
     });
   });
+
+  group('Invisible buffers (Story 5.10, FR-13, AD-1)', () {
+    // The standing fixture's clock: Friday 2026-08-28 noon, active
+    // zone z1 (the 5.9 group's own fixture). The buffer is a pure
+    // derivation of the same facts the head rule reads — these tests
+    // pin its arithmetic and its silence, never a stored target.
+    final now = utcMicros(2026, 8, 28, 12);
+
+    /// The derivation under test: the same walk the pipeline runs,
+    /// the derivation day of [at], never a constructed `Day`.
+    Map<String, int> targetsOf(
+      List<PoolFact> facts,
+      List<LogEntry> log, {
+      required int at,
+    }) => epicBufferedTargets(
+      facts,
+      walkLog(log, catalogue: _catalogue, poolFacts: facts),
+      const Calendar().dayOf(at, 0),
+    );
+
+    test('an active Epic\'s horizon is the derivation day\'s start plus '
+        'two whole days per unanswered step — slack included by '
+        'construction, keyed by the stable id', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+        _scanStep(
+          's3',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso tres',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+        _sessionEnded(utcMicros(2026, 8, 28, 10, 0, 3)),
+      ];
+      final dayStart = const Calendar().dayOf(now, 0).startUtcMicros;
+      final targets = targetsOf(steps, log, at: now);
+      // One entry, keyed by the group's stable id, R = 2 → the day's
+      // own start plus 4 whole days.
+      expect(targets, {'s1': dayStart + 2 * 2 * _microsPerDay});
+      // The slack pin (FR-13): the horizon always stands at least 2R
+      // whole days out — one serving day plus one slack day per step,
+      // half the week can vanish and the horizon never tightens.
+      expect(
+        targets['s1']! - dayStart,
+        greaterThanOrEqualTo(2 * 2 * _microsPerDay),
+      );
+    });
+
+    test('seven days of total absence move the horizon silently later '
+        '— the same remaining count, an eight-days-later horizon, zero '
+        'rows written for the gap, and the head composes at return '
+        'exactly as on a normal day (FR-13, FR-14, AD-1)', () {
+      // The golden example: steps 1–5 landed Monday, activated, step 1
+      // answered Monday — derived Tuesday, then again the Tuesday
+      // eight days on with not one row between them.
+      final steps = [
+        for (var i = 1; i <= 5; i++)
+          _scanStep(
+            's$i',
+            _day(0, 9),
+            'El trastero ordenado',
+            stepText: 'Paso $i',
+          ),
+      ];
+      final log = <LogEntry>[
+        _epicActivated(_day(0, 9) + 30 * 1000 * 1000, 's1'),
+        _sessionStarted(_day(0, 10)),
+        _epicDealt(_day(0, 10) + 1 * 1000 * 1000, 's1'),
+        _epicDone(_day(0, 10) + 2 * 1000 * 1000, 's1'),
+        _sessionEnded(_day(0, 10) + 3 * 1000 * 1000),
+      ];
+      final logBeforeDerivation = List<LogEntry>.from(log);
+
+      // Monday\'s own derivation, after the answer: R = 4, horizon =
+      // Monday 04:00 + 8 days — the golden example\'s day-0 anchor.
+      final day0 = targetsOf(steps, log, at: _day(0, 12));
+      expect(day0, {
+        's1':
+            const Calendar().dayOf(_day(0, 12), 0).startUtcMicros +
+            4 * 2 * _microsPerDay,
+      });
+
+      // The Tuesday eight days on (seven silent days between, not one
+      // row written in the gap): the same remaining count re-anchors
+      // eight days later — silently rebalanced, the target moved
+      // instead of being blown through.
+      final day8 = targetsOf(steps, log, at: _day(8, 12));
+      expect(
+        day8['s1']! - day0['s1']!,
+        8 * _microsPerDay,
+        reason:
+            'the derivation recomputes from now — the horizon survives '
+            'the absence by moving exactly with it',
+      );
+      // The gap-zero-rows assertion (1-11\'s deferred-chunk shape):
+      // deriving twice wrote nothing — no deferral row, no absence
+      // row, no rebalance row, the log is byte-identical.
+      expect(
+        log,
+        equals(logBeforeDerivation),
+        reason: 'the buffer derivation appends zero rows for the gap',
+      );
+
+      // And the head composes at return exactly as on a normal day:
+      // the standing card is step 2\'s own words.
+      final card = nextDeal(
+        catalogue: _catalogue,
+        log: [...log, _sessionStarted(_day(8, 10))],
+        instantUtcMicros: _day(8, 10) + 1000 * 1000,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(card!.id, 's2');
+      expect(card.name, 'Paso 2');
+    });
+
+    test('a deferred Focus Chunk re-anchors the horizon one day later '
+        '— the same head offers again, and the deferral writes no rows '
+        '(FR-14, AD-1)', () {
+      final steps = [
+        _scanStep(
+          's1',
+          _day(0, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          _day(0, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [_epicActivated(_day(0, 9) + 30 * 1000 * 1000, 's1')];
+      final logBefore = List<LogEntry>.from(log);
+
+      // Day 0 at low energy: the head\'s 180 s estimate fails the 🔴
+      // ceiling, the chunk composes without the "1", silently — and
+      // the horizon still anchors at day 0\'s start.
+      final lowDay = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: _day(0, 12),
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+        poolFacts: steps,
+      );
+      expect(
+        lowDay.focus,
+        isNull,
+        reason: 'the head is not dealt on a 🔴 day — deferred, not owed',
+      );
+      final day0 = targetsOf(steps, log, at: _day(0, 12));
+
+      // Day 1, same log: the horizon re-anchors one day later — the
+      // deferral moved it, no row records why.
+      final day1 = targetsOf(steps, log, at: _day(1, 12));
+      expect(
+        day1['s1']! - day0['s1']!,
+        _microsPerDay,
+        reason: 'a deferral costs one day of horizon and nothing else',
+      );
+      expect(log, equals(logBefore), reason: 'no rows for the deferral');
+
+      // The next composition offers the same head.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: _day(1, 12),
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(composition.focus!.id, 's1');
+      expect(composition.focus!.name, 'Paso uno');
+    });
+
+    test('a dormant Epic derives no entry — dormancy asserts nothing '
+        '(AD-21\'s spirit)', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+        _scanStep('s2', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final targets = targetsOf(steps, const [], at: now);
+      expect(
+        targets,
+        isEmpty,
+        reason: 'steps landed but no activation row: no target exists',
+      );
+    });
+
+    test('an orphan epic_activated row derives no entry — the fail-safe '
+        'twin of 5.9\'s orphan pin', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final log = [_epicActivated(utcMicros(2026, 8, 28, 9), 'no-such-step')];
+      expect(targetsOf(steps, log, at: now), isEmpty);
+    });
+
+    test('all steps answered: no entry — nothing owed, and no '
+        'completion row was minted to say so (AD-25)', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's2'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+      ];
+      expect(
+        targetsOf(steps, log, at: now),
+        isEmpty,
+        reason:
+            'the last card_done of the group retires the target by '
+            'derivation alone — no completion row exists or is needed '
+            'to say so (AD-25)',
+      );
+    });
+
+    test('a step skipped today, or superseded by a live rescue chain, '
+        'still counts — neither retires work (AD-25)', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+        _scanStep(
+          's3',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso tres',
+        ),
+      ];
+      final skippedToday = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+      ];
+      final dayStart = const Calendar().dayOf(now, 0).startUtcMicros;
+      // Skipped today: the head rule demotes s1 for the day, the
+      // buffer keeps counting it — R = 3.
+      expect(
+        targetsOf(steps, skippedToday, at: now),
+        {'s1': dayStart + 3 * 2 * _microsPerDay},
+        reason:
+            'a skip consumes nothing — not the draw, not the buffer '
+            '(the head rule\'s own answered set is the only "done")',
+      );
+
+      // Superseded: s1 is a live rescue chain\'s parent — the chain
+      // stands in its place, and s1 still counts toward the horizon.
+      final rescueStep = _stepFact(
+        'r1',
+        utcMicros(2026, 8, 28, 9, 30),
+        's1',
+        line: 'Paso de rescate',
+      );
+      final superseded = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _sliceRow(
+          LogKind.sliceReturned,
+          utcMicros(2026, 8, 28, 10, 0, 2),
+          's1',
+          origin: Origin.cloud,
+        ),
+      ];
+      expect(
+        targetsOf([...steps, rescueStep], superseded, at: now),
+        {'s1': dayStart + 3 * 2 * _microsPerDay},
+        reason:
+            'supersession converts the step, it never retires it — the '
+            'buffer must not invent retirements the substrate forbids',
+      );
+    });
+
+    test('two active Epics with unanswered steps: one entry each, keyed '
+        'by stable id', () {
+      final e1 = [
+        _scanStep(
+          'e1s1',
+          utcMicros(2026, 8, 27, 9),
+          'Proyecto uno',
+          stepText: 'Paso E1',
+        ),
+        _scanStep(
+          'e1s2',
+          utcMicros(2026, 8, 27, 9),
+          'Proyecto uno',
+          stepText: 'Paso E1 bis',
+        ),
+        _scanStep(
+          'e1s3',
+          utcMicros(2026, 8, 27, 9),
+          'Proyecto uno',
+          stepText: 'Paso E1 ter',
+        ),
+      ];
+      final e2 = [
+        _scanStep(
+          'e2s1',
+          utcMicros(2026, 8, 27, 10),
+          'Proyecto dos',
+          stepText: 'Paso E2',
+        ),
+        _scanStep(
+          'e2s2',
+          utcMicros(2026, 8, 27, 10),
+          'Proyecto dos',
+          stepText: 'Paso E2 bis',
+        ),
+        _scanStep(
+          'e2s3',
+          utcMicros(2026, 8, 27, 10),
+          'Proyecto dos',
+          stepText: 'Paso E2 ter',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 27, 11), 'e1s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 12), 'e2s1'),
+        _sessionStarted(utcMicros(2026, 8, 27, 13)),
+        _epicDealt(utcMicros(2026, 8, 27, 13, 0, 1), 'e2s1'),
+        _epicDone(utcMicros(2026, 8, 27, 13, 0, 2), 'e2s1'),
+      ];
+      final dayStart = const Calendar().dayOf(now, 0).startUtcMicros;
+      expect(targetsOf([...e1, ...e2], log, at: now), {
+        // e1: R = 3 → 6 days; e2: R = 2 (one answered) → 4 days.
+        'e1s1': dayStart + 3 * 2 * _microsPerDay,
+        'e2s1': dayStart + 2 * 2 * _microsPerDay,
+      });
+    });
+
+    test('the group key discriminates on BOTH dimensions: same '
+        'context at different instants is two slices, and the same '
+        'instant under different contexts is two slices', () {
+      // Pair A — one space re-sliced: the same Origin Context, two
+      // resolution instants → two groups, two stable ids.
+      final reSliced = [
+        _scanStep(
+          'a1s1',
+          utcMicros(2026, 8, 26, 9),
+          'El trastero',
+          stepText: 'Rebanada uno',
+        ),
+        _scanStep(
+          'a2s1',
+          utcMicros(2026, 8, 27, 9),
+          'El trastero',
+          stepText: 'Rebanada dos',
+        ),
+      ];
+      final aLog = [
+        _epicActivated(utcMicros(2026, 8, 26, 10), 'a1s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 10), 'a2s1'),
+      ];
+      expect(
+        targetsOf(reSliced, aLog, at: now).keys,
+        {'a1s1', 'a2s1'},
+        reason:
+            'the instant alone separates re-slices of one space — two '
+            'entries, never one merged group',
+      );
+
+      // Pair B — two spaces sliced in the same clock tick: the same
+      // instant, different Origin Contexts → two groups.
+      final sameTick = [
+        _scanStep(
+          'b1s1',
+          utcMicros(2026, 8, 27, 9),
+          'Cocina',
+          stepText: 'Paso cocina',
+        ),
+        _scanStep(
+          'b2s1',
+          utcMicros(2026, 8, 27, 9),
+          'Trastero',
+          stepText: 'Paso trastero',
+        ),
+      ];
+      final bLog = [
+        _epicActivated(utcMicros(2026, 8, 27, 10), 'b1s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 10, 0, 1), 'b2s1'),
+      ];
+      expect(targetsOf(sameTick, bLog, at: now).keys, {
+        'b1s1',
+        'b2s1',
+      }, reason: 'the context alone separates same-tick slices');
+    });
+
+    test('a group whose every step is skipped on the derivation day '
+        'offers no head anywhere yet still mints its full-R entry — '
+        'a skip retires nothing', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's2'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+      ];
+      // The draw half: both steps skipped today → the Epic offers no
+      // candidate on any tier (pinned in the 5.9 group's own shape).
+      final day = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(day.focus?.id, isNot(equals('s1')));
+      expect(day.focus?.id, isNot(equals('s2')));
+      // The buffer half: the entry still stands at full R — the day
+      // skipped by, the horizon did not.
+      expect(
+        targetsOf(steps, log, at: now),
+        {
+          's1':
+              const Calendar().dayOf(now, 0).startUtcMicros +
+              2 * 2 * _microsPerDay,
+        },
+        reason:
+            'invisible in every draw today, present in the buffer at '
+            'full R — a skip is a demotion for the day, never a '
+            'retirement',
+      );
+    });
+
+    test('the anchor is the offset\'s own domestic day: the same '
+        'instant derived at three offsets yields three anchors, each '
+        'horizon its own day\'s start plus the same slack', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 26, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 26, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [_epicActivated(utcMicros(2026, 8, 26, 10), 's1')];
+      final facts = walkLog(log, catalogue: _catalogue, poolFacts: steps);
+      final horizons = {
+        for (final offsetSeconds in [0, 13 * 3600, -11 * 3600])
+          offsetSeconds: epicBufferedTargets(
+            steps,
+            facts,
+            const Calendar().dayOf(now, offsetSeconds),
+          )['s1']!,
+      };
+      for (final offsetSeconds in horizons.keys) {
+        expect(
+          horizons[offsetSeconds],
+          const Calendar().dayOf(now, offsetSeconds).startUtcMicros +
+              2 * 2 * _microsPerDay,
+          reason:
+              'offset $offsetSeconds: the whole-day arithmetic rides the '
+              'fixed 24 h frame of that offset\'s own domestic day '
+              '(AD-4)',
+        );
+      }
+      // The truthful distinctness: the ± offsets land on the SAME
+      // UTC anchor (both frames open the 04:00-local window that
+      // contains noon UTC shifted by their offset — symmetric frames
+      // coincide), and the zero-offset anchor stands apart from both
+      // — one instant, two horizons, never a shared UTC midnight.
+      expect(horizons.values.toSet().length, 2);
+      expect(horizons[0], isNot(equals(horizons[13 * 3600])));
+      expect(horizons[0], isNot(equals(horizons[-11 * 3600])));
+    });
+
+    test('the horizon moves later or stays across every non-completion '
+        'state change — never earlier; only real work shortens it '
+        '(FR-13\'s core law)', () {
+      final steps = [
+        for (var i = 1; i <= 3; i++)
+          _scanStep(
+            's$i',
+            _day(0, 9),
+            'El trastero ordenado',
+            stepText: 'Paso $i',
+          ),
+      ];
+      // Day 0: activated, s1 dealt then skipped — a non-completion
+      // state change that consumes nothing.
+      final log = <LogEntry>[
+        _epicActivated(_day(0, 9) + 30 * 1000 * 1000, 's1'),
+        _sessionStarted(_day(0, 10)),
+        _epicDealt(_day(0, 10) + 1 * 1000 * 1000, 's1'),
+        _epicSkipped(_day(0, 10) + 2 * 1000 * 1000, 's1'),
+        _sessionEnded(_day(0, 10) + 3 * 1000 * 1000),
+      ];
+      final day0 = targetsOf(steps, log, at: _day(0, 12))['s1']!;
+      expect(
+        day0,
+        const Calendar().dayOf(_day(0, 12), 0).startUtcMicros +
+            3 * 2 * _microsPerDay,
+        reason: 'R = 3 at day 0 — the skip consumed nothing',
+      );
+
+      // A TRANSITION, not a re-derivation: a new non-completion row
+      // (a skip of the next head) is appended between two compared
+      // derivations — the horizon moves exactly with the anchor and
+      // R is unchanged by the row.
+      log.addAll([
+        _sessionStarted(_day(1, 10)),
+        _epicDealt(_day(1, 10) + 1 * 1000 * 1000, 's2'),
+        _epicSkipped(_day(1, 10) + 2 * 1000 * 1000, 's2'),
+        _sessionEnded(_day(1, 10) + 3 * 1000 * 1000),
+      ]);
+      final day1 = targetsOf(steps, log, at: _day(1, 12))['s1']!;
+      expect(
+        day1 - day0,
+        _microsPerDay,
+        reason:
+            'a skip between derivations costs one day of anchor and '
+            'nothing else — R stays 3, the horizon never jumps',
+      );
+
+      // Absence after that: days 2–7 write nothing; the same facts
+      // derived at day 8 re-anchor eight days past day 0.
+      final day8 = targetsOf(steps, log, at: _day(8, 12))['s1']!;
+      expect(
+        day8 - day0,
+        8 * _microsPerDay,
+        reason:
+            'the absence moved the horizon exactly with the anchor — '
+            'later, never blown through, never earlier',
+      );
+
+      // And only real work shortens it: answering s1 at day 30 drops
+      // R to 2 — pinned RELATIVE to the same-day pre-completion
+      // horizon, the one legal shortening.
+      final beforeAnswer = targetsOf(steps, log, at: _day(30, 12))['s1']!;
+      final answered = [
+        ...log,
+        _sessionStarted(_day(30, 11)),
+        _epicDealt(_day(30, 11) + 1 * 1000 * 1000, 's1'),
+        _epicDone(_day(30, 11) + 2 * 1000 * 1000, 's1'),
+        _sessionEnded(_day(30, 11) + 3 * 1000 * 1000),
+      ];
+      final afterAnswer = targetsOf(steps, answered, at: _day(30, 12))['s1']!;
+      expect(
+        beforeAnswer - afterAnswer,
+        2 * _microsPerDay,
+        reason:
+            'a card_done is the only thing that brings the horizon '
+            'closer — work done, never time owed; the same sitting, '
+            'R 3 → 2, exactly two days shorter',
+      );
+      expect(
+        afterAnswer,
+        const Calendar().dayOf(_day(30, 12), 0).startUtcMicros +
+            2 * 2 * _microsPerDay,
+        reason: 'the absolute shape holds too: R = 2 at the day-30 anchor',
+      );
+    });
+  });
 }

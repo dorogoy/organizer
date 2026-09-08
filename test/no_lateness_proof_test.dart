@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -181,6 +182,109 @@ void main() {
       findings,
       isEmpty,
       reason: 'nothing was assigned to a future day, so nothing needs re-planning — a rescheduler or postponement identifier in the shell or the core is the schema change FR-14 and NFR9 forbid',
+    );
+  });
+
+  test('slack appears on no surface: a masked scan of lib/ui and the raw '
+      'string table for buffer, slack and remaining-days vocabulary finds '
+      'zero (FR-13, §1.1 P4, Story 5.10)', () {
+    // The buffer derivation (core's epicBufferedTargets, Story 5.10)
+    // is invisible-by-position, not unnameable: the words stay legal
+    // in the core and illegal on every surface — which is the entire
+    // doctrine of the invisible buffer. The scan therefore reads the
+    // surfaces alone: lib/ui (strings intact — user-visible copy is
+    // exactly what must not carry the vocabulary — comments stripped,
+    // so prose cannot move the pin; the identifier channels are
+    // covered too, since a daysRemaining variable is as visible as a
+    // string) and the lib/l10n/*.arb string table — parsed, its KEYS
+    // (they name the generated accessors) and RENDERED VALUES
+    // scanned, its `@`-translator prose exempt.
+    // `image_cap`'s byte buffers (lib/egress) live outside the scope:
+    // a JPEG read buffer is not slack. Deliberately omitted:
+    // `progreso|progress` — AD-26's achievement figures may
+    // legitimately name cumulative achievement later, and that is a
+    // different doctrine from remaining-time slack.
+    expect(
+      Directory('lib/ui').existsSync(),
+      isTrue,
+      reason: 'lib/ui/ is gone — the surface scan would run vacuously',
+    );
+    expect(
+      Directory('lib/l10n').existsSync(),
+      isTrue,
+      reason: 'lib/l10n/ is gone — the string table scan would run vacuously',
+    );
+    final uiFiles = _dartFilesUnder('lib/ui');
+    expect(
+      uiFiles,
+      hasLength(greaterThanOrEqualTo(20)),
+      reason: 'the UI tree shrank below a non-trivial surface count',
+    );
+    final arbFiles = Directory('lib/l10n')
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.arb'))
+        .toList();
+    expect(arbFiles, isNotEmpty, reason: 'no string table to scan');
+
+    // Every segment below was verified zero over the masked surfaces
+    // before being pinned — Spanish and English, identifiers and
+    // strings alike. Stems, not words, so the whole family trips:
+    // `restan` catches «restante» and «Te restan», `venc` catches
+    // «vence/vencerá/vencimiento/vencid», `atras` catches
+    // «atraso/atrasad@», `remaining` catches `daysRemaining` and the
+    // core's own `remainingSteps` term should it ever leak to a
+    // surface, `deadline` the English loan. `progreso|progress` stays
+    // out (AD-26's achievement figures) and `horizonte|horizon` too
+    // (a neutral word the achievement surfaces may someday own).
+    final pattern = RegExp(
+      'buffer|slack|holgura|restan|quedan|faltan|plazo|venc|atras'
+      '|remaining|deadline',
+      caseSensitive: false,
+    );
+    // A positive control per language family, so a broken or emptied
+    // RegExp cannot pass the pin vacuously.
+    expect(pattern.hasMatch('holgura'), isTrue);
+    expect(pattern.hasMatch('Te restan 3 pasos'), isTrue);
+    expect(pattern.hasMatch('vencimiento'), isTrue);
+    expect(pattern.hasMatch('daysRemaining'), isTrue);
+    expect(pattern.hasMatch('deadline'), isTrue);
+    final findings = <String>[];
+    for (final file in uiFiles) {
+      final masked = _withoutComments(file.readAsStringSync());
+      for (final match in pattern.allMatches(masked)) {
+        findings.add(
+          '${_key(file)}:${_lineOf(masked, match.start)}:'
+          ' ${match.group(0)}',
+        );
+      }
+    }
+    // The string table's leg reads KEYS and RENDERED VALUES only:
+    // parsed as JSON, every `@`-metadata entry is skipped. Translator
+    // prose is where this vocabulary law is *stated* — e.g.
+    // `@pocketTrigger`'s "never remaining minutes" — never where it
+    // renders; a key name leaks into the generated accessors, a
+    // value renders on screen, and both stay under the scan.
+    for (final file in arbFiles) {
+      final table = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+      for (final entry in table.entries) {
+        if (entry.key.startsWith('@')) {
+          continue;
+        }
+        final scanned = '${entry.key} ${entry.value}';
+        for (final match in pattern.allMatches(scanned)) {
+          findings.add('${_key(file)}:${entry.key}: ${match.group(0)}');
+        }
+      }
+    }
+    expect(
+      findings,
+      isEmpty,
+      reason:
+          'slack must appear on no surface — no bar, no percentage, no '
+          'days-remaining, no configuration row; a buffer or slack '
+          'string on a UI surface or in the string table is a visible '
+          'buffer, which FR-13 forbids',
     );
   });
 
