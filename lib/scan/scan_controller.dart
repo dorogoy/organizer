@@ -801,8 +801,11 @@ class ScanController {
 /// rescue contract's canonical schema — the literal-audit's
 /// allowance is per-declaration. The JSON shape's four field names
 /// are interpolated from `scan_steps.dart`'s own wire-name consts
+/// inside the ONE shared contract const (`scanResponseContract`,
+/// Story 5.8's single source — the genesis prompt interpolates the
+/// same sentence, so no copy can drift)
 /// (`rescue_contract.dart`'s single-source precedent — no copy can
 /// drift); parity is pinned from the test side (prompt ↔ parse ↔
 /// Local stub).
 const String _scanPrompt =
-    'Eres el asistente de una app móvil de organización del hogar. Recibirás una foto real de un espacio doméstico desordenado. Tu tarea es convertirla en un plan corto que una persona pueda ejecutar hoy mismo, paso a paso. Escribe cada paso como una acción concreta y directa sobre objetos que se vean en la foto — no inventes objetos ni espacios, y da un orden ejecutable de principio a fin. La respuesta incluye también una descripción: una frase que describa el espacio tal como está. Cada paso lleva su duración como un número entero de minutos entre 3 y 5. Responde únicamente con un objeto JSON con la forma {"$scanWireDescriptionField": "…", "$scanWireStepsField": [{"$scanWireTextField": "…", "$scanWireDurationField": 4}]}, y nada más.';
+    'Eres el asistente de una app móvil de organización del hogar. Recibirás una foto real de un espacio doméstico desordenado. Tu tarea es convertirla en un plan corto que una persona pueda ejecutar hoy mismo, paso a paso. Escribe cada paso como una acción concreta y directa sobre objetos que se vean en la foto — no inventes objetos ni espacios, y da un orden ejecutable de principio a fin. La respuesta incluye también una descripción: una frase que describa el espacio tal como está. Cada paso lleva su duración como un número entero de minutos entre 3 y 5. $scanResponseContract';

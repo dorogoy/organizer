@@ -127,11 +127,21 @@ void main() {
         ).where((finding) => finding.message.contains('egress import')),
         isNotEmpty,
       );
-      // The composition exceptions are exactly two files, one import
-      // each.
+      // Story 5.8 grows the same exception to the genesis controller,
+      // the typed channel's copy of the same landing derivation.
+      expect(
+        scanDartSource(
+          file: 'lib/genesis/genesis_controller.dart',
+          source: localTypeCheck,
+        ).where((finding) => finding.message.contains('egress import')),
+        isEmpty,
+      );
+      // The composition exceptions are exactly three files, one
+      // import each.
       expect(egressImportsLegalByFile, {
         'lib/main.dart': {'slicer_factory.dart'},
         'lib/scan/scan_controller.dart': {'local_slicer.dart'},
+        'lib/genesis/genesis_controller.dart': {'local_slicer.dart'},
       });
       expect(egressImportsLegalAnywhere, {'provider_allowlist.dart'});
     });

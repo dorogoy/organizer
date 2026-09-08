@@ -818,6 +818,12 @@ void main() {
       expect(request.prompt, contains('"$scanWireDurationField"'));
       expect(request.prompt, contains('"description"'));
       expect(request.prompt, contains('"duration_minutes"'));
+      // The shared-contract pin (Story 5.8's review): the prompt ends
+      // with the ONE core-owned sentence — the same const the
+      // genesis prompt interpolates — so neither entrance's contract
+      // phrasing can drift from the other while these pins stay
+      // green.
+      expect(request.prompt, endsWith(scanResponseContract));
       expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
       expect(files.unlinkedScans, [passed.scanId]);
       // One decision and one token: a second accept is nothing at all.

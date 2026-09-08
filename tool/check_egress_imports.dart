@@ -55,10 +55,13 @@ const Set<String> egressImportsLegalAnywhere = {'provider_allowlist.dart'};
 /// adds the scan controller's one composition read: the landing's
 /// origin derivation names the Local stub's type (`local` on the
 /// debug path, `cloud` on BYOK) — a type check the spec itself
-/// expresses there, never a call into the shape.
+/// expresses there, never a call into the shape. Story 5.8 grows the
+/// same exception to the genesis controller, the typed channel's
+/// own copy of the same landing derivation.
 const Map<String, Set<String>> egressImportsLegalByFile = {
   'lib/main.dart': {'slicer_factory.dart'},
   'lib/scan/scan_controller.dart': {'local_slicer.dart'},
+  'lib/genesis/genesis_controller.dart': {'local_slicer.dart'},
 };
 
 /// HTTP-client packages (by package name) whose import is forbidden

@@ -8,6 +8,7 @@ import 'crash.dart';
 import 'dispenser/dispenser_controller.dart';
 import 'egress/slicer_factory.dart';
 import 'files/app_files.dart';
+import 'genesis/genesis_controller.dart';
 import 'platform/credentials/credentials_cipher.dart';
 import 'platform/dictate/dictate_recognizer.dart';
 import 'plugins/camera/plugin_camera_shell.dart';
@@ -102,6 +103,17 @@ void main() {
     readSelectedProvider: settings.readSelectedProvider,
     writeQueue: logWrites,
   );
+  // The typed genesis seam (Story 5.8, FR-11, FR-25): the scan
+  // channel's discipline minus the photo mechanics — same store,
+  // same shared write queue, the SAME production Slicer and the same
+  // selected-provider read, composed here at the root like its scan
+  // sibling and threaded to the `Nuevo proyecto` surface.
+  final genesis = GenesisController(
+    store: store,
+    slicer: slicer,
+    readSelectedProvider: settings.readSelectedProvider,
+    writeQueue: logWrites,
+  );
   // The route-awareness observer (Story 5.2): registered with the
   // navigator and threaded to the Dispenser, so a Settings toggle that
   // moves the Cámara entry lands the moment the way-out chain pops
@@ -146,6 +158,10 @@ void main() {
         // same store, same shared write queue, the camera facade and
         // the face gate composed above.
         scan: scan,
+        // The typed genesis seam (Story 5.8): the `Nuevo proyecto`
+        // surface's channel — same store, same shared write queue,
+        // the one production Slicer.
+        genesis: genesis,
         // The credential vault (Story 4.3): one instance, constructed
         // in main beside the cipher seam it consumes — the Settings
         // key path (4-4) is its first reader, and nothing here pulls
@@ -178,6 +194,7 @@ class OrganizerApp extends StatelessWidget {
     this.capture,
     this.dictation,
     this.scan,
+    this.genesis,
     this.vault,
     this.slicer,
     this.routeObserver,
@@ -202,6 +219,12 @@ class OrganizerApp extends StatelessWidget {
   /// entry — same store, same shared write queue, the camera facade
   /// and the face gate composed in main.
   final ScanController? scan;
+
+  /// The typed genesis seam (Story 5.8), threaded into the Dispenser's
+  /// `Nuevo proyecto` way-out — the scan channel's discipline minus
+  /// the photo mechanics, over the same store and the one production
+  /// Slicer.
+  final GenesisController? genesis;
 
   /// The credential vault (Story 4.3, AD-22), constructed once in
   /// main — the shell's only seal/unseal composition, consumed by
@@ -242,6 +265,7 @@ class OrganizerApp extends StatelessWidget {
               capture: capture,
               dictation: dictation,
               scan: scan,
+              genesis: genesis,
               routeObserver: routeObserver,
             ),
     );

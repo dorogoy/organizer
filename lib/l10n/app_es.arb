@@ -151,10 +151,10 @@
     "description": "Session close on pool exhaustion (FR-3) — neutral, warm; never an error, never an empty state styled as absence or debt. Part of the SM-C2 audit table."
   },
 
-  "noSlicerNoKey": "No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.",
+  "noSlicerNoKey": "No hay clave de IA guardada. Crear un proyecto con una foto o con una descripción necesita una; puedes añadirla en Ajustes.",
   "@noSlicerNoKey": {
-    "description": "No-Slicer surface · no key configured — an objective problem of the app, not of the home: state the fact, name the remedy, no cushioning.",
-    "x-signoff": "Sergio, 2026-08-27"
+    "description": "No-Slicer surface · no key configured — an objective problem of the app, not of the home: state the fact, name the remedy, no cushioning. Reworded Story 5.8 to name both genesis halves — a photo or a description — so the photo path never steals the typed path's diagnosis.",
+    "x-signoff": "Sergio, 2026-09-07"
   },
 
   "noSlicerInvalidKey": "La clave guardada no es válida. Puedes revisarla en Ajustes.",
@@ -345,6 +345,16 @@
   "genesisBack": "Volver",
   "@genesisBack": {
     "description": "Typed project genesis — the quiet way out."
+  },
+
+  "genesisBody": "La descripción se analizará para crear las tareas.",
+  "@genesisBody": {
+    "description": "Typed project genesis (Story 5.8, FR-25, NFR4) — the body copy stating analysis→tasks with the destination stated and the provider unnamed; `Analizar` is the consent act itself, no separate dialog."
+  },
+
+  "genesisFieldHint": "Describe el proyecto",
+  "@genesisFieldHint": {
+    "description": "Typed project genesis (Story 5.8, FR-11) — the description field's hint."
   },
 
   "curationInvitation": "Ajustar grupos de tareas",

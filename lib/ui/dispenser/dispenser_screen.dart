@@ -55,6 +55,7 @@ import 'package:flutter/services.dart';
 import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
+import '../../genesis/genesis_controller.dart';
 import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
@@ -100,6 +101,7 @@ class DispenserScreen extends StatefulWidget {
     this.capture,
     this.dictation,
     this.scan,
+    this.genesis,
     this.routeObserver,
   });
 
@@ -132,6 +134,14 @@ class DispenserScreen extends StatefulWidget {
   /// no controller behind it — the surface renders its empty frame
   /// and nothing writes.
   final ScanController? scan;
+
+  /// The typed genesis seam (Story 5.8, FR-11, FR-25): main
+  /// constructs it over the same store, the shared write queue and
+  /// the one production Slicer, and the `Nuevo proyecto` way-out
+  /// hands it to the typed genesis surface. Absent (the test seam),
+  /// the way-out still opens the surface with no controller behind
+  /// it — an `Analizar` answers nothing.
+  final GenesisController? genesis;
 
   /// The route-awareness seam (Story 5.2): the observer main also
   /// registers with the MaterialApp, so a way-out chain popping back
@@ -1001,11 +1011,11 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// The `Nuevo proyecto` way-out's push (Story 2.1, NFR3, AD-26): the
-  /// footer's one prose departure opens the intermediate surface that
-  /// carries the `Ajustes` way-out alone — no confirmation, no writes,
-  /// and the surface below stands exactly as it is until the route
-  /// pops back.
+  /// The `Nuevo proyecto` way-out's push (Story 2.1, NFR3, AD-26;
+  /// the typed channel since Story 5.8): the footer's one prose
+  /// departure opens the typed genesis surface — no confirmation, no
+  /// writes, and the surface below stands exactly as it is until the
+  /// route pops back.
   void _openNuevoProyecto() {
     // A rapid second tap during the route transition would stack
     // a second route: while another route is coming in, this one
@@ -1014,7 +1024,10 @@ class _DispenserScreenState extends State<DispenserScreen>
     if (ModalRoute.of(context)?.isCurrent ?? false) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => NuevoProyectoScreen(settings: widget.settings),
+          builder: (context) => NuevoProyectoScreen(
+            settings: widget.settings,
+            genesis: widget.genesis,
+          ),
         ),
       );
     }

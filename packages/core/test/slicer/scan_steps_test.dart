@@ -36,6 +36,23 @@ void main() {
       expect(scanWireTextField, 'text');
       expect(scanWireDurationField, 'duration_minutes');
     });
+
+    test('the response contract advertises a complete JSON object', () {
+      final example = scanResponseContract
+          .replaceFirst(
+            'Responde únicamente con un objeto JSON con la forma ',
+            '',
+          )
+          .replaceFirst(', y nada más.', '');
+      final decoded = jsonDecode(example);
+
+      expect(decoded, {
+        scanWireDescriptionField: '…',
+        scanWireStepsField: [
+          {scanWireTextField: '…', scanWireDurationField: 4},
+        ],
+      });
+    });
   });
 
   group('parseScanSlice', () {

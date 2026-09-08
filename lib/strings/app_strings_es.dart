@@ -112,7 +112,7 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get noSlicerNoKey =>
-      'No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.';
+      'No hay clave de IA guardada. Crear un proyecto con una foto o con una descripción necesita una; puedes añadirla en Ajustes.';
 
   @override
   String get noSlicerInvalidKey =>
@@ -233,6 +233,13 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get genesisBack => 'Volver';
+
+  @override
+  String get genesisBody =>
+      'La descripción se analizará para crear las tareas.';
+
+  @override
+  String get genesisFieldHint => 'Describe el proyecto';
 
   @override
   String get curationInvitation => 'Ajustar grupos de tareas';

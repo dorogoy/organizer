@@ -257,10 +257,10 @@ abstract class AppStrings {
   /// **'por hoy no hay nada más que merezca la pena'**
   String get poolExhaustedClose;
 
-  /// No-Slicer surface · no key configured — an objective problem of the app, not of the home: state the fact, name the remedy, no cushioning.
+  /// No-Slicer surface · no key configured — an objective problem of the app, not of the home: state the fact, name the remedy, no cushioning. Reworded Story 5.8 to name both genesis halves — a photo or a description — so the photo path never steals the typed path's diagnosis.
   ///
   /// In es, this message translates to:
-  /// **'No hay clave de IA guardada. Crear un proyecto a partir de una foto necesita una; puedes añadirla en Ajustes.'**
+  /// **'No hay clave de IA guardada. Crear un proyecto con una foto o con una descripción necesita una; puedes añadirla en Ajustes.'**
   String get noSlicerNoKey;
 
   /// No-Slicer surface · invalid key — the rewrite of the PRD's flagged `tu clave no es válida`: the shaming lived in the possessive, not in the judgment.
@@ -460,6 +460,18 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Volver'**
   String get genesisBack;
+
+  /// Typed project genesis (Story 5.8, FR-25, NFR4) — the body copy stating analysis→tasks with the destination stated and the provider unnamed; `Analizar` is the consent act itself, no separate dialog.
+  ///
+  /// In es, this message translates to:
+  /// **'La descripción se analizará para crear las tareas.'**
+  String get genesisBody;
+
+  /// Typed project genesis (Story 5.8, FR-11) — the description field's hint.
+  ///
+  /// In es, this message translates to:
+  /// **'Describe el proyecto'**
+  String get genesisFieldHint;
 
   /// One-time first-run curation invitation — appears once ever, never returns once dismissed.
   ///

@@ -97,8 +97,8 @@ DateTime _fixedClock() => DateTime.utc(2026, 9, 2, 10);
 /// `lib/**` (AD-15), never `test/`.
 const Map<NoSlicerCause, String> _authoredCauseText = {
   NoSlicerCause.noKey:
-      'No hay clave de IA guardada. Crear un proyecto a partir de una foto '
-      'necesita una; puedes añadirla en Ajustes.',
+      'No hay clave de IA guardada. Crear un proyecto con una foto o con '
+      'una descripción necesita una; puedes añadirla en Ajustes.',
   NoSlicerCause.invalidKey:
       'La clave guardada no es válida. Puedes revisarla en Ajustes.',
   NoSlicerCause.quotaExhausted:
@@ -509,10 +509,11 @@ void main() {
   test('the surface\'s callers are frozen — its own file names the widget, '
       'the Dispenser screen (Story 4-6\'s rescue failure), the scan '
       'surface (Story 5.2\'s face refusal, on the cause 4-5 shipped for '
-      'this caller) and the consent gate (Story 5.5\'s decline and '
+      'this caller), the consent gate (Story 5.5\'s decline and '
       'failure arms, renegotiated additively when the caller arrived) '
-      'are the push sites; later callers renegotiate this census when '
-      'they arrive', () {
+      'and the genesis surface (Story 5.8\'s no-key read and failure '
+      'arms, the typed channel\'s own pushes) are the push sites; '
+      'later callers renegotiate this census when they arrive', () {
     final libDir = Directory('lib');
     expect(libDir.existsSync(), isTrue, reason: 'the scan must see a lib/');
     var files = 0;
@@ -542,11 +543,12 @@ void main() {
     expect(files, greaterThan(30), reason: 'a non-trivial lib/ was scanned');
     expect(
       referers,
-      hasLength(4),
+      hasLength(5),
       reason:
           'only the surface\'s own file, the Dispenser\'s rescue '
-          'failure push, the scan surface\'s face-refusal push and '
-          'the consent gate\'s decline/failure pushes may name it',
+          'failure push, the scan surface\'s face-refusal push, the '
+          'consent gate\'s decline/failure pushes and the genesis '
+          'surface\'s no-key/failure pushes may name it',
     );
     expect(
       referers.any(
@@ -576,6 +578,16 @@ void main() {
       reason:
           "the 5.5 decline and failure arms push it — the surface's "
           'own consentDeclined cause and the standing failure map',
+    );
+    expect(
+      referers.any(
+        (path) => path.endsWith('lib/ui/settings/nuevo_proyecto_screen.dart'),
+      ),
+      isTrue,
+      reason:
+          'the 5.8 typed channel pushes it — the fail-closed no-key '
+          'read before any dispatch and the failure arms\' standing '
+          'map',
     );
   });
 }
