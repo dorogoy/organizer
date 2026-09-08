@@ -119,6 +119,18 @@ context:
 - Given a pre-v11 substrate, when the app opens, then migration is additive and legacy rows read clean (AD-23).
 - Given no curation rows at all, when a day composes, then every cluster is active and the day is never empty (FR-31).
 
+### Review Findings
+
+- [x] [Review][Patch] Screen-wide `_writing` drops a second cluster flip while another is in flight [`lib/ui/settings/curation_screen.dart:131`]
+- [x] [Review][Patch] Successful write then failed re-read leaves the switch stuck on pre-write state [`lib/ui/settings/curation_screen.dart:138`]
+- [x] [Review][Patch] Settings file header and `IA y voz` block still describe a two-group tree [`lib/ui/settings/settings_screen.dart:3`]
+- [x] [Review][Patch] UX-DR33 numbering calls Contenido “third” while the design’s second-of-five sits as the second group [`lib/ui/settings/settings_screen.dart:31`]
+- [x] [Review][Patch] `_appendContent` still says three `setting_changed` writers and omits the curation copier [`lib/settings/settings_controller.dart:337`]
+- [x] [Review][Patch] v10→v11 half-upgraded case seeds both columns; no crash between the two ALTERs [`test/store/substrate_test.dart:3149`]
+- [x] [Review][Patch] Settings nav-chain never asserts the pushed `CurationScreen` is wired to the controller [`test/ui/settings/settings_screen_test.dart:1318`]
+- [x] [Review][Patch] `writeClusterCuration` equal-value guard is untested on a mid-week zone re-enable [`test/ui/settings/curation_screen_test.dart:562`]
+- [x] [Review][Patch] Curation foreign-payload exclusions only assert `flaw isNotNull`, not the specific family [`packages/core/test/log_test.dart:1830`]
+
 ## Spec Change Log
 
 ## Design Notes

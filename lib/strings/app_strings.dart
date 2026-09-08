@@ -383,7 +383,7 @@ abstract class AppStrings {
   /// **'Reactivar la cámara'**
   String get settingsCameraReactivate;
 
-  /// Settings — the Contenido de la casa group header (Story 5.11, UX-DR33): the flat platform list's third quiet group, holding the one entry row into cluster curation. Quiet support copy, ink-secondary; nothing curation-related renders anywhere else in the tree.
+  /// Settings — the Contenido de la casa group header (Story 5.11, UX-DR33): the flat platform list's second-of-five quiet group, currently the second of three, holding the one entry row into cluster curation. Quiet support copy, ink-secondary; nothing curation-related renders anywhere else in the tree.
   ///
   /// In es, this message translates to:
   /// **'Contenido de la casa'**

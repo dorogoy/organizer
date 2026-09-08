@@ -2958,6 +2958,7 @@ void main() {
     Future<void> takeOverWithV10({
       bool seedRows = true,
       bool curationColumns = false,
+      bool clusterColumnOnly = false,
     }) async {
       await db.close();
       db = SubstrateDatabase(
@@ -2992,7 +2993,11 @@ void main() {
                   'report_week INTEGER NULL, '
                   'permission TEXT NULL, '
                   'slice_cause TEXT NULL'
-                  '${curationColumns ? ', cluster TEXT NULL, enabled BOOL NULL' : ''})',
+                  '${curationColumns
+                      ? ', cluster TEXT NULL, enabled BOOL NULL'
+                      : clusterColumnOnly
+                      ? ', cluster TEXT NULL'
+                      : ''})',
               'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
                   "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
                   "insert-only (AD-2)'); END",
@@ -3014,7 +3019,11 @@ void main() {
                     "'setting_changed', 200, 3600, NULL, NULL, NULL, "
                     "'time_bag', 20, NULL, NULL, NULL, NULL, NULL, NULL, "
                     'NULL'
-                    "${curationColumns ? ', NULL, NULL' : ''})",
+                    "${curationColumns
+                        ? ', NULL, NULL'
+                        : clusterColumnOnly
+                        ? ', NULL'
+                        : ''})",
               'PRAGMA user_version = 10',
             ]) {
               rawDb.execute(statement);
@@ -3144,6 +3153,44 @@ void main() {
       expect(logAfter, hasLength(2));
       expect(logAfter.last.cluster, 'fondo');
       expect(logAfter.last.enabled, isFalse);
+    });
+
+    test('a v10 install that died after the first v11 ALTER but before '
+        'the second — cluster present, enabled absent — finishes the '
+        'upgrade without re-adding cluster', () async {
+      await takeOverWithV10(clusterColumnOnly: true);
+      expect(db.schemaVersion, 11);
+      final logColumns =
+          (await db.customSelect('PRAGMA table_info(log_entries)').get())
+              .map((row) => row.read<String>('name'))
+              .toList();
+      expect(
+        logColumns,
+        hasLength(18),
+        reason: 'cluster once from the crash, enabled added, never doubled',
+      );
+      expect(logColumns, containsAll(['cluster', 'enabled']));
+      await store.appendLogEntry((
+        id: 'v11-curation',
+        kind: 'cluster_curation_changed',
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: 'anclas',
+        enabled: false,
+      ));
+      expect((await store.readLogEntries()).last.enabled, isFalse);
     });
 
     test('a v10 install that died after the two v11 ALTERs but before '

@@ -1368,6 +1368,33 @@ void main() {
       expect(store.entries, isEmpty);
     });
 
+    testWidgets('the pushed sub-screen is wired to the Settings '
+        'controller — a row tap appends on the same store', (tester) async {
+      await useTallSurface(tester);
+      final store = _RecordingStore();
+      final settings = SettingsController(store: store, nowOf: _fixedClock);
+      await tester.pumpWidget(harness(store, settings: settings));
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(AppStringsEs().settingsCurationGroups));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<CurationScreen>(find.byType(CurationScreen)).controller,
+        same(settings),
+      );
+
+      await tester.tap(find.text(AppStringsEs().curationClusterAnclas));
+      await tester.pumpAndSettle();
+      final rows = store.entries.where(
+        (entry) => entry.kind == LogKind.clusterCurationChanged.name,
+      );
+      expect(rows, hasLength(1));
+      expect(rows.single.cluster, 'anclas');
+      expect(rows.single.enabled, isFalse);
+    });
+
     testWidgets('a rapid double tap on the entry row stacks one '
         'sub-screen route, not two — the transition guard holds', (
       tester,

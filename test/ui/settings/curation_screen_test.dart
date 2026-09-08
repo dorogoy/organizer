@@ -73,9 +73,9 @@ class _FailFirstAppendStore extends _RecordingStore {
   }
 }
 
-/// A store whose first `appendLogEntry` parks until released — the
-/// in-flight write, held open so a second tap lands while the flip's
-/// own write-and-re-read flight is still running.
+/// A store whose every `appendLogEntry` parks until released — the
+/// in-flight write, held open so a second tap lands while the first
+/// flip's write is still running.
 class _GatedFirstAppendStore extends _RecordingStore {
   final _gate = Completer<void>();
 
@@ -84,6 +84,26 @@ class _GatedFirstAppendStore extends _RecordingStore {
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) =>
       _gate.future.then((_) => super.appendLogEntry(entry));
+}
+
+/// A store whose reads succeed until the first append, then throw —
+/// a successful write whose re-read fails.
+class _FailReadAfterAppendStore extends _RecordingStore {
+  var _appended = false;
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    await super.appendLogEntry(entry);
+    _appended = true;
+  }
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async {
+    if (_appended) {
+      throw StateError('read failed');
+    }
+    return super.readLogEntries();
+  }
 }
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
@@ -479,17 +499,18 @@ void main() {
     expect(switchOf(tester, CurationCluster.anclas).value, isTrue);
   });
 
-  testWidgets('a tap while a flip is still in flight is held off — one '
-      'row for one intent, the flight\'s own re-read moves the switch', (
-    tester,
-  ) async {
+  testWidgets('a second tap on the same row while a flip is in flight '
+      'does not append a duplicate — the write-queue equal-value '
+      'guard is the only lock', (tester) async {
     await useTallSurface(tester);
     final store = _GatedFirstAppendStore();
     await tester.pumpWidget(harnessFor(store));
     await tester.pumpAndSettle();
 
     // The first flip parks inside its append; a second tap on the
-    // same row lands while the flight is running.
+    // same row lands while the flight is running. The controlled
+    // switch still shows on, so both taps propose off; the second
+    // write no-ops once the first row is in the log.
     await tester.tap(find.text(es.curationClusterAnclas));
     await tester.pump();
     await tester.tap(find.text(es.curationClusterAnclas));
@@ -502,9 +523,56 @@ void main() {
         (entry) => entry.kind == LogKind.clusterCurationChanged.name,
       ),
       hasLength(1),
-      reason: 'the in-flight guard swallowed the duplicate intent',
+      reason: 'the queued equal-value guard swallowed the duplicate intent',
     );
     expect(switchOf(tester, CurationCluster.anclas).value, isFalse);
+  });
+
+  testWidgets('a second cluster flip while another is in flight still '
+      'lands — the write queue serializes independent acts', (tester) async {
+    await useTallSurface(tester);
+    final store = _GatedFirstAppendStore();
+    await tester.pumpWidget(harnessFor(store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(es.curationClusterAnclas));
+    await tester.pump();
+    await tester.tap(find.text(es.curationClusterFondo));
+    await tester.pump();
+    store.release();
+    await tester.pumpAndSettle();
+
+    final rows = store.entries
+        .where((entry) => entry.kind == LogKind.clusterCurationChanged.name)
+        .toList();
+    expect(rows, hasLength(2));
+    expect(rows.map((row) => row.cluster).toList(), ['anclas', 'fondo']);
+    expect(rows.every((row) => row.enabled == false), isTrue);
+    expect(switchOf(tester, CurationCluster.anclas).value, isFalse);
+    expect(switchOf(tester, CurationCluster.fondo).value, isFalse);
+  });
+
+  testWidgets('a successful write whose re-read fails still lands the '
+      'declared bit on the switch — the row just written is the '
+      'truth', (tester) async {
+    await useTallSurface(tester);
+    final store = _FailReadAfterAppendStore();
+    await tester.pumpWidget(harnessFor(store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(es.curationClusterAnclas));
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where(
+        (entry) => entry.kind == LogKind.clusterCurationChanged.name,
+      ),
+      hasLength(1),
+    );
+    expect(
+      switchOf(tester, CurationCluster.anclas).value,
+      isFalse,
+      reason: 'the switch follows the written row even if the re-read throws',
+    );
   });
 
   testWidgets('a tap in the unread window retries the read and writes '
@@ -575,6 +643,23 @@ void main() {
     // And back: one row.
     await controller.writeClusterCuration(CurationCluster.anclas, false);
     expect(store.entries, hasLength(3));
+  });
+
+  test('a mid-week zone re-enable writes a second row — the guard '
+      'reads declared state, not composition timing', () async {
+    final store = _RecordingStore();
+    final controller = SettingsController(store: store, nowOf: _fixedClock);
+
+    await controller.writeClusterCuration(CurationCluster.z1, false);
+    expect(store.entries, hasLength(1));
+    await controller.writeClusterCuration(CurationCluster.z1, true);
+    expect(
+      store.entries,
+      hasLength(2),
+      reason: 'composition still holds z1 this week; the switch must bounce',
+    );
+    expect(store.entries.last.cluster, 'z1');
+    expect(store.entries.last.enabled, isTrue);
   });
 
   testWidgets('the null-controller chain: the rows render on the '

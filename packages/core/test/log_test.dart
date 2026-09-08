@@ -1776,61 +1776,94 @@ void main() {
 
     test('a curation row carrying any other payload family is '
         'excluded, never coerced', () {
-      final payloaded = <LogEntryRecord>[
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          itemId: 'man-a',
-          itemOrigin: Origin.shipped,
+      final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+          LogRecordFlaw.itemOnNonItemKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          stack: 'a-stack',
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            stack: 'a-stack',
+          ),
+          LogRecordFlaw.stackOffCrashKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          settingKey: 'time_bag',
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          pocketMinutes: 15,
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            settingTextValue: 'openai',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          energyLevel: 1,
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          reportValue: 3,
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            energyLevel: 1,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          permission: 'camera',
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            reportValue: 3,
+          ),
+          LogRecordFlaw.reportOnNonReportKind,
         ),
-        _record(
-          'cluster_curation_changed',
-          cluster: 'z1',
-          enabled: true,
-          sliceCause: 'invalidKey',
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            permission: 'camera',
+          ),
+          LogRecordFlaw.permissionOnNonPermissionKind,
+        ),
+        (
+          _record(
+            'cluster_curation_changed',
+            cluster: 'z1',
+            enabled: true,
+            sliceCause: 'invalidKey',
+          ),
+          LogRecordFlaw.causeOnNonFailedKind,
         ),
       ];
-      for (final row in payloaded) {
+      for (final (row, flaw) in payloaded) {
         expect(
           convertLogEntryRecord(row).flaw,
-          isNotNull,
+          flaw,
           reason: 'a curation row carries its own payload and no other',
         );
       }

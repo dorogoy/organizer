@@ -1,6 +1,6 @@
 // Settings (Story 2.1, UX-DR33): a flat platform list — a ListView in
 // the frame idiom, scrolling at 200% with nothing truncated — whose
-// first and only group is **Tu día**, holding the Time Bag as one row
+// first group is **Tu día**, holding the Time Bag as one row
 // of stepped options. Group headers are quiet support copy; light/dark
 // follows the system with no row anywhere; no settings glyph exists
 // (the ten-glyph set is pinned without one). Setting the bag appends
@@ -29,7 +29,7 @@
 // switch itself, ever.
 //
 // Story 5.11 adds the `Contenido de la casa` group (FR-31, UX-DR33's
-// third): one entry row between `Tu día` and `IA y voz` pushing the
+// second of five): one entry row between `Tu día` and `IA y voz` pushing the
 // curation sub-screen of eight cluster switches — the only place in
 // the tree curation renders, nothing visible from or near the
 // Dispenser.
@@ -293,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: Spacing.taskToActions),
             // The Contenido de la casa group (Story 5.11, UX-DR33's
-            // third): one entry row pushing the curation sub-screen —
+            // second of five): one entry row pushing the curation sub-screen —
             // the only place in the tree curation renders, and nothing
             // curation-related stands anywhere else (FR-31, NFR3).
             Text(
@@ -308,7 +308,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             const SizedBox(height: Spacing.taskToActions),
             // The IA y voz group header (Story 4-4, reusing 3.4's
-            // string): the second quiet group of the flat list,
+            // string): the third quiet group of the flat list,
             // holding the BYOK access path's pills, terms lines and
             // key field, and — beneath it — the validator surface's
             // dictation facts, moved under this header from the flat

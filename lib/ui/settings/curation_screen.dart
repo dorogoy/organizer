@@ -55,9 +55,11 @@ String curationCadenceLabelOf(AppStrings strings, CurationCluster cluster) =>
 /// [CurationRow]s in the cluster enum's own order — `anclas`,
 /// `sostén`, `z1`–`z5`, `fondo` — under the group's own quiet header.
 /// The camera row's lifecycle grammar throughout: a generation counter
-/// so only the newest read may move the switches, quiet failures that
-/// change nothing, the unread window rendering the all-active default
-/// (no off-flash), and a pre-read tap that writes nothing.
+/// so only the newest read may move the switches, a failed write that
+/// changes nothing, a successful write whose re-read fails still
+/// landing the declared bit, the unread window rendering the
+/// all-active default (no off-flash), and a pre-read tap that writes
+/// nothing.
 class CurationScreen extends StatefulWidget {
   const CurationScreen({super.key, this.controller});
 
@@ -113,11 +115,10 @@ class _CurationScreenState extends State<CurationScreen> {
   /// a first read that failed quietly gets its recovery here, on the
   /// user's own next tap, still writing nothing. A value equal to the
   /// derivation writes nothing. A failed write is quiet and changes
-  /// nothing. And a second tap while a flip is still in flight is
-  /// held off by the writing guard — the flight's own re-read is the
-  /// only thing that may move the switch under it.
-  var _writing = false;
-
+  /// nothing. Independent flips serialize through the write queue —
+  /// a second cluster is not dropped because another is in flight.
+  /// After a successful write, a failed re-read still lands the
+  /// declared bit locally so the switch matches the row just written.
   Future<void> _onClusterToggle(CurationCluster cluster, bool enabled) async {
     final controller = widget.controller;
     final active = _active;
@@ -128,21 +129,30 @@ class _CurationScreenState extends State<CurationScreen> {
       await _readCuration();
       return;
     }
-    if (_writing) {
-      return;
-    }
     if (enabled == active.contains(cluster)) {
       return;
     }
-    _writing = true;
     try {
       await controller.writeClusterCuration(cluster, enabled);
     } catch (_) {
       return;
-    } finally {
-      _writing = false;
     }
     await _readCuration();
+    if (!mounted) {
+      return;
+    }
+    final declared = _active;
+    if (declared != null && enabled != declared.contains(cluster)) {
+      setState(() {
+        final next = {...declared};
+        if (enabled) {
+          next.add(cluster);
+        } else {
+          next.remove(cluster);
+        }
+        _active = next;
+      });
+    }
   }
 
   @override

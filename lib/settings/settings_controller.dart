@@ -336,8 +336,8 @@ class SettingsController {
   /// minted instant per change (the caller's [now]), a v7 id per row,
   /// the offset in force at the mint. The three sanctioned
   /// `setting_changed` writers — the bag's int, the provider's text,
-  /// the camera toggle's 0/1 — all cross the port through this one
-  /// site.
+  /// the camera toggle's 0/1 — and the `cluster_curation_changed`
+  /// copier all cross the port through this one site.
   Future<void> _appendContent(LogEntryContent content, DateTime now) async {
     await store.appendLogEntry((
       id: idMinter.v7(),
