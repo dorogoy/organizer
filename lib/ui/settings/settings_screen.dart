@@ -28,11 +28,11 @@
 // opens the system's app-details screen; no feedback beyond the
 // switch itself, ever.
 //
-// Story 5.11 adds the `Contenido de la casa` group (FR-31, UX-DR33's
-// second of five): one entry row between `Tu día` and `IA y voz` pushing the
-// curation sub-screen of eight cluster switches — the only place in
-// the tree curation renders, nothing visible from or near the
-// Dispenser.
+// Stories 5.11 and 5.12 add the `Contenido de la casa` group (FR-31,
+// UX-DR33's second of five): one entry row between `Tu día` and `IA y voz`
+// pushing the Settings curation sub-screen of eight cluster switches.
+// The same E1 surface is also reachable from Genesis and the once-ever
+// Dispenser strip offer; Settings remains its standing home.
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 

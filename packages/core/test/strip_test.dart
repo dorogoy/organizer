@@ -803,8 +803,9 @@ void main() {
 
     test('each row\'s own stored offset scopes its history (AD-4)', () {
       // An open at 01:00 UTC on the 29th stored with +02:00: its own
-      // wall clock reads 03:00 on the 28th — an earlier day, so the
-      // offer is not eligible however the caller\'s frame reads it.
+      // wall clock reads 03:00 on the 29th, before 04:00, so its
+      // domestic day label is the 28th — an earlier day, so the offer
+      // is not eligible however the caller\'s frame reads it.
       expect(
         resolveFresh([
           _opened(
@@ -824,6 +825,48 @@ void main() {
           _opened(utcMicros(2026, 8, 29, 9)),
         ])?.resident,
         StripResident.weeklySelfReport,
+      );
+    });
+
+    test('compares domestic day labels across the UTC date line (AD-4)', () {
+      // Today is 29 Aug in UTC+14, whose domestic day starts at 14:00 UTC
+      // on the 28th. The prior open is 28 Aug in UTC-14, whose own domestic
+      // day starts at 18:00 UTC on the 28th. The earlier label therefore has
+      // a later UTC start instant; UTC-start ordering must not resurrect the
+      // once-ever offer.
+      expect(
+        deriveStrip(
+          entries: [
+            _opened(
+              utcMicros(2026, 8, 28, 20),
+              offsetSeconds: -14 * 60 * 60,
+              id: 'west-open',
+            ),
+          ],
+          instantUtcMicros: utcMicros(2026, 8, 29, 2),
+          offsetSeconds: 14 * 60 * 60,
+        )?.resident,
+        StripResident.weeklySelfReport,
+      );
+    });
+
+    test('ignores a future app_opened row in the historical clause', () {
+      // The future row would name the prior domestic day in UTC-14, but it
+      // is not part of the log at this read instant. Removing the historical
+      // timestamp guard would incorrectly consume the first-run offer.
+      expect(
+        deriveStrip(
+          entries: [
+            _opened(
+              utcMicros(2026, 8, 29, 13),
+              offsetSeconds: -14 * 60 * 60,
+              id: 'future-open',
+            ),
+          ],
+          instantUtcMicros: utcMicros(2026, 8, 29, 12),
+          offsetSeconds: 0,
+        )?.resident,
+        StripResident.firstRunCuration,
       );
     });
 

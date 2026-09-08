@@ -340,14 +340,16 @@ class DispenserController {
   /// behind the offer and returns with one silent tap, never re-dealt.
   ///
   /// Story 2.5 adds the ambient strip's fact to the same snapshot, and
-  /// Story 2.6 completes it: the strip derivation resolves which
-  /// resident — the report while its due week stands unanswered, else
-  /// the check-in while the day holds no `energy_set` row — with both
-  /// dismissals composed as read-scoped exclusions, so the precedence
-  /// walk itself hands the slot to the next resident in the same
-  /// opening the moment a dismissal frees it (FR-4's deterministic
-  /// handoff, strip.dart's seam). Suppression never writes and never
-  /// stores: the same log without the markers resolves identically.
+  /// Stories 2.6 and 5.12 complete its current residents: the strip
+  /// derivation resolves the once-ever curation offer, the report while
+  /// its due week stands unanswered, or the check-in while the day holds
+  /// no `energy_set` row. Their dismissals and the curation offer's
+  /// accept path are composed as read-scoped exclusions, so the
+  /// precedence walk itself hands the slot to the next resident in the
+  /// same opening the moment a terminal action frees it (FR-4's
+  /// deterministic handoff, strip.dart's seam). Suppression never writes
+  /// and never stores: the same log without the markers resolves
+  /// identically.
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();

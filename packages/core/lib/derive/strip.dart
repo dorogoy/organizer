@@ -81,9 +81,9 @@ enum StripResident {
 /// in order and takes the first eligible resident — the order is
 /// load-bearing, not documentation — and ties by earliest-eligible
 /// instant then stable id apply only between residents eligible at
-/// the same opening; this build's two implemented residents (the
-/// report over the check-in) never need them, the order alone
-/// deciding the one overlap they can produce. The order is the
+/// the same opening; this build's three implemented residents (the
+/// first-run offer, report and check-in) never need them, the order
+/// alone deciding the overlaps they can produce. The order is the
 /// contract the later stories plug their eligibility into.
 const List<StripResident> stripResidentPrecedence = [
   StripResident.firstRunCuration,
@@ -293,7 +293,11 @@ bool _appOpenedBefore(
         entry.instantUtcMicros,
         entry.offsetSeconds,
       );
-      if (ownDay.startUtcMicros < today.startUtcMicros) {
+      // Day identity is the civil-date label, not the frame-dependent
+      // UTC instant at which that day begins. At the UTC date line an
+      // earlier label can have a later start instant than today's label
+      // when the rows use opposite legal offsets.
+      if (ownDay.label.compareTo(today.label) < 0) {
         return true;
       }
     }

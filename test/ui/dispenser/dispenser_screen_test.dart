@@ -29,6 +29,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/strip.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -47,6 +48,7 @@ import 'package:organizer/session/session_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
+import 'package:organizer/ui/dispenser/ambient_strip.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
@@ -6104,6 +6106,103 @@ void main() {
   });
 
   group('the once-ever first-run curation offer (Story 5.12, FR-31, E1)', () {
+    testWidgets('accepting the offer drops a stale refresh read', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final stale = Completer<DispenserView>();
+      final action = Completer<DispenserView>();
+      final controller = _QueuedReadController([first, stale, action]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      final accept = tester
+          .widget<CurationOfferStrip>(find.byType(CurationOfferStrip))
+          .onAccept;
+
+      // A foreground refresh started before the tap remains in flight.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      accept();
+      await tester.pump();
+      action.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+
+      // The old refresh resolves last carrying the invitation; its older
+      // generation must not overwrite the committed accept or route.
+      stale.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CurationScreen), findsOneWidget);
+      expect(find.text(strings.curationInvitation), findsNothing);
+    });
+
+    testWidgets('dismissing the offer drops a stale refresh read', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final stale = Completer<DispenserView>();
+      final action = Completer<DispenserView>();
+      final controller = _QueuedReadController([first, stale, action]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsOneWidget);
+
+      final dismiss = tester
+          .widget<CurationOfferStrip>(find.byType(CurationOfferStrip))
+          .onDismiss!;
+
+      // Hold a pre-dismiss refresh open, then complete the dismissal's
+      // newer read with a view in which the offer is already absent.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      dismiss();
+      await tester.pump();
+      action.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+
+      // The older read still carries the offer, but cannot restore it.
+      stale.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.firstRunCuration,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.curationInvitation), findsNothing);
+    });
+
     testWidgets('a fresh install\'s launch holds the offer below the '
         'card; the tap pushes the E1 surface over the real Settings '
         'seam — the house title, a CurationRow — and back on return the '

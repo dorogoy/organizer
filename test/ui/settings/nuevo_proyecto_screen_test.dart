@@ -322,6 +322,16 @@ void main() {
     expect(find.text(strings.settingsCurationGroups), findsNothing);
     expect(find.byType(CurationRow), findsNWidgets(8));
 
+    // The genesis route carries the real Settings controller seam: a row
+    // toggle must reach the shared store exactly once, just like the
+    // standing Settings home.
+    await tester.tap(find.text(strings.curationClusterAnclas));
+    await tester.pumpAndSettle();
+    expect(
+      store.entries.where((entry) => entry.kind == 'cluster_curation_changed'),
+      hasLength(1),
+    );
+
     // And the way back leaves the genesis surface standing.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

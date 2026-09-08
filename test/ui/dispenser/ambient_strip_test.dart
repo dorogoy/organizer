@@ -1258,6 +1258,16 @@ void main() {
       expect(find.byType(TaskCard), findsOneWidget);
       expect(find.byType(CurationOfferStrip), findsOneWidget);
       expect(find.text(strings.curationInvitation), findsOneWidget);
+      final invitation = tester.widget<Text>(
+        find.text(strings.curationInvitation),
+      );
+      final invitationStyle = invitation.style!;
+      expect(invitationStyle.fontFamily, TypeRoles.support.fontFamily);
+      expect(invitationStyle.fontSize, TypeRoles.support.fontSize);
+      expect(invitationStyle.fontWeight, TypeRoles.support.fontWeight);
+      expect(invitationStyle.height, TypeRoles.support.height);
+      expect(invitationStyle.letterSpacing, TypeRoles.support.letterSpacing);
+      expect(invitationStyle.color, FieldPalette.inkSecondary);
       // Below the card, geometrically.
       expect(
         tester.getTopLeft(find.byType(CurationOfferStrip)).dy,
@@ -1306,6 +1316,35 @@ void main() {
             .where((entry) => entry.kind == 'energy_set'),
         isEmpty,
       );
+    });
+
+    testWidgets('blank padding inside the invitation band accepts it', (
+      tester,
+    ) async {
+      var accepted = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: Scaffold(
+            body: CurationOfferStrip(onAccept: () => accepted = true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final band = find
+          .ancestor(
+            of: find.text(AppStringsEs().curationInvitation),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final bandRect = tester.getRect(band);
+      await tester.tapAt(
+        Offset(bandRect.center.dx + bandRect.width * 0.35, bandRect.center.dy),
+      );
+      expect(accepted, isTrue);
     });
 
     testWidgets('the ✕ writes nothing and the offer is gone — the '
