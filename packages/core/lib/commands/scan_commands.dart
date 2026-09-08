@@ -56,6 +56,8 @@ List<LogEntryContent> faceRefused() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }
@@ -89,6 +91,8 @@ List<LogEntryContent> consentGranted() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }
@@ -120,6 +124,8 @@ List<LogEntryContent> consentDeclined() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }
@@ -153,6 +159,8 @@ List<LogEntryContent> scanAbandoned() {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }
@@ -235,6 +243,8 @@ List<LogEntryContent> scanSliceFailed({required SlicerFailureCause cause}) {
       reportWeek: null,
       permission: null,
       sliceCause: cause.name,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }
@@ -271,6 +281,8 @@ List<LogEntryContent> epicActivated({
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }

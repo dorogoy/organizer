@@ -5,12 +5,14 @@
 ///
 /// This file holds only the derivation and the cluster mapping, mirroring
 /// `core/energy`'s shape: [CurationObservation] is inert data a caller
-/// hands over — exactly like the energy module's observation record,
-/// because rows mapped into it are what a later writer (Epic 5's
-/// `cluster_curation_changed`) will produce. Structurally there is no
-/// write path here: a pure function over passed-in records, so no
-/// observation can exist in this build and the default is all-active by
-/// construction.
+/// hands over — exactly like the energy module's observation record —
+/// and since Story 5.11 the one seam every log-holding caller passes
+/// through: [curationObservationsOf] maps stored
+/// `cluster_curation_changed` entries into observations and hands them
+/// to [activeClustersAt], exactly as `deriveLivePoolEnergy` maps
+/// `energy_set` rows. Structurally there is still no write path here:
+/// a pure function over passed-in entries and records, and with no
+/// observation the default is all-active by construction.
 ///
 /// Timing (AD-16's deliberate split): a weekly-zone cluster change takes
 /// effect at the start of the week **after** the observation's own
@@ -24,6 +26,7 @@ library;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/day/calendar.dart';
+import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 
 /// The eight curation clusters (FR-31, AD-16): groups derivable from the
@@ -143,6 +146,42 @@ Zone? zoneOfCurationCluster(CurationCluster cluster) => switch (cluster) {
   CurationCluster.fondo => null,
 };
 
+/// Every cluster keyed by wire name (Story 5.11) — the enum's own
+/// names, derived from the values so a new member cannot write a name
+/// this map does not know (the `slicerFailureCauseByName` precedent).
+/// The `cluster_curation_changed` row's cluster identity is stored as
+/// wire text and read through this map alone.
+final Map<String, CurationCluster> curationClusterByName = {
+  for (final cluster in CurationCluster.values) cluster.name: cluster,
+};
+
+/// The cluster a stored wire name names, or absent when the name is
+/// null, empty, or one this build does not know (Story 5.11) — the
+/// read boundary's quiet tolerance (AD-23), the `permission` column's
+/// own discipline: the row is excluded at the boundary, never
+/// coerced, never repaired.
+CurationCluster? curationClusterOfWireName(String? name) =>
+    name == null ? null : curationClusterByName[name];
+
+/// The curation observations of a log (Story 5.11, AD-16, AD-1): every
+/// `cluster_curation_changed` entry as one inert observation, in log
+/// order — the pure fold between the log the derivations already hold
+/// and [activeClustersAt], so the active set is always a derivation of
+/// rows, never a stored switch. Every other entry passes through
+/// unnamed — unknown kinds, user acts, system events — and a
+/// malformed curation row never reaches the fold at all: the read
+/// boundary excluded it before the log held an entry.
+List<CurationObservation> curationObservationsOf(Iterable<LogEntry> log) => [
+  for (final entry in log)
+    if (entry is ClusterCurationChangedEntry)
+      (
+        cluster: entry.cluster,
+        enabled: entry.enabled,
+        instantUtcMicros: entry.instantUtcMicros,
+        offsetSeconds: entry.offsetSeconds,
+      ),
+];
+
 /// The clusters still active at [instantUtcMicros] (AD-16): every
 /// cluster not turned away by its newest *effective* observation — the
 /// default, with no effective observation, is active. Each observation's
@@ -162,21 +201,58 @@ Set<CurationCluster> activeClustersAt(
   int instantUtcMicros,
 ) {
   const calendar = Calendar();
-  final newestEffectiveByCluster = <CurationCluster, CurationObservation>{};
-  for (final observation in observations) {
-    if (!_observationIsEffective(calendar, observation, instantUtcMicros)) {
-      continue;
-    }
-    final newest = newestEffectiveByCluster[observation.cluster];
-    if (newest == null ||
-        observation.instantUtcMicros >= newest.instantUtcMicros) {
-      newestEffectiveByCluster[observation.cluster] = observation;
-    }
-  }
+  final newestEffectiveByCluster = _newestByCluster(
+    observations
+        .where(
+          (observation) =>
+              _observationIsEffective(calendar, observation, instantUtcMicros),
+        )
+        .toList(),
+  );
   return {
     for (final cluster in allCurationClusters)
       if (newestEffectiveByCluster[cluster]?.enabled ?? true) cluster,
   };
+}
+
+/// The clusters the log's latest declarations hold active (Story
+/// 5.11, FR-31): every cluster whose newest observation — timing
+/// aside — is enabled; the default, with no observation, active.
+/// This is the control surface's own read: the switch shows what the
+/// house's keeper last declared, while [activeClustersAt] — the
+/// composition read — applies AD-16's two speeds. The two agree on
+/// daily and `fondo` clusters at every instant and on weekly zones
+/// from their boundary on; between a mid-week flip and its boundary
+/// they differ by design, because a switch that springs back reads
+/// as a refused act and the surface may carry no copy to explain the
+/// spring (UX-DR23: no visual consequence beyond the switch itself).
+Set<CurationCluster> declaredActiveClusters(
+  Iterable<CurationObservation> observations,
+) {
+  final newestByCluster = _newestByCluster(observations);
+  return {
+    for (final cluster in allCurationClusters)
+      if (newestByCluster[cluster]?.enabled ?? true) cluster,
+  };
+}
+
+/// The newest observation per cluster (Story 5.11) — the one fold both
+/// curation reads share, so their last-row-wins rule and their
+/// exact-instant tie discipline (the later-in-input observation wins,
+/// the energy derivation's own) can never drift apart: whatever reads
+/// curation, newest means newest.
+Map<CurationCluster, CurationObservation> _newestByCluster(
+  Iterable<CurationObservation> observations,
+) {
+  final newestByCluster = <CurationCluster, CurationObservation>{};
+  for (final observation in observations) {
+    final newest = newestByCluster[observation.cluster];
+    if (newest == null ||
+        observation.instantUtcMicros >= newest.instantUtcMicros) {
+      newestByCluster[observation.cluster] = observation;
+    }
+  }
+  return newestByCluster;
 }
 
 /// Whether [observation] has taken effect by [instantUtcMicros]:

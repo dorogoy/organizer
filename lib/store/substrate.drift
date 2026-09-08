@@ -61,6 +61,13 @@
 -- (FR-16, AD-23) — the same additive-only ALTER TABLE path, so a v9
 -- install upgrades in place with its rows unchanged.
 --
+-- Schema v11 (Story 5.11) adds the two nullable log-entry payload
+-- columns `cluster` and `enabled` — a `cluster_curation_changed`
+-- row's cluster wire name and enabled bit, riding only that kind
+-- (FR-31, AD-16, AD-23: the payload rides its own columns, never a
+-- `setting_changed` key) — the same additive-only ALTER TABLE path,
+-- so a v10 install upgrades in place with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -97,7 +104,9 @@ CREATE TABLE log_entries (
   report_value INTEGER NULL,
   report_week INTEGER NULL,
   permission TEXT NULL,
-  slice_cause TEXT NULL
+  slice_cause TEXT NULL,
+  cluster TEXT NULL,
+  enabled BOOL NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

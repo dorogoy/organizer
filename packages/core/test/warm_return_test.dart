@@ -1,3 +1,4 @@
+import 'package:core/curation/curation.dart';
 import 'package:core/derive/warm_return.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
@@ -200,6 +201,43 @@ void main() {
           _opened(now),
         ]),
         isFalse,
+      );
+    });
+
+    test('a cluster curation flip is contact — it moves the anchor like '
+        'any other user act (Story 5.11, AD-21)', () {
+      // The 5-4 consent_granted discriminating shape: a 49 h-old open
+      // plus a curation flip 47 h before the read reads not-due — the
+      // flip is the later anchor.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          ClusterCurationChangedEntry(
+            id: 'curation',
+            instantUtcMicros: before(const Duration(hours: 47)),
+            offsetSeconds: 0,
+            cluster: CurationCluster.z1,
+            enabled: false,
+          ),
+          _opened(now),
+        ]),
+        isFalse,
+      );
+      // The far-past arm: a flip alone long before the window does
+      // not rescue the greeting — non-contact in that direction too.
+      expect(
+        due([
+          ClusterCurationChangedEntry(
+            id: 'curation-old',
+            instantUtcMicros: before(const Duration(hours: 96)),
+            offsetSeconds: 0,
+            cluster: CurationCluster.fondo,
+            enabled: true,
+          ),
+          _opened(before(const Duration(hours: 49))),
+          _opened(now),
+        ]),
+        isTrue,
       );
     });
 

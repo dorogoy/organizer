@@ -84,6 +84,8 @@ LogEntryContent _slice(
   reportWeek: null,
   permission: null,
   sliceCause: sliceCause,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryContent _dealContent(Card card) => (
@@ -100,6 +102,8 @@ LogEntryContent _dealContent(Card card) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 /// `slice_requested` — the rescue's activation, refused on a rescue

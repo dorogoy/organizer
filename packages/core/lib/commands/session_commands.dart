@@ -62,6 +62,7 @@
 library;
 
 import 'package:core/catalogue/catalogue.dart';
+import 'package:core/curation/curation.dart';
 import 'package:core/derive/checkpoint.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
@@ -87,6 +88,8 @@ typedef LogEntryContent = ({
   int? reportWeek,
   Permission? permission,
   String? sliceCause,
+  CurationCluster? cluster,
+  bool? enabled,
 });
 
 LogEntryContent _moment(LogKind kind) => (
@@ -103,6 +106,8 @@ LogEntryContent _moment(LogKind kind) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryContent _start({int? pocketMinutes}) => (
@@ -119,6 +124,8 @@ LogEntryContent _start({int? pocketMinutes}) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryContent _deal(Card card) => (
@@ -135,6 +142,8 @@ LogEntryContent _deal(Card card) => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 LogEntryContent _extend() => (
@@ -151,6 +160,8 @@ LogEntryContent _extend() => (
   reportWeek: null,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -494,6 +505,8 @@ List<LogEntryContent> _answered({
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
     if (deal != null) _deal(deal),
   ];

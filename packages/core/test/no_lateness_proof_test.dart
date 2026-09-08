@@ -1008,7 +1008,8 @@ final class KitchenSink {
       // report columns are schema v5's additive pair (2.6); the
       // nullable permission column is schema v7's (3.4); the nullable
       // setting text column is schema v8's (4.3); the nullable slice
-      // cause column is schema v9's (4.6).
+      // cause column is schema v9's (4.6); the nullable cluster and
+      // enabled columns are schema v11's additive pair (5.11).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -1028,6 +1029,8 @@ final class KitchenSink {
           'reportWeek',
           'permission',
           'sliceCause',
+          'cluster',
+          'enabled',
         ]),
       );
     });
@@ -1039,7 +1042,8 @@ final class KitchenSink {
       // (2.2); the energy level field grows it once more (2.5); the
       // two report fields grow it a last time (2.6); the permission
       // field grows it once (3.4); the setting text field grows it
-      // once more (4.3); the slice cause field grows it once (4.6).
+      // once more (4.3); the slice cause field grows it once (4.6);
+      // the cluster and enabled fields grow it once each (5.11).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -1056,6 +1060,8 @@ final class KitchenSink {
           'reportWeek',
           'permission',
           'sliceCause',
+          'cluster',
+          'enabled',
         ]),
       );
     });
@@ -1228,11 +1234,11 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the fifty-two
+    // The frozen census, keyed by (path, name): the fifty-three
     // declarations this map freezes — Story 4-4 adds the slicer port's
     // sealed request union, its two outcomes and the three request
     // kinds; Story 5.7 adds the scan parse's two records and the scan
-    // landing's fact seed.
+    // landing's fact seed; Story 5.11 adds the curation kind's entry.
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -1246,6 +1252,7 @@ final class KitchenSink {
       'log/log_entry.dart:ReportAnsweredEntry',
       'log/log_entry.dart:PermissionRefusedEntry',
       'log/log_entry.dart:SliceEntry',
+      'log/log_entry.dart:ClusterCurationChangedEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -2376,6 +2383,110 @@ final class KitchenSink {
           .isNotEmpty,
       isTrue,
       reason: 'the command file mints the session kinds',
+    );
+  });
+
+  test('cluster_curation_changed is minted in exactly one file and read '
+      'nowhere in core — the derivation matches the entry type, never '
+      'the kind constant (Story 5.11, FR-31, AD-16, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary, on its own subtype)
+    // and the one command file that mints the kind. The derivation
+    // that reads curation — the fold in core/curation — reads the
+    // ClusterCurationChangedEntry *type*, so a
+    // LogKind.clusterCurationChanged reference anywhere else in core
+    // lib is a finding: vocabulary growing past its story.
+    const allowed = {'log/log_entry.dart', 'commands/curation_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bclusterCurationChanged\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the clusterCurationChanged identifier outside the definition '
+          'and the one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'cluster_curation_changed' anywhere
+    // else in core lib is a minter that does not even use the
+    // constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]cluster_curation_changed['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'cluster_curation_changed' outside the "
+          'definition home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the subtype override — the
+    // setting kind's own count (a subtype of its own exists).
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]cluster_curation_changed['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only '
+          'cluster_curation_changed wire uses',
+    );
+    expect(
+      RegExp(r'\bclusterCurationChanged\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only clusterCurationChanged identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.clusterCurationChanged\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified clusterCurationChanged readers in the definition '
+          'home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(
+      _source('commands/curation_commands.dart'),
+    );
+    final commandRefs = RegExp(r'LogKind\.clusterCurationChanged\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.clusterCurationChanged\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.clusterCurationChanged\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
+    );
+
+    // The stated reader: the fold assigns the kind its derivation in
+    // the same pass that added it (the doc's own rule) — the one
+    // entry-type reader outside the definition home, reading the TYPE
+    // and never the kind constant.
+    final fold = _withoutComments(_source('curation/curation.dart'));
+    expect(
+      RegExp(r'\bClusterCurationChangedEntry\b').allMatches(fold),
+      hasLength(1),
+      reason: 'the fold is the kind\'s one derivation-side reader',
     );
   });
 

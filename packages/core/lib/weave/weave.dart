@@ -764,7 +764,19 @@ _DayPolicy _resolveDay({
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final day = anchorDayOf(facts, instantUtcMicros, offsetSeconds);
-  final clusters = activeClusters ?? allCurationClusters;
+  // The log-derived active set (Story 5.11, AD-16): with no explicit
+  // override the clusters derive from the log's own curation rows at
+  // the composed day's opening instant — daily and `fondo`
+  // observations effective from their own day's start, weekly zones
+  // at the close of the observation's week, the two speeds AD-16
+  // froze — so a flip lands with zero call-site changes and replays
+  // deterministically (same log + day → same set, AD-3). The explicit
+  // param stays the override the tests already use; with no rows the
+  // fold is empty and the all-active default stands (FR-31: the
+  // first composed day is never empty).
+  final clusters =
+      activeClusters ??
+      activeClustersAt(curationObservationsOf(log), day.startUtcMicros);
   // The 🔴 day's admission (FR-4, Story 2.5): while the derived energy
   // is low, only candidates whose duration estimate stays within
   // [lowEnergyMaxEstimateSeconds] reach the chunk tier or any draw

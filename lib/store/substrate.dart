@@ -126,6 +126,25 @@ const String poolFactsEstimateSecondsUpgrade =
 const String poolFactsStepTextUpgrade =
     'ALTER TABLE pool_facts ADD COLUMN step_text TEXT NULL';
 
+/// Schema v11's additive upgrade of `log_entries` (Story 5.11,
+/// AD-23): the one nullable `cluster_curation_changed` payload
+/// column — the curated cluster's wire name — added by ALTER TABLE
+/// only, on the v2→v10 pattern: no table rebuild, no data migration,
+/// refusal triggers untouched. A named infrastructure identifier on
+/// the store module's terms (AD-15's ban is on literals reaching a
+/// widget).
+const String logEntriesClusterUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN cluster TEXT NULL';
+
+/// Schema v11's additive upgrade of `log_entries` (Story 5.11,
+/// AD-23): the one nullable `cluster_curation_changed` payload
+/// column — the cluster's new enabled bit — added by ALTER TABLE
+/// only, on the same pattern: no table rebuild, no data migration,
+/// refusal triggers untouched. A named infrastructure identifier on
+/// the store module's terms (AD-15).
+const String logEntriesEnabledUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN enabled BOOL NULL';
+
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
 /// statement itself, so no second copy of either name exists to drift.
@@ -147,9 +166,9 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 10 (Story 5.7): the only change from 9
-/// is the nullable step-text column above, and every later change is
-/// additive-only (AD-23).
+/// migration (AD-2). schemaVersion 11 (Story 5.11): the only change
+/// from 10 is the nullable cluster and enabled columns above, and
+/// every later change is additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
 /// table does not already hold it: a v6 install that died between the two
@@ -162,7 +181,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -219,7 +238,12 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// old facts with null rescue fields, deriving as no chain. The
   /// v9→v10 step adds the pool's step-text column the same way, so
   /// a v9 install upgrades with its rows unchanged too — old facts
-  /// with a null step text, deriving exactly as before. Every
+  /// with a null step text, deriving exactly as before. The v10→v11
+  /// step adds the log's cluster and enabled columns the same way, so
+  /// a v10 install upgrades with its rows unchanged too — old rows
+  /// with a null cluster and a null enabled bit, deriving exactly as
+  /// before (no curation row stands, the all-active default governs).
+  /// Every
   /// step runs inside the one transaction and adds only an absent
   /// column, and the mechanism is
   /// drift's; the outcomes — triggers present after first open on a
@@ -260,6 +284,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 10) {
         await _addColumnIfAbsent(poolFactsStepTextUpgrade);
+      }
+      if (from < 11) {
+        await _addColumnIfAbsent(logEntriesClusterUpgrade);
+        await _addColumnIfAbsent(logEntriesEnabledUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

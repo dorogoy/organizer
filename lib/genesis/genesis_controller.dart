@@ -294,6 +294,8 @@ class GenesisController {
       reportWeek: content.reportWeek,
       permission: content.permission?.name,
       sliceCause: content.sliceCause,
+      cluster: content.cluster?.name,
+      enabled: content.enabled,
     ));
   }
 
@@ -426,6 +428,8 @@ class GenesisController {
                 reportWeek: content.reportWeek,
                 permission: content.permission?.name,
                 sliceCause: content.sliceCause,
+                cluster: content.cluster?.name,
+                enabled: content.enabled,
               ));
             }
           }

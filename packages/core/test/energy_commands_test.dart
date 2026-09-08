@@ -59,6 +59,8 @@ void main() {
           reportWeek: content.reportWeek,
           permission: null,
           sliceCause: null,
+          cluster: null,
+          enabled: null,
         ));
         expect(conversion.flaw, isNull);
         expect((conversion.entry as EnergySetEntry).level, level);

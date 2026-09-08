@@ -53,6 +53,8 @@ Future<void> appendCrashEntry(
     reportWeek: null,
     permission: null,
     sliceCause: null,
+    cluster: null,
+    enabled: null,
   );
   try {
     await store.appendLogEntry(entry);

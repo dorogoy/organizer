@@ -37,7 +37,12 @@
 /// Minted once at a successful landing, its ABSENCE is what makes an
 /// Epic dormant — AD-21 forbids logging an absence, so dormancy is
 /// never a row, only the state where no `epic_activated` names the
-/// id). A new kind is a new kind, never a flag on an old one.
+/// id), and since Story 5.11 the twenty-second kind
+/// `cluster_curation_changed` (FR-31, AD-16, AD-21 — the curation
+/// act's user row: one cluster's new enabled bit on its own schema
+/// columns (v11), never a `setting_changed` key, because the cluster
+/// payload is not a setting but a user act on the house's own
+/// content). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -48,11 +53,14 @@
 /// schema v8),
 /// `session_started` and `session_extended` carry their minutes,
 /// `energy_set` carries its level, `report_answered` carries its answer
-/// and the week it answers, and a known kind's payload must match
+/// and the week it answers, `cluster_curation_changed` carries its
+/// cluster's wire name and enabled bit (Story 5.11, on its own v11
+/// columns), and a known kind's payload must match
 /// the kind.
 
 library;
 
+import 'package:core/curation/curation.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -124,6 +132,10 @@ final class LogKind {
   static const consentDeclined = LogKind._('consent_declined', known: true);
   static const scanAbandoned = LogKind._('scan_abandoned', known: true);
   static const epicActivated = LogKind._('epic_activated', known: true);
+  static const clusterCurationChanged = LogKind._(
+    'cluster_curation_changed',
+    known: true,
+  );
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -148,6 +160,7 @@ final class LogKind {
     'consent_declined': consentDeclined,
     'scan_abandoned': scanAbandoned,
     'epic_activated': epicActivated,
+    'cluster_curation_changed': clusterCurationChanged,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -519,6 +532,44 @@ final class SliceEntry extends LogEntry {
   final SlicerFailureCause? cause;
 }
 
+/// A `cluster_curation_changed` user act (Story 5.11, FR-31, AD-16,
+/// AD-21): one curation cluster's new enabled bit — and nothing
+/// else. One row per flip through the single sanctioned minter
+/// (`core/commands/curation_commands.dart`), so no second curation
+/// writer can appear silently. The payload rides its own schema
+/// columns (v11) — the cluster's wire name and the enabled bit,
+/// never a `setting_changed` key (AD-21's vocabulary split: the
+/// cluster payload is a user act on the house's own content, not a
+/// settings-cache event). The type offers no other field, so no task
+/// name, no count and no catalogue fact can ride along (FR-31,
+/// NL-1 — curation is cluster-level only, never a browsable
+/// catalogue). A wire name this build does not know excludes the row
+/// at the read boundary — quiet tolerance, never a repair write
+/// (AD-23) — and the derivation reads the cluster as the core
+/// enum, never a free-form string.
+final class ClusterCurationChangedEntry extends LogEntry {
+  const ClusterCurationChangedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.cluster,
+    required this.enabled,
+  });
+
+  @override
+  final LogKind kind = LogKind.clusterCurationChanged;
+
+  /// The curated cluster, as the core enum — the identity the
+  /// derivation (`core/curation`) reads, never a free-form string.
+  final CurationCluster cluster;
+
+  /// Whether the cluster was turned on or off — the row's whole
+  /// payload beside the cluster it names, and the flip's own whole
+  /// feedback (FR-31: no count, no summary, no copy beyond the
+  /// switch).
+  final bool enabled;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -648,6 +699,26 @@ enum LogRecordFlaw {
   /// other, and the two content kinds (`slice_requested`,
   /// `slice_returned`) carry none.
   causeOnNonFailedKind,
+
+  /// A `cluster_curation_changed` row without a cluster this build
+  /// can read (Story 5.11): the column is absent, empty, or names a
+  /// cluster this build does not know — either way the row asserts
+  /// nothing about any cluster's state and the derivation reads the
+  /// log as if it were not there (AD-23's quiet tolerance, the
+  /// `permission` column's own discipline).
+  curationClusterAbsent,
+
+  /// A `cluster_curation_changed` row without its enabled bit
+  /// (Story 5.11): the bit is the row's whole payload beside the
+  /// cluster it names — without it the row asserts nothing. Quiet
+  /// tolerance, never a repair write (AD-23).
+  curationEnabledAbsent,
+
+  /// A cluster or enabled payload on a kind that is not
+  /// `cluster_curation_changed` (Story 5.11) — mirroring the setting,
+  /// pocket, energy, report, permission and cause rules: every
+  /// payload column rides its own kind and no other.
+  curationOnNonCurationKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -703,7 +774,10 @@ bool _isSliceKind(LogKind kind) =>
 /// with its cause and NO item pair (the scan died before any
 /// fact), while the two content kinds and a rescue failure still
 /// require the full pair, and a half pair excludes the row
-/// whichever family it came from.
+/// whichever family it came from. A `cluster_curation_changed` row
+/// (Story 5.11) carries its cluster wire name — one of the eight the
+/// [CurationCluster] enum names — and its enabled bit, and nothing
+/// else.
 /// An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
@@ -743,6 +817,11 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final permissionIsAbsent =
       record.permission == null || permissionByName[record.permission!] == null;
   final carriesPermission = record.permission != null;
+  // The curation columns read by the raw presence rule the
+  // permission column sets: presence is what a foreign kind
+  // violates, and the kind's own branch below judges the value
+  // (Story 5.11).
+  final carriesCuration = record.cluster != null || record.enabled != null;
   // The cause column reads by the same house rule: an empty string is
   // not a value, so it counts as absent everywhere below (Story 4.6).
   final sliceCauseIsAbsent =
@@ -774,6 +853,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
@@ -812,6 +894,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
@@ -860,6 +945,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
@@ -899,6 +987,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
@@ -936,6 +1027,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
@@ -972,6 +1066,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
@@ -1014,6 +1111,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
@@ -1050,6 +1150,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesReport) {
       return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
@@ -1108,6 +1211,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
     }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
     var cause = record.sliceCause == null
         ? null
         : slicerFailureCauseByName[record.sliceCause!];
@@ -1126,6 +1232,56 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         itemId: itemIdIsAbsent ? null : record.itemId,
         itemOrigin: record.itemOrigin,
         cause: cause,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.clusterCurationChanged) {
+    // The curation payload's own discipline (Story 5.11): the cluster
+    // wire name must name a cluster this build knows — absent, empty
+    // or unknown excludes the row, the `permission` column's own
+    // rule — and the enabled bit must stand, the row's whole other
+    // half. A cluster or enabled payload on any other kind is the
+    // foreign-column flaw every branch above returns.
+    final cluster = curationClusterOfWireName(record.cluster);
+    if (cluster == null) {
+      return (entry: null, flaw: LogRecordFlaw.curationClusterAbsent);
+    }
+    if (record.enabled == null) {
+      return (entry: null, flaw: LogRecordFlaw.curationEnabledAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    return (
+      entry: ClusterCurationChangedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        cluster: cluster,
+        enabled: record.enabled!,
       ),
       flaw: null,
     );
@@ -1152,6 +1308,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesPermission) {
       return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);

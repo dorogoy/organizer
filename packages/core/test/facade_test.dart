@@ -68,6 +68,8 @@ LogEntryRecord _record(
   reportWeek: reportWeek,
   permission: null,
   sliceCause: null,
+  cluster: null,
+  enabled: null,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,

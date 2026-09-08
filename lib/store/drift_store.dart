@@ -67,6 +67,8 @@ class DriftStore implements StorePort {
             reportWeek: Value(entry.reportWeek),
             permission: Value(entry.permission),
             sliceCause: Value(entry.sliceCause),
+            cluster: Value(entry.cluster),
+            enabled: Value(entry.enabled),
           ),
         );
   }
@@ -135,6 +137,8 @@ class DriftStore implements StorePort {
           reportWeek: row.reportWeek,
           permission: row.permission,
           sliceCause: row.sliceCause,
+          cluster: row.cluster,
+          enabled: row.enabled,
         ),
     ];
   }

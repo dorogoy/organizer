@@ -313,7 +313,7 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The ban list, sixteen wire names wide — deliberately not
+    // The ban list, seventeen wire names wide — deliberately not
     // exhaustive by kind: the scan chain's `consent_granted`,
     // `consent_declined` and `scan_abandoned` rows are minted only
     // through the core's sanctioned minters and are fenced by the
@@ -345,6 +345,7 @@ void main() {
       'slice_returned',
       'slice_failed',
       'face_refused',
+      'cluster_curation_changed',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -565,6 +566,17 @@ void main() {
           'inside _appendGenesisLanded (Story 5.9, the scan channel\'s '
           'own minter)',
     );
+    final settingsChannel = sources['lib/settings/settings_controller.dart'];
+    expect(settingsChannel, isNotNull, reason: 'the settings channel is gone');
+    final settingsSource = settingsChannel ?? '';
+    expect(
+      RegExp(r'\bclusterCurationChanged\s*\(').allMatches(settingsSource),
+      hasLength(1),
+      reason:
+          'exactly one core clusterCurationChanged command invocation — '
+          'the settings channel\'s curation flip, the kind\'s single '
+          'sanctioned minter (Story 5.11)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own
@@ -607,7 +619,9 @@ void main() {
         // text row, both through the same sanctioned minter. Story
         // 5.2 folds them into the channel's one shared content
         // copier (the dispenser's own idiom) and adds the camera
-        // toggle's row beside them — one site, three rows.
+        // toggle's row beside them — one site, three rows. Story 5.11
+        // adds the curation flip's row through the same copier —
+        // four rows, still one site (the census maps stay unchanged).
         'lib/settings/settings_controller.dart': 1,
         // Story 5.2: the scan channel's two refusal rows — the
         // camera permission refusal and the face refusal — through

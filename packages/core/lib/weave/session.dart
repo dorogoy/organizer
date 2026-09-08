@@ -443,6 +443,7 @@ LogFacts walkLog(
       case EnergySetEntry():
       case ReportAnsweredEntry():
       case PermissionRefusedEntry():
+      case ClusterCurationChangedEntry():
       case UnknownEntry():
         break;
     }

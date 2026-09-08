@@ -383,6 +383,54 @@ abstract class AppStrings {
   /// **'Reactivar la cámara'**
   String get settingsCameraReactivate;
 
+  /// Settings — the Contenido de la casa group header (Story 5.11, UX-DR33): the flat platform list's third quiet group, holding the one entry row into cluster curation. Quiet support copy, ink-secondary; nothing curation-related renders anywhere else in the tree.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido de la casa'**
+  String get settingsGroupHouseContent;
+
+  /// Settings, Contenido de la casa — the entry row's label (Story 5.11) and the curation sub-screen's own header: the eight switchable task groups. Never a task name, never a count, never a browseable catalogue (FR-31, NL-1).
+  ///
+  /// In es, this message translates to:
+  /// **'Grupos de tareas'**
+  String get settingsCurationGroups;
+
+  /// Curation row — the anclas cluster's name (Story 5.11): the daily Instant Habits (A12.1). Authored this story, on A12's English gloss as source.
+  ///
+  /// In es, this message translates to:
+  /// **'Hábitos instantáneos'**
+  String get curationClusterAnclas;
+
+  /// Curation row — the sostén cluster's name (Story 5.11): the daily Baseline Upkeep (A12.2–A12.3). Authored this story, on A12's English gloss as source.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantenimiento base'**
+  String get curationClusterSosten;
+
+  /// Curation row — the fondo cluster's name (Story 5.11): the monthly/seasonal depth work (A12.5). Authored this story, on A12's English gloss as source.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuidados de fondo'**
+  String get curationClusterFondo;
+
+  /// Curation row — the cadence word for the daily clusters (anclas, sostén), the row's only description (UX-DR23, FR-31): never a count, never a volume. DESIGN-declared.
+  ///
+  /// In es, this message translates to:
+  /// **'diaria'**
+  String get curationCadenceDaily;
+
+  /// Curation row — the cadence word for the weekly zones z1–z5, the row's only description (UX-DR23, FR-31). DESIGN-declared.
+  ///
+  /// In es, this message translates to:
+  /// **'semanal'**
+  String get curationCadenceWeekly;
+
+  /// Curation row — the cadence word for fondo, the row's only description (UX-DR23, FR-31). DESIGN-declared.
+  ///
+  /// In es, this message translates to:
+  /// **'mensual-estacional'**
+  String get curationCadenceSeasonal;
+
   /// Settings, IA y voz — the gemini allowlist entry's rendered name. One pill per entry; rendered copy lives here, machine facts in the frozen egress allowlist.
   ///
   /// In es, this message translates to:

@@ -41,6 +41,8 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       reportWeek: null,
       permission: null,
       sliceCause: null,
+      cluster: null,
+      enabled: null,
     ),
   ];
 }

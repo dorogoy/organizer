@@ -49,6 +49,8 @@ void main() {
         reportWeek: null,
         permission: permission,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -113,6 +115,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -177,6 +181,8 @@ void main() {
         reportWeek: null,
         permission: permission,
         sliceCause: null,
+        cluster: null,
+        enabled: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -238,6 +244,8 @@ void main() {
         int? reportWeek,
         String? permission,
         String? sliceCause,
+        String? cluster,
+        bool? enabled,
       }) => (
         id: '0190dddd-0000-7000-8000-000000000004',
         kind: 'scan_abandoned',
@@ -255,6 +263,8 @@ void main() {
         reportWeek: reportWeek,
         permission: permission,
         sliceCause: sliceCause,
+        cluster: cluster,
+        enabled: enabled,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -364,6 +374,8 @@ void main() {
         String? itemId,
         Origin? itemOrigin,
         String? sliceCause = 'invalidKey',
+        String? cluster,
+        bool? enabled,
       }) => (
         id: '0190dddd-0000-7000-8000-000000000005',
         kind: 'slice_failed',
@@ -381,6 +393,8 @@ void main() {
         reportWeek: null,
         permission: null,
         sliceCause: sliceCause,
+        cluster: cluster,
+        enabled: enabled,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
