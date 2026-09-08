@@ -27,13 +27,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:organizer/genesis/genesis_controller.dart';
+import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/no_slicer/no_slicer_surface.dart';
 import 'package:organizer/ui/scan/writing_pencil.dart';
+import 'package:organizer/ui/settings/curation_screen.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/settings/settings_screen.dart';
 import 'package:organizer/ui/theme.dart';
+import 'package:organizer/ui/tokens.dart';
 
 /// The recording store (the consent gate suite's own contract).
 class _RecordingStore implements StorePort {
@@ -239,6 +242,91 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(SettingsScreen), findsNothing);
+    expect(find.byType(NuevoProyectoScreen), findsOneWidget);
+  });
+
+  testWidgets('the quiet curation entry: unsplit secondary prose below '
+      'Analizar in the compose body, a 48dp opaque band in '
+      'ink-secondary — the E1 entry, never a third way out (Story '
+      '5.12, FR-31, E1, UX-DR25)', (tester) async {
+    await pumpSurface(tester, null);
+
+    final entry = find.text(strings.curationHouseGroups);
+    expect(entry, findsOneWidget);
+
+    // The same prose grammar as the ways out: ink-secondary, the whole
+    // band an opaque 48dp target.
+    final style = tester.widget<Text>(entry).style!;
+    expect(style.color, FieldPalette.inkSecondary);
+    final band = find
+        .ancestor(of: entry, matching: find.byType(GestureDetector))
+        .first;
+    final box = tester.renderObject<RenderBox>(band);
+    expect(box.size.height, greaterThanOrEqualTo(48));
+
+    // Below the one recommended action, geometrically — the complement
+    // to typed entry, inside the compose body's own scroll.
+    expect(
+      tester.getTopLeft(entry).dy,
+      greaterThan(tester.getTopLeft(find.text(strings.genesisAnalyze)).dy),
+    );
+    expect(
+      find.ancestor(of: entry, matching: find.byType(SingleChildScrollView)),
+      findsOneWidget,
+      reason: 'the entry lives in the compose body, never the footer band',
+    );
+  });
+
+  testWidgets('the entry is gone with the whole compose state while the '
+      'wait stands — the wait body carries nothing of it (Story 5.12)', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final slicer = _FakeSlicer(const SlicerDelivered(deliveredBody))
+      ..gate = Completer<void>();
+    await pumpSurface(tester, controllerOf(store, slicer));
+    await tester.enterText(find.byType(TextField), 'Ordenar el trastero');
+    await tester.pump();
+    await tester.tap(find.text(strings.genesisAnalyze));
+    await tester.pump();
+
+    expect(find.text(strings.curationHouseGroups), findsNothing);
+    expect(find.text(strings.scanWaitTitle), findsOneWidget);
+    slicer.gate!.complete();
+    await tester.pump();
+    await tester.pump(routePopSettle);
+  });
+
+  testWidgets('the entry pushes the E1 surface over the real Settings '
+      'seam — the house title and the eight rows; back leaves the '
+      'compose surface standing (Story 5.12, E1, FR-31)', (tester) async {
+    final store = _RecordingStore();
+    final settings = SettingsController(store: store, nowOf: _fixedClock);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        localizationsDelegates: AppStrings.localizationsDelegates,
+        supportedLocales: AppStrings.supportedLocales,
+        home: NuevoProyectoScreen(settings: settings),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(strings.curationHouseGroups));
+    await tester.pumpAndSettle();
+
+    // The E1 surface: CurationScreen under the house title, the eight
+    // rows verbatim, the Settings sub-screen's own header absent.
+    expect(find.byType(CurationScreen), findsOneWidget);
+    expect(find.text(strings.curationHouseGroups), findsOneWidget);
+    expect(find.text(strings.settingsCurationGroups), findsNothing);
+    expect(find.byType(CurationRow), findsNWidgets(8));
+
+    // And the way back leaves the genesis surface standing.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CurationScreen), findsNothing);
+    expect(find.text(strings.curationHouseGroups), findsOneWidget);
     expect(find.byType(NuevoProyectoScreen), findsOneWidget);
   });
 

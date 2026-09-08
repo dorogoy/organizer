@@ -295,6 +295,17 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   enabled: null,
 );
 
+/// An install-day `app_opened` — a row from the day before the fixed
+/// Saturday clock, seeding an ESTABLISHED install (the 5.12
+/// translation the 2.5/2.6 groups take): with an opening on any
+/// earlier day in the log, the once-ever first-run curation offer is
+/// not eligible, so the check-in and report matrices keep resolving
+/// exactly as they shipped — the `_answeredWeek` precedent, one
+/// story on. 09:00 keeps it inside 48 h of every later read, so the
+/// warm-return derivation stays out of the pin.
+LogEntryRecord _installOpen() =>
+    _moment('app_opened', DateTime.utc(2026, 8, 28, 9), 'install-open');
+
 LogEntryRecord _moment(String kind, DateTime at, String id) => (
   id: id,
   kind: kind,
@@ -2109,7 +2120,8 @@ void main() {
       'the card — and nothing else about energy anywhere on the view',
       () async {
         final store = _RecordingStore()
-          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+          ..entries.add(_installOpen());
         final view = await openSessionAndReadFirstDeal(store);
         expect(view.stripResident, StripResident.energyCheckIn);
         expect(view.reportWeekOrdinal, isNull);
@@ -2126,7 +2138,8 @@ void main() {
         'the strip gone for the day, the card finishable, and the NEXT '
         'deal instant-tier only', () async {
       final store = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       final dealt = await openSessionAndReadFirstDeal(store);
       final controller = buildFor(store);
 
@@ -2178,7 +2191,8 @@ void main() {
         (EnergyLevel.full, 0),
       ]) {
         final store = _RecordingStore()
-          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+          ..entries.add(_installOpen());
         await openSessionAndReadFirstDeal(store);
         final controller = buildFor(store);
 
@@ -2209,7 +2223,8 @@ void main() {
         'strip stands — the retry is the same tap (matrix: failing '
         'append)', () async {
       final inner = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       await openSessionAndReadFirstDeal(inner);
       final failing = _FailNextAppendStore(inner);
       final controller = buildFor(failing);
@@ -2247,7 +2262,8 @@ void main() {
       var now = DateTime.utc(2026, 8, 29, 12);
       final tappedAt = now;
       final answerStore = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       await openSessionAndReadFirstDeal(answerStore);
       final answering = buildFor(answerStore, nowOf: () => now);
 
@@ -2259,7 +2275,8 @@ void main() {
       );
 
       final dismissalStore = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       await openSessionAndReadFirstDeal(dismissalStore);
       now = DateTime.utc(2026, 8, 29, 12);
       final dismissing = buildFor(dismissalStore, nowOf: () => now);
@@ -2277,7 +2294,8 @@ void main() {
         'rest of the opening; a later same-day opening hides it by the '
         'derivation alone (matrix: dismissal, re-open)', () async {
       final store = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       await openSessionAndReadFirstDeal(store);
       final controller = buildFor(store);
 
@@ -2470,7 +2488,8 @@ void main() {
         'boundary)', () async {
       var now = DateTime.utc(2026, 8, 29, 12);
       final store = _RecordingStore()
-        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen());
       final session = SessionController(
         store: store,
         strings: AppStringsEs(),
@@ -2521,11 +2540,15 @@ void main() {
     /// The Sunday launch: the lifecycle's open lands the day's one
     /// `app_opened` (plus the auto-open sitting and its first deal),
     /// and the controller over the same store reads from the settled
-    /// log — the widget harness's shape, minus the screen.
+    /// log — the widget harness's shape, minus the screen. The store
+    /// takes the established-install seed (the 5.12 translation): an
+    /// opening on an earlier day keeps the once-ever offer out of
+    /// these matrices, which are the report's own.
     Future<DispenserController> launchSunday(
       _RecordingStore store, {
       DateTime Function()? nowOf,
     }) async {
+      store.entries.add(_installOpen());
       final clock = nowOf ?? sundayClock;
       await SessionController(
         store: store,
@@ -2584,6 +2607,7 @@ void main() {
       expect(closed.reportWeekOrdinal, weekOfAug24);
 
       final offerStore = _RecordingStore()
+        ..entries.add(_installOpen())
         ..entries.addAll([
           _moment('app_opened', DateTime.utc(2026, 8, 30, 11, 19), 'sun-open'),
           (
@@ -2736,7 +2760,7 @@ void main() {
         'further: the next day\'s first opening offers the report again, '
         'never dismissed for the week (SM-2, matrix: day scope)', () async {
       var now = sundayClock();
-      final store = _RecordingStore();
+      final store = _RecordingStore()..entries.add(_installOpen());
       final session = SessionController(
         store: store,
         strings: AppStringsEs(),
@@ -2777,7 +2801,7 @@ void main() {
         'opening asks again (FR-4, SM-2, the marker/derivation '
         'layering)', () async {
       var now = sundayClock();
-      final store = _RecordingStore();
+      final store = _RecordingStore()..entries.add(_installOpen());
       final session = SessionController(
         store: store,
         strings: AppStringsEs(),
@@ -2934,8 +2958,10 @@ void main() {
         'for nothing, and the unanswered week is superseded at the next '
         'Sunday (SM-2, matrix: supersession)', () async {
       // Saturday 23:00: the 1389 report — unanswered since its own
-      // Sunday — holds the slot at the day's first opening.
+      // Sunday — holds the slot at the day's first opening. The
+      // install seed keeps the once-ever offer out of the matrices.
       final store = _RecordingStore()
+        ..entries.add(_installOpen())
         ..entries.addAll([
           _moment('app_opened', DateTime.utc(2026, 8, 29, 22), 'sat-open'),
           _moment(
@@ -2979,7 +3005,7 @@ void main() {
 
       // And week 1390 unanswered into Sunday 2026-09-06: the due week
       // is 1391 — superseded, never accumulated.
-      final nextStore = _RecordingStore();
+      final nextStore = _RecordingStore()..entries.add(_installOpen());
       final nextSundayClock = DateTime.utc(2026, 9, 6, 12);
       await SessionController(
         store: nextStore,
@@ -3030,6 +3056,144 @@ void main() {
         reason:
             'the check-in never shown means the 🟢 default, never a '
             'narrowed pool — the day owes nothing',
+      );
+    });
+  });
+
+  group('the once-ever first-run curation offer (Story 5.12, FR-31, '
+      'UX-DR22)', () {
+    /// A fresh install's Saturday launch — no seed rows at all, so the
+    /// log's only `app_opened` is today's and the first opening EVER
+    /// is underway.
+    Future<DispenserController> launchFreshInstall(
+      _RecordingStore store,
+    ) async {
+      await SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      ).handleAppOpen();
+      return buildFor(store);
+    }
+
+    test('the first opening ever reads with the offer showing below '
+        'the card — rarest wins, the report and the check-in both '
+        'displaced (matrix: fresh install)', () async {
+      final store = _RecordingStore();
+      final controller = await launchFreshInstall(store);
+
+      final view = await controller.read();
+
+      expect(view, isA<DispenserDealt>());
+      expect(view.stripResident, StripResident.firstRunCuration);
+      expect(view.reportWeekOrdinal, isNull);
+      // Reading wrote nothing — the offer renders, it never writes.
+      expect(
+        store.entries.where((entry) => entry.kind == 'energy_set'),
+        isEmpty,
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+      );
+    });
+
+    test('the ✕ writes zero rows and excludes the offer on every later '
+        'read of the process — the displaced instruments take the freed '
+        'slot (matrix: dismiss the offer)', () async {
+      final store = _RecordingStore();
+      final controller = await launchFreshInstall(store);
+      await controller.read();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      final dismissed = await controller.dismissCurationOffer();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'a dismissal appends nothing at all',
+      );
+      expect(dismissed.stripResident, StripResident.weeklySelfReport);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+        reason: 'excluded for the process, the report holding the slot',
+      );
+    });
+
+    test('the tap consumes with the same zero rows — consume and '
+        'dismiss are the same terminal path', () async {
+      final store = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+      final controller = await launchFreshInstall(store);
+      await controller.read();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      final consumed = await controller.consumeCurationOffer();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'the accept path appends nothing either',
+      );
+      expect(
+        consumed.stripResident,
+        StripResident.energyCheckIn,
+        reason:
+            'the offer excluded — the check-in takes the slot in the '
+            'same opening, the 2.6 handoff grammar',
+      );
+    });
+
+    test('any later opening never sees it again — a same-day reopen, a '
+        'restart, a next-day first opening alike (matrix: any later '
+        'opening; never returns)', () async {
+      var now = _fixedClock();
+      final store = _RecordingStore()
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: () => now,
+      );
+      final controller = buildFor(store, nowOf: () => now);
+
+      await session.handleAppOpen();
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.firstRunCuration,
+      );
+      await controller.dismissCurationOffer();
+
+      // A second opening the same day: the first opening was consumed
+      // — the derivation alone hides the offer, never the marker.
+      await session.handleSessionEnd();
+      await session.handleAppOpen();
+      expect(
+        (await controller.read()).stripResident,
+        isNull,
+        reason: 'a second app_opened today — not the first opening',
+      );
+
+      // The next day's first opening: an `app_opened` from an earlier
+      // day stands — history, so the offer is gone forever, and the
+      // process-lifetime marker died with nothing to re-arm. (The new
+      // day is a Sunday: its own due week, 1390, answered by seed too,
+      // so what shows is the check-in and nothing rarer.)
+      await session.handleSessionEnd();
+      store.entries.add(_answeredWeek(weekOfAug24, 'seed-sunday-answered'));
+      now = DateTime.utc(2026, 8, 30, 9);
+      await session.handleAppOpen();
+      final nextDay = buildFor(store, nowOf: () => now);
+      expect(
+        (await nextDay.read()).stripResident,
+        StripResident.energyCheckIn,
+        reason:
+            'a FRESH process over the next day\'s log — no marker, and '
+            'the offer still never returns: the earliest open is '
+            'historical',
       );
     });
   });

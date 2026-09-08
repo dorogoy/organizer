@@ -60,6 +60,7 @@ import '../dispenser/task_card.dart';
 import '../no_slicer/no_slicer_surface.dart';
 import '../scan/writing_pencil.dart';
 import '../tokens.dart';
+import 'curation_screen.dart';
 import 'settings_screen.dart';
 
 /// The surface's width bound on wide grounds — the capture and scan
@@ -383,6 +384,26 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
     }
   }
 
+  /// The quiet curation entry's push (Story 5.12, E1, FR-31): the
+  /// same rapid-tap guard as `_openSettings` — the E1 surface is
+  /// `CurationScreen` under the house title, over the same Settings
+  /// seam this surface already holds. No confirmation, no writes on
+  /// the push itself: the eight rows and their one write funnel are
+  /// the surface's own, and the compose surface stands beneath until
+  /// the route pops back.
+  void _openHouseGroups() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CurationScreen(
+            controller: widget.settings,
+            title: AppStrings.of(context).curationHouseGroups,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -462,6 +483,17 @@ class _NuevoProyectoScreenState extends State<NuevoProyectoScreen>
               _field(theme, strings),
               const SizedBox(height: Spacing.cardPadding),
               _analyzeAction(theme, strings),
+              const SizedBox(height: Spacing.taskToActions),
+              // The quiet curation entry (Story 5.12, E1, FR-31): the
+              // complement to typed entry — one unsplit secondary
+              // prose line below the recommended action, never in the
+              // wait body and never a third way out. The label is the
+              // pushed surface's own header, 5.11's
+              // entry-label-equals-header idiom.
+              SecondaryTextAction(
+                label: strings.curationHouseGroups,
+                onTap: _openHouseGroups,
+              ),
             ],
           ),
         ),

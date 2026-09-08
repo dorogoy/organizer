@@ -406,6 +406,12 @@
     "description": "One-time first-run curation invitation — appears once ever, never returns once dismissed."
   },
 
+  "curationHouseGroups": "Grupos de tu casa",
+  "@curationHouseGroups": {
+    "x-signoff": "Sergio, 2026-09-08",
+    "description": "The house-framed curation title (Story 5.12, E1): the genesis surface's quiet entry label below Analizar and the pushed E1 surface's own header — the same eight switchable task groups as Settings' sub-screen, one string serving both roles (5.11's entry-label-equals-header idiom). Never a task name, never a count, never a browseable catalogue (FR-31, NL-1)."
+  },
+
   "rewardWithoutPhoto": "Un trabajo estupendo",
   "@rewardWithoutPhoto": {
     "description": "Transformation reward when no Before photo exists — no one-plate diff, no placeholder."

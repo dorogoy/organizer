@@ -17,11 +17,11 @@
 /// quarantine follow-up, the once-per-season suggestion, the snowball,
 /// the weekly self-report, then the daily check-in — ties broken by
 /// earliest-eligible instant, then stable id (AD-3's discipline). This
-/// build implements exactly two residents' eligibilities (the report
-/// and the check-in, below); the later stories add the others as data
-/// under the same order. A displaced resident is neither consumed
-/// nor dismissed — it re-offers at the next opening, because only the
-/// surface's ✕ is a dismissal, and a dismissal writes nothing
+/// build implements three residents' eligibilities (the offer, the
+/// report and the check-in, below); the later stories add the others
+/// as data under the same order. A displaced resident is neither
+/// consumed nor dismissed — it re-offers at the next opening, because
+/// only the surface's ✕ is a dismissal, and a dismissal writes nothing
 /// (AD-21's vocabulary has no dismissal kind; within the opening,
 /// shell state hides it).
 ///
@@ -55,7 +55,9 @@ import 'package:core/log/log_entry.dart';
 /// members carry no fields — each resident's eligibility is its own
 /// derivation over the log, added by its own story.
 enum StripResident {
-  /// The once-ever first-run curation offer (FR-31, Epic 8's data).
+  /// The once-ever first-run curation offer (FR-31, Story 5.12):
+  /// eligible only while the first opening ever is underway — the
+  /// derivation below, never a stored dismissal (AD-21).
   firstRunCuration,
 
   /// The once-per-box quarantine follow-up (Epic 7's data).
@@ -113,12 +115,15 @@ final class StripState {
 }
 
 /// One resident's eligibility at the read instant. This build
-/// implements exactly two — the report and the check-in, below; every
-/// other resident derives not-eligible until its own story lands its
-/// data, so the precedence walk falls through them to the implemented
-/// pair (or to nothing). A new resident's eligibility arrives HERE, in
+/// implements three — the offer, the report and the check-in, below;
+/// every other resident derives not-eligible until its own story
+/// lands its data, so the precedence walk falls through them to the
+/// implemented set (or to nothing). A new resident's eligibility
+/// arrives HERE, in
 /// the same pass as its data — never as a special case inside the
-/// walk.
+/// walk. Since Story 5.12 three eligibilities stand: the once-ever
+/// first-run curation offer, the weekly self-report and the daily
+/// check-in.
 bool _residentEligible(
   StripResident resident,
   List<LogEntry> entries,
@@ -138,8 +143,28 @@ bool _residentEligible(
             instantUtcMicros: instantUtcMicros,
           );
     case StripResident.firstRunCuration:
-      // FR-31's once-ever offer — Epic 8's data.
-      return false;
+      // FR-31's once-ever offer (Story 5.12): eligible exactly while
+      // the FIRST opening ever is underway — the day's first-opening
+      // gate composed with the historical clause that no `app_opened`
+      // row from any earlier day stands in the log. The once-ever
+      // fact is this derivation, never a stored dismissal (AD-21): a
+      // tap and a ✕ alike write nothing, and "never returns" holds
+      // by construction — a second `app_opened` today ends the day's
+      // first opening, a day turn makes the earliest open historical,
+      // and the offer is gone on each alike, dismissed, tapped,
+      // ignored or never seen all the same.
+      return _firstOpeningUnderway(
+            entries,
+            calendar,
+            today,
+            instantUtcMicros: instantUtcMicros,
+          ) &&
+          !_appOpenedBefore(
+            entries,
+            calendar,
+            today,
+            instantUtcMicros: instantUtcMicros,
+          );
     case StripResident.quarantineFollowUp:
       // Epic 7's once-per-box follow-up — its story's data.
       return false;
@@ -246,19 +271,53 @@ bool _firstOpeningUnderway(
   return false;
 }
 
+/// Whether an `app_opened` row from a domestic day before [today]
+/// stands in the log at the read instant (Story 5.12) — the
+/// once-ever offer's historical clause. Each row is scoped in its
+/// own stored offset (AD-4) and rows after the read instant are
+/// excluded, exactly the derivation's own convention: an install
+/// whose log names an opening on any earlier day is not on its
+/// first opening ever, so the offer is already gone — whatever
+/// became of it.
+bool _appOpenedBefore(
+  List<LogEntry> entries,
+  Calendar calendar,
+  Day today, {
+  required int instantUtcMicros,
+}) {
+  for (final entry in entries) {
+    if (entry.instantUtcMicros > instantUtcMicros) {
+      continue;
+    }
+    if (entry is MomentEntry && entry.kind == LogKind.appOpened) {
+      final ownDay = calendar.dayOf(
+        entry.instantUtcMicros,
+        entry.offsetSeconds,
+      );
+      if (ownDay.startUtcMicros < today.startUtcMicros) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// Derives the strip's resident at one read instant (Story 2.5,
 /// FR-4): pure over the log, writing nothing (AD-3). The resolution
 /// walks [stripResidentPrecedence] in order and takes the first
 /// resident whose eligibility holds — the load-bearing total order
-/// UX-DR22 names. This build implements two eligibilities: the check-in
-/// (due iff the current domestic day — each row scoped in its own
-/// stored offset, AD-4 — holds no `energy_set` row and the day's first
-/// opening is underway) and, one slot above it, the weekly self-report
-/// (due iff the due week — `weekOf(today).weekOrdinal` minus 0 on
-/// Sunday, 1 on Mon–Sat, the latest week whose Sunday has arrived —
-/// holds no accepted `report_answered` row whose carried week matches,
-/// rows after the read instant excluded, and the day's first opening
-/// is underway, SM-2), so the walk falls through the four
+/// UX-DR22 names. This build implements three eligibilities: the
+/// once-ever first-run curation offer (due iff the first opening
+/// ever is underway — the day's first opening AND no `app_opened`
+/// row from any earlier day, Story 5.12, FR-31), the weekly
+/// self-report (due iff the due week — `weekOf(today).weekOrdinal`
+/// minus 0 on Sunday, 1 on Mon–Sat, the latest week whose Sunday has
+/// arrived — holds no accepted `report_answered` row whose carried
+/// week matches, rows after the read instant excluded, and the day's
+/// first opening is underway, SM-2), and the daily check-in (due iff
+/// the current domestic day — each row scoped in its own stored
+/// offset, AD-4 — holds no `energy_set` row and the day's first
+/// opening is underway), so the walk falls through the three
 /// not-yet-eligible residents to them, or to nothing. A corrupt
 /// `energy_set` or `report_answered` row never reaches this
 /// derivation — the read boundary excluded it, and the day (or week)

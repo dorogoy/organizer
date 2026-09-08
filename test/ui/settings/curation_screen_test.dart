@@ -280,6 +280,48 @@ void main() {
     }
   });
 
+  testWidgets('the title override renders in the header\'s place — the '
+      'E1 surface is the same screen, only the string differing, the '
+      'default header regression already pinned above (Story 5.12)', (
+    tester,
+  ) async {
+    await useTallSurface(tester);
+    final store = _RecordingStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: OrganizerTheme.light(),
+        localizationsDelegates: AppStrings.localizationsDelegates,
+        supportedLocales: AppStrings.supportedLocales,
+        home: CurationScreen(
+          controller: SettingsController(store: store, nowOf: _fixedClock),
+          title: es.curationHouseGroups,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The house title stands where the sub-screen's own header stood —
+    // and nothing else about the surface changed: the same census with
+    // the one string swapped, the same eight switches.
+    expect(find.text(es.curationHouseGroups), findsOneWidget);
+    expect(find.text(es.settingsCurationGroups), findsNothing);
+    expect(textsOf(tester).toSet(), {
+      es.curationHouseGroups,
+      es.curationClusterAnclas,
+      es.curationClusterSosten,
+      es.zoneZ1,
+      es.zoneZ2,
+      es.zoneZ3,
+      es.zoneZ4,
+      es.zoneZ5,
+      es.curationClusterFondo,
+      es.curationCadenceDaily,
+      es.curationCadenceWeekly,
+      es.curationCadenceSeasonal,
+    });
+    expect(find.byType(Switch), findsNWidgets(8));
+  });
+
   testWidgets('the whole band taps: one flip appends exactly one '
       'cluster_curation_changed row and the switch follows the '
       'derivation — no confirmation, no other feedback (FR-31, AD-21)', (

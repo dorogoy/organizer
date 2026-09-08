@@ -303,13 +303,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // No heading, no chrome: the census is exactly the body copy, the
-    // field's hint, the one action and the two ways out (the Text and
-    // RichText channels double-report one widget, so the census reads
-    // a set).
+    // field's hint, the one action, the quiet curation entry below it
+    // (Story 5.12, E1) and the two ways out (the Text and RichText
+    // channels double-report one widget, so the census reads a set).
     expect(textsOf(tester).toSet(), {
       AppStringsEs().genesisBody,
       AppStringsEs().genesisFieldHint,
       AppStringsEs().genesisAnalyze,
+      AppStringsEs().curationHouseGroups,
       AppStringsEs().genesisBack,
       AppStringsEs().settingsWayOut,
     });
@@ -1303,6 +1304,7 @@ void main() {
         AppStringsEs().genesisBody,
         AppStringsEs().genesisFieldHint,
         AppStringsEs().genesisAnalyze,
+        AppStringsEs().curationHouseGroups,
         AppStringsEs().genesisBack,
         AppStringsEs().settingsWayOut,
       });

@@ -1,4 +1,4 @@
-// The Dispenser's ambient strip layer (Stories 2.5–2.6, FR-4,
+// The Dispenser's ambient strip layer (Stories 2.5–2.6, 5.12, FR-4,
 // UX-DR20/22): below the
 // view, inside the scroll region, whenever the read's own fact says a
 // resident is showing — the surface switches on which. The check-in:
@@ -9,9 +9,15 @@
 // the ✕; a tap on any numeral answers the asked week (one write
 // carrying the week, the report gone for the week), and the ✕
 // dismisses with no write, hidden for the rest of the opening only —
-// never for the week. Either resolution hands the slot to the
-// check-in in the same opening when the day still owes it (FR-4's
-// deterministic handoff). The strip inherits the short-surface floor —
+// never for the week. The once-ever first-run curation offer
+// (Story 5.12, FR-31): `Ajustar grupos de tareas` as one whole-
+// sentence button plus the ✕, bare chrome; the tap consumes and
+// pushes the E1 surface (no write), the ✕ dismisses (no write), and
+// the offer never returns — its once-ever fact is derived from the
+// log's own history, never stored. Either resolution hands the slot
+// to the displaced instruments in the same opening when they still
+// owe it (FR-4's deterministic handoff). The strip inherits the
+// short-surface floor —
 // it grows and scrolls at 200%, nothing truncated, every target at or
 // above 48dp — and after it leaves, nothing on this surface displays
 // the level: the narrower deal is the display (AD-4, UX-DR41).
@@ -38,6 +44,8 @@ class StripLayer extends StatelessWidget {
     this.onDismissCheckIn,
     required this.onAnswerReport,
     this.onDismissReport,
+    required this.onAcceptCuration,
+    this.onDismissCuration,
     required this.child,
   });
 
@@ -62,6 +70,14 @@ class StripLayer extends StatelessWidget {
   /// write.
   final VoidCallback? onDismissReport;
 
+  /// The once-ever curation offer's accept path (Story 5.12): the
+  /// screen's consume-then-push handler, never a write.
+  final VoidCallback onAcceptCuration;
+
+  /// The curation offer's ✕ path (Story 5.12): the screen's dismissal
+  /// handler, never a write.
+  final VoidCallback? onDismissCuration;
+
   final Widget child;
 
   @override
@@ -84,10 +100,13 @@ class StripLayer extends StatelessWidget {
             onAnswer: onAnswerReport,
             onDismiss: onDismissReport,
           ),
-          // The four later residents are never eligible in this
+          StripResident.firstRunCuration => CurationOfferStrip(
+            onAccept: onAcceptCuration,
+            onDismiss: onDismissCuration,
+          ),
+          // The three later residents are never eligible in this
           // build — their stories' data does not exist yet — so the
           // read can never hand this switch one.
-          StripResident.firstRunCuration ||
           StripResident.quarantineFollowUp ||
           StripResident.seasonalSuggestion ||
           StripResident.snowball => child,

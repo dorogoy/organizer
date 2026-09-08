@@ -61,12 +61,19 @@ String curationCadenceLabelOf(AppStrings strings, CurationCluster cluster) =>
 /// all-active default (no off-flash), and a pre-read tap that writes
 /// nothing.
 class CurationScreen extends StatefulWidget {
-  const CurationScreen({super.key, this.controller});
+  const CurationScreen({super.key, this.controller, this.title});
 
   /// The read/write seam over the same store the Dispenser holds.
   /// Absent (the test seam), the rows render on the all-active default
   /// and writes go nowhere.
   final SettingsController? controller;
+
+  /// The surface's own header override (Story 5.12): the house-framed
+  /// title the E1 surface carries — one `CurationScreen` serves both
+  /// homes, only the header string differing. Absent, the Settings
+  /// sub-screen's own quiet header stands (5.11's default, its own
+  /// regression).
+  final String? title;
 
   @override
   State<CurationScreen> createState() => _CurationScreenState();
@@ -169,9 +176,11 @@ class _CurationScreenState extends State<CurationScreen> {
           ),
           children: [
             // The sub-screen's own header — the entry row's label
-            // again, quiet support copy (the group headers' grammar).
+            // again, quiet support copy (the group headers' grammar);
+            // the E1 surface's house title stands in its place when
+            // one rides the ctor (Story 5.12).
             Text(
-              strings.settingsCurationGroups,
+              widget.title ?? strings.settingsCurationGroups,
               // bodySmall is the wired support role (theme.dart).
               style: theme.textTheme.bodySmall,
             ),

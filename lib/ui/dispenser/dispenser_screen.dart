@@ -60,8 +60,10 @@ import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
 import '../no_slicer/no_slicer_surface.dart';
+import '../settings/curation_screen.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../scan/scan_screen.dart';
+import '../../strings/app_strings.dart';
 import '../tokens.dart';
 import 'dispenser_chrome.dart';
 import 'dispenser_closed_view.dart';
@@ -738,6 +740,8 @@ class _DispenserScreenState extends State<DispenserScreen>
       onDismissCheckIn: _onDismissCheckIn,
       onAnswerReport: _onAnswerReport,
       onDismissReport: _onDismissReport,
+      onAcceptCuration: _onAcceptCuration,
+      onDismissCuration: _onDismissCurationOffer,
       child: CompletionAck(
         visible: _completionAckVisible,
         child: switch (view) {
@@ -958,6 +962,97 @@ class _DispenserScreenState extends State<DispenserScreen>
       if (!releaseAfterRefresh) {
         _writeInFlight = false;
       }
+    }
+  }
+
+  /// The offer's ✕ tap (Story 5.12, FR-31, UX-DR22): terminal for the
+  /// process, and deliberately no write — the consumption is the
+  /// controller's process-lifetime bool, so the committed view is the
+  /// same read with the displaced instruments holding the freed slot;
+  /// the offer itself never returns on any later opening — the
+  /// derivation's own historical fact, never anything owed. It shares
+  /// the in-flight guard with the strip's other paths; a failed read
+  /// is absorbed by the empty frame, quietly.
+  Future<void> _onDismissCurationOffer() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.dismissCurationOffer();
+      if (mounted) {
+        _commitView(view);
+        releaseAfterRefresh = true;
+        _releaseWriteAfterRefreshFrame();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The offer's tap (Story 5.12, FR-31, E1): consume-then-push. The
+  /// consumption is the same no-write read-refresh the ✕ takes (the
+  /// offer gone for the process, the displaced instruments holding
+  /// the slot beneath), and the push then opens the E1 surface —
+  /// `CurationScreen` under the house title, the same eight rows and
+  /// the one write funnel Settings' sub-screen already owns. The push
+  /// sits behind the same rapid-tap guard every push this surface
+  /// owns; a read failure is quiet — no push, no error, the offer
+  /// spent all the same (its once-ever fact is the log's history,
+  /// never this process's to re-arm).
+  Future<void> _onAcceptCuration() async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    _readGeneration++;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await widget.controller.consumeCurationOffer();
+      if (!mounted) {
+        return;
+      }
+      _commitView(view);
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+      _openCurationSurface();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The E1 surface's push (Story 5.12): the titled `CurationScreen`
+  /// — the same eight rows and the same single write funnel, only the
+  /// header string differing — over the Settings seam the way-out
+  /// chain already threads. No confirmation, no writes on the push
+  /// itself: the surface below stands exactly as it is until the
+  /// route pops back.
+  void _openCurationSurface() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CurationScreen(
+            controller: widget.settings,
+            title: AppStrings.of(context).curationHouseGroups,
+          ),
+        ),
+      );
     }
   }
 

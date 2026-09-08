@@ -269,6 +269,9 @@ class AppStringsEs extends AppStrings {
   String get curationInvitation => 'Ajustar grupos de tareas';
 
   @override
+  String get curationHouseGroups => 'Grupos de tu casa';
+
+  @override
   String get rewardWithoutPhoto => 'Un trabajo estupendo';
 
   @override
