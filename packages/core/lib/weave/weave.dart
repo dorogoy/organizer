@@ -350,9 +350,9 @@ List<Candidate> rescueCandidates(
 /// skipped-today offers nothing. The returned list is already in
 /// AD-20's arbitration order — least-recently-served active Epic
 /// (the maximum `lastDealtInstantByItemId` over its own steps,
-/// never-served first), then activation order (the recorded
-/// `epic_activated` instant — append order, AD-3), then the stable
-/// id — so the caller (`_chunkCandidateOf`) may take its first
+/// never-served first), then activation order (the `epic_activated`
+/// append order — the fold map's iteration order, never the clock,
+/// AD-3), then the stable id — so the caller (`_chunkCandidateOf`) may take its first
 /// candidate directly, no further sort. Any Epic step named by
 /// [supersededParents] (`supersededParentIds`, the same fold
 /// `captureCandidates` reads its own facts through) is a live rescue
@@ -416,6 +416,15 @@ List<Candidate> epicCandidates(
     ));
   }
 
+  // Activation order (AD-20): the `epic_activated` APPEND order —
+  // the fold map's own iteration order, a total order with no ties
+  // and no dependence on the clock (a retro-dated row cannot
+  // reorder arbitration). The stable id remains only as the
+  // comparator's total backstop.
+  final activationRankByStableId = <String, int>{
+    for (final (rank, id) in facts.epicActivatedInstantByStableId.keys.indexed)
+      id: rank,
+  };
   groups.sort((a, b) {
     if (a.servedInstant == null && b.servedInstant != null) {
       return -1;
@@ -428,12 +437,8 @@ List<Candidate> epicCandidates(
         a.servedInstant != b.servedInstant) {
       return a.servedInstant!.compareTo(b.servedInstant!);
     }
-    // Activation order (AD-3): the recorded `epic_activated` instant
-    // — append order, in practice, since the shell mints instants
-    // from a monotonic clock — with the stable id as the total
-    // tie-break for a genuine instant tie.
-    final aActivated = facts.epicActivatedInstantByStableId[a.stableId]!;
-    final bActivated = facts.epicActivatedInstantByStableId[b.stableId]!;
+    final aActivated = activationRankByStableId[a.stableId]!;
+    final bActivated = activationRankByStableId[b.stableId]!;
     if (aActivated != bActivated) {
       return aActivated.compareTo(bActivated);
     }

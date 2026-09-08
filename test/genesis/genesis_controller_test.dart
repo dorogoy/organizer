@@ -275,6 +275,15 @@ void main() {
         expect(fact.originContext, 'marca local');
         expect(fact.stepText, 'marca local');
       }
+      // The activation row rides the local origin too (Story 5.9,
+      // AD-14) — the debug path mints cloud nowhere, activation
+      // included: exactly one row, naming the first landed fact.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+      ]);
+      expect(store.entries[1].itemId, store.facts.first.id);
+      expect(store.entries[1].itemOrigin, Origin.local);
     });
 
     test('a delivered body that violates the step contract folds into '

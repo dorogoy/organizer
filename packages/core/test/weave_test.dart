@@ -4236,6 +4236,50 @@ void main() {
       );
     });
 
+    test('the epic tier stands before the ring\'s own tiers — an '
+        'active Epic composes on FR-11\'s empty ring and above the '
+        'fondo tier\'s seasonal entries', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Recoger las cajas',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      // Every zone cluster off, `fondo` on: the ring is empty (the
+      // zone tiers are gone, `fondo` entries stand as zone-null
+      // focus candidates) — and the Epic still holds the Focus
+      // Chunk, ahead of the fondo tier.
+      //
+      // The below-floor fallback arm needs no pin of its own: the
+      // composing gate (`dealtUnanswered == null`) means an
+      // unanswered Epic head is never dealt, so the fallback's
+      // least-recently-dealt order can never prefer anything over
+      // it — the epic tier's position above that arm is a
+      // construction, not an ordering.
+      final ringEmpty = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        activeClusters: _clustersWithout([
+          CurationCluster.z1,
+          CurationCluster.z2,
+          CurationCluster.z3,
+          CurationCluster.z4,
+          CurationCluster.z5,
+        ]),
+        poolFacts: steps,
+      );
+      expect(ringEmpty.focus!.id, 's1');
+      expect(ringEmpty.focus!.name, 'Recoger las cajas');
+    });
+
     test('a landing with no epic_activated row is dormant — invisible '
         'to every draw, not just the chunk (a crash mid-plan)', () {
       final steps = [
@@ -4258,6 +4302,22 @@ void main() {
         isFalse,
       );
       expect(deal(log, steps)?.id, isNot('s1'));
+    });
+
+    test('an orphan epic_activated row derives no candidate — the '
+        'fold keeps it, the source ignores it (dormancy\'s fail-safe '
+        'when a stable id names no group)', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 'no-such-step'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      // The orphan activation names a stable id no group holds: the
+      // fold keeps the id, no group claims it, the Epic source
+      // offers nothing — and the zone tier composes the slot.
+      expect(deal(log, steps)!.id, 'zona-z1-a');
     });
 
     test('a skipped head steps aside for the day — the next unskipped '
@@ -4304,8 +4364,8 @@ void main() {
     });
 
     test('two active Epics: never-served beats served; both never '
-        'served ties by activation order; an identical activation '
-        'instant ties by the stable id (AD-20)', () {
+        'served ties by activation order; the append order decides '
+        'even a retro-dated activation instant (AD-20)', () {
       final e1 = [
         _scanStep(
           'e1s1',
@@ -4354,17 +4414,21 @@ void main() {
         reason: 'e1 was served 2026-08-25, e2 2026-08-26 — e1 is idler',
       );
 
-      // An identical activation instant: the stable id is the total
-      // tie-break.
-      final tiedActivation = [
+      // A retro-dated activation — e1s1's row carries an EARLIER
+      // recorded instant than e2s1's — cannot leapfrog e2s1's
+      // append order: the map's iteration order is the tie-break,
+      // a total order that no clock can perturb.
+      final retroDated = [
         _epicActivated(utcMicros(2026, 8, 27, 11), 'e2s1'),
-        _epicActivated(utcMicros(2026, 8, 27, 11), 'e1s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 9), 'e1s1'),
         _sessionStarted(utcMicros(2026, 8, 28, 10)),
       ];
       expect(
-        deal(tiedActivation, [...e1, ...e2])!.id,
-        'e1s1',
-        reason: '"e1s1" < "e2s1" lexicographically',
+        deal(retroDated, [...e1, ...e2])!.id,
+        'e2s1',
+        reason:
+            'e2s1 activated first by append order — the earlier '
+            'recorded instant of e1s1 cannot reorder arbitration',
       );
     });
 
