@@ -504,8 +504,10 @@ void main() {
     expect(find.byType(ConsentGateScreen), findsNothing);
     expect(find.text(launchWord), findsOneWidget);
     expect(slicer.requests, hasLength(1));
-    expect(store.entries, hasLength(1));
-    expect(store.entries.single.kind, 'consent_granted');
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
     expect(store.facts, hasLength(1), reason: 'the delivered slice landed');
     expect(files.unlinkedScans, isNotEmpty);
   });

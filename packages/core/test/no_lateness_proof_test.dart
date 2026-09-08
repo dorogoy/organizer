@@ -872,6 +872,7 @@ final class KitchenSink {
           'openSessionPocketMinutes',
           'openSessionAnsweredSeconds',
           'focusSlotCarriedDays',
+          'epicActivatedInstantByStableId',
         ]),
       );
     });

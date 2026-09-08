@@ -361,7 +361,10 @@ void main() {
     expect(slicer.requests, hasLength(1));
     // The delivered arm's own dispose (the pop) mints no abandonment:
     // the dispatch resolved, so nothing stands at the close.
-    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
   });
 
   testWidgets('the pencil moves: fixed-duration pumps advance the '
@@ -704,7 +707,10 @@ void main() {
     await tester.pump();
     await tester.pump(routePopSettle);
     expect(find.byType(ConsentGateScreen), findsNothing);
-    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
   });
 
   testWidgets('reduced motion: the pencil rests at its authored pose — '

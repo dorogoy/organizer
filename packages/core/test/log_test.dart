@@ -40,8 +40,8 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty kinds (20 since Story 5.6 '
-        'added scan_abandoned)', () {
+    test('holds exactly the build\'s twenty-one kinds (21 since Story '
+        '5.9 added epic_activated)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -63,6 +63,7 @@ void main() {
         LogKind.consentGranted,
         LogKind.consentDeclined,
         LogKind.scanAbandoned,
+        LogKind.epicActivated,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -74,6 +75,7 @@ void main() {
         'consent_granted',
         'crash_recorded',
         'energy_set',
+        'epic_activated',
         'face_refused',
         'permission_refused',
         'report_answered',
@@ -86,7 +88,7 @@ void main() {
         'slice_requested',
         'slice_returned',
       ]);
-      expect(LogKind.knownByName, hasLength(20));
+      expect(LogKind.knownByName, hasLength(21));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -222,6 +224,20 @@ void main() {
       expect(entry!.kind, LogKind.cardDealt);
       expect((entry as ItemActEntry).itemId, 'man-a');
       expect(entry.itemOrigin, Origin.shipped);
+    });
+
+    test('epic_activated converts on the same item-act shape (Story '
+        '5.9, AD-21) — no new classifier branch, the existing pair '
+        'rule', () {
+      final conversion = convertLogEntryRecord(
+        _record('epic_activated', itemId: 'step-1', itemOrigin: Origin.cloud),
+      );
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<ItemActEntry>());
+      expect(entry!.kind, LogKind.epicActivated);
+      expect((entry as ItemActEntry).itemId, 'step-1');
+      expect(entry.itemOrigin, Origin.cloud);
     });
 
     test('moments, session starts and crash entries convert with their own '

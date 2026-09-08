@@ -201,6 +201,75 @@ SliceEntry _sliceRow(
   itemOrigin: origin,
 );
 
+/// A scan/genesis step's pool fact (Story 5.7, 5.9): origin `cloud`
+/// or `local`, never a rescue step (`rescueOf` null), the estimate a
+/// scan/genesis duration tag (180–300 s, banding `maintenance` by
+/// construction), the step's own words in `stepText` — sharing one
+/// instant and one Origin Context (the slice's description) with
+/// every other step of its own slice, the group key `epicCandidates`
+/// reads.
+PoolFact _scanStep(
+  String id,
+  int micros,
+  String description, {
+  Origin origin = Origin.cloud,
+  int estimateSeconds = 180,
+  String stepText = 'Paso de escaneo',
+}) => PoolFact(
+  id: id,
+  origin: origin,
+  size: sizeOfEstimateSeconds(estimateSeconds),
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  originContext: description,
+  estimateSeconds: estimateSeconds,
+  stepText: stepText,
+);
+
+/// An `epic_activated` row (Story 5.9, AD-21) naming a stable id in
+/// the row's own carried origin — the row that makes an Epic active.
+ItemActEntry _epicActivated(
+  int micros,
+  String stableId, {
+  Origin origin = Origin.cloud,
+}) => ItemActEntry(
+  id: 'epic-activated-$micros-$stableId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.epicActivated,
+  itemId: stableId,
+  itemOrigin: origin,
+);
+
+/// A `card_dealt`/`card_skipped`/`card_done` row naming a cloud-origin
+/// item (Story 5.9's own fixture family, the capture family's shape).
+ItemActEntry _epicDealt(int micros, String itemId) => ItemActEntry(
+  id: 'epic-dealt-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardDealt,
+  itemId: itemId,
+  itemOrigin: Origin.cloud,
+);
+
+ItemActEntry _epicSkipped(int micros, String itemId) => ItemActEntry(
+  id: 'epic-skipped-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardSkipped,
+  itemId: itemId,
+  itemOrigin: Origin.cloud,
+);
+
+ItemActEntry _epicDone(int micros, String itemId) => ItemActEntry(
+  id: 'epic-done-$micros-$itemId',
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.cardDone,
+  itemId: itemId,
+  itemOrigin: Origin.cloud,
+);
+
 const int _microsPerDay = 24 * 60 * 60 * 1000 * 1000;
 
 /// Noon on the [days]-th day of the fixture's rotation run — day 0 is
@@ -4097,6 +4166,488 @@ void main() {
       expect(card.id, isNot('s2'));
       expect(card.id, isNot('zona-z1-a'));
       expect(card.id, 'zona-z2-a');
+    });
+  });
+
+  group('Epic material in the weave (Story 5.9, FR-11, AD-20)', () {
+    // The standing fixture's clock: Friday 2026-08-28 noon, active
+    // zone z1 (the rescue-chain group's own fixture).
+    final now = utcMicros(2026, 8, 28, 12);
+
+    Card? deal(
+      List<LogEntry> log,
+      List<PoolFact> facts, {
+      int? at,
+      EnergyLevel energy = EnergyLevel.full,
+    }) => nextDeal(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: at ?? now,
+      offsetSeconds: 0,
+      energy: energy,
+      poolFacts: facts,
+    );
+
+    test('an active Epic\'s head enters the chunk pool although it '
+        'bands maintenance, named by its own step text', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Recoger las cajas',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Etiquetar los archivadores',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      final card = deal(log, steps);
+      expect(card, isNotNull);
+      expect(card!.id, 's1');
+      expect(card.size, Size.maintenance);
+      expect(card.name, 'Recoger las cajas');
+      expect(card.origin, Origin.cloud);
+      expect(card.estimateSeconds, 180);
+
+      // The exclusion is real, not merely declared: the head deals
+      // through the chunk slot, and never leaks into the maintenance
+      // draw it would otherwise qualify for by size alone.
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(composition.focus?.id, 's1');
+      expect(
+        composition.maintenance.any((c) => c.id == 's1'),
+        isFalse,
+        reason:
+            'an Epic head never joins the maintenance draw although '
+            'it bands maintenance-sized (the two draw exclusions)',
+      );
+    });
+
+    test('the epic tier stands before the ring\'s own tiers — an '
+        'active Epic composes on FR-11\'s empty ring and above the '
+        'fondo tier\'s seasonal entries', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Recoger las cajas',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      // Every zone cluster off, `fondo` on: the ring is empty (the
+      // zone tiers are gone, `fondo` entries stand as zone-null
+      // focus candidates) — and the Epic still holds the Focus
+      // Chunk, ahead of the fondo tier.
+      //
+      // The below-floor fallback arm needs no pin of its own: the
+      // composing gate (`dealtUnanswered == null`) means an
+      // unanswered Epic head is never dealt, so the fallback's
+      // least-recently-dealt order can never prefer anything over
+      // it — the epic tier's position above that arm is a
+      // construction, not an ordering.
+      final ringEmpty = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        activeClusters: _clustersWithout([
+          CurationCluster.z1,
+          CurationCluster.z2,
+          CurationCluster.z3,
+          CurationCluster.z4,
+          CurationCluster.z5,
+        ]),
+        poolFacts: steps,
+      );
+      expect(ringEmpty.focus!.id, 's1');
+      expect(ringEmpty.focus!.name, 'Recoger las cajas');
+    });
+
+    test('a landing with no epic_activated row is dormant — invisible '
+        'to every draw, not just the chunk (a crash mid-plan)', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final log = [_sessionStarted(utcMicros(2026, 8, 28, 10))];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: steps,
+      );
+      expect(
+        [
+          ...composition.maintenance,
+          ...composition.instantHabits,
+          if (composition.focus != null) composition.focus!,
+        ].any((card) => card.id == 's1'),
+        isFalse,
+      );
+      expect(deal(log, steps)?.id, isNot('s1'));
+    });
+
+    test('an orphan epic_activated row derives no candidate — the '
+        'fold keeps it, the source ignores it (dormancy\'s fail-safe '
+        'when a stable id names no group)', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 'no-such-step'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      // The orphan activation names a stable id no group holds: the
+      // fold keeps the id, no group claims it, the Epic source
+      // offers nothing — and the zone tier composes the slot.
+      expect(deal(log, steps)!.id, 'zona-z1-a');
+    });
+
+    test('a skipped head steps aside for the day — the next unskipped '
+        'step becomes the head, and skipping the last step empties '
+        'the Epic for the day (never the same card twice, AD-20)', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+      ];
+      expect(
+        deal(log, steps)!.id,
+        's2',
+        reason: 'the skipped head steps aside for the day only',
+      );
+
+      final bothSkippedToday = [
+        ...log,
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's2'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+      ];
+      expect(
+        deal(bothSkippedToday, steps)!.id,
+        'zona-z1-a',
+        reason:
+            'every step skipped today: the Epic offers nothing and '
+            'the active zone\'s own head composes instead',
+      );
+    });
+
+    test('two active Epics: never-served beats served; both never '
+        'served ties by activation order; the append order decides '
+        'even a retro-dated activation instant (AD-20)', () {
+      final e1 = [
+        _scanStep(
+          'e1s1',
+          utcMicros(2026, 8, 27, 9),
+          'Proyecto uno',
+          stepText: 'Paso E1',
+        ),
+      ];
+      final e2 = [
+        _scanStep(
+          'e2s1',
+          utcMicros(2026, 8, 27, 10),
+          'Proyecto dos',
+          stepText: 'Paso E2',
+        ),
+      ];
+      // Both never served: e2 activated first, so it wins although
+      // its fact landed second.
+      final neverServed = [
+        _epicActivated(utcMicros(2026, 8, 27, 11), 'e2s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 12), 'e1s1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      expect(deal(neverServed, [...e1, ...e2])!.id, 'e2s1');
+
+      // e2 was served (dealt, then skipped) in the past; e1 never
+      // has — never-served wins over any served Epic, activation
+      // order notwithstanding.
+      final oneServed = [
+        _epicDealt(utcMicros(2026, 8, 26, 9), 'e2s1'),
+        _epicSkipped(utcMicros(2026, 8, 26, 9, 0, 1), 'e2s1'),
+        ...neverServed,
+      ];
+      expect(deal(oneServed, [...e1, ...e2])!.id, 'e1s1');
+
+      // Both served: the longer-idle Epic (the smaller max
+      // lastDealtInstantByItemId) wins.
+      final bothServed = [
+        _epicDealt(utcMicros(2026, 8, 25, 9), 'e1s1'),
+        _epicSkipped(utcMicros(2026, 8, 25, 9, 0, 1), 'e1s1'),
+        ...oneServed,
+      ];
+      expect(
+        deal(bothServed, [...e1, ...e2])!.id,
+        'e1s1',
+        reason: 'e1 was served 2026-08-25, e2 2026-08-26 — e1 is idler',
+      );
+
+      // A retro-dated activation — e1s1's row carries an EARLIER
+      // recorded instant than e2s1's — cannot leapfrog e2s1's
+      // append order: the map's iteration order is the tie-break,
+      // a total order that no clock can perturb.
+      final retroDated = [
+        _epicActivated(utcMicros(2026, 8, 27, 11), 'e2s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 9), 'e1s1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      expect(
+        deal(retroDated, [...e1, ...e2])!.id,
+        'e2s1',
+        reason:
+            'e2s1 activated first by append order — the earlier '
+            'recorded instant of e1s1 cannot reorder arbitration',
+      );
+    });
+
+    test('a step answered (card_done, all-time) retires it; the next '
+        'step becomes the head; all answered offers nothing', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 's1'),
+      ];
+      expect(deal(log, steps)!.id, 's2');
+
+      final allAnswered = [
+        ...log,
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 3), 's2'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 4), 's2'),
+      ];
+      expect(
+        [
+          ...composeDay(
+            catalogue: _catalogue,
+            log: allAnswered,
+            instantUtcMicros: now,
+            offsetSeconds: 0,
+            poolFacts: steps,
+          ).maintenance,
+        ].any((card) => card.id == 's1' || card.id == 's2'),
+        isFalse,
+        reason: 'every step answered: the Epic offers nothing more',
+      );
+    });
+
+    test('a 🔴 day fails the head\'s 180–300 s estimate — no Epic in '
+        'any draw, the day composes upkeep and habits from elsewhere', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 28, 9), 'El trastero ordenado'),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        energy: EnergyLevel.low,
+        poolFacts: steps,
+      );
+      expect(composition.focus, isNull);
+      expect(composition.maintenance.any((card) => card.id == 's1'), isFalse);
+      expect(composition.instantHabits.any((card) => card.id == 's1'), isFalse);
+    });
+
+    test('the standing Epic card renders by cardForItem through '
+        'stepText, same estimate as its deal', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Recoger las cajas',
+          estimateSeconds: 240,
+        ),
+      ];
+      final standing = cardForItem(
+        catalogue: _catalogue,
+        itemId: 's1',
+        origin: Origin.cloud,
+        poolFacts: steps,
+      );
+      expect(standing, isNotNull);
+      expect(standing!.name, 'Recoger las cajas');
+      expect(standing.estimateSeconds, 240);
+      expect(standing.size, Size.maintenance);
+    });
+
+    test('a live rescue chain\'s head still deals first over an '
+        'active Epic — the ladder is unchanged', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final rescueSteps = [
+        _stepFact(
+          'r1',
+          utcMicros(2026, 8, 28, 9),
+          'cap-focus',
+          line: 'Paso de rescate',
+        ),
+      ];
+      final epicSteps = [
+        _scanStep(
+          'e1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso del Epic',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 'e1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      final card = deal(log, [parent, ...rescueSteps, ...epicSteps]);
+      expect(
+        card!.id,
+        'r1',
+        reason: 'the rescue head\'s conversion outranks everything',
+      );
+    });
+
+    test('a manual capture still deals first over an active Epic — '
+        'the capture tier is checked before the epic tier', () {
+      final capture = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final epicSteps = [
+        _scanStep(
+          'e1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso del Epic',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 'e1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      final card = deal(log, [capture, ...epicSteps]);
+      expect(
+        card!.id,
+        'cap-focus',
+        reason: 'the capture tier outranks the epic tier',
+      );
+    });
+
+    test('an Epic step sent through Rescue Mode is superseded — the '
+        'chain stands in its place and the Epic advances to its next '
+        'step (any origin can be rescued, mirroring captureCandidates\' '
+        'own source-side exclusion)', () {
+      final steps = [
+        _scanStep(
+          's1',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso uno',
+        ),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 28, 9),
+          'El trastero ordenado',
+          stepText: 'Paso dos',
+        ),
+      ];
+      final rescueStep = _stepFact(
+        'r1',
+        utcMicros(2026, 8, 28, 9, 30),
+        's1',
+        line: 'Paso de rescate',
+      );
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+        _sliceRow(
+          LogKind.sliceRequested,
+          utcMicros(2026, 8, 28, 9, 30),
+          's1',
+          origin: Origin.cloud,
+        ),
+      ];
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [...steps, rescueStep],
+      );
+      expect(
+        composition.focus?.id,
+        's2',
+        reason:
+            's1 is superseded by the live chain; the Epic advances '
+            'to its next step instead of vanishing from every draw',
+      );
+
+      // If the rescued step were the Epic's only step, the Epic
+      // offers nothing at all while the chain is live — the same
+      // shape as "all skipped today", but by supersession.
+      final soleComposition = composeDay(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: [steps[0], rescueStep],
+      );
+      expect(
+        [
+          ...soleComposition.maintenance,
+          if (soleComposition.focus != null) soleComposition.focus!,
+        ].any((c) => c.id == 's1'),
+        isFalse,
+      );
     });
   });
 }

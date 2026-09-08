@@ -746,33 +746,40 @@ class ScanController {
       _appendMinted(() => scanSliceFailed(cause: cause));
 
   /// Lands a delivered slice's steps as pool facts (Story 5.7,
-  /// FR-16): the seeds come from the core's single sanctioned minter
-  /// — origin, banding size, the description as Origin Context, the
-  /// step's own words, the verbatim estimate — and the shell mints
-  /// only the id, the instant and the offset: one resolution instant
-  /// for the whole slice, one v7 id per fact. All facts of one slice
-  /// share that single resolution instant, and the plan's ORDER is
-  /// the store's snapshot order — this landing appends the steps in
-  /// the body's slice order and `readPoolFacts`' rowid tiebreak
-  /// preserves it among the tied instants — which is the contract
-  /// 5.9's "first step" consumption reads; no ordinal column exists
-  /// by design (AD-3's replay order is the one order the store
-  /// guarantees). Per-fact appends, no cross-fact transaction (the
-  /// substrate is insert-only and a partial plan derives honestly);
-  /// the whole landing rides the shared `LogWriteQueue`, serialized
-  /// against every other write the shell owns, and a failing store
-  /// is absorbed quietly — the house write-queue discipline.
+  /// FR-16), then — once every step has landed — mints the Epic's own
+  /// `epic_activated` row (Story 5.9, AD-21): the seeds come from the
+  /// core's single sanctioned minter — origin, banding size, the
+  /// description as Origin Context, the step's own words, the
+  /// verbatim estimate — and the shell mints only the id, the instant
+  /// and the offset: one resolution instant for the whole slice, one
+  /// v7 id per fact. All facts of one slice share that single
+  /// resolution instant, and the plan's ORDER is the store's snapshot
+  /// order — this landing appends the steps in the body's slice order
+  /// and `readPoolFacts`' rowid tiebreak preserves it among the tied
+  /// instants — which is the contract 5.9's "first step" consumption
+  /// reads; no ordinal column exists by design (AD-3's replay order is
+  /// the one order the store guarantees). Per-fact appends, no
+  /// cross-fact transaction (the substrate is insert-only and a
+  /// partial plan derives honestly) — so a throw partway through the
+  /// fact loop skips the activation append below it too: the Epic
+  /// derives dormant exactly as a landing that never happened would.
+  /// The whole landing rides the shared `LogWriteQueue`, serialized
+  /// against every other write the shell owns, and a failing store is
+  /// absorbed quietly — the house write-queue discipline.
   Future<void> _appendScanLanded(ScanSlice slice, {required Origin origin}) {
     final now = nowOf();
     return writeQueue
         .enqueue(() async {
+          String? stableId;
           for (final seed in scanSliceLanded(
             origin: origin,
             description: slice.description,
             steps: slice.steps,
           )) {
+            final factId = idMinter.v7();
+            stableId ??= factId;
             await store.appendPoolFact((
-              id: idMinter.v7(),
+              id: factId,
               origin: seed.origin,
               size: seed.size,
               instantUtcMicros: now.microsecondsSinceEpoch,
@@ -783,6 +790,31 @@ class ScanController {
               estimateSeconds: seed.estimateSeconds,
               stepText: seed.stepText,
             ));
+          }
+          if (stableId != null) {
+            for (final content in epicActivated(
+              itemId: stableId,
+              origin: origin,
+            )) {
+              await store.appendLogEntry((
+                id: idMinter.v7(),
+                kind: content.kind.name,
+                instantUtcMicros: now.microsecondsSinceEpoch,
+                offsetSeconds: now.timeZoneOffset.inSeconds,
+                itemId: content.itemId,
+                itemOrigin: content.itemOrigin,
+                stack: content.stack,
+                settingKey: content.settingKey,
+                settingValue: content.settingValue,
+                settingTextValue: content.settingTextValue,
+                pocketMinutes: content.pocketMinutes,
+                energyLevel: content.energyLevel,
+                reportValue: content.reportValue,
+                reportWeek: content.reportWeek,
+                permission: content.permission?.name,
+                sliceCause: content.sliceCause,
+              ));
+            }
           }
         })
         .catchError((Object _) {});

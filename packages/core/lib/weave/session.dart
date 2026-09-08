@@ -53,6 +53,7 @@ final class LogFacts {
     required this.openSessionPocketMinutes,
     required this.openSessionAnsweredSeconds,
     required this.focusSlotCarriedDays,
+    required this.epicActivatedInstantByStableId,
   });
 
   /// Per item id, the instant of its latest recorded `card_dealt` —
@@ -141,6 +142,15 @@ final class LogFacts {
   /// nothing here: the card stands dealable and a plain skip still
   /// re-resolves a new chunk (AD-20's recorded override).
   final Set<Day> focusSlotCarriedDays;
+
+  /// Per Epic stable id, the instant of its `epic_activated` row
+  /// (Story 5.9, AD-21): a derivation's own map — append order IS
+  /// activation order (AD-3), so the arbitration's "activation order"
+  /// tie-break reads this map's own iteration order, never a second
+  /// counter. An id absent here was never activated: the Epic is
+  /// dormant, invisible to every candidate source by construction —
+  /// never by a guard.
+  final Map<String, int> epicActivatedInstantByStableId;
 }
 
 /// The domestic day an act at [instantUtcMicros] / [offsetSeconds] is
@@ -264,6 +274,7 @@ LogFacts walkLog(
   int? openSessionPocketMinutes;
   var openSessionAnsweredSeconds = 0;
   final focusSlotCarriedDays = <Day>{};
+  final epicActivatedInstantByStableId = <String, int>{};
 
   void chargeDealToDay(Day day, Size? size) {
     if (size == null) {
@@ -340,7 +351,17 @@ LogFacts walkLog(
           openSessionPocketMinutes += pocketMinutes;
         }
       case ItemActEntry(:final kind, :final itemId, :final itemOrigin):
-        if (kind == LogKind.cardDealt) {
+        if (kind == LogKind.epicActivated) {
+          // The activation fold (Story 5.9, AD-3, AD-21): append order
+          // IS activation order, so the first (and, by construction,
+          // only) row naming a stable id is kept — a duplicate would
+          // never assert a different origin or day, and the map's own
+          // insertion order is the tie-break the arbitration reads.
+          epicActivatedInstantByStableId.putIfAbsent(
+            itemId,
+            () => entry.instantUtcMicros,
+          );
+        } else if (kind == LogKind.cardDealt) {
           lastDealtInstantByItemId[itemId] = entry.instantUtcMicros;
           final chargedDay = dayOfOpenOrOwnSession(entry);
           chargeDealToDay(chargedDay, sizeByItemId[itemId]);
@@ -439,6 +460,7 @@ LogFacts walkLog(
     openSessionPocketMinutes: openSessionPocketMinutes,
     openSessionAnsweredSeconds: openSessionAnsweredSeconds,
     focusSlotCarriedDays: focusSlotCarriedDays,
+    epicActivatedInstantByStableId: epicActivatedInstantByStableId,
   );
 }
 

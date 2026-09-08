@@ -143,6 +143,13 @@ enum CandidatePrecedence {
   /// catalogue: the index is the arbitration.
   capture,
 
+  /// An active Epic Project's head step (Story 5.9, FR-11, AD-20) —
+  /// behind captures, ahead of the catalogue: a member, never a flag
+  /// (this enum's own rule). Eligible for the Focus Chunk slot by
+  /// candidate class, never by size — an Epic step commonly bands
+  /// `maintenance` (180–300 s) and still enters the chunk pool.
+  epic,
+
   /// A shipped Evergreen catalogue entry.
   catalogue,
 }
@@ -325,6 +332,134 @@ List<Candidate> rescueCandidates(
   ];
 }
 
+/// The active Epic Projects' head steps as a candidate source (Story
+/// 5.9, FR-11, AD-20): an Epic is a **derivation, not a stored
+/// entity** — the facts with `origin ∈ {cloud, local} ∧ rescueOf ==
+/// null ∧ stepText != null` sharing one `(instantUtcMicros,
+/// originContext)` pair are one slice's steps, and that pair is the
+/// insert-only grouping key. The group's stable id is its first fact
+/// in snapshot order; a group whose stable id names no
+/// `epic_activated` row (`facts.epicActivatedInstantByStableId`) is
+/// dormant and offers nothing — invisible by construction, never by a
+/// guard, so a landing that crashed mid-plan derives honestly as
+/// dormant. For each ACTIVE Epic, exactly the FIRST step neither
+/// answered all-time nor skipped on [day] is the head — a skip
+/// demotes the head for the day only (`skippedDaysByItemId`,
+/// `session.dart:91`, reused verbatim), while an all-time answer
+/// retires a step for good; a chain whose every step is answered or
+/// skipped-today offers nothing. The returned list is already in
+/// AD-20's arbitration order — least-recently-served active Epic
+/// (the maximum `lastDealtInstantByItemId` over its own steps,
+/// never-served first), then activation order (the `epic_activated`
+/// append order — the fold map's iteration order, never the clock,
+/// AD-3), then the stable id — so the caller (`_chunkCandidateOf`) may take its first
+/// candidate directly, no further sort. Any Epic step named by
+/// [supersededParents] (`supersededParentIds`, the same fold
+/// `captureCandidates` reads its own facts through) is a live rescue
+/// chain's parent — any origin can be sent through Rescue Mode, so an
+/// Epic's head is no exception — and is skipped exactly like an
+/// answered or skipped-today step: the chain stands in its place, and
+/// the Epic's NEXT step becomes the head instead of the whole Epic
+/// vanishing from every draw.
+List<Candidate> epicCandidates(
+  List<PoolFact> poolFacts,
+  LogFacts facts,
+  Day day,
+  Set<String> supersededParents,
+) {
+  final factById = <String, PoolFact>{};
+  final stepIdsByGroupKey = <String, List<String>>{};
+  for (final fact in poolFacts) {
+    if ((fact.origin == Origin.cloud || fact.origin == Origin.local) &&
+        fact.rescueOf == null &&
+        fact.stepText != null) {
+      factById[fact.id] = fact;
+      final groupKey = '${fact.instantUtcMicros}|${fact.originContext}';
+      stepIdsByGroupKey.putIfAbsent(groupKey, () => []).add(fact.id);
+    }
+  }
+
+  final groups = <({String stableId, PoolFact head, int? servedInstant})>[];
+  for (final stepIds in stepIdsByGroupKey.values) {
+    final stableId = stepIds.first;
+    if (!facts.epicActivatedInstantByStableId.containsKey(stableId)) {
+      continue; // Dormant: no activation row names this Epic.
+    }
+    String? headId;
+    for (final stepId in stepIds) {
+      if (facts.answeredItemIds.contains(stepId)) {
+        continue;
+      }
+      if (facts.skippedDaysByItemId[stepId]?.contains(day) ?? false) {
+        continue;
+      }
+      if (supersededParents.contains(stepId)) {
+        continue;
+      }
+      headId = stepId;
+      break;
+    }
+    if (headId == null) {
+      continue; // Every step answered, skipped today, or being rescued.
+    }
+    int? servedInstant;
+    for (final stepId in stepIds) {
+      final dealt = facts.lastDealtInstantByItemId[stepId];
+      if (dealt != null && (servedInstant == null || dealt > servedInstant)) {
+        servedInstant = dealt;
+      }
+    }
+    groups.add((
+      stableId: stableId,
+      head: factById[headId]!,
+      servedInstant: servedInstant,
+    ));
+  }
+
+  // Activation order (AD-20): the `epic_activated` APPEND order —
+  // the fold map's own iteration order, a total order with no ties
+  // and no dependence on the clock (a retro-dated row cannot
+  // reorder arbitration). The stable id remains only as the
+  // comparator's total backstop.
+  final activationRankByStableId = <String, int>{
+    for (final (rank, id) in facts.epicActivatedInstantByStableId.keys.indexed)
+      id: rank,
+  };
+  groups.sort((a, b) {
+    if (a.servedInstant == null && b.servedInstant != null) {
+      return -1;
+    }
+    if (a.servedInstant != null && b.servedInstant == null) {
+      return 1;
+    }
+    if (a.servedInstant != null &&
+        b.servedInstant != null &&
+        a.servedInstant != b.servedInstant) {
+      return a.servedInstant!.compareTo(b.servedInstant!);
+    }
+    final aActivated = activationRankByStableId[a.stableId]!;
+    final bActivated = activationRankByStableId[b.stableId]!;
+    if (aActivated != bActivated) {
+      return aActivated.compareTo(bActivated);
+    }
+    return a.stableId.compareTo(b.stableId);
+  });
+
+  return [
+    for (final group in groups)
+      Candidate(
+        itemId: group.head.id,
+        size: group.head.size,
+        name: group.head.stepText ?? group.head.originContext ?? '',
+        origin: group.head.origin,
+        zone: null,
+        precedence: CandidatePrecedence.epic,
+        createdInstantUtcMicros: group.head.instantUtcMicros,
+        estimateSeconds: group.head.estimateSeconds,
+      ),
+  ];
+}
+
 /// The week's one active zone (FR-11, FR-31): the nominal ring position
 /// `Zone.values[weekOrdinal mod 5]`, then the first active zone
 /// at-or-after it cyclically — a disabled zone's week passes to the next
@@ -443,7 +578,10 @@ List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
 /// source's own retirement, ahead of every zone tier and composing
 /// with no active zone at all, so FR-11's empty ring still holds the
 /// capture; the day never holds a second large item beside it, for
-/// the tiers below never run while a capture stands), then the active
+/// the tiers below never run while a capture stands), then an active
+/// Epic Project's head step (Story 5.9, FR-11, FR-12 — already in
+/// AD-20's own arbitration order, `epicCandidates`' own contract, so
+/// this tier takes it first with no further sort), then the active
 /// zone's focus entries never **answered** (`card_done`) all-time,
 /// then `fondo` (seasonal focus) never answered, then the
 /// least-recently-dealt eligible focus entry regardless of zone —
@@ -452,7 +590,7 @@ List<Card> _draw(List<Candidate> ofSize, LogFacts facts, int count) {
 /// (AD-3 — FIFO by fact instant inside the capture tier,
 /// least-recently-dealt then stable id in the others). With no active
 /// zone (FR-11's ring empty) the zone tiers are empty — this returns
-/// absent once no capture stands.
+/// absent once no capture and no active Epic stand.
 Candidate? _chunkCandidateOf(
   List<Candidate> focusCandidates,
   LogFacts facts,
@@ -470,6 +608,17 @@ Candidate? _chunkCandidateOf(
   );
   if (captureTier.isNotEmpty) {
     return captureTier.first;
+  }
+  // The epic tier (Story 5.9): `epicCandidates` already returns its
+  // list in AD-20's own arbitration order (least-recently-served,
+  // then activation order, then stable id) — the source owns the
+  // Epic arbitration, so this tier takes the first candidate
+  // directly, never through the generic resolver order.
+  final epicTier = focusCandidates.where(
+    (candidate) => candidate.precedence == CandidatePrecedence.epic,
+  );
+  if (epicTier.isNotEmpty) {
+    return epicTier.first;
   }
   if (activeZone == null) {
     return null;
@@ -577,9 +726,11 @@ _DayPolicy _resolveDay({
       // chains' head steps first (Story 4.6 — the conversion of a
       // card the user already faced), manual captures behind them
       // (Story 3.3 — done-once retirement already applied at the
-      // source), the shipped catalogue behind both.
+      // source), active Epic Projects behind captures (Story 5.9),
+      // the shipped catalogue behind all three.
       ...rescueCandidates(poolFacts, facts.answeredItemIds, dissolvedParents),
       ...captureCandidates(poolFacts, facts.answeredItemIds),
+      ...epicCandidates(poolFacts, facts, day, supersededParents),
       ...shippedCandidates(catalogue, activeClusters: clusters),
     ])
       if (lowEnergyAdmits(candidate) &&
@@ -591,7 +742,13 @@ _DayPolicy _resolveDay({
       facts.dealtUnanswered == null) {
     final activeZone = activeZoneOf(const Calendar().weekOf(day), clusters);
     final chunkCandidate = _chunkCandidateOf(
-      candidates.where((candidate) => candidate.size == Size.focus).toList(),
+      candidates
+          .where(
+            (candidate) =>
+                candidate.size == Size.focus ||
+                candidate.precedence == CandidatePrecedence.epic,
+          )
+          .toList(),
       facts,
       activeZone,
     );
@@ -648,7 +805,8 @@ _DayPolicy _resolveDay({
           .where(
             (candidate) =>
                 candidate.size == Size.maintenance &&
-                candidate.precedence != CandidatePrecedence.rescue,
+                candidate.precedence != CandidatePrecedence.rescue &&
+                candidate.precedence != CandidatePrecedence.epic,
           )
           .toList(),
       facts,
@@ -659,7 +817,8 @@ _DayPolicy _resolveDay({
           .where(
             (candidate) =>
                 candidate.size == Size.instant &&
-                candidate.precedence != CandidatePrecedence.rescue,
+                candidate.precedence != CandidatePrecedence.rescue &&
+                candidate.precedence != CandidatePrecedence.epic,
           )
           .toList(),
       facts,
@@ -888,7 +1047,11 @@ Card? cardForItem({
       return Card(
         id: fact.id,
         size: fact.size,
-        name: fact.originContext ?? '',
+        // The step's own words name the card once a scan step exists
+        // (Story 5.9): `stepText` is non-null exactly there, so a
+        // manual capture or rescue step still renders through its own
+        // Origin Context unchanged.
+        name: fact.stepText ?? fact.originContext ?? '',
         origin: origin,
         zone: null,
         // A rescue step's own verbatim estimate stands on its standing
