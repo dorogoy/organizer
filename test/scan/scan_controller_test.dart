@@ -824,18 +824,27 @@ void main() {
       // phrasing can drift from the other while these pins stay
       // green.
       expect(request.prompt, endsWith(scanResponseContract));
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      // The landing's own activation row (Story 5.9): one step landed,
+      // so exactly one epic_activated row follows, naming the landed
+      // fact as the Epic's stable id.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+      ]);
+      expect(store.entries[1].itemId, store.facts.single.id);
+      expect(store.entries[1].itemOrigin, Origin.cloud);
       expect(files.unlinkedScans, [passed.scanId]);
       // One decision and one token: a second accept is nothing at all.
       expect(await controller.grantConsent(), isA<ScanConsentStale>());
       expect(slicer.requests, hasLength(1));
-      expect(store.entries, hasLength(1));
+      expect(store.entries, hasLength(2));
     });
 
     test('a delivered slice lands as facts — one per parsed step, the '
         'description as Origin Context, the banding size, the verbatim '
-        'estimate, nothing dealt and no extra rows (Story 5.7, FR-16, '
-        'FR-27)', () async {
+        'estimate, nothing dealt, and exactly one epic_activated row '
+        'naming the first fact as the stable id (Story 5.7, 5.9, '
+        'FR-16, FR-27)', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final slicer = _FakeSlicer()
@@ -855,7 +864,14 @@ void main() {
       // Exactly the three steps landed, in the body's own order, and
       // nothing else: no scan slice_returned, no deal, no card row.
       expect(store.facts, hasLength(3));
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+      ]);
+      // The Epic's stable id is the plan's FIRST step — the group's
+      // first fact in snapshot order (Story 5.9).
+      expect(store.entries[1].itemId, store.facts.first.id);
+      expect(store.entries[1].itemOrigin, Origin.cloud);
       final instant = _fixedClock().microsecondsSinceEpoch;
       final ids = <String>{};
       for (var i = 0; i < store.facts.length; i++) {
@@ -1107,9 +1123,13 @@ void main() {
       await controller.close();
       unlinkBrake.complete();
       expect(await granting, isA<ScanConsentDelivered>());
-      expect(store.entries.map((entry) => entry.kind), [
-        'consent_granted',
-      ], reason: 'the dispatch resolved — a close after it abandons nothing');
+      expect(
+        store.entries.map((entry) => entry.kind),
+        ['consent_granted', 'epic_activated'],
+        reason:
+            'the dispatch resolved — a close after it abandons nothing, '
+            'and the landing completes unconditionally (Story 5.9)',
+      );
       expect(files.unlinkedScans.toSet(), {files.writtenFrames.single.$1});
       expect(camera.disposedCalls, isNotEmpty);
     });
@@ -1255,6 +1275,12 @@ void main() {
       // wait — the outcome is delivered, the one landed fact stands.
       expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
       expect(inner.facts, hasLength(1));
+      // The plan crashed mid-landing: no epic_activated row exists,
+      // even though one fact landed — the Epic derives dormant, never
+      // repaired (Story 5.9's matrix, "landing crashed mid-plan"). The
+      // act's own consent_granted row still stands — that append
+      // happened before the landing began.
+      expect(inner.entries.map((entry) => entry.kind), ['consent_granted']);
       expect(files.unlinkedScans, isNotEmpty);
     });
 
@@ -1346,6 +1372,7 @@ void main() {
       await controller.close();
       expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
+        'epic_activated',
       ], reason: 'no dispatch stands at the close — no abandonment exists');
     });
 

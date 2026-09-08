@@ -401,6 +401,14 @@ void main() {
           'through the _appendScanSliceFailed wrapper on the shared '
           'content copier (Story 5.7)',
     );
+    expect(
+      RegExp(r'\bepicActivated\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core epicActivated command invocation — the '
+          'scan channel\'s landing, minted only after the fact loop '
+          'inside _appendScanLanded (Story 5.9)',
+    );
     final genesis = sources['lib/genesis/genesis_controller.dart'];
     expect(genesis, isNotNull, reason: 'the genesis channel is gone');
     final genesisSource = genesis ?? '';
@@ -428,6 +436,15 @@ void main() {
           'exactly one core scanSliceFailed command invocation — the '
           'genesis channel\'s single sanctioned failure row (Story 5.8, '
           'the scan channel\'s own minter)',
+    );
+    expect(
+      RegExp(r'\bepicActivated\s*\(').allMatches(genesisSource),
+      hasLength(1),
+      reason:
+          'exactly one core epicActivated command invocation — the '
+          'genesis channel\'s landing, minted only after the fact loop '
+          'inside _appendGenesisLanded (Story 5.9, the scan channel\'s '
+          'own minter)',
     );
 
     // The append-site census, exact per file: `appendLogEntry` calls
@@ -475,12 +492,19 @@ void main() {
         'lib/settings/settings_controller.dart': 1,
         // Story 5.2: the scan channel's two refusal rows — the
         // camera permission refusal and the face refusal — through
-        // one shared content copier.
-        'lib/scan/scan_controller.dart': 1,
+        // one shared content copier. Story 5.9 adds a second site: the
+        // landing's own `epic_activated` append, inline in
+        // `_appendScanLanded` beside its `appendPoolFact` calls rather
+        // than through the shared copier (the landing already builds
+        // its fact records inline; the activation row follows the same
+        // local idiom).
+        'lib/scan/scan_controller.dart': 2,
         // Story 5.8: the genesis channel's rows — the consent act,
         // the wait's abandonment, the failure arms — through one
-        // shared content copier of its own.
-        'lib/genesis/genesis_controller.dart': 1,
+        // shared content copier of its own. Story 5.9 adds the same
+        // second site as the scan channel's: the landing's own
+        // `epic_activated` append, inline in `_appendGenesisLanded`.
+        'lib/genesis/genesis_controller.dart': 2,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -495,8 +519,8 @@ void main() {
         'lib/dispenser/dispenser_controller.dart': 1,
         'lib/session/session_controller.dart': 1,
         'lib/settings/settings_controller.dart': 1,
-        'lib/scan/scan_controller.dart': 1,
-        'lib/genesis/genesis_controller.dart': 1,
+        'lib/scan/scan_controller.dart': 2,
+        'lib/genesis/genesis_controller.dart': 2,
       },
       reason:
           'records constructed over core LogEntryContent exist '

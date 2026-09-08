@@ -1,4 +1,4 @@
-/// The scan commands (Story 5.2, Stories 5.4–5.7; FR-16, FR-25,
+/// The scan commands (Story 5.2, Stories 5.4–5.7, 5.9; FR-16, FR-25,
 /// FR-26 b, AD-21, AD-8): pure functions that compute *what* to
 /// append — never ids, instants or offsets, which the shell mints
 /// at the commit of each act. `faceRefused`, `consentGranted`,
@@ -9,7 +9,11 @@
 /// single sanctioned writers — the step-fact seeds a delivered
 /// slice lands, and the `slice_failed` row a failed or violating
 /// one mints — so no second scan landing writer can appear silently
-/// either.
+/// either; `epicActivated` (Story 5.9) is `epic_activated`'s single
+/// sanctioned minter, appended once from each of the two landing
+/// paths (the scan and typed-genesis controllers) after their fact
+/// loop, naming the Epic's derived stable id — the group's first
+/// landed fact.
 ///
 /// The four earlier rows are payload-less on the `app_opened`
 /// precedent: no item
@@ -231,6 +235,42 @@ List<LogEntryContent> scanSliceFailed({required SlicerFailureCause cause}) {
       reportWeek: null,
       permission: null,
       sliceCause: cause.name,
+    ),
+  ];
+}
+
+/// `epic_activated` — exactly one item-act content row, the kind's
+/// single sanctioned minter (Story 5.9, AD-21): a successful landing
+/// mints exactly one row naming the Epic's stable id — the group's
+/// first landed fact, in the plan's own snapshot order — and the
+/// landing's own origin. The row is what makes an Epic active: the
+/// weave's candidate source reads its presence, never a stored flag,
+/// and its absence is dormancy by construction (AD-21 forbids
+/// logging an absence, so a landing that crashed mid-plan derives
+/// honestly as dormant instead). On the existing item-act shape
+/// (AD-14): the shell completes the row — minting the UUIDv7 id, the
+/// instant and the offset in force — before the port sees it, and
+/// the append rides the shared `LogWriteQueue` like every other
+/// write.
+List<LogEntryContent> epicActivated({
+  required String itemId,
+  required Origin origin,
+}) {
+  return [
+    (
+      kind: LogKind.epicActivated,
+      itemId: itemId,
+      itemOrigin: origin,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
     ),
   ];
 }

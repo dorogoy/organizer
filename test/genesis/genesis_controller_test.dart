@@ -174,8 +174,9 @@ void main() {
 
     test('the happy path: one consent_granted row, exactly one '
         'token-free dispatch whose text is the composed prompt, the '
-        'steps landed as facts with the description as Origin Context — '
-        'and nothing dealt (Story 5.7\'s landing verbatim, FR-16, '
+        'steps landed as facts with the description as Origin Context, '
+        'nothing dealt, and exactly one epic_activated row naming the '
+        'first fact (Story 5.7\'s landing verbatim, 5.9, FR-16, '
         'FR-26 b)', () async {
       final store = _RecordingStore();
       final slicer = _FakeSlicer();
@@ -187,10 +188,10 @@ void main() {
       );
       final outcome = await controller.analyze('Ordenar el trastero');
       expect(outcome, isA<GenesisDelivered>());
-      // The act's one row, payload-less, the scan channel's own
+      // The act's own row, payload-less, the scan channel's own
       // minter.
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
-      final row = store.entries.single;
+      final row = store.entries.first;
+      expect(row.kind, 'consent_granted');
       expect(row.itemId, isNull);
       expect(row.sliceCause, isNull);
       expect(row.permission, isNull);
@@ -242,6 +243,14 @@ void main() {
         expect(fact.offsetSeconds, _fixedClock().timeZoneOffset.inSeconds);
       }
       expect(ids, hasLength(2), reason: 'one shell-minted id per fact');
+      // The Epic's own activation row (Story 5.9): exactly one, after
+      // the fact loop, naming the FIRST landed fact as the stable id.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+      ]);
+      expect(store.entries[1].itemId, store.facts.first.id);
+      expect(store.entries[1].itemOrigin, Origin.cloud);
     });
 
     test('the Local stub delivers the local origin — the debug path '
@@ -365,7 +374,10 @@ void main() {
       slicer.gate!.complete();
       expect(await first, isA<GenesisDelivered>());
       expect(slicer.requests, hasLength(1));
-      expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+      ]);
     });
 
     test('no slicer behind the test seam: the act folds closed — '
@@ -400,7 +412,9 @@ void main() {
       expect(slicer.requests, hasLength(2));
       expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
+        'epic_activated',
         'consent_granted',
+        'epic_activated',
       ]);
       expect(store.facts, hasLength(4));
     });
@@ -514,6 +528,7 @@ void main() {
       await controller.close();
       expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
+        'epic_activated',
       ], reason: 'no dispatch stands at the close — no abandonment exists');
     });
 
@@ -630,6 +645,12 @@ void main() {
         isA<GenesisDelivered>(),
       );
       expect(inner.facts, hasLength(1));
+      // The plan crashed mid-landing: no epic_activated row exists,
+      // even though one fact landed — the Epic derives dormant, never
+      // repaired (Story 5.9's matrix, "landing crashed mid-plan"). The
+      // act's own consent_granted row still stands — that append
+      // happened before the landing began.
+      expect(inner.entries.map((entry) => entry.kind), ['consent_granted']);
     });
   });
 

@@ -401,7 +401,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('launch-surface'), findsOneWidget);
     expect(slicer.requests, hasLength(1));
-    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
   });
 
   testWidgets('the dispatch uses the description consented at tap time', (
@@ -556,7 +559,10 @@ void main() {
     await tester.pump(routePopSettle);
     expect(find.byType(NuevoProyectoScreen), findsNothing);
     expect(find.text('launch-surface'), findsOneWidget);
-    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
     expect(store.facts, hasLength(1), reason: 'the steps landed as facts');
   });
 
@@ -673,7 +679,10 @@ void main() {
     await tester.pump();
     await tester.pump(routePopSettle);
     expect(find.byType(NuevoProyectoScreen), findsNothing);
-    expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
+    expect(store.entries.map((entry) => entry.kind), [
+      'consent_granted',
+      'epic_activated',
+    ]);
   });
 
   testWidgets('a rapid double-tap on Analizar takes one act — the '

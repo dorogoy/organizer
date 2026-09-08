@@ -30,8 +30,14 @@
 /// unbounded wait's honest departure: a payload-less **user act** on
 /// the naming table's own register, the user leaving the scan surface
 /// or backgrounding the app mid-wait — AD-8's resolution cause —
-/// logged for the audit trail but never contact). A new kind
-/// is a new kind, never a flag on an old one.
+/// logged for the audit trail but never contact), and since Story 5.9
+/// the twenty-first kind `epic_activated` (AD-21 — an Epic Project's
+/// activation: a user act on the existing item-act shape, `itemId`
+/// the Epic's derived stable id, `itemOrigin` the Epic's own origin.
+/// Minted once at a successful landing, its ABSENCE is what makes an
+/// Epic dormant — AD-21 forbids logging an absence, so dormancy is
+/// never a row, only the state where no `epic_activated` names the
+/// id). A new kind is a new kind, never a flag on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -117,6 +123,7 @@ final class LogKind {
   static const consentGranted = LogKind._('consent_granted', known: true);
   static const consentDeclined = LogKind._('consent_declined', known: true);
   static const scanAbandoned = LogKind._('scan_abandoned', known: true);
+  static const epicActivated = LogKind._('epic_activated', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -140,6 +147,7 @@ final class LogKind {
     'consent_granted': consentGranted,
     'consent_declined': consentDeclined,
     'scan_abandoned': scanAbandoned,
+    'epic_activated': epicActivated,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -651,7 +659,8 @@ bool _isItemAct(LogKind kind) =>
     kind == LogKind.cardDealt ||
     kind == LogKind.cardDone ||
     kind == LogKind.cardSkipped ||
-    kind == LogKind.captureCreated;
+    kind == LogKind.captureCreated ||
+    kind == LogKind.epicActivated;
 
 bool _isMoment(LogKind kind) =>
     kind == LogKind.sessionEnded ||

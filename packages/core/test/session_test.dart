@@ -829,4 +829,71 @@ void main() {
       expect(facts.openSessionAnsweredSeconds, maintenanceEstimateSeconds);
     });
   });
+
+  group('the activation fold (Story 5.9, AD-3, AD-21)', () {
+    ItemActEntry activated(
+      int micros,
+      String itemId, {
+      Origin origin = Origin.cloud,
+    }) => ItemActEntry(
+      id: 'epic-activated-$micros-$itemId',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.epicActivated,
+      itemId: itemId,
+      itemOrigin: origin,
+    );
+
+    test('an epic_activated row lands the stable id in the map, keyed '
+        'to its own instant', () {
+      final facts = walkLog([
+        activated(utcMicros(2026, 8, 28, 10), 'step-1'),
+      ], catalogue: _catalogue);
+      expect(facts.epicActivatedInstantByStableId, {
+        'step-1': utcMicros(2026, 8, 28, 10),
+      });
+    });
+
+    test('an id with no epic_activated row is absent — dormancy is the '
+        'absence, never a row', () {
+      final facts = walkLog(const [], catalogue: _catalogue);
+      expect(facts.epicActivatedInstantByStableId, isEmpty);
+    });
+
+    test('append order IS activation order — the map keeps the '
+        'insertion order the log itself carries (AD-3)', () {
+      final facts = walkLog([
+        activated(utcMicros(2026, 8, 28, 10), 'step-b'),
+        activated(utcMicros(2026, 8, 27, 9), 'step-a'),
+      ], catalogue: _catalogue);
+      expect(facts.epicActivatedInstantByStableId.keys.toList(), [
+        'step-b',
+        'step-a',
+      ]);
+    });
+
+    test('a duplicate activation for the same stable id keeps the '
+        'first — one row per successful landing, by construction', () {
+      final facts = walkLog([
+        activated(utcMicros(2026, 8, 27, 9), 'step-1'),
+        activated(utcMicros(2026, 8, 28, 10), 'step-1'),
+      ], catalogue: _catalogue);
+      expect(
+        facts.epicActivatedInstantByStableId['step-1'],
+        utcMicros(2026, 8, 27, 9),
+      );
+    });
+
+    test('an epic_activated row disturbs no other fold — no dealt '
+        'day, no answer, no standing card', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start),
+        activated(start + 1, 'step-1'),
+      ], catalogue: _catalogue);
+      expect(facts.dealtCountsByDay, isEmpty);
+      expect(facts.answeredItemIds, isEmpty);
+      expect(facts.dealtUnanswered, isNull);
+    });
+  });
 }

@@ -360,7 +360,12 @@ class GenesisController {
   /// whole slice; per-fact appends, no cross-fact transaction (the
   /// substrate is insert-only and a partial plan derives honestly);
   /// the whole landing riding the shared `LogWriteQueue` and a
-  /// failing store absorbed quietly.
+  /// failing store absorbed quietly. Once every step has landed, mints
+  /// the Epic's own `epic_activated` row (Story 5.9, AD-21) naming the
+  /// first fact as the Epic's stable id — a throw partway through the
+  /// fact loop, or a close racing the epoch mid-loop, skips this
+  /// append too, so the Epic derives dormant exactly as an
+  /// interrupted landing should.
   Future<void> _appendGenesisLanded(
     ScanSlice slice, {
     required Origin origin,
@@ -372,6 +377,7 @@ class GenesisController {
           if (_epoch != epoch) {
             return;
           }
+          String? stableId;
           for (final seed in scanSliceLanded(
             origin: origin,
             description: slice.description,
@@ -380,8 +386,10 @@ class GenesisController {
             if (_epoch != epoch) {
               return;
             }
+            final factId = idMinter.v7();
+            stableId ??= factId;
             await store.appendPoolFact((
-              id: idMinter.v7(),
+              id: factId,
               origin: seed.origin,
               size: seed.size,
               instantUtcMicros: now.microsecondsSinceEpoch,
@@ -392,6 +400,34 @@ class GenesisController {
               estimateSeconds: seed.estimateSeconds,
               stepText: seed.stepText,
             ));
+          }
+          if (stableId != null) {
+            if (_epoch != epoch) {
+              return;
+            }
+            for (final content in epicActivated(
+              itemId: stableId,
+              origin: origin,
+            )) {
+              await store.appendLogEntry((
+                id: idMinter.v7(),
+                kind: content.kind.name,
+                instantUtcMicros: now.microsecondsSinceEpoch,
+                offsetSeconds: now.timeZoneOffset.inSeconds,
+                itemId: content.itemId,
+                itemOrigin: content.itemOrigin,
+                stack: content.stack,
+                settingKey: content.settingKey,
+                settingValue: content.settingValue,
+                settingTextValue: content.settingTextValue,
+                pocketMinutes: content.pocketMinutes,
+                energyLevel: content.energyLevel,
+                reportValue: content.reportValue,
+                reportWeek: content.reportWeek,
+                permission: content.permission?.name,
+                sliceCause: content.sliceCause,
+              ));
+            }
           }
         })
         .catchError((Object _) {});
