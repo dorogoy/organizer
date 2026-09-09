@@ -65,6 +65,30 @@ class _RecordingStore implements StorePort {
       List.unmodifiable(entries);
 }
 
+/// A facts-carrying recording store (the seasonal group's own): the
+/// recording contract over a seeded pool-fact snapshot, so a dormant
+/// Epic stands in the pool before any launch.
+class _FactsRecordingStore implements StorePort {
+  _FactsRecordingStore(this.facts);
+
+  final List<PoolFactRecord> facts;
+  final List<LogEntryRecord> entries = [];
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async =>
+      List.unmodifiable(facts);
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      List.unmodifiable(entries);
+}
+
 /// A store whose reads throw only while armed — the launch read
 /// commits, then a later arm runs over a failing read (the screen
 /// suite's `_FailReadAfterDoneStore` grammar, the arm manual).
@@ -1521,4 +1545,334 @@ void main() {
       expect(find.text(strings.curationInvitation), findsOneWidget);
     });
   });
+
+  group('the once-per-season suggestion (Story 5.13, FR-15, UX-DR22)', () {
+    PoolFactRecord dormantEpic(String stableId) => (
+      id: stableId,
+      origin: Origin.cloud,
+      size: sizeOfEstimateSeconds(180),
+      instantUtcMicros: DateTime.utc(2026, 8, 20, 9).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'el trastero del fondo',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: 180,
+      stepText: 'Recoger las cajas',
+    );
+
+    /// The established install's first opening over a dormant Epic —
+    /// the install open and the answered week seeded beside the facts,
+    /// so the suggestion holds the slot over the check-in. The [epic]
+    /// param lets a test swap the fixture (the 200% pin's long
+    /// description).
+    Future<_FactsRecordingStore> launchWithDormant(
+      WidgetTester tester, {
+      PoolFactRecord? epic,
+    }) async {
+      final store = _FactsRecordingStore([epic ?? dormantEpic('s1')]);
+      for (final entry in [
+        (
+          id: 'install-open',
+          kind: 'app_opened',
+          at: DateTime.utc(2026, 8, 28, 20),
+        ),
+        (
+          id: 'seed-week-answered',
+          kind: 'report_answered',
+          at: DateTime.utc(2026, 8, 23, 12),
+        ),
+      ]) {
+        store.entries.add((
+          id: entry.id,
+          kind: entry.kind,
+          instantUtcMicros: entry.at.microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: entry.kind == 'report_answered' ? 3 : null,
+          reportWeek: entry.kind == 'report_answered' ? 1389 : null,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ));
+      }
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return store;
+    }
+
+    testWidgets('renders the sentence naming the Epic verbatim as one '
+        'whole-sentence button with the ✕ — bare chrome, everything '
+        'else displaced (UX-DR22, FR-15)', (tester) async {
+      await launchWithDormant(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(SeasonalSuggestionStrip), findsOneWidget);
+      expect(find.text(sentence), findsOneWidget);
+      final text = tester.widget<Text>(find.text(sentence));
+      final style = text.style!;
+      expect(style.fontFamily, TypeRoles.support.fontFamily);
+      expect(style.fontSize, TypeRoles.support.fontSize);
+      expect(style.fontWeight, TypeRoles.support.fontWeight);
+      expect(style.height, TypeRoles.support.height);
+      expect(style.letterSpacing, TypeRoles.support.letterSpacing);
+      expect(style.color, FieldPalette.inkSecondary);
+      // Below the card, geometrically.
+      expect(
+        tester.getTopLeft(find.byType(SeasonalSuggestionStrip)).dy,
+        greaterThan(tester.getTopLeft(find.byType(TaskCard)).dy),
+      );
+
+      // The whole sentence is one button: the semantics above the
+      // text declares it, and the band holds the 48dp floor as one
+      // opaque target.
+      final button = find
+          .ancestor(of: find.text(sentence), matching: find.byType(Semantics))
+          .first;
+      expect(tester.widget<Semantics>(button).properties.button, isTrue);
+      final band = find
+          .ancestor(
+            of: find.text(sentence),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+
+      // Bare chrome: no hairlined wrapper anywhere in the strip — the
+      // suggestion is an ephemeral resident, never a persistent one.
+      expect(
+        find.descendant(
+          of: find.byType(SeasonalSuggestionStrip),
+          matching: find.byType(Container),
+        ),
+        findsNothing,
+      );
+
+      // The displaced instruments render nothing; the ✕ carries its
+      // own label.
+      expect(find.byType(BatteryGlyph), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('blank padding inside the sentence band accepts it', (
+      tester,
+    ) async {
+      var accepted = false;
+      var dismissed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: Scaffold(
+            body: SeasonalSuggestionStrip(
+              suggestion: const (
+                stableId: 's1',
+                origin: Origin.cloud,
+                description: 'el trastero del fondo',
+              ),
+              onAccept: () => accepted = true,
+              onDismiss: () => dismissed = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final band = find
+          .ancestor(
+            of: find.text(
+              AppStringsEs().seasonalSuggestion('el trastero del fondo'),
+            ),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final bandRect = tester.getRect(band);
+      await tester.tapAt(
+        Offset(bandRect.center.dx + bandRect.width * 0.35, bandRect.center.dy),
+      );
+      expect(accepted, isTrue);
+      expect(dismissed, isFalse);
+    });
+
+    testWidgets('the ✕ writes exactly one suggestion_dismissed row '
+        'naming the shown project and the strip hands the slot to the '
+        'check-in in the same opening (matrix: dismiss)', (tester) async {
+      final store = await launchWithDormant(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'suggestion_dismissed')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(rows.single.itemOrigin, Origin.cloud);
+      expect(find.text(sentence), findsNothing);
+      expect(
+        find.text(strings.energyCheckInQuestion),
+        findsOneWidget,
+        reason: 'the freed slot — the check-in takes it in the same opening',
+      );
+      expect(find.text('Hecho'), findsOneWidget);
+    });
+
+    testWidgets('the tap activates the Epic through one epic_activated '
+        'row — the strip gone by derivation, no push, nothing else '
+        '(matrix: accept)', (tester) async {
+      final store = await launchWithDormant(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(sentence));
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'epic_activated')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(find.text(sentence), findsNothing);
+      expect(
+        find.text(strings.energyCheckInQuestion),
+        findsOneWidget,
+        reason: 'gone by derivation — the check-in holds the freed slot',
+      );
+      // No push: the accept is the activation, never a route.
+      expect(find.byType(CurationScreen), findsNothing);
+    });
+
+    testWidgets('200% font scale over a long description: the sentence '
+        'button and the ✕ hold their floors, the strip grows inside '
+        'the scroll (UX-DR45, NFR6 — the siblings\' own pin)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // The Epic's Origin Context is arbitrary user text — the longest
+      // copy any resident shows. The fixture's own long arm.
+      final long = dormantEpic('s1');
+      final epic = (
+        id: long.id,
+        origin: long.origin,
+        size: long.size,
+        instantUtcMicros: long.instantUtcMicros,
+        offsetSeconds: long.offsetSeconds,
+        originContext:
+            'el trastero del fondo del pasillo, el que tiene las cajas '
+            'de la mudanza y los abrigos del invierno pasado',
+        dictated: long.dictated,
+        rescueOf: long.rescueOf,
+        estimateSeconds: long.estimateSeconds,
+        stepText: long.stepText,
+      );
+      await launchWithDormant(tester, epic: epic);
+
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion(epic.originContext);
+      expect(tester.takeException(), isNull);
+      expect(find.text(sentence), findsOneWidget);
+
+      final band = find
+          .ancestor(
+            of: find.text(sentence),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.ambientStripDismiss),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -60),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(scrollable.position.pixels, greaterThan(0));
+      expect(find.text(sentence), findsOneWidget);
+    });
+
+    testWidgets('a null shown record renders nothing — no fallback '
+        'sentence, no ✕; the derivation-violating path stays the quiet '
+        'one', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: const Scaffold(
+            body: SeasonalSuggestionStrip(
+              suggestion: null,
+              onAccept: _Noop.accept,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SeasonalSuggestionStrip), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SeasonalSuggestionStrip),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.bySemanticsLabel(AppStringsEs().ambientStripDismiss),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+class _Noop {
+  static void accept() {}
 }

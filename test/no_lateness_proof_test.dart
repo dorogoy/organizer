@@ -159,13 +159,20 @@ void main() {
     // `late` (the Dart `late` modifier is a keyword in declaration
     // position, not lateness — the forbidden-vocabulary lint owns its
     // carve-out), `due` (substring-unsafe: it would match inside
-    // unrelated identifiers), and `plan` (substring-matches the
+    // unrelated identifiers), `plan` (substring-matches the
     // Spanish *planta(s)* of the shipped gardening catalogue's
     // identifiers — a legitimate trip; the lint owns the two-segment
-    // `dueDate` form). The lint itself owns the nine banned tokens;
-    // this scan adds the rescheduler and Spanish stems it lacks.
+    // `dueDate` form), and — since Story 5.13 — `missed`, now as the
+    // word-bounded `\bmissed\b` alternative: it matches a bare
+    // `missed` token while the `missed` inside `suggestion_dismissed`
+    // / `suggestionDismissed` / the dismiss paths never trips it
+    // (word characters bound both sides there), so the scan keeps
+    // its own independent `missed` coverage instead of leaning on
+    // the segment-aware lint. The lint itself owns
+    // the nine banned tokens; this scan adds the rescheduler and
+    // Spanish stems it lacks.
     final pattern = RegExp(
-      'reschedul|scheduler|postpon|overdue|missed|defer|assign'
+      'reschedul|scheduler|postpon|overdue|\\bmissed\\b|defer|assign'
       '|atrasad|vencid|aplazad|retras',
       caseSensitive: false,
     );
@@ -313,13 +320,18 @@ void main() {
     };
     expect(sources, isNotEmpty);
 
-    // The ban list, seventeen wire names wide — deliberately not
+    // The ban list, eighteen wire names wide — deliberately not
     // exhaustive by kind: the scan chain's `consent_granted`,
     // `consent_declined` and `scan_abandoned` rows are minted only
     // through the core's sanctioned minters and are fenced by the
     // exact per-file append census and the `scanAbandoned(` ×1
     // invocation pin below instead (Story 5.6's recorded decision —
-    // `bannedWireNames` unchanged). What the list does claim: every
+    // `bannedWireNames` unchanged). Since Story 5.13 the list also
+    // carries `suggestion_dismissed` — the strongest fence, chosen
+    // over fence-by-pin-only: the dismissal is the one strip row a
+    // future copy-paste could carry into the shell verbatim, and the
+    // ban plus the ×1 invocation pin below fence both halves at once.
+    // What the list does claim: every
     // wire name it carries — the user-act and moment kinds it lists,
     // the `permission_refused` system event since Story 3.4, the
     // three `slice_*` rescue rows since 4.6, the `face_refused` scan
@@ -346,6 +358,7 @@ void main() {
       'slice_failed',
       'face_refused',
       'cluster_curation_changed',
+      'suggestion_dismissed',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -576,6 +589,22 @@ void main() {
           'exactly one core clusterCurationChanged command invocation — '
           'the settings channel\'s curation flip, the kind\'s single '
           'sanctioned minter (Story 5.11)',
+    );
+    expect(
+      RegExp(r'\bsuggestionDismissed\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core suggestionDismissed command invocation — the '
+          'seasonal suggestion\'s ✕, the kind\'s single sanctioned minter, '
+          'riding the controller\'s shared content copier (Story 5.13)',
+    );
+    expect(
+      RegExp(r'\bepicActivated\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core epicActivated command invocation — the '
+          'seasonal suggestion\'s accept tap, the landing paths\' own minter '
+          'from the one new pinned call site (Story 5.13)',
     );
 
     // The append-site census, exact per file: `appendLogEntry` calls

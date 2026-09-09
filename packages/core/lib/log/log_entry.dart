@@ -42,7 +42,23 @@
 /// act's user row: one cluster's new enabled bit on its own schema
 /// columns (v11), never a `setting_changed` key, because the cluster
 /// payload is not a setting but a user act on the house's own
-/// content). A new kind is a new kind, never a flag on an old one.
+/// content), and since Story 5.13 the twenty-third kind
+/// `suggestion_dismissed` (FR-15, AD-14, AD-21 — the seasonal
+/// suggestion's ✕: a user act on the existing item-act shape, the
+/// pair naming the dismissed Epic Project (its derived stable id and
+/// own origin, `epic_activated`'s precedent). The row is a decline,
+/// never contact — the `consent_declined` register made load-bearing
+/// for FR-15's zero-side-effects consequence — and its only reader is
+/// the strip's own eligibility: a same-season dismissal suppresses the
+/// project's suggestion until the season turns, with no stored flag,
+/// no setting key and no column — the row's own instant and offset
+/// derive the season the TAP happened in, which is the season the
+/// suppression scopes to. At the 04:00 season boundary a suggestion
+/// shown in season S can be ✕-tapped after the turn: the row scopes
+/// to S+1, suppressing the season the tap landed in — benign and
+/// correct, because S is already historical and its suppression is
+/// moot the moment S ends). A new kind is a new kind, never a flag
+/// on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
 /// through (Story 1.6, the item 1.3 deferred here): the inert records the
@@ -136,6 +152,10 @@ final class LogKind {
     'cluster_curation_changed',
     known: true,
   );
+  static const suggestionDismissed = LogKind._(
+    'suggestion_dismissed',
+    known: true,
+  );
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -161,6 +181,7 @@ final class LogKind {
     'scan_abandoned': scanAbandoned,
     'epic_activated': epicActivated,
     'cluster_curation_changed': clusterCurationChanged,
+    'suggestion_dismissed': suggestionDismissed,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -731,7 +752,8 @@ bool _isItemAct(LogKind kind) =>
     kind == LogKind.cardDone ||
     kind == LogKind.cardSkipped ||
     kind == LogKind.captureCreated ||
-    kind == LogKind.epicActivated;
+    kind == LogKind.epicActivated ||
+    kind == LogKind.suggestionDismissed;
 
 bool _isMoment(LogKind kind) =>
     kind == LogKind.sessionEnded ||

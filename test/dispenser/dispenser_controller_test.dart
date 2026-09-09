@@ -23,6 +23,7 @@ import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/weave/weave.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:organizer/catalogue/catalogue_names.g.dart';
@@ -84,6 +85,34 @@ class _FailFirstDoneStore implements StorePort {
   @override
   Future<List<LogEntryRecord>> readLogEntries() async =>
       _inner.readLogEntries();
+}
+
+/// A store delegating every port call to handed-in closures — the
+/// seasonal group's fail-one-append arm over a facts-carrying store
+/// (`_FailNextAppendStore` reads no facts, so it cannot host a dormant
+/// Epic seed).
+class _DelegatingStore implements StorePort {
+  _DelegatingStore({
+    required this._appendLogEntry,
+    required this._readLogEntries,
+    required this._readPoolFacts,
+  });
+
+  final Future<void> Function(LogEntryRecord entry) _appendLogEntry;
+  final Future<List<LogEntryRecord>> Function() _readLogEntries;
+  final Future<List<PoolFactRecord>> Function() _readPoolFacts;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) => _appendLogEntry(entry);
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() => _readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() => _readLogEntries();
 }
 
 /// A store whose first `card_skipped` append throws — the skip's
@@ -3195,6 +3224,336 @@ void main() {
             'the offer still never returns: the earliest open is '
             'historical',
       );
+    });
+  });
+
+  group('the seasonal suggestion (Story 5.13, FR-15, UX-DR22)', () {
+    /// A dormant Epic's slice as a one-step pool-fact record — the
+    /// scan-landing shape (cloud origin, no `rescueOf`, `stepText`
+    /// set, the slice's shared description as Origin Context) with
+    /// NO `epic_activated` row: dormancy by construction (5.9's
+    /// derivation), seeded before any launch.
+    PoolFactRecord dormantEpic(
+      String stableId, {
+      String description = 'el trastero del fondo',
+      int at = 0,
+    }) => (
+      id: stableId,
+      origin: Origin.cloud,
+      size: sizeOfEstimateSeconds(180),
+      instantUtcMicros:
+          DateTime.utc(2026, 8, 20, 9).microsecondsSinceEpoch + at,
+      offsetSeconds: 0,
+      originContext: description,
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: 180,
+      stepText: 'Recoger las cajas',
+    );
+
+    _RecordingStore storeOfFacts(List<PoolFactRecord> facts) =>
+        _RecordingStore(facts)
+          ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+          ..entries.add(_installOpen());
+
+    test('the day\'s first opening over a dormant Epic reads with the '
+        'suggestion holding the slot — the shown record rides the view, '
+        'and reading wrote nothing (matrix: first opening)', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+
+      final view = await controller.read();
+
+      expect(view.stripResident, StripResident.seasonalSuggestion);
+      expect(view.seasonalSuggestion?.stableId, 's1');
+      expect(view.seasonalSuggestion?.origin, Origin.cloud);
+      expect(view.seasonalSuggestion?.description, 'el trastero del fondo');
+      expect(view.reportWeekOrdinal, isNull);
+      expect(view, isA<DispenserDealt>());
+      expect(
+        store.entries.where((entry) => entry.kind == 'suggestion_dismissed'),
+        isEmpty,
+        reason: 'the strip renders, it never writes on a read',
+      );
+      expect(dealt.card, isNotNull);
+    });
+
+    test('no dormant Epic — never eligible: the ordinary walk stands '
+        '(matrix: no dormant)', () async {
+      final store = _RecordingStore()..entries.add(_installOpen());
+      await openSessionAndReadFirstDeal(store);
+      final view = await buildFor(store).read();
+      expect(view.stripResident, StripResident.weeklySelfReport);
+      expect(view.seasonalSuggestion, isNull);
+    });
+
+    test('the ✕ writes exactly one suggestion_dismissed row naming the '
+        'SHOWN project — the slot hands to the check-in in the same '
+        'opening, and zero collateral rows exist (matrix: dismiss)', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      final after = await controller.dismissSeasonalSuggestion();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'suggestion_dismissed')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(rows.single.itemOrigin, Origin.cloud);
+      expect(
+        rows.single.instantUtcMicros,
+        _fixedClock().microsecondsSinceEpoch,
+      );
+      expect(rows.single.id, matches(v7));
+      // Zero collateral: nothing but the one row appended.
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        [...kindsBefore, 'suggestion_dismissed'],
+        reason:
+            'no energy, report, session or deal row rides the decline — '
+            'FR-15\'s zero-side-effects consequence',
+      );
+      // The freed slot: the answered week means the check-in takes it.
+      expect(after.stripResident, StripResident.energyCheckIn);
+      expect(after.seasonalSuggestion, isNull);
+      // Silent for the season: a later read of the same opening never
+      // re-offers the project.
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+      );
+    });
+
+    test('per-project is the rate limit — dismissing A surfaces B in '
+        'the same opening (matrix: two dormant Epics)', () async {
+      final store = storeOfFacts([
+        dormantEpic('a', description: 'el trastero'),
+        dormantEpic('b', description: 'la terraza', at: 1),
+      ]);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final first = await controller.read();
+      expect(first.seasonalSuggestion?.stableId, 'a');
+
+      final after = await controller.dismissSeasonalSuggestion();
+
+      expect(after.stripResident, StripResident.seasonalSuggestion);
+      expect(after.seasonalSuggestion?.stableId, 'b');
+      expect(
+        store.entries
+            .where((entry) => entry.kind == 'suggestion_dismissed')
+            .toList(),
+        hasLength(1),
+      );
+    });
+
+    test('a stale ✕ — a handler firing after a read that showed no '
+        'suggestion — writes nothing, quietly (matrix: stale tap)', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+      await controller.dismissSeasonalSuggestion(); // The real ✕.
+      final rowsAfterReal = store.entries.length;
+
+      // A second ✕ on the already-dismissed project: the last read
+      // showed no suggestion, so `_shownSuggestion` is null — nothing
+      // mints.
+      final after = await controller.dismissSeasonalSuggestion();
+      expect(store.entries.length, rowsAfterReal);
+      expect(after.stripResident, isNot(StripResident.seasonalSuggestion));
+
+      // And the same guard on the accept path: a fresh controller
+      // that never read a suggestion mints nothing either.
+      final fresh = _RecordingStore([dormantEpic('s2')])
+        ..entries.addAll(store.entries);
+      final freshController = buildFor(fresh);
+      await freshController.acceptSeasonalSuggestion();
+      expect(
+        fresh.entries.where((entry) => entry.kind == 'epic_activated'),
+        isEmpty,
+        reason:
+            'no read ever showed the suggestion — the tap mints '
+            'nothing',
+      );
+    });
+
+    test('the tap writes exactly one epic_activated row naming the shown '
+        'project — the resident is gone by derivation and the Epic\'s '
+        'head competes for the next deal (matrix: accept)', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final before = await controller.read();
+      expect(before.seasonalSuggestion?.stableId, 's1');
+
+      final after = await controller.acceptSeasonalSuggestion();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'epic_activated')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(rows.single.itemOrigin, Origin.cloud);
+      expect(
+        after.stripResident,
+        StripResident.energyCheckIn,
+        reason:
+            'gone by derivation — the Epic is no longer dormant, and '
+            'the check-in takes the freed slot (the answered week '
+            'keeps the report out)',
+      );
+      expect(after.seasonalSuggestion, isNull);
+
+      // The Epic is active in the weave: the completion's bundled
+      // deal stands unanswered (no second deal exists while it
+      // stands, AD-3), so the pin reads the composition the next
+      // day's fresh opening would resolve — the activated head step
+      // holds the Focus Chunk itself, the epic tier ahead of every
+      // zone tier (5.9's own arbitration, now over an Epic the tap
+      // made active).
+      expect(after, isA<DispenserDealt>());
+      await controller.complete(after as DispenserDealt);
+      // Close the sitting: a day whose open session still holds a
+      // dealt-but-unanswered card composes without the "1", so the
+      // pin ends the session before composing the next day.
+      await controller.pause();
+      final catalogue = await shippedCatalogue();
+      final composition = composeDay(
+        catalogue: catalogue,
+        log: logEntriesOf(store.entries),
+        instantUtcMicros: DateTime.utc(2026, 8, 30, 9).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        poolFacts: poolFactsOf(store.facts),
+      );
+      expect(composition.focus!.id, 's1');
+      expect(composition.focus!.origin, Origin.cloud);
+    });
+
+    test('a dismissed-last-season project re-offers this season (matrix: '
+        'dismissed last season)', () async {
+      final store = _RecordingStore([dormantEpic('s1')])
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+        ..entries.add(_installOpen())
+        ..entries.add(
+          _act(
+            'suggestion_dismissed',
+            DateTime.utc(2026, 5, 20, 9),
+            'spring-dismissal',
+            's1',
+          ),
+        );
+      await openSessionAndReadFirstDeal(store);
+      final view = await buildFor(store).read();
+      expect(view.stripResident, StripResident.seasonalSuggestion);
+      expect(view.seasonalSuggestion?.stableId, 's1');
+    });
+
+    test('a failed ✕ append lands nothing — the resident stands and the '
+        'retry is the same tap (matrix: read failure)', () async {
+      // A facts-carrying store whose NEXT append throws once —
+      // `_FailNextAppendStore` reads no facts, so the group owns its
+      // own wrapper. The session opens over the inner store first, so
+      // the armed failure is the dismissal's own append.
+      final inner = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(inner);
+      var failNextAppend = true;
+      final store = _DelegatingStore(
+        appendLogEntry: (entry) {
+          if (failNextAppend) {
+            failNextAppend = false;
+            throw StateError('append failed');
+          }
+          return inner.appendLogEntry(entry);
+        },
+        readLogEntries: inner.readLogEntries,
+        readPoolFacts: inner.readPoolFacts,
+      );
+      final controller = buildFor(store);
+      await controller.read();
+
+      await expectLater(
+        controller.dismissSeasonalSuggestion(),
+        throwsStateError,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'suggestion_dismissed'),
+        isEmpty,
+        reason: 'nothing landed',
+      );
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.seasonalSuggestion,
+        reason: 'the resident stands — the derivation re-resolves it',
+      );
+    });
+
+    test('a failed tap append lands nothing — the resident stands and '
+        'the retry is the same tap (matrix: read failure under the '
+        'accept)', () async {
+      // The ✕-failure twin, on the accept path: the armed failure is
+      // the activation's own append — nothing lands, the Epic stays
+      // dormant, the suggestion re-resolves, and no other row exists.
+      final inner = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(inner);
+      var failNextAppend = true;
+      final store = _DelegatingStore(
+        appendLogEntry: (entry) {
+          if (failNextAppend) {
+            failNextAppend = false;
+            throw StateError('append failed');
+          }
+          return inner.appendLogEntry(entry);
+        },
+        readLogEntries: inner.readLogEntries,
+        readPoolFacts: inner.readPoolFacts,
+      );
+      final controller = buildFor(store);
+      await controller.read();
+
+      await expectLater(
+        controller.acceptSeasonalSuggestion(),
+        throwsStateError,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'epic_activated'),
+        isEmpty,
+        reason: 'nothing landed',
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'suggestion_dismissed'),
+        isEmpty,
+        reason: 'the accept path writes no other row',
+      );
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.seasonalSuggestion,
+        reason: 'the resident stands — the Epic is still dormant',
+      );
+    });
+
+    test('the weave\'s deal is identical after a dismissal — the '
+        'decline changes no derivation (FR-15)', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final before = await controller.read();
+      await controller.dismissSeasonalSuggestion();
+      final after = await controller.read();
+      expect(after, isA<DispenserDealt>());
+      expect(
+        (after as DispenserDealt).card,
+        (before as DispenserDealt).card,
+        reason:
+            'the standing card is the same card — the dismissal '
+            'moved no deal',
+      );
+      expect(dealt.card, isNotNull);
     });
   });
 

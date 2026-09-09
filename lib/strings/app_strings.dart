@@ -533,6 +533,12 @@ abstract class AppStrings {
   /// **'Grupos de tu casa'**
   String get curationHouseGroups;
 
+  /// The gentle seasonal suggestion (Story 5.13, FR-15): one sentence proposing a minutes-per-day plan, naming the dormant Epic Project's own Origin Context — the space description — never a count, a deadline, a bar or a percentage. Proposes the pace the weave already buffers; tap accepts by activating the Epic, ✕ dismisses for the season.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Unos minutos al día para {description}?'**
+  String seasonalSuggestion(String description);
+
   /// Transformation reward when no Before photo exists — no one-plate diff, no placeholder.
   ///
   /// In es, this message translates to:

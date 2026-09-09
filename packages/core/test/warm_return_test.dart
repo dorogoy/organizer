@@ -150,6 +150,19 @@ MomentEntry _abandoned(int micros, {String id = 'abandon'}) => MomentEntry(
   kind: LogKind.scanAbandoned,
 );
 
+ItemActEntry _suggestionDismissed(
+  int micros, {
+  String id = 'dismiss',
+  String itemId = 'epic-a',
+}) => ItemActEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  kind: LogKind.suggestionDismissed,
+  itemId: itemId,
+  itemOrigin: Origin.cloud,
+);
+
 void main() {
   // "Now" for every read — Saturday 2026-08-29 12:00 UTC, the house
   // matrix clock. The 48 h boundary lands Thursday 2026-08-27 12:00.
@@ -455,6 +468,42 @@ void main() {
         ]),
         isTrue,
         reason: 'the anchor is the open — the abandonment moved it not at all',
+      );
+    });
+
+    test('a seasonal-suggestion dismissal is never contact — the ✕ of '
+        'the strip is a decline, and FR-15\'s zero-side-effects '
+        'consequence makes the carve-out load-bearing (Story 5.13, '
+        'FR-15, AD-21 — a deserved warm return stays due with the '
+        'dismissal as the latest row)', () {
+      // Alone before the open at any distance: not contact, so not
+      // due — the item-act shape carries the pair, but the fold
+      // classifies by meaning, never shape.
+      expect(
+        due([
+          _suggestionDismissed(before(const Duration(hours: 96))),
+          _opened(now),
+        ]),
+        isFalse,
+        reason:
+            'a dismissal logs, but is not contact — no greeting owes '
+            'on a decline',
+      );
+      // The discriminating shape (the `consent_declined` pin's own):
+      // a 49 h-old opening with real contact 48.5 h back, then the
+      // dismissal 47.5 h back, then a fresh open and the read. Had
+      // the kind defaulted to contact — ItemActEntry\'s unconditional
+      // fold before 5.13 — the dismissal would have become the
+      // anchor and a deserved warm return would read false.
+      expect(
+        due([
+          _opened(before(const Duration(hours: 49))),
+          _dealt(before(const Duration(hours: 48, minutes: 30)), 'hab-a'),
+          _suggestionDismissed(before(const Duration(hours: 47, minutes: 30))),
+          _opened(now),
+        ]),
+        isTrue,
+        reason: 'the anchor is the deal — the dismissal moved it not at all',
       );
     });
 

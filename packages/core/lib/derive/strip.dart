@@ -50,6 +50,7 @@ library;
 
 import 'package:core/day/calendar.dart';
 import 'package:core/log/log_entry.dart';
+import 'package:core/pool/pool_fact.dart';
 
 /// One resident of the ambient strip (UX-DR22). A value vocabulary:
 /// members carry no fields — each resident's eligibility is its own
@@ -63,7 +64,10 @@ enum StripResident {
   /// The once-per-box quarantine follow-up (Epic 7's data).
   quarantineFollowUp,
 
-  /// The once-per-season suggestion (FR-15, Epic 6's data).
+  /// The once-per-season suggestion (FR-15, Story 5.13): eligible
+  /// at the day's first opening while a dormant Epic stands whose
+  /// suggestion holds no live same-season `suggestion_dismissed`
+  /// row — the derivation below, never a stored dismissal (AD-21).
   seasonalSuggestion,
 
   /// The snowball suggestion (Epic 7's data).
@@ -98,7 +102,11 @@ const List<StripResident> stripResidentPrecedence = [
 /// order resolves to, or absent when none is eligible. Fields are
 /// facts, never verbs (AD-6).
 final class StripState {
-  const StripState({required this.resident, this.reportWeekOrdinal});
+  const StripState({
+    required this.resident,
+    this.reportWeekOrdinal,
+    this.suggestion,
+  });
 
   /// The winning resident — at most one is ever visible (UX-DR22).
   final StripResident resident;
@@ -112,17 +120,40 @@ final class StripState {
   /// marker rides beside it (AD-21 — an unanswered week is absent
   /// rows, nothing more).
   final int? reportWeekOrdinal;
+
+  /// The suggestion the strip shows, when it shows one — non-null
+  /// exactly when [resident] is [StripResident.seasonalSuggestion]
+  /// (Story 5.13, FR-15), null for every other resident. The shown
+  /// record is the fact BOTH one-tap paths need — the ✕ dismisses
+  /// this project, the tap activates it — carried from the read,
+  /// never re-derived at tap time (the `reportWeekOrdinal` grammar:
+  /// a boundary crossed since the view committed would otherwise act
+  /// on a different project entirely). A structural record, shared
+  /// with `core/weave`'s `dormantEpicProjects` by shape alone — strip
+  /// must not import weave (the cycle), so no named type crosses.
+  final StripSuggestion? suggestion;
 }
 
+/// One dormant Epic Project the strip may suggest (Story 5.13,
+/// FR-15): the derived stable id (`epic_activated`'s own identity —
+/// the group's first fact's id), the Epic's own origin, and the
+/// description the sentence names (the slice's Origin Context).
+typedef StripSuggestion = ({
+  String stableId,
+  Origin origin,
+  String description,
+});
+
 /// One resident's eligibility at the read instant. This build
-/// implements three — the offer, the report and the check-in, below;
-/// every other resident derives not-eligible until its own story
-/// lands its data, so the precedence walk falls through them to the
-/// implemented set (or to nothing). A new resident's eligibility
-/// arrives HERE, in the same pass as its data — never as a special
-/// case inside the walk. Since Story 5.12 three eligibilities stand:
-/// the once-ever first-run curation offer, the weekly self-report and
-/// the daily check-in.
+/// implements four — the offer, the suggestion, the report and the
+/// check-in, below; every other resident derives not-eligible until
+/// its own story lands its data, so the precedence walk falls through
+/// them to the implemented set (or to nothing). A new resident's
+/// eligibility arrives HERE, in the same pass as its data — never as
+/// a special case inside the walk. Since Story 5.13 four
+/// eligibilities stand: the once-ever first-run curation offer, the
+/// once-per-season suggestion, the weekly self-report and the daily
+/// check-in.
 bool _residentEligible(
   StripResident resident,
   List<LogEntry> entries,
@@ -130,6 +161,7 @@ bool _residentEligible(
   Day today, {
   required bool answeredToday,
   required bool answeredDueWeek,
+  required StripSuggestion? seasonalShown,
   required int instantUtcMicros,
 }) {
   switch (resident) {
@@ -168,8 +200,22 @@ bool _residentEligible(
       // Epic 7's once-per-box follow-up — its story's data.
       return false;
     case StripResident.seasonalSuggestion:
-      // FR-15's once-per-season suggestion — Epic 6's data.
-      return false;
+      // FR-15's once-per-season suggestion (Story 5.13): eligible at
+      // the day's first opening while a dormant Epic stands whose
+      // suggestion holds no live same-season dismissal — the pick the
+      // caller's `dormantEpics` fold (weave's `dormantEpicProjects`, the
+      // one dormancy derivation) handed in, ordered deterministically,
+      // so this branch only folds the dismissal rows over the pick.
+      // Per-project is the declared rate limit: dismissing project A
+      // may surface project B in the same opening, and a displaced
+      // resident is neither consumed nor dismissed.
+      return seasonalShown != null &&
+          _firstOpeningUnderway(
+            entries,
+            calendar,
+            today,
+            instantUtcMicros: instantUtcMicros,
+          );
     case StripResident.snowball:
       // Epic 7's comfortable-day suggestion — its story's data.
       return false;
@@ -305,14 +351,57 @@ bool _appOpenedBefore(
   return false;
 }
 
+/// The seasonal suggestion the strip may show at this read (Story
+/// 5.13, FR-15): the first dormant Epic of the caller's ordered
+/// [dormantEpics] whose stable id holds no live
+/// `suggestion_dismissed` row in the CURRENT meteorological season —
+/// the season of the one `Calendar`, computed over each row's own
+/// stored offset (AD-4), rows after the read instant excluded,
+/// exactly `_appOpenedBefore`'s discipline. Once per season per
+/// project: a dismissal from a prior season suppresses nothing (the
+/// season turned, the suppression died with it), a dismissal naming
+/// another project suppresses nothing (per-project is the rate
+/// limit), and an empty dormant list derives nothing — quietly, the
+/// no-dormant matrix row. No second season computation exists
+/// anywhere: this fold reads `Calendar.seasonOf` alone.
+StripSuggestion? _seasonalShown(
+  List<StripSuggestion> dormantEpics,
+  List<LogEntry> entries,
+  Calendar calendar,
+  Day today,
+  int instantUtcMicros,
+) {
+  final season = calendar.seasonOf(today);
+  final dismissedThisSeason = <String>{
+    for (final entry in entries)
+      if (entry.instantUtcMicros <= instantUtcMicros &&
+          entry is ItemActEntry &&
+          entry.kind == LogKind.suggestionDismissed &&
+          calendar.seasonOf(
+                calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds),
+              ) ==
+              season)
+        entry.itemId,
+  };
+  for (final epic in dormantEpics) {
+    if (!dismissedThisSeason.contains(epic.stableId)) {
+      return epic;
+    }
+  }
+  return null;
+}
+
 /// Derives the strip's resident at one read instant (Story 2.5,
 /// FR-4): pure over the log, writing nothing (AD-3). The resolution
 /// walks [stripResidentPrecedence] in order and takes the first
 /// resident whose eligibility holds — the load-bearing total order
-/// UX-DR22 names. This build implements three eligibilities: the
+/// UX-DR22 names. This build implements four eligibilities: the
 /// once-ever first-run curation offer (due iff the first opening
 /// ever is underway — the day's first opening AND no `app_opened`
-/// row from any earlier day, Story 5.12, FR-31), the weekly
+/// row from any earlier day, Story 5.12, FR-31), the once-per-season
+/// suggestion (due iff the day's first opening is underway and the
+/// dormant fold handed in an Epic no live same-season
+/// `suggestion_dismissed` row names, Story 5.13, FR-15), the weekly
 /// self-report (due iff the due week — `weekOf(today).weekOrdinal`
 /// minus 0 on Sunday, 1 on Mon–Sat, the latest week whose Sunday has
 /// arrived — holds no accepted `report_answered` row whose carried
@@ -320,7 +409,7 @@ bool _appOpenedBefore(
 /// first opening is underway, SM-2), and the daily check-in (due iff
 /// the current domestic day — each row scoped in its own stored
 /// offset, AD-4 — holds no `energy_set` row and the day's first
-/// opening is underway), so the walk falls through the three
+/// opening is underway), so the walk falls through the two
 /// not-yet-eligible residents to them, or to nothing. A corrupt
 /// `energy_set` or `report_answered` row never reaches this
 /// derivation — the read boundary excluded it, and the day (or week)
@@ -336,6 +425,7 @@ StripState? deriveStrip({
   required List<LogEntry> entries,
   required int instantUtcMicros,
   required int offsetSeconds,
+  List<StripSuggestion> dormantEpics = const [],
   Set<StripResident> excludeResidents = const {},
 }) {
   const calendar = Calendar();
@@ -370,6 +460,18 @@ StripState? deriveStrip({
       break;
     }
   }
+  // The seasonal pick (Story 5.13, FR-15): the first dormant Epic with
+  // no live same-season dismissal — null when none stands, which is
+  // the eligibility's own no-dormant arm. Computed once beside the
+  // report's due week, so the walk below reads it as the fact its
+  // branch and its StripState both need.
+  final seasonalShown = _seasonalShown(
+    dormantEpics,
+    entries,
+    calendar,
+    today,
+    instantUtcMicros,
+  );
   for (final resident in stripResidentPrecedence) {
     if (excludeResidents.contains(resident)) {
       continue;
@@ -381,10 +483,13 @@ StripState? deriveStrip({
       today,
       answeredToday: answeredToday,
       answeredDueWeek: answeredDueWeek,
+      seasonalShown: seasonalShown,
       instantUtcMicros: instantUtcMicros,
     )) {
       return resident == StripResident.weeklySelfReport
           ? StripState(resident: resident, reportWeekOrdinal: dueWeek)
+          : resident == StripResident.seasonalSuggestion
+          ? StripState(resident: resident, suggestion: seasonalShown)
           : StripState(resident: resident);
     }
   }

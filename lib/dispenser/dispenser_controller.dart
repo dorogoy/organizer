@@ -2,7 +2,9 @@ import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/energy_commands.dart';
 import 'package:core/commands/report_commands.dart';
 import 'package:core/commands/rescue_commands.dart';
+import 'package:core/commands/scan_commands.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/commands/suggestion_commands.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/checkpoint.dart';
@@ -54,6 +56,7 @@ sealed class DispenserView {
   const DispenserView({
     this.stripResident,
     this.reportWeekOrdinal,
+    this.seasonalSuggestion,
     this.warmReturnDue = false,
     this.cameraEntryVisible = false,
   });
@@ -71,6 +74,17 @@ sealed class DispenserView {
   /// needs: the row answers the week the user was asked, never a week
   /// re-derived at tap time.
   final int? reportWeekOrdinal;
+
+  /// The shown seasonal suggestion, when the strip holds it (Story
+  /// 5.13, FR-15) — non-null exactly when [stripResident] is
+  /// [StripResident.seasonalSuggestion], null for every other
+  /// resident (the derivation's own invariant, the `reportWeekOrdinal`
+  /// grammar). The fact BOTH one-tap paths need: the ✕ dismisses this
+  /// project through `suggestionDismissed`, the tap activates it
+  /// through `epicActivated` — always the project the user was shown,
+  /// never one re-derived at tap time (a boundary crossed since the
+  /// view committed would otherwise act on a different project).
+  final StripSuggestion? seasonalSuggestion;
 
   /// The Warm Return fact (Story 2.7, FR-6, AD-24): this opening
   /// arrives 48 h or more after the latest contact (`app_opened` rows
@@ -112,6 +126,7 @@ final class DispenserDealt extends DispenserView {
     this.autoRescueDue = false,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.seasonalSuggestion,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -150,6 +165,7 @@ final class DispenserClosed extends DispenserView {
     this.continueOffered = false,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.seasonalSuggestion,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -171,6 +187,7 @@ final class DispenserRestOffer extends DispenserView {
     this.pocketMinutes,
     super.stripResident,
     super.reportWeekOrdinal,
+    super.seasonalSuggestion,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -314,6 +331,16 @@ class DispenserController {
   /// report; a null here mints nothing.
   int? _askedReportWeek;
 
+  /// The dormant Epic the last queue read's suggestion was showing
+  /// (Story 5.13, FR-15, AD-21): both one-tap paths act on the record
+  /// the user was SHOWN — the ✕'s `suggestion_dismissed` row names it
+  /// and the tap's `epic_activated` row activates it — never one
+  /// re-derived at tap time, where a boundary crossed since the view
+  /// committed would act on a different project entirely (the
+  /// `_askedReportWeek` grammar). Null whenever the last read showed
+  /// no suggestion; a null here mints nothing — the stale-tap guard.
+  StripSuggestion? _shownSuggestion;
+
   /// The once-ever curation offer's process-lifetime consumption
   /// (Story 5.12, FR-31, AD-21): shell state, never a row — the
   /// offer's once-ever fact is the derivation's own (eligibility is
@@ -390,6 +417,11 @@ class DispenserController {
       entries: log,
       instantUtcMicros: now.microsecondsSinceEpoch,
       offsetSeconds: now.timeZoneOffset.inSeconds,
+      dormantEpics: dormantEpicProjects(
+        poolFacts,
+        log,
+        now.microsecondsSinceEpoch,
+      ),
       excludeResidents: excludeResidents,
     );
     // The Warm Return fact (Story 2.7, FR-6, AD-24): the sibling
@@ -408,11 +440,15 @@ class DispenserController {
     // status check is the request itself, and asking at render time
     // would be asking at app entry (AD-17, NFR8).
     final cameraVisible = cameraEntryVisible(log);
-    // The asked week rides the read: the report's answer mints the
-    // week the user was shown, never one re-derived at tap time. Any
-    // other read clears it — nothing else was asked.
+    // The asked week and the shown suggestion ride the read (Stories
+    // 2.6 and 5.13): the write paths mint the week and the project the
+    // user was shown, never one re-derived at tap time. Any other
+    // read clears them — nothing else was asked or shown.
     final reportShowing = strip?.resident == StripResident.weeklySelfReport;
     _askedReportWeek = reportShowing ? strip!.reportWeekOrdinal : null;
+    final suggestionShowing =
+        strip?.resident == StripResident.seasonalSuggestion;
+    _shownSuggestion = suggestionShowing ? strip!.suggestion : null;
     final unanswered = facts.dealtUnanswered;
     final card = unanswered == null
         ? nextDeal(
@@ -464,6 +500,7 @@ class DispenserController {
             ),
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
+        seasonalSuggestion: strip?.suggestion,
         warmReturnDue: warm,
         cameraEntryVisible: cameraVisible,
       );
@@ -479,6 +516,7 @@ class DispenserController {
         pocketMinutes: pocket,
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
+        seasonalSuggestion: strip?.suggestion,
         warmReturnDue: warm,
         cameraEntryVisible: cameraVisible,
       );
@@ -514,6 +552,7 @@ class DispenserController {
       autoRescueDue: autoRescueDue,
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
+      seasonalSuggestion: strip?.suggestion,
       warmReturnDue: warm,
       cameraEntryVisible: cameraVisible,
     );
@@ -963,6 +1002,84 @@ class DispenserController {
 
   Future<void> _enqueueWrite(Future<void> Function() step) {
     return writeQueue.enqueue(step);
+  }
+
+  /// Dismisses the seasonal suggestion (Story 5.13, FR-15, UX-DR22):
+  /// exactly one `suggestion_dismissed` row through the core's single
+  /// sanctioned minter, in [answerReport]'s write-then-read shape minus
+  /// the log read — the minter is pure over its input. The row names
+  /// the project the user was SHOWN — `_shownSuggestion` at entry, the
+  /// `_askedReportWeek` grammar, never re-derived at tap time — and
+  /// nothing else. A null shown record mints nothing (the stale-tap
+  /// guard: a handler firing after a read that showed no suggestion
+  /// writes nothing, quietly). The instant is minted at entry, before
+  /// any await, so the row describes the tap; a failing append
+  /// rethrows to the caller while the chain recovers — nothing landed,
+  /// the resident stands, and the retry is the same tap. The row is
+  /// the project's whole silence for the season: no re-ask inside it,
+  /// per-project the declared rate limit, and every other derivation
+  /// — warm return, energy, weave, composition — reads it as no change
+  /// at all (FR-15's zero-side-effects consequence).
+  Future<DispenserView> dismissSeasonalSuggestion({DateTime? tapTime}) {
+    final now = tapTime ?? nowOf();
+    // Minted at entry, beside the instant: the shown record travels
+    // with the tap, immune to any read the queue interleaves. The
+    // capture consumes it — a second overlapping call (any path, ✕ or
+    // tap) mints nothing, the stale-tap guard's own arm, so "exactly
+    // one row" holds even for a direct controller double-invocation;
+    // the read after the write re-derives it fresh.
+    final shown = _shownSuggestion;
+    _shownSuggestion = null;
+    final write = _enqueueWrite(() async {
+      if (shown == null) {
+        // No read ever showed the suggestion — nothing was shown, so
+        // nothing is dismissed. The path stays a write and a read,
+        // minting nothing.
+        return;
+      }
+      final contents = suggestionDismissed(
+        itemId: shown.stableId,
+        origin: shown.origin,
+      );
+      for (final content in contents) {
+        await _appendContent(content, now);
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Accepts the seasonal suggestion (Story 5.13, FR-15, AD-21): the
+  /// tap ACTIVATES the dormant Epic — exactly one `epic_activated` row
+  /// through the landing paths' own single sanctioned minter
+  /// (`core/commands/scan_commands.dart`), from this new pinned call
+  /// site, in [answerReport]'s write-then-read shape. The row names
+  /// the project the user was SHOWN (`_shownSuggestion` at entry),
+  /// never one re-derived at tap time; a null shown record mints
+  /// nothing (the same stale-tap guard). Nothing else is written —
+  /// no "plan" is configured or stored anywhere: the buffered pace
+  /// 5.10 already derives is the plan, and the resident is gone by
+  /// derivation the moment the row lands (the Epic is no longer
+  /// dormant), entering the weave's arbitration like any active Epic.
+  Future<DispenserView> acceptSeasonalSuggestion({DateTime? tappedAt}) {
+    final now = tappedAt ?? nowOf();
+    // The capture consumes the shown record exactly as the ✕ does —
+    // a second overlapping call mints nothing, and the read after
+    // the write re-derives it fresh.
+    final shown = _shownSuggestion;
+    _shownSuggestion = null;
+    final write = _enqueueWrite(() async {
+      if (shown == null) {
+        return;
+      }
+      final contents = epicActivated(
+        itemId: shown.stableId,
+        origin: shown.origin,
+      );
+      for (final content in contents) {
+        await _appendContent(content, now);
+      }
+    });
+    return write.then((_) => read());
   }
 
   /// Consumes the first-run curation offer (Story 5.12, FR-31): the

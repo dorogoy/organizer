@@ -70,12 +70,24 @@ const int warmReturnThresholdMicros = 48 * 60 * 60 * 1000 * 1000;
 /// contact), the payload-carrying kinds are all acts —
 /// `slice_requested` and `slice_returned` included
 /// (Story 4.6: the user's ask and its delivery ride the user's own
-/// dealt card, the `capture_created` precedent). An `UnknownEntry` is
+/// dealt card, the `capture_created` precedent). Since Story 5.13 the
+/// item-act family splits inside itself, the `slice_failed` precedent:
+/// `suggestion_dismissed` — the seasonal suggestion's ✕ — is a
+/// DECLINE, never contact (FR-15's zero-side-effects consequence,
+/// `consent_declined`'s own register: a decline must not reset the
+/// absence clock and suppress a deserved Warm Return). An `UnknownEntry`
+/// is
 /// not an act — a tolerated row asserts nothing — and a future kind
 /// joins exactly one set in the pass that adds it.
 bool _isUserAct(LogEntry entry) {
   switch (entry) {
-    case ItemActEntry():
+    case ItemActEntry(:final kind):
+      // The ✕ of the seasonal suggestion (Story 5.13, FR-15): the
+      // row rides the item-act shape — the pair names the dismissed
+      // Epic — but the fold classifies by meaning, never shape (the
+      // `consent_declined` precedent): a decline is not the user
+      // using the app, so it moves no anchor.
+      return kind != LogKind.suggestionDismissed;
     case SessionStartEntry():
     case SessionExtendEntry():
     case SettingEntry():

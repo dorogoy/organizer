@@ -16,7 +16,15 @@
 // the offer never returns — its once-ever fact is derived from the
 // log's own history, never stored. Either resolution hands the slot
 // to the displaced instruments in the same opening when they still
-// owe it (FR-4's deterministic handoff). The strip inherits the
+// owe it (FR-4's deterministic handoff). The once-per-season
+// suggestion (Story 5.13, FR-15): the sentence naming the shown
+// dormant Epic as one whole-sentence button plus the ✕, bare chrome;
+// the tap ACTIVATES the Epic (one `epic_activated` row — the FR-23
+// snowball precedent, and the resident is gone by derivation), the ✕
+// writes one `suggestion_dismissed` row naming the shown project
+// (the season's whole rate limit — per-project, and every other
+// derivation unchanged on a decline). Either of its resolutions
+// hands the slot the same way. The strip inherits the
 // short-surface floor —
 // it grows and scrolls at 200%, nothing truncated, every target at or
 // above 48dp — and after it leaves, nothing on this surface displays
@@ -40,12 +48,15 @@ class StripLayer extends StatelessWidget {
   const StripLayer({
     super.key,
     required this.resident,
+    this.seasonalSuggestion,
     required this.onEnergy,
     this.onDismissCheckIn,
     required this.onAnswerReport,
     this.onDismissReport,
     required this.onAcceptCuration,
     this.onDismissCuration,
+    required this.onAcceptSuggestion,
+    this.onDismissSuggestion,
     required this.child,
   });
 
@@ -53,6 +64,13 @@ class StripLayer extends StatelessWidget {
   /// fact, never the surface's memory. Null holds nothing: [child]
   /// stands alone.
   final StripResident? resident;
+
+  /// The shown seasonal suggestion's own record (Story 5.13, FR-15) —
+  /// the read's own fact beside the resident, non-null exactly when
+  /// [resident] is [StripResident.seasonalSuggestion]: the sentence
+  /// names the shown Epic's description, and both paths act on the
+  /// project the user was shown, never one re-derived at tap time.
+  final StripSuggestion? seasonalSuggestion;
 
   /// The check-in's answer path: the screen's energy handler, one
   /// write per tap.
@@ -77,6 +95,14 @@ class StripLayer extends StatelessWidget {
   /// The curation offer's ✕ path (Story 5.12): the screen's dismissal
   /// handler, never a write.
   final VoidCallback? onDismissCuration;
+
+  /// The seasonal suggestion's accept path (Story 5.13): the screen's
+  /// activation handler — one `epic_activated` row per tap.
+  final VoidCallback onAcceptSuggestion;
+
+  /// The seasonal suggestion's ✕ path (Story 5.13): the screen's
+  /// dismissal handler — one `suggestion_dismissed` row per tap.
+  final VoidCallback? onDismissSuggestion;
 
   final Widget child;
 
@@ -104,12 +130,15 @@ class StripLayer extends StatelessWidget {
             onAccept: onAcceptCuration,
             onDismiss: onDismissCuration,
           ),
-          // The three later residents are never eligible in this
-          // build — their stories' data does not exist yet — so the
-          // read can never hand this switch one.
-          StripResident.quarantineFollowUp ||
-          StripResident.seasonalSuggestion ||
-          StripResident.snowball => child,
+          StripResident.seasonalSuggestion => SeasonalSuggestionStrip(
+            suggestion: seasonalSuggestion,
+            onAccept: onAcceptSuggestion,
+            onDismiss: onDismissSuggestion,
+          ),
+          // The two later residents are never eligible in this build —
+          // their stories' data does not exist yet — so the read can
+          // never hand this switch one.
+          StripResident.quarantineFollowUp || StripResident.snowball => child,
         },
       ],
     );
