@@ -7,12 +7,17 @@
 /// so AD-11's promotion to our own platform channel stays a one-file
 /// move.
 ///
-/// The interim rule of record runs verbatim behind the adapter
-/// (`face-gate/BAR.md`, run 1): face-only, `performanceMode: accurate`,
+/// The rule of record runs verbatim behind the adapter
+/// (`face-gate/BAR.md`, deferral close-out 2026-09-05): face-only, `performanceMode: accurate`,
 /// `minFaceSize: 0.0`, landmarks/classification/contours/tracking off
 /// — refuse iff the detector finds at least one face. The bar accepts
-/// false positives (the cost is one reframe offer); composition
-/// (face ∨ pose ∨ object) reopens before 5.5 ships the first payload.
+/// false positives (the cost is one reframe offer). The composition
+/// question is ruled closed (2026-09-09, Epic 5 retrospective): the
+/// gate is a courtesy, not a load-bearing control — the load-bearing
+/// send control is the per-scan consent and the BYOK token — so it
+/// stays face-only, ships no pose/object pack, never reopens, and
+/// its residual false negatives are accepted, not a blocking finding
+/// (`project-context.md` → "Face gate — courtesy, not load-bearing").
 ///
 /// The outcome vocabulary is closed at two: a gate that decided says
 /// pass or refusal, never "maybe", never "queued". A gate that could
@@ -30,16 +35,17 @@ sealed class FaceGateOutcome {
   const FaceGateOutcome();
 }
 
-/// No face was detected in the frame: the scan may proceed (this story
-/// closes quietly — 5.5 wires the continuation).
+/// No face was detected in the frame: the scan may proceed (the
+/// scan closes quietly; its continuation is already wired).
 final class FaceGatePass extends FaceGateOutcome {
   const FaceGatePass();
 }
 
 /// At least one face was detected in the frame: the scan is refused
-/// on-device, before any upload path exists — the caller appends one
-/// `face_refused` row and lands the calm surface whose copy offers the
-/// reframe. The refusal is about the frame, never about the user.
+/// on-device, before the scan's consent token can be minted — the
+/// caller appends one `face_refused` row and lands the calm surface
+/// whose copy offers the reframe. The refusal is about the frame,
+/// never about the user.
 final class FaceGateRefusal extends FaceGateOutcome {
   const FaceGateRefusal();
 }
