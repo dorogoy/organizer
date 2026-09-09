@@ -87,7 +87,7 @@ Dependency direction, source layout and the port set are in *Structural Seed*; t
 
 - **Binds:** FR-5, FR-11, FR-16, FR-25, FR-26, FR-30, FR-32, §7 egress map
 - **Prevents:** a fourth destination arriving without anyone deciding to add one — §7's own stated fear, and why FR-32 forbids a speech fallback outright. A Dart-import check alone does not prevent it: a Gradle dependency, a manifest-initialised native SDK, or a socket in one of AD-11's own Kotlin channels is invisible to it, and that is exactly how crash reporting and remote config arrive.
-- **Rule:** Exactly one module, `lib/egress/`, may import an HTTP client, and it accepts exactly three payload shapes with no fourth existing as a type: scan image + prompt, project genesis text, rescue re-slice text. It enforces a single image-resolution cap before any upload — one rule serving FR-25's upload minimisation, cost, and how much of the user's home leaves the device. It never queues, never retries and never persists a pending request. **Three checks seal it, not one:** the Dart import check; a check on the resolved Gradle dependency graph against an allowlist; and a check that the merged Android manifest declares no permission, service, receiver or provider outside an enumerated set. The three Kotlin channels of AD-11 are in scope of all three and may open no socket.
+- **Rule:** Exactly one module, `lib/egress/`, may import an HTTP client, and it accepts exactly three payload shapes with no fourth existing as a type: scan image + prompt, project genesis text, rescue re-slice text. It enforces a single image-resolution cap before any upload — one rule serving FR-25's upload minimisation, cost, and how much of the user's home leaves the device. It never queues, never retries and never persists a pending request. **Three checks seal it, not one:** the Dart import check; a check on the resolved Gradle dependency graph against an allowlist; and a check that the merged Android manifest declares no permission, service, receiver or provider outside an enumerated set. All four Kotlin channels of AD-11 are in scope of all three checks and may open no socket.
 
 ### AD-8 — Consent is a single-use token, and the scan's files die with the scan
 
@@ -109,9 +109,9 @@ Dependency direction, source layout and the port set are in *Structural Seed*; t
 
 ### AD-11 — Our own platform channel only where the guarantee *is* an OS API
 
-- **Binds:** FR-24, FR-28, FR-32, §7 background minimalism
-- **Prevents:** a story wiring FR-24, FR-28 or FR-32 through a convenient package and voiding the property the FR rests on.
-- **Rule:** Three channels, written by us. **notify** — one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once, never a second channel; importance cannot be changed after creation, which is what makes "incapable of escalating" structural rather than hoped-for (the user may loosen it in system settings; the app can never widen it back). **dictate** — `createOnDeviceSpeechRecognizer()` gated by `isOnDeviceRecognitionAvailable()`, because that pair *forces* on-device and fails rather than falling back, while `EXTRA_PREFER_OFFLINE` is only a hint and FR-32 forbids a fallback outright; and gated further by `checkRecognitionSupport()` / `triggerModelDownload()`, because a *service* being available is not the **Spanish model** being present, and FR-32's "the affordance is simply not present" is a statement about the language, not the service. **credentials** — AndroidKeyStore generates and retains the non-exportable AEAD wrapping key while the encrypted provider envelope lives in Files (AD-22); no general preferences API is exposed. Camera, on-device face detection and folder access remain plugin-served. All three channels are in scope of AD-7's seals, may open no socket, and compute no dates (AD-4).
+- **Binds:** FR-16, FR-24, FR-28, FR-32, §7 background minimalism
+- **Prevents:** a story wiring FR-16's, FR-24's, FR-28's or FR-32's guarantee through a convenient package and voiding the property the FR rests on.
+- **Rule:** Four channels, written by us. **notify** — reserved, unshipped until its story (Epic 8): one `NotificationChannel` at `IMPORTANCE_LOW` with `setShowBadge(false)`, created once, never a second channel; importance cannot be changed after creation, which is what makes "incapable of escalating" structural rather than hoped-for (the user may loosen it in system settings; the app can never widen it back). **dictate** — `createOnDeviceSpeechRecognizer()` gated by `isOnDeviceRecognitionAvailable()`, because that pair *forces* on-device and fails rather than falling back, while `EXTRA_PREFER_OFFLINE` is only a hint and FR-32 forbids a fallback outright; and gated further by `checkRecognitionSupport()` / `triggerModelDownload()`, because a *service* being available is not the **Spanish model** being present, and FR-32's "the affordance is simply not present" is a statement about the language, not the service. **credentials** — AndroidKeyStore generates and retains the non-exportable AEAD wrapping key while the encrypted provider envelope lives in Files (AD-22); no general preferences API is exposed. **camera** — grown by Story 5.2's 2026-09-05 ruling 1-B: the permission moment is ours, capture is not — one `request` operation answering granted / refused / interrupted (an interrupted ask — the system swallowed it — is never read as the user's refusal), asking at the first scan attempt only, never at app entry (AD-17). A `refused` answer appends the one `permission_refused{camera}` row and the ask never repeats; an interrupted one writes no row and leaves the ask eligible for the next attempt. On-device face detection and folder access remain plugin-served, and the camera *plugin* still serves every frame. All four channels are in scope of AD-7's seals, may open no socket, and compute no dates (AD-4).
 
 ### AD-12 — The egress map is a closed list; no SDK enters on "it isn't analytics"
 
@@ -292,6 +292,7 @@ graph TD
   P3 --> A3["plugins/ — system clock"]
   P4 --> A4["platform/notify — our channel"]
   P5 --> A5["platform/dictate — our channel"]
+  UI --> A9["platform/camera — our channel: the CAMERA permission moment"]
   P6 --> A6["plugins/saf_util + saf_stream"]
   P7 --> A7["files/ — album & scan-cache bytes"]
   UI --> CV["shell: CredentialVault"]
@@ -346,8 +347,10 @@ organizer/
     store/                  # drift schema, .drift triggers, migrations
     files/                  # the Files adapter: app-private bytes (album, per-scan cache)
     egress/                 # the ONLY module importing an HTTP client (AD-7)
-    platform/notify/        # our channel: one IMPORTANCE_LOW channel
+    platform/notify/        # our channel (reserved, unshipped): one IMPORTANCE_LOW channel
     platform/dictate/       # our channel: on-device recognizer + model gate
+    platform/credentials/   # our channel: Keystore wrapping key for the provider envelope
+    platform/camera/        # our channel: the CAMERA permission moment (capture stays plugin-served)
     plugins/                # camera · mlkit face · saf_util/saf_stream
     ui/                     # surfaces + tokens.dart
     l10n/app_es.arb         # THE string table (AD-15)
@@ -367,7 +370,7 @@ Where each PRD feature group lives. What governs it is the `Binds:` line of each
 | 4.1 Dispenser (FR-1–6) | `core/weave`, `core/derive`, `ui/dispenser` |
 | 4.2 Time Bag & Session (FR-7–10) | `core/weave`, `core/log` |
 | 4.3 Project Weaver (FR-11–15) | `core/weave`, `core/pool` |
-| 4.4 Photo-Diagnosis & rewards (FR-16–18) | `egress`, `plugins/camera`, `plugins/mlkit`, `ui/reward` |
+| 4.4 Photo-Diagnosis & rewards (FR-16–18) | `egress`, `plugins/camera`, `platform/camera` (permission moment), `plugins/mlkit`, `ui/reward` |
 | 4.5 Decluttering Protocol (FR-19–22) | `core/pool`, `core/log`, `ui/destinations` |
 | 4.6 Progress (FR-23) | `core/derive`, `ui/dashboard` |
 | 4.7 Ambient Invitation (FR-24) | `core/day`, `platform/notify` |
@@ -381,7 +384,7 @@ Where each PRD feature group lives. What governs it is the `Binds:` line of each
 - **OQ-1's deployment topology.** Closed 2026-09-02, by evidence: **cloud BYOK with gemini, accessed through the provider's direct API** — the Local path is *killed*, not deferred. Both Gemma candidates died on the development machine through the story 4-1 harness (E2B 3/10, E4B 2/10, under the pre-confirmed 8-of-10 bar; E2B fenced every response and Lemonade ignores `response_format`), and the one-direction rule makes a desktop failure fatal because the Android artifact is more aggressively quantized. `flutter_gemma` 1.6.5 and E4B's size/peak figures stand as recorded facts about a path this build ships only as the debug stub (AD-9). The storage, peak-memory, latency and thermal handset questions die with it — there is no local path left to measure. OpenRouter is admitted as the fourth access route (2026-09-03): one key reaching every allowlisted model, past the written no-training gate by the app's own per-request ZDR enforcement (OQ-10). Full evidence: `eval/results/report.md` (story 4-1).
 - **Log growth.** Milliseconds over a four-week window with one user. Revisit if a cold start exceeds 1 s; the answer is then an indexed projection rebuilt from the log — never a stored plan, so AD-1 survives it.
 - **Multi-user.** The pool and the log carry no owner column. A schema change, accepted knowingly; §5.1 defers households to v3.
-- **iOS.** The product lives in a pure Dart package, so a second surface is a shell rather than a rewrite; AD-11's three channels are what would need counterparts. Revisit only if the PRD un-defers it — nothing here is designed toward it.
+- **iOS.** The product lives in a pure Dart package, so a second surface is a shell rather than a rewrite; AD-11's four channels are what would need counterparts. Revisit only if the PRD un-defers it — nothing here is designed toward it.
 - **Committed-export compaction.** SAF cannot prove a directory listing is globally complete, so AD-13 automatically removes only named debris from this installation's failed uncommitted attempts and retains every committed generation. Revisit only after measured export growth warrants an explicit, user-visible compaction operation with its own recovery contract.
 - **Screen-reader semantics.** `EXPERIENCE.md` OQ-13 records that TalkBack labels, roles and traversal order are discussed nowhere. It has a structural half, so it is named here rather than left with the copy questions, and the conventions carry an interim default. Revisit before the first surface ships to a handset other than the builder's.
 - **API 37.** Target 36 is compliant into 2027 (Play's posted floor; the Aug-2027 date for 37 is a projection). Revisit when edge-to-edge and resizability changes are read against the 200% floor and the one-card surface.

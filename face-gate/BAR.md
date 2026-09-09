@@ -1,7 +1,20 @@
 # Face-gate bar — on-device person gate (story 5.1)
 
-**Rule of record (deferral close-out, 2026-09-05): the interim
-production gate is face-only at `minFaceSize: 0.0`** — the detector
+**Ruling of record (2026-09-09, Epic 5 retrospective party, Sergio):
+the face-only gate is final — courtesy, not load-bearing.** The
+composition reopen promised in the deferral close-out below is
+cancelled: the load-bearing send control is per-scan consent and the
+BYOK token, so the gate stays face-only, ships no pose/object pack,
+and the residual 4 FN / 12 result is accepted, not a blocking
+finding (`project-context.md` → "Face gate — courtesy, not
+load-bearing"; decided at the Epic 5 retrospective party, F-S1:
+`_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md`).
+The "reopened before 5.5" promises below are historical: 5.5
+shipped, the reopen moved to the retrospective, and the retro ruled
+it closed. No reopen is scheduled or permitted.
+
+**Rule of record (deferral close-out, 2026-09-05): the production
+gate is face-only at `minFaceSize: 0.0`** — the detector
 config block below carries those live values. The face ∨ pose rule
 text and the pose-detector-config block in the sections below are
 **historical (run-2 era) and superseded** — kept as the record of the
@@ -9,17 +22,18 @@ deferred composition, not the shipped rule. The spine's Stack table
 pins face detection only (`google_mlkit_face_detection 0.15.1`; no
 pose row exists — the pose dependency was removed with the deferral),
 and story 5.2 ships the face-only gate this bar closes on. The
-interim rule **fails the FN=0 target**: 4 FN / 12 person photos at
+rule **fails the FN=0 target**: 4 FN / 12 person photos at
 the final tree (2026-09-05 final-state smoke,
 `face-gate/results/diagnostics/final-tree-smoke.json`) — accepted by
 the builder's deferral ruling and reopened before story 5.5 ships the
-first scan payload.
+first scan payload — that reopen was later cancelled by the
+2026-09-09 ruling above.
 
 Written before the measurement exists. One bar, measured on-device
 through the same plugin story 5.2 will ship — the probe imports
 nothing from `lib/egress/` and has no upload path. The probe refuses
 to score while this file carries no dated confirmation in its Builder
-confirmation section. The live rule below is the face-only interim
+confirmation section. The live rule below is the face-only
 gate; the pose-detector-config block and the Amendments entries are
 the record of the deferred composition, not the shipped rule.
 
@@ -30,8 +44,13 @@ the record of the deferred composition, not the shipped rule.
    frame 5.2 would let through. **Any FN > 0 fails the bar.** Bar
    failure is the escalation path, not a crash and never silent
    tuning. The 2026-09-05 deferral is the recorded exception: the
-   interim face-only gate fails that target (4 FN / 12 at the final
-   tree) and 5.2 still ships it, reopened before 5.5.
+   face-only gate (interim as of that deferral) failed the target
+   (4 FN / 12 at the final tree) and 5.2 still ships it, reopened
+   before 5.5 — the reopen cancelled by the 2026-09-09 ruling above.
+   **Ruled final 2026-09-09: the FN limb is retired** — the residual
+   4 FN / 12 is accepted, not a blocking finding; a probe re-run
+   does not escalate on it (see the ruling of record at the top of
+   this file).
 2. **False positives: accepted and recorded.** A false positive is a
    corpus photo of class `no-person` on which face detection reports
    at least one face. The cost is one reframe offer (FR-25) — the
@@ -93,7 +112,7 @@ miss-cost asymmetry: an FN is the failure that matters, an FP costs
 one reframe offer. Landmarks, classification, contours and tracking
 are off: pure cost, no count contribution. The pose block's accurate /
 `single` values are the deferred composition's banked pin, not part of
-the interim gate.
+the shipped gate.
 
 <!-- bar-facts: begin -->
 minPhotosPerHardCaseCategory: 2
