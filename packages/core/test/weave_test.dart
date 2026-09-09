@@ -4651,6 +4651,181 @@ void main() {
     });
   });
 
+  group('the dormant Epic fold (Story 5.13, FR-15, AD-21)', () {
+    // The read instant: Friday 2026-08-28 noon, the 5.9 fixture's own
+    // clock.
+    final now = utcMicros(2026, 8, 28, 12);
+
+    test('a landing with no epic_activated row is the one dormant '
+        'shape: the fold returns it with its stable id, origin and '
+        'Origin Context as the description', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 26, 9), 'El trastero del fondo'),
+        _scanStep(
+          's2',
+          utcMicros(2026, 8, 26, 9),
+          'El trastero del fondo',
+          stepText: 'Recoger las cajas',
+        ),
+      ];
+      final dormant = dormantEpicProjects(steps, const [], now);
+      expect(dormant, hasLength(1));
+      expect(dormant.single.stableId, 's1');
+      expect(dormant.single.origin, Origin.cloud);
+      expect(dormant.single.description, 'El trastero del fondo');
+    });
+
+    test('an epic_activated row naming the group removes it — '
+        'dormancy is the absence of the row, never a flag (matrix: '
+        'activation exists)', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 26, 9), 'El trastero ordenado'),
+      ];
+      expect(
+        dormantEpicProjects(steps, [
+          _epicActivated(utcMicros(2026, 8, 26, 9, 30), 's1'),
+        ], now),
+        isEmpty,
+      );
+      // And the log without it keeps it — the same facts, the other
+      // derivation.
+      expect(dormantEpicProjects(steps, const [], now), hasLength(1));
+    });
+
+    test('an activation row after the read instant activates nothing — '
+        'the read-instant discipline, `_appOpenedBefore`\'s own', () {
+      final steps = [
+        _scanStep('s1', utcMicros(2026, 8, 26, 9), 'El trastero ordenado'),
+      ];
+      final dormant = dormantEpicProjects(steps, [
+        _epicActivated(now + 1, 's1'),
+      ], now);
+      expect(dormant, hasLength(1));
+      expect(dormant.single.stableId, 's1');
+    });
+
+    test('ordered by earliest group instant, then stable id — '
+        'deterministic over facts, never a recency heuristic (AD-3)', () {
+      final later = _scanStep(
+        'zz-later',
+        utcMicros(2026, 8, 27, 9),
+        'La terraza',
+      );
+      final earlier = _scanStep(
+        'aa-earlier',
+        utcMicros(2026, 8, 25, 9),
+        'El trastero',
+      );
+      expect(
+        dormantEpicProjects(
+          [later, earlier],
+          const [],
+          now,
+        ).map((epic) => epic.stableId),
+        ['aa-earlier', 'zz-later'],
+        reason:
+            'the earliest-created dormant Epic is the pick — the one '
+            'the user has waited longest to be reminded of',
+      );
+      // Same instant, different groups: the stable id breaks the tie
+      // — a total order with no clock dependence.
+      final a = _scanStep('b-same-instant', utcMicros(2026, 8, 25, 9), 'A');
+      final b = _scanStep('a-same-instant', utcMicros(2026, 8, 25, 9), 'B');
+      expect(
+        dormantEpicProjects([a, b], const [], now).map((epic) => epic.stableId),
+        ['a-same-instant', 'b-same-instant'],
+      );
+    });
+
+    test('the description falls back to the head step\'s own words when '
+        'the slice carried no Origin Context', () {
+      final step = PoolFact(
+        id: 's1',
+        origin: Origin.local,
+        size: sizeOfEstimateSeconds(180),
+        instantUtcMicros: utcMicros(2026, 8, 26, 9),
+        offsetSeconds: 0,
+        originContext: null,
+        estimateSeconds: 180,
+        stepText: 'Recoger las cajas',
+      );
+      expect(
+        dormantEpicProjects([step], const [], now).single.description,
+        'Recoger las cajas',
+      );
+    });
+
+    ItemActEntry suggestionDismissed(int micros, String itemId) => ItemActEntry(
+      id: 'dismissed-$micros-$itemId',
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.suggestionDismissed,
+      itemId: itemId,
+      itemOrigin: Origin.cloud,
+    );
+
+    test('the walk is inert to dismissal rows — the kind\'s only '
+        'reader is the strip\'s own eligibility (FR-15\'s zero-side-effects '
+        'consequence, the setting/report idiom)', () {
+      // The worst case for an over-broad pair-match outcome branch:
+      // the dismissal names the SAME (itemId, itemOrigin) pair as the
+      // standing dealt card, so any fold that matched ItemActEntry pairs
+      // generically would clear dealtUnanswered here. The walk moves no
+      // fact — deal state, activation map, answered set all stand — and
+      // dormancy is unchanged beside them.
+      final withDismissal = walkLog([
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _epicDealt(_day(0, 9), 'zona-z1-a'),
+        suggestionDismissed(_day(0, 10), 'zona-z1-a'),
+      ], catalogue: _catalogue);
+      final without = walkLog([
+        _sessionStarted(_day(0, 9), pocketMinutes: 15),
+        _epicDealt(_day(0, 9), 'zona-z1-a'),
+      ], catalogue: _catalogue);
+      expect(
+        withDismissal.lastDealtInstantByItemId,
+        without.lastDealtInstantByItemId,
+      );
+      expect(withDismissal.focusSlotClosedDays, without.focusSlotClosedDays);
+      expect(withDismissal.dealtCountsByDay, without.dealtCountsByDay);
+      expect(withDismissal.answeredItemIds, without.answeredItemIds);
+      expect(withDismissal.openSessionStart, without.openSessionStart);
+      expect(withDismissal.dealtUnanswered, without.dealtUnanswered);
+      expect(
+        withDismissal.openSessionPocketMinutes,
+        without.openSessionPocketMinutes,
+      );
+      expect(
+        withDismissal.epicActivatedInstantByStableId,
+        without.epicActivatedInstantByStableId,
+        reason: 'a dismissal names no activation — dormancy is unchanged',
+      );
+    });
+
+    test('a rescue step and a manual capture are never dormant Epics — '
+        'the grouping fold\'s own conjuncts', () {
+      final rescueStep = PoolFact(
+        id: 'r1',
+        origin: Origin.cloud,
+        size: sizeOfEstimateSeconds(45),
+        instantUtcMicros: utcMicros(2026, 8, 26, 9),
+        offsetSeconds: 0,
+        rescueOf: 'parent-a',
+        estimateSeconds: 45,
+        stepText: 'Buscar la llave',
+      );
+      final manual = PoolFact(
+        id: 'm1',
+        origin: Origin.manual,
+        size: Size.instant,
+        instantUtcMicros: utcMicros(2026, 8, 26, 9),
+        offsetSeconds: 0,
+        originContext: 'Colgar el cuadro',
+      );
+      expect(dormantEpicProjects([rescueStep, manual], const [], now), isEmpty);
+    });
+  });
+
   group('Invisible buffers (Story 5.10, FR-13, AD-1)', () {
     // The standing fixture's clock: Friday 2026-08-28 noon, active
     // zone z1 (the 5.9 group's own fixture). The buffer is a pure

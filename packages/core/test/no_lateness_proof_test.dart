@@ -1215,18 +1215,23 @@ final class KitchenSink {
 
     test('StripState', () {
       // The ambient strip derivation's state (Story 2.5, FR-4,
-      // UX-DR22; the report field since 2.6, SM-2): the one resident
-      // the precedence order resolved to — at most one is ever
-      // visible — plus, exactly when that resident is the weekly
-      // self-report, the due week it asks about (a `Week.weekOrdinal`,
-      // recomputed at every read). No dismissal flag, no answered
-      // marker, nothing the surface owes: a dismissal is shell state
-      // precisely because the log has no field for it (AD-21), and
-      // the pending week is never stored either — it is derived, so
-      // persistence and supersession stay pure folds.
+      // UX-DR22; the report field since 2.6, SM-2; the suggestion
+      // field since 5.13, FR-15): the one resident the precedence
+      // order resolved to — at most one is ever visible — plus,
+      // exactly when that resident is the weekly self-report, the due
+      // week it asks about (a `Week.weekOrdinal`, recomputed at every
+      // read), and, exactly when it is the seasonal suggestion, the
+      // shown dormant Epic record (its stable id, origin and
+      // description — the fact both one-tap paths act on, carried
+      // from the read, never re-derived at tap time). No dismissal
+      // flag, no answered marker, nothing the surface owes: a
+      // dismissal is a log row precisely because the strip states
+      // what was shown, and the pending week is never stored either
+      // — it is derived, so persistence and supersession stay pure
+      // folds.
       expect(
         _classOwnFields('StripState', 'derive/strip.dart'),
-        equals(['resident', 'reportWeekOrdinal']),
+        equals(['resident', 'reportWeekOrdinal', 'suggestion']),
       );
     });
   });
@@ -1283,6 +1288,9 @@ final class KitchenSink {
       'curation/curation.dart:CurationObservation',
       'derive/checkpoint.dart:CheckpointState',
       'derive/strip.dart:StripState',
+      // Story 5.13: the seasonal suggestion's shown record — a
+      // structural record type shared with weave by shape alone.
+      'derive/strip.dart:StripSuggestion',
       'ports/slicer_port.dart:SlicerRequest',
       'ports/slicer_port.dart:ScanSliceRequest',
       'ports/slicer_port.dart:GenesisSliceRequest',
@@ -2495,6 +2503,15 @@ final class KitchenSink {
     // The registry guard: an empty registry would make this pin
     // vacuous.
     expect(LogKind.knownByName, isNotEmpty);
+    // The one vetted substring accident (Story 5.13): 'dismissed'
+    // contains 'missed' as a substring, but `suggestion_dismissed` is
+    // the PRD's own frozen wire name for the ✕ of the seasonal
+    // suggestion — a past act of declining, never an obligation or a
+    // re-planning act. The exemption is scoped to the `missed`
+    // SEGMENT alone: the vetted name still fails on every other
+    // banned segment, and any other kind carrying any segment —
+    // `missed` included — still fails.
+    const vettedNames = {'suggestion_dismissed'};
     for (final name in LogKind.knownByName.keys) {
       final lower = name.toLowerCase();
       for (final segment in [
@@ -2509,7 +2526,8 @@ final class KitchenSink {
         'postpon',
       ]) {
         expect(
-          lower.contains(segment),
+          lower.contains(segment) &&
+              !(segment == 'missed' && vettedNames.contains(name)),
           isFalse,
           reason:
               "'$name' carries '$segment' — a kind name with that "

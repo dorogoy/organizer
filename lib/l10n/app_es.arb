@@ -412,6 +412,17 @@
     "description": "The house-framed curation title (Story 5.12, E1): the genesis surface's quiet entry label below Analizar and the pushed E1 surface's own header — the same eight switchable task groups as Settings' sub-screen, one string serving both roles (5.11's entry-label-equals-header idiom). Never a task name, never a count, never a browseable catalogue (FR-31, NL-1)."
   },
 
+  "seasonalSuggestion": "¿Unos minutos al día para {description}?",
+  "@seasonalSuggestion": {
+    "x-signoff": "Sergio, 2026-09-09",
+    "description": "The gentle seasonal suggestion (Story 5.13, FR-15): one sentence proposing a minutes-per-day plan, naming the dormant Epic Project's own Origin Context — the space description — never a count, a deadline, a bar or a percentage. Proposes the pace the weave already buffers; tap accepts by activating the Epic, ✕ dismisses for the season.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+
   "rewardWithoutPhoto": "Un trabajo estupendo",
   "@rewardWithoutPhoto": {
     "description": "Transformation reward when no Before photo exists — no one-plate diff, no placeholder."
@@ -454,7 +465,7 @@
 
   "ambientStripDismiss": "Cerrar",
   "@ambientStripDismiss": {
-    "description": "Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. Its scope belongs to the resident: the check-in stays hidden for the day, while the weekly report stays hidden for the current opening."
+    "description": "Ambient strip — the ✕ dismissal's label, spoken by semantics only; the mark itself is line-only. Its scope belongs to the resident: the check-in stays hidden for the day, the weekly report stays hidden for the current opening, and the seasonal suggestion stays hidden for that project for the current season."
   },
 
   "selfReportScaleLow": "Nada",

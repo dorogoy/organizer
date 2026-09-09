@@ -6268,4 +6268,173 @@ void main() {
       expect(find.byType(TaskCard), findsOneWidget);
     });
   });
+
+  group('the seasonal suggestion (Story 5.13, FR-15, UX-DR22)', () {
+    PoolFactRecord dormantEpic(String stableId) => (
+      id: stableId,
+      origin: Origin.cloud,
+      size: sizeOfEstimateSeconds(180),
+      instantUtcMicros: DateTime.utc(2026, 8, 20, 9).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      originContext: 'el trastero del fondo',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: 180,
+      stepText: 'Recoger las cajas',
+    );
+
+    /// The established install's first opening over a dormant Epic:
+    /// install open and answered week seeded beside the facts, so the
+    /// suggestion holds the slot over the check-in.
+    Future<_RecordingStore> launchEstablished(WidgetTester tester) async {
+      final store = _RecordingStore([dormantEpic('s1')])
+        ..entries.add(_installOpen())
+        ..entries.add((
+          id: 'seed-week-answered',
+          kind: 'report_answered',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            23,
+            12,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: 3,
+          reportWeek: 1389,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ));
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final controller = buildController(store);
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return store;
+    }
+
+    testWidgets('the tap writes exactly one epic_activated row and the '
+        'strip is gone — the check-in holds the freed slot, no push '
+        '(matrix: accept)', (tester) async {
+      final store = await launchEstablished(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+      expect(find.text(sentence), findsOneWidget);
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(sentence));
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'epic_activated')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(rows.single.itemOrigin, Origin.cloud);
+      expect(find.text(sentence), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.byType(CurationScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('the ✕ writes exactly one suggestion_dismissed row '
+        'naming the shown project and the check-in takes the slot '
+        '(matrix: dismiss)', (tester) async {
+      final store = await launchEstablished(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'suggestion_dismissed')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.itemId, 's1');
+      expect(find.text(sentence), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.text('Hecho'), findsOneWidget);
+    });
+
+    testWidgets('accepting the suggestion drops a stale refresh read', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final stale = Completer<DispenserView>();
+      final action = Completer<DispenserView>();
+      final controller = _QueuedReadController([first, stale, action]);
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        DispenserDealt(
+          _testCard,
+          stripResident: StripResident.seasonalSuggestion,
+          seasonalSuggestion: const (
+            stableId: 's1',
+            origin: Origin.cloud,
+            description: 'el trastero del fondo',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(sentence), findsOneWidget);
+
+      final accept = tester
+          .widget<SeasonalSuggestionStrip>(find.byType(SeasonalSuggestionStrip))
+          .onAccept;
+
+      // A foreground refresh started before the tap remains in flight.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      accept();
+      await tester.pump();
+      action.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(sentence), findsNothing);
+
+      // The older read resolves last still carrying the suggestion;
+      // its older generation must not overwrite the committed accept.
+      stale.complete(
+        DispenserDealt(
+          _testCard,
+          stripResident: StripResident.seasonalSuggestion,
+          seasonalSuggestion: const (
+            stableId: 's1',
+            origin: Origin.cloud,
+            description: 'el trastero del fondo',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(sentence), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsNothing);
+    });
+  });
 }

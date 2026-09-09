@@ -45,8 +45,8 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-two kinds (22 since Story '
-        '5.11 added cluster_curation_changed)', () {
+    test('holds exactly the build\'s twenty-three kinds (23 since Story '
+        '5.13 added suggestion_dismissed)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -70,6 +70,7 @@ void main() {
         LogKind.scanAbandoned,
         LogKind.epicActivated,
         LogKind.clusterCurationChanged,
+        LogKind.suggestionDismissed,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -94,8 +95,9 @@ void main() {
         'slice_failed',
         'slice_requested',
         'slice_returned',
+        'suggestion_dismissed',
       ]);
-      expect(LogKind.knownByName, hasLength(22));
+      expect(LogKind.knownByName, hasLength(23));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1137,6 +1139,86 @@ void main() {
       });
     });
 
+    group('the suggestion payload path (Story 5.13, FR-15, AD-14, AD-23)', () {
+      test('a well-shaped suggestion_dismissed converts with its pair '
+          'intact — the dismissed Epic\'s stable id and own origin, the '
+          'epic_activated precedent', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'suggestion_dismissed',
+            itemId: 'step-1',
+            itemOrigin: Origin.cloud,
+          ),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<ItemActEntry>());
+        expect(entry!.kind, LogKind.suggestionDismissed);
+        expect((entry as ItemActEntry).itemId, 'step-1');
+        expect(entry.itemOrigin, Origin.cloud);
+      });
+
+      test('a suggestion_dismissed without its pair at all is excluded '
+          '— itemPairAbsent, the family\'s own flaw', () {
+        final conversion = convertLogEntryRecord(
+          _record('suggestion_dismissed'),
+        );
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.itemPairAbsent);
+      });
+
+      test('a half suggestion pair is excluded, distinctly — '
+          'halfItemPair', () {
+        final conversion = convertLogEntryRecord(
+          _record('suggestion_dismissed', itemId: 'step-2'),
+        );
+        expect(conversion.entry, isNull);
+        expect(conversion.flaw, LogRecordFlaw.halfItemPair);
+      });
+
+      test('a stack, setting fields, a pocket, energy or report fields '
+          'on suggestion_dismissed are excluded — the row rides its '
+          'pair and nothing else', () {
+        final offenders = <LogRecordFlaw, LogEntryRecord>{
+          LogRecordFlaw.stackOffCrashKind: _record(
+            'suggestion_dismissed',
+            itemId: 'step-3',
+            itemOrigin: Origin.cloud,
+            stack: '#0      build',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind: _record(
+            'suggestion_dismissed',
+            itemId: 'step-3',
+            itemOrigin: Origin.cloud,
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.pocketOnNonPocketKind: _record(
+            'suggestion_dismissed',
+            itemId: 'step-3',
+            itemOrigin: Origin.cloud,
+            pocketMinutes: 15,
+          ),
+          LogRecordFlaw.energyOnNonEnergyKind: _record(
+            'suggestion_dismissed',
+            itemId: 'step-3',
+            itemOrigin: Origin.cloud,
+            energyLevel: 2,
+          ),
+          LogRecordFlaw.reportOnNonReportKind: _record(
+            'suggestion_dismissed',
+            itemId: 'step-3',
+            itemOrigin: Origin.cloud,
+            reportValue: 3,
+          ),
+        };
+        offenders.forEach((flaw, record) {
+          final conversion = convertLogEntryRecord(record);
+          expect(conversion.entry, isNull, reason: '$flaw');
+          expect(conversion.flaw, flaw);
+        });
+      });
+    });
+
     group('the permission payload path (Story 3.4, FR-32, AD-17, AD-23)', () {
       test('a well-shaped permission_refused converts carrying its '
           'permission — the crash shape: own payload, no item pair', () {
@@ -1746,6 +1828,12 @@ void main() {
         'scan_abandoned': _record('scan_abandoned', cluster: 'z1'),
         'epic_activated': _record(
           'epic_activated',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          cluster: 'z1',
+        ),
+        'suggestion_dismissed': _record(
+          'suggestion_dismissed',
           itemId: 'step-1',
           itemOrigin: Origin.cloud,
           cluster: 'z1',

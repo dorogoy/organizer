@@ -309,3 +309,12 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/5-12-curation-s-other-two-homes-the-e1-surface-and-the-one-time-s.md`
   summary: The 2.5-era check-in dismissal handler's read-failure arm (`_onDismissCheckIn` in dispenser_screen.dart) is untested — the two new Story 5.12 accept/dismiss handlers have their own failing-read coverage, but the pre-existing arm does not.
   evidence: Story 5.12's verification-gap review confirmed that the new accept/dismiss arms are driven over a throwing `readLogEntries`; the check-in's pre-existing arm remains untested and is deferred here.
+- source_spec: `_bmad-output/implementation-artifacts/5-13-the-gentle-seasonal-suggestion.md`
+  summary: Extract the dispenser screen's shared write-path helper — `_seasonalSuggestionWrite` is the fourth verbatim copy of the family's write-then-read mechanics (in-flight guard, tap instant, generation bump, recovery read), beside the energy answer, skip and report paths.
+  evidence: Story 5.13 blind-hunter review; the duplication is the family's pre-existing idiom (each path grew its own copy since 2.5), and unifying them touches every resident's write path at once — out of scope for a story that adds one member.
+- source_spec: `_bmad-output/implementation-artifacts/5-13-the-gentle-seasonal-suggestion.md`
+  summary: Shared dormant-Epic test fixture — the controller, ambient-strip and screen suites each hand-roll their own `dormantEpic()` seed and launch helper, with drifting shapes (parameterized vs fixed instant; hand-rolled vs answered-week seeding).
+  evidence: Story 5.13 blind-hunter review; test fixtures are per-file by house convention, but three copies of the same Epic-shaped fact in three suites will drift on the next dormant-Epic story.
+- source_spec: `_bmad-output/implementation-artifacts/5-13-the-gentle-seasonal-suggestion.md`
+  summary: The controller suite's `_DelegatingStore.appendPoolFact` is a silent no-op — a future path under test that appended a pool fact through this store would pass while dropping the data; make it record or throw like `_RecordingStore`.
+  evidence: Story 5.13 blind-hunter review; the class is pre-existing (the story only added three usages), and no current path under it appends facts — latent hazard, not a live one.

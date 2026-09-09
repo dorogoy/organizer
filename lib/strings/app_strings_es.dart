@@ -272,6 +272,11 @@ class AppStringsEs extends AppStrings {
   String get curationHouseGroups => 'Grupos de tu casa';
 
   @override
+  String seasonalSuggestion(String description) {
+    return '¿Unos minutos al día para $description?';
+  }
+
+  @override
   String get rewardWithoutPhoto => 'Un trabajo estupendo';
 
   @override

@@ -472,6 +472,64 @@ List<Candidate> epicCandidates(
   ];
 }
 
+/// The dormant Epic Projects (Story 5.13, FR-15, AD-21): every group
+/// of [`_epicStepsByGroupKey`] whose stable id no `epic_activated`
+/// row names at-or-before the read instant — the same derivation
+/// `epicCandidates` reads for candidacy, projected as records for the
+/// strip's suggestion instead of candidates for the weave. Ordered by
+/// AD-3's discipline, deterministic over facts that exist: earliest
+/// group instant first (the one the landing minted — every step of a
+/// slice shares it), then stable id — the earliest-created dormant
+/// Epic is the one the user has waited longest to be reminded of, and
+/// no recency heuristic exists to tune. The description is the
+/// Epic's Origin Context — the slice's retained space description —
+/// with the head step's own words and the empty string as the only
+/// fallbacks. `epic_activated` rows after [instantUtcMicros] are
+/// ignored, exactly `_appOpenedBefore`'s own read-instant discipline:
+/// a row the read cannot see yet activates nothing. This is the one
+/// dormancy derivation — nothing else may compute dormancy, and the
+/// records are structural: `core/derive` reads them without importing
+/// this library (strip.dart must not import weave — the cycle), so no
+/// shared type exists to import by design.
+List<({String stableId, Origin origin, String description})>
+dormantEpicProjects(
+  List<PoolFact> poolFacts,
+  List<LogEntry> entries,
+  int instantUtcMicros,
+) {
+  final activatedStableIds = <String>{
+    for (final entry in entries)
+      if (entry.instantUtcMicros <= instantUtcMicros &&
+          entry is ItemActEntry &&
+          entry.kind == LogKind.epicActivated)
+        entry.itemId,
+  };
+  final dormant = <({String stableId, Origin origin, String description})>[];
+  final groupInstantByStableId = <String, int>{};
+  for (final steps in _epicStepsByGroupKey(poolFacts).values) {
+    final first = steps.first;
+    if (activatedStableIds.contains(first.id)) {
+      continue; // Active: dormancy asserts nothing (AD-21).
+    }
+    groupInstantByStableId[first.id] = first.instantUtcMicros;
+    dormant.add((
+      stableId: first.id,
+      origin: first.origin,
+      description: first.originContext ?? first.stepText ?? '',
+    ));
+  }
+  dormant.sort((a, b) {
+    final byInstant = groupInstantByStableId[a.stableId]!.compareTo(
+      groupInstantByStableId[b.stableId]!,
+    );
+    if (byInstant != 0) {
+      return byInstant;
+    }
+    return a.stableId.compareTo(b.stableId);
+  });
+  return dormant;
+}
+
 /// The active Epic Projects' buffered completion horizons (Story
 /// 5.10, FR-13, AD-1): the derived target AD-1 names — slack the user
 /// cannot see, cannot configure and cannot spend, so nothing anywhere

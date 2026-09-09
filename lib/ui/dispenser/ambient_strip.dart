@@ -4,10 +4,13 @@
 // ink-secondary, tappable where an accept action exists and never a
 // primary action, ✕ dismissal at 48dp, at most one resident visible.
 //
-// This build holds three residents: the check-in (bare, ephemeral),
+// This build holds four residents: the check-in (bare, ephemeral),
 // the weekly self-report (hairlined, because it persists until
-// answered, SM-2), and — since Story 5.12 — the once-ever first-run
-// curation offer (bare: it is rarest, never persistent). The check-in
+// answered, SM-2), the once-ever first-run curation offer (since
+// Story 5.12 — bare: it is rarest, never persistent) and the
+// once-per-season suggestion (since Story 5.13 — bare: it is an
+// ephemeral resident, and its ✕ is the only dismissal that writes a
+// row, the season's whole rate limit). The check-in
 // is bare: the question verbatim plus three battery marks as direct
 // targets, llena pre-marked as the standing default (the surface's own
 // state, never a written row), selected reading `icon-mass-blue` charge
@@ -21,9 +24,11 @@
 // 48dp tap targets in the figure role, visible end labels fixing the
 // scale's direction, the same ✕ — one tap answers the asked week
 // through the report's own single sanctioned minter, and the ✕ hides
-// it for this opening only, never for the week. At 200% both residents
-// grow inside the scroll region with every target at or above 48dp —
+// it for this opening only, never for the week. At 200% every
+// resident grows inside the scroll region with every target at or
+// above 48dp —
 // nothing truncates.
+import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:flutter/material.dart';
@@ -75,10 +80,11 @@ class _DismissPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// The ✕ dismissal (UX-DR22): one tap, no write, with the resident owning
-/// its scope — today for the check-in, this opening for the report. The
-/// quietest control the surface owns, in the unsplit secondary grammar:
-/// no fill, no ripple, nothing animated.
+/// The ✕ dismissal (UX-DR22): one tap, with the resident owning its
+/// behavior and scope — today for the check-in, this opening for the
+/// report, one persisted `suggestion_dismissed` row for the seasonal
+/// suggestion. The quietest control the surface owns, in the unsplit
+/// secondary grammar: no fill, no ripple, nothing animated.
 class _DismissMark extends StatelessWidget {
   const _DismissMark({this.onTap});
 
@@ -206,6 +212,85 @@ class CurationOfferStrip extends StatelessWidget {
                 child: Center(
                   child: Text(
                     strings.curationInvitation,
+                    // bodySmall is the wired support role (theme.dart)
+                    // — the strip's sentence register, ink-secondary.
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _DismissMark(onTap: onDismiss),
+      ],
+    );
+  }
+}
+
+/// The ambient strip holding the once-per-season suggestion (Story
+/// 5.13, FR-15, UX-DR22): `seasonalSuggestion(description)` verbatim —
+/// the whole sentence one ≥48dp opaque button, the support role in
+/// ink-secondary — and the ✕ dismissal, bare chrome on the ground
+/// (the suggestion is an ephemeral resident, never a persistent one,
+/// so no hairline). One tap on the sentence accepts through
+/// [onAccept] — the dormant Epic ACTIVATES, the FR-23 snowball
+/// precedent: a suggestion's accept does the thing it proposes, one
+/// `epic_activated` row through the controller's path; the buffered
+/// pace the weave already derives is the plan — no plan is shown,
+/// stored or configured here. The ✕ dismisses through [onDismiss]
+/// (one `suggestion_dismissed` row naming the shown project, minted
+/// by the controller — the strip itself writes nothing): the project
+/// is silent for the rest of the season and the slot hands to the
+/// displaced instruments in the same opening. `CurationOfferStrip`'s
+/// grammar, pins included.
+class SeasonalSuggestionStrip extends StatelessWidget {
+  const SeasonalSuggestionStrip({
+    super.key,
+    required this.suggestion,
+    required this.onAccept,
+    this.onDismiss,
+  });
+
+  /// The shown suggestion's own record — the read's fact, non-null
+  /// exactly when the resident holds this strip (the derivation's own
+  /// invariant). A null renders nothing: it never occurs on a view
+  /// the derivation produced, and no fallback sentence exists to
+  /// name a project the user was not shown.
+  final StripSuggestion? suggestion;
+
+  /// The accept path: the controller's one-tap activation — exactly
+  /// one `epic_activated` row, never a plan.
+  final VoidCallback onAccept;
+
+  /// The dismissal path: the controller's one-row decline, never a
+  /// write of any other kind.
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = suggestion;
+    if (shown == null) {
+      return const SizedBox.shrink();
+    }
+    final strings = AppStrings.of(context);
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Semantics(
+            button: true,
+            child: GestureDetector(
+              onTap: onAccept,
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: Spacing.touchTargetMin,
+                ),
+                child: Center(
+                  child: Text(
+                    strings.seasonalSuggestion(shown.description),
                     // bodySmall is the wired support role (theme.dart)
                     // — the strip's sentence register, ink-secondary.
                     style: theme.textTheme.bodySmall,

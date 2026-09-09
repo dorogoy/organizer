@@ -736,12 +736,15 @@ class _DispenserScreenState extends State<DispenserScreen>
     // the pre-split wrappers held, which the widget suites pin.
     final content = StripLayer(
       resident: view.stripResident,
+      seasonalSuggestion: view.seasonalSuggestion,
       onEnergy: _onSetEnergy,
       onDismissCheckIn: _onDismissCheckIn,
       onAnswerReport: _onAnswerReport,
       onDismissReport: _onDismissReport,
       onAcceptCuration: _onAcceptCuration,
       onDismissCuration: _onDismissCurationOffer,
+      onAcceptSuggestion: _onAcceptSeasonalSuggestion,
+      onDismissSuggestion: _onDismissSeasonalSuggestion,
       child: CompletionAck(
         visible: _completionAckVisible,
         child: switch (view) {
@@ -957,6 +960,93 @@ class _DispenserScreenState extends State<DispenserScreen>
     } catch (_) {
       if (mounted) {
         setState(() => _view = null);
+      }
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
+
+  /// The suggestion's ✕ tap (Story 5.13, FR-15, UX-DR22): one
+  /// `suggestion_dismissed` row naming the project the user was shown
+  /// — the controller's own write path, `_onAnswerReport`'s mechanics
+  /// verbatim (the in-flight guard, the tap's own instant, the
+  /// generation bump a stale refresh read cannot overwrite, the
+  /// recovery read on a failed write) — and the committed view is the
+  /// same read with the displaced instruments holding the freed slot
+  /// (FR-4's deterministic handoff). The project is silent for the
+  /// rest of the season; nothing is styled as anything owed, and no
+  /// other surface, metric or derivation changes on the decline.
+  Future<void> _onDismissSeasonalSuggestion() => _seasonalSuggestionWrite(
+    (tappedAt) =>
+        widget.controller.dismissSeasonalSuggestion(tapTime: tappedAt),
+  );
+
+  /// The suggestion's tap (Story 5.13, FR-15, AD-21): the accept DOES
+  /// the thing the sentence proposes — the FR-23 snowball precedent.
+  /// One `epic_activated` row through the landing paths' own minter
+  /// (the controller's new pinned call site), the same mechanics, and
+  /// the committed view is the fresh read: the resident is gone by
+  /// derivation (the Epic is no longer dormant) and its head competes
+  /// in the weave like any active Epic's. No plan is configured,
+  /// shown or stored — the buffered pace 5.10 already derives is the
+  /// plan. No push, no confirmation, no feedback of any kind: the
+  /// quieter strip is the answer.
+  Future<void> _onAcceptSeasonalSuggestion() => _seasonalSuggestionWrite(
+    (tappedAt) =>
+        widget.controller.acceptSeasonalSuggestion(tappedAt: tappedAt),
+  );
+
+  /// The suggestion's two one-tap paths' shared mechanics (Story
+  /// 5.13): one write-then-read over the controller's path — the
+  /// in-flight guard, the tap's own instant, the generation bump a
+  /// stale refresh read cannot overwrite, and the recovery read on a
+  /// failed write (nothing landed, the resident stands, the retry is
+  /// the same tap).
+  Future<void> _seasonalSuggestionWrite(
+    Future<DispenserView> Function(DateTime tappedAt) path,
+  ) async {
+    if (_writeInFlight) {
+      return;
+    }
+    _writeInFlight = true;
+    final tappedAt = widget.controller.nowOf();
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not overwrite this act after it lands.
+    final generation = ++_readGeneration;
+    var releaseAfterRefresh = false;
+    try {
+      await widget.sessionSettled?.call();
+      final view = await path(tappedAt);
+      if (!mounted) {
+        return;
+      }
+      _commitView(view);
+      // The old surface remains in the render tree until this
+      // refresh's frame. Keep the shared guard through it so its
+      // stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+    } catch (_) {
+      // The write failed and landed nothing: the suggestion still
+      // stands — recover with a fresh read rather than the family's
+      // empty frame, so the standing surface (strip included) returns
+      // instead of a blank; blanking only if that read fails too.
+      try {
+        final view = await widget.controller.read();
+        // A concurrent refresh superseded this recovery read; its
+        // commit must not overwrite.
+        if (mounted && generation == _readGeneration) {
+          _commitView(view);
+        }
+      } catch (_) {
+        // The recovery read failed too: the empty frame is the
+        // remaining quiet story, and a real return to the foreground
+        // re-reads.
+        if (mounted) {
+          setState(() => _view = null);
+        }
       }
     } finally {
       if (!releaseAfterRefresh) {

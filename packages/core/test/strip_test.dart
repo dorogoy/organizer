@@ -66,6 +66,7 @@ void main() {
     List<LogEntry> entries, [
     int? at,
     Set<StripResident> excludeResidents = const {},
+    List<StripSuggestion> dormantEpics = const [],
   ]) => deriveStrip(
     entries: entries,
     instantUtcMicros: at ?? now,
@@ -76,6 +77,7 @@ void main() {
     // 2.5/2.6 matrices keep resolving exactly as they shipped (the
     // `resolveExcludingReport` precedent, one story on).
     excludeResidents: {...excludeResidents, StripResident.firstRunCuration},
+    dormantEpics: dormantEpics,
   );
 
   // The 2-5 wrapper: the read this build's shell makes — the report
@@ -899,6 +901,265 @@ void main() {
       expect(checkIn?.resident, StripResident.energyCheckIn);
       // And the reads wrote nothing (AD-3).
       expect(entries, hasLength(2));
+    });
+  });
+
+  group('the once-per-season suggestion (Story 5.13, FR-15, AD-4, '
+      'AD-21)', () {
+    // The dormant fold's records — the caller (weave's
+    // `dormantEpicProjects`, pinned in weave_test) hands the ordered
+    // list in; this group pins what the strip does with it.
+    StripSuggestion dormant(
+      String stableId, {
+      Origin origin = Origin.cloud,
+      String description = 'el trastero del fondo',
+    }) => (stableId: stableId, origin: origin, description: description);
+
+    ItemActEntry dismissed(
+      int micros,
+      String stableId, {
+      int offsetSeconds = 0,
+    }) => ItemActEntry(
+      id: 'dismissed-$micros-$stableId',
+      instantUtcMicros: micros,
+      offsetSeconds: offsetSeconds,
+      kind: LogKind.suggestionDismissed,
+      itemId: stableId,
+      itemOrigin: Origin.cloud,
+    );
+
+    // The established install's Saturday first opening — the base
+    // clock's own day, summer 2026 (the season Jun–Aug anchors on
+    // June's year).
+    final opening = [
+      _opened(utcMicros(2026, 8, 29, 9)),
+      _started(utcMicros(2026, 8, 29, 9, 0, 1)),
+    ];
+
+    test('the day\'s first opening with a dormant Epic standing — the '
+        'suggestion shows and carries the shown record; the report and '
+        'the check-in are displaced (matrix: first opening)', () {
+      final state = resolve(opening, now, const {}, [dormant('epic-a')]);
+      expect(state?.resident, StripResident.seasonalSuggestion);
+      expect(state?.suggestion?.stableId, 'epic-a');
+      expect(state?.suggestion?.origin, Origin.cloud);
+      expect(state?.suggestion?.description, 'el trastero del fondo');
+      expect(state?.reportWeekOrdinal, isNull);
+      // A second opening the same day hides it like every resident —
+      // the gate, never a stored dismissal.
+      expect(
+        resolve(
+          [
+            ...opening,
+            _ended(utcMicros(2026, 8, 29, 9, 30)),
+            _opened(utcMicros(2026, 8, 29, 10), id: 'reopen'),
+          ],
+          now,
+          const {},
+          [dormant('epic-a')],
+        ),
+        isNull,
+        reason: 'the opening gate alone hides every resident',
+      );
+    });
+
+    test('no dormant Epic — never eligible: the ordinary walk stands, '
+        'quietly (matrix: no dormant)', () {
+      expect(resolve(opening)?.resident, StripResident.weeklySelfReport);
+      expect(
+        resolve(opening, now, const {StripResident.weeklySelfReport})?.resident,
+        StripResident.energyCheckIn,
+      );
+    });
+
+    test('dismissed this season — silent for the season; the report '
+        'takes the slot (matrix: dismiss)', () {
+      final entries = [
+        ...opening,
+        dismissed(utcMicros(2026, 8, 29, 9, 30), 'epic-a'),
+      ];
+      expect(
+        resolve(entries, now, const {}, [dormant('epic-a')])?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the same-season dismissal suppresses the project',
+      );
+    });
+
+    test('dismissed a prior season — eligible again: the suppression '
+        'died with the season (matrix: dismissed last season)', () {
+      // 2026-05-20 is spring; the read is summer — a different
+      // season, so the dismissal asserts nothing.
+      final entries = [
+        _opened(utcMicros(2026, 5, 20, 9), id: 'spring-open'),
+        dismissed(utcMicros(2026, 5, 20, 9, 30), 'epic-a'),
+        ...opening,
+      ];
+      expect(
+        resolve(entries, now, const {}, [dormant('epic-a')])?.resident,
+        StripResident.seasonalSuggestion,
+      );
+    });
+
+    test('per-project is the rate limit — dismissing A leaves B '
+        'showable in the same season (matrix: two dormant Epics)', () {
+      final entries = [
+        ...opening,
+        dismissed(utcMicros(2026, 8, 29, 9, 30), 'epic-a'),
+      ];
+      final state = resolve(entries, now, const {}, [
+        dormant('epic-a'),
+        dormant('epic-b', description: 'la terraza'),
+      ]);
+      expect(state?.resident, StripResident.seasonalSuggestion);
+      expect(state?.suggestion?.stableId, 'epic-b');
+      // The pick is deterministic over the handed order: with both
+      // undismissed, the first (the earliest-created dormant Epic,
+      // weave's own ordering) wins.
+      final first = resolve(opening, now, const {}, [
+        dormant('epic-b'),
+        dormant('epic-a'),
+      ]);
+      expect(first?.suggestion?.stableId, 'epic-b');
+    });
+
+    test('each dismissal row\'s own stored offset scopes its season '
+        '(AD-4, matrix: own-offset season)', () {
+      // Read at 2026-09-01 05:00 UTC, caller offset 0 — autumn. A
+      // dismissal at 2026-08-31 22:00 UTC stored with +07:00 reads
+      // 05:00 on 2026-09-01 in its own frame — autumn, so it
+      // suppresses; the same instant stored with offset 0 reads
+      // 22:00 on 2026-08-31 — summer, still — so it does not.
+      final at = utcMicros(2026, 9, 1, 5);
+      final autumnOpen = [
+        _opened(utcMicros(2026, 9, 1, 4, 30), id: 'autumn-open'),
+      ];
+      final sameSeason = resolve(
+        [
+          ...autumnOpen,
+          dismissed(utcMicros(2026, 8, 31, 22), 'epic-a', offsetSeconds: 25200),
+        ],
+        at,
+        const {},
+        [dormant('epic-a')],
+      );
+      expect(
+        sameSeason?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the row\'s own frame is autumn — it suppresses',
+      );
+      final priorSeason = resolve(
+        [...autumnOpen, dismissed(utcMicros(2026, 8, 31, 22), 'epic-a')],
+        at,
+        const {},
+        [dormant('epic-a')],
+      );
+      expect(
+        priorSeason?.resident,
+        StripResident.seasonalSuggestion,
+        reason: 'the row\'s own frame is still summer — prior season',
+      );
+    });
+
+    test('a dismissal stored 03:59 before a 04:00 season crossing no '
+        'longer suppresses after the crossing (matrix: season boundary '
+        'at 04:00)', () {
+      // 03:59 own-offset on 2026-09-01: before 04:00, so its own
+      // domestic day is 2026-08-31 — summer. The read at 05:00 is
+      // autumn: a different season, so the project re-offers.
+      final at = utcMicros(2026, 9, 1, 5);
+      final state = resolve(
+        [
+          _opened(utcMicros(2026, 8, 31, 3), id: 'summer-open'),
+          dismissed(utcMicros(2026, 9, 1, 3, 59), 'epic-a'),
+        ],
+        at,
+        const {},
+        [dormant('epic-a')],
+      );
+      expect(state?.resident, StripResident.seasonalSuggestion);
+    });
+
+    test('a dismissal tapped after the season turn scopes to the '
+        'season it landed in — the tap\'s own season is the suppressed '
+        'one, and the shown season is already moot (boundary tap)', () {
+      // The suggestion showed in summer (the Aug 31 first opening);
+      // the ✕ landed at 05:00 on Sep 1 — autumn by its own instant
+      // + offset. The autumn read derives the project suppressed:
+      // the row scopes to the TAP\'s season, never the shown one,
+      // and summer\'s suppression is moot the moment summer ends.
+      final state = resolve(
+        [
+          _opened(utcMicros(2026, 8, 31, 3), id: 'summer-open'),
+          dismissed(utcMicros(2026, 9, 1, 5), 'epic-a'),
+        ],
+        utcMicros(2026, 9, 1, 9),
+        const {},
+        [dormant('epic-a')],
+      );
+      expect(state?.resident, StripResident.weeklySelfReport);
+    });
+
+    test('a dismissal row after the read instant asserts nothing yet — '
+        'exactly `_appOpenedBefore`\'s discipline', () {
+      final state = resolve(
+        [...opening, dismissed(utcMicros(2026, 8, 29, 13), 'epic-a')],
+        now,
+        const {},
+        [dormant('epic-a')],
+      );
+      expect(state?.resident, StripResident.seasonalSuggestion);
+    });
+
+    test('loses to the once-ever first-run curation offer — the rarer '
+        'instrument wins (UX-DR22, matrix: first-run offer)', () {
+      // The unexcluded fresh-install read, dormant list handed in:
+      // the offer holds the slot and the suggestion reads displaced,
+      // not consumed — exclude the offer and it surfaces at once.
+      final state = deriveStrip(
+        entries: opening,
+        instantUtcMicros: now,
+        offsetSeconds: offset,
+        dormantEpics: [dormant('epic-a')],
+      );
+      expect(state?.resident, StripResident.firstRunCuration);
+      final displaced = deriveStrip(
+        entries: opening,
+        instantUtcMicros: now,
+        offsetSeconds: offset,
+        dormantEpics: [dormant('epic-a')],
+        excludeResidents: const {StripResident.firstRunCuration},
+      );
+      expect(displaced?.resident, StripResident.seasonalSuggestion);
+    });
+
+    test('the ✕ hands the slot to the displaced instruments in the same '
+        'opening — the exclusion seam (matrix: handoff after ✕)', () {
+      final entries = [
+        ...opening,
+        dismissed(utcMicros(2026, 8, 29, 9, 30), 'epic-a'),
+      ];
+      // The dismissal row lands and the same opening's next read
+      // falls through the suppressed project to the report — the
+      // seam renders exactly this handoff.
+      expect(
+        resolve(entries, utcMicros(2026, 8, 29, 9, 45), const {}, [
+          dormant('epic-a'),
+        ])?.resident,
+        StripResident.weeklySelfReport,
+      );
+      // And read-scoped exclusion without any row at all: the same
+      // log, the suggestion excluded, the report takes the slot.
+      expect(
+        resolve(
+          opening,
+          now,
+          const {StripResident.seasonalSuggestion},
+          [dormant('epic-a')],
+        )?.resident,
+        StripResident.weeklySelfReport,
+      );
+      // The reads wrote nothing (AD-3).
+      expect(entries, hasLength(3));
     });
   });
 }
