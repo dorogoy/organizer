@@ -109,7 +109,7 @@ Source of record: **ARCHITECTURE-SPINE.md** (status final, updated 2026-08-27). 
 
 | AD | Subject (one line) | Anchored in |
 |---|---|---|
-| AD-1 | No plan is ever stored; the day is derived from (pool, log, day, session) | 1.6, 2.1, 6.4 |
+| AD-1 | No plan is ever stored; the day is derived from (pool, log, day, session) | 1.6, 2.1, 6.5 |
 | AD-2 | Both stores insert-only, enforced by SQL triggers in a `.drift` file | 1.3 |
 | AD-3 | Determinism; `card_dealt` written by a command, never by rendering | 1.1, 1.6 |
 | AD-4 | One calendar authority: 04:00 day, Monday week, meteorological season; SM-2 persists until answered | 1.4, 2.6, 5.13, 8.2 |
@@ -145,17 +145,17 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 |---|---|---|
 | 1 | Full token set once in `lib/ui/tokens.dart`, referenced nowhere else by literal | 1.2 |
 | 2 | Two-tier colour discipline: field tier at Aliento baseline; icon-mass at L\* 76.0 exactly | 1.2 |
-| 3 | Four colour rules: `accent-soft` the sole text pastel; destination hues only inside glyphs | 1.2, 6.3 |
+| 3 | Four colour rules: `accent-soft` the sole text pastel; destination hues only inside glyphs | 1.2, 6.4 |
 | 4 | `icon-mass-blue` = active state only, never a meaning | 2.5, 3.4 |
 | 5 | Eight-role ramp: Lora for task text only, Lexend for the other seven; sp with multiplier line-heights | 1.2 |
 | 6 | Flat depth: tone + 1px hairline; no gradients, glow or blurred shadows | 1.8 |
 | 7 | Three radii: 14 default, 9999 for time quantities, 4 for album thumbnails | 1.2, 7.2 |
 | 8 | Printed-matter glyphs: one global 45° offset, mass under line, one stroke width per render | 1.2 |
 | 9 | Registered-mass rule for masses whose axis contradicts the vector (batería, mic capsule) | 2.5, 3.4 |
-| 10 | Seed glyph: exactly 8 filaments, 45° axis; the motion-dash clause ("only at ≥ 56px") was dissolved 2026-08-28 — the seed draws at rest at every size (Story 1-2 amendment spec `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`) | 1.2, 6.3 |
+| 10 | Seed glyph: exactly 8 filaments, 45° axis; the motion-dash clause ("only at ≥ 56px") was dissolved 2026-08-28 — the seed draws at rest at every size (Story 1-2 amendment spec `_bmad-output/implementation-artifacts/spec-1-2-remove-seed-motion-dashes.md`) | 1.2, 6.4 |
 | 11 | Ten-glyph set; the Ajustes glyph is dissolved | 1.2 |
 | 12 | Dark palette separately authored, never an inversion | 1.2 |
-| 13 | Destinations keep their light form in dark mode | 6.3 |
+| 13 | Destinations keep their light form in dark mode | 6.4 |
 | 14 | `dispenser-card`: order, hairline, and air as 48dp minimum plus flex | 1.8 |
 | 15 | Dispenser furniture grammar: mass means work, prose means leaving | 3.2, 5.2 |
 | 16 | `action-primary Hecho`: full-width `accent-soft`, 48dp, one tap, no confirmation | 1.9 |
@@ -169,7 +169,7 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 24 | Cámara entry: absent never greyed; reversal in Settings; visibility = enabled ∧ permission | 5.2 |
 | 25 | `Nuevo proyecto`: quiet text affordance carrying typed entry + the Settings way-out | 2.1, 5.8 |
 | 26 | `action-equal-pair` consent gate: zero recommended actions, no fill on either | 5.5 |
-| 27 | `destination-flow`: three glyphs at 64px, one decision per screen, no tile or default | 6.3 |
+| 27 | `destination-flow`: three glyphs at 64px, one decision per screen, no tile or default | 6.4 |
 | 28 | `zone-marker` Hoja footer: a place-marker, not a control | 1.8 |
 | 29 | `photo-frame`: 3:4, labels outside, empty frame of the right shape while loading | 7.1, 7.2 |
 | 30 | `dashboard-highlight-row`: reflow by lines at the two-line break, never shrink | 7.3 |
@@ -179,7 +179,7 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 34 | Onboarding = the product plus one one-time strip; the first card in ≤ 2 s | 5.12 |
 | 35 | Two declared exceptions and no third; dashboard density must not propagate | 7.3 |
 | 36 | The denominator rule as a checkable review gate, value by value | 7.3 |
-| 37 | The volume line carries no glyph (glyph-adjacency rule) | 6.5, 7.3 |
+| 37 | The volume line carries no glyph (glyph-adjacency rule) | 6.7, 7.3 |
 | 38 | The card exits entirely; never toward a counter, pile or badge | 1.9 |
 | 39 | Celebration mandated, two tiers, three rules; never gates the next card | 1.9 |
 | 40 | Two anti-score rules: equal plates; only `Antes` and `Después`, with no caption | 7.1 |
@@ -189,9 +189,9 @@ Source of record: **DESIGN.md + EXPERIENCE.md** (the spine pair, updated after t
 | 44 | The banned-everywhere list (lists, streaks, `¿seguimos?`, alarm red, animated states …) | 1.8, 4.5, 6.2 |
 | 45 | The 200% floor by growing and scrolling; one lint bans all five escapes; 48dp targets | 1.2, 1.8 |
 | 46 | The dashboard reflow is the one named degradation, expected not a defect | 7.3 |
-| 47 | Silhouette alone carries the 3-destination differentiation (load-bearing) | 6.3 |
+| 47 | Silhouette alone carries the 3-destination differentiation (load-bearing) | 6.4 |
 | 48 | Screen-reader interim convention: no custom semantics, platform traversal | 1.2 |
-| 49 | The 26 authored fixed strings, verbatim, never re-worded | 3.2, 6.3 |
+| 49 | The 26 authored fixed strings, verbatim, never re-worded | 3.2, 6.4, 6.7 |
 | 50 | The seven no-Slicer strings authored and pinned; exit works in all seven states | 4.5 |
 | 51–54 | Authored copy items, except the non-gating plates-not-meal question | register |
 | 55 | The Voice-and-Tone do/don't table applies to every string entering the table | 1.2 |
@@ -284,7 +284,7 @@ That is incidental sharing of stable components, not the same component redesign
 | E3 | 3.1 recognition availability probe · 3.2 Manual Capture · 3.3 the capture returns · 3.4 dictation | FR-27, 32 |
 | E4 | 4.1 model harness · 4.2 egress seal · 4.3 credential vault · 4.4 port + allowlist · 4.5 honest degradation · 4.6 Rescue Mode | FR-5, 28, 29 |
 | E5 | 5.1 face gate · 5.2 camera entry + shoot · 5.3 image seam (pre-work) · 5.4 scan cache + consent token · 5.5 consent gate · 5.6 unbounded wait · 5.7 slice lands as steps · 5.8 typed genesis · 5.9 Epic material in the weave · 5.10 buffers · 5.11 curation-row + Settings · 5.12 E1 surface + one-time strip · 5.13 seasonal suggestion | FR-11 *(Epic)*, 13, 15, 16, 25, 31 *(curation)* |
-| E6 | 6.1 purge first · 6.2 detachment questions · 6.3 three destinations · 6.4 Quarantine Box · 6.5 declutter metric | FR-19, 20, 21, 22 |
+| E6 | 6.1 purge first · 6.2 detachment questions · 6.3 triage act · 6.4 three destinations · 6.5 Quarantine Box · 6.6 six-month follow-up · 6.7 declutter metric | FR-19, 20, 21, 22 |
 | E7 | 7.1 Before/After · 7.2 Transformation Album · 7.3 impact dashboard | FR-17, 18, 23 |
 | E8 | 8.1 one silent channel · 8.2 one per domestic day + boot | FR-24 |
 | E9 | 9.1 four series · 9.2 generational export · 9.3 restore + property test | FR-26, 30 |
@@ -2264,6 +2264,7 @@ Before organizing anything, the user is asked the two questions that do the real
 - **Purge injection is a candidate-precedence rule, not a special case in the weave.** `core/weave` stays the only emitter of a deal; purge steps return candidates with precedence like everything else (AD-20).
 - **This epic produces the figures Epic 7 renders.** `item_triaged` is written here and read there — a clean producer/consumer seam, which is why the two epics stayed separate.
 - **The accessibility consequence of dropping coloured tiles is load-bearing here and nowhere else.** With hue confined inside each glyph, the three choices are told apart by silhouette alone. That cost was accepted knowingly and it produces one non-negotiable rule this epic must honour.
+- **Re-partitioned 2026-09-09** (standing story diet, decided at the Epic 5 retrospective party: each epic is re-partitioned at its door under the 24 KB presentation gate — `project-context.md` → Story size budget; not a correct-course, no policy change): the original five stories became seven; acceptance criteria were redistributed, none lost, none invented except two operationalizing ACs in new 6.3 — the destination vocabulary as data with `quarantine` additive under AD-23 (previously implicit in old 6.4), and FR-22's "the user may tag a batch" tagging act (a spine-only surface with no drawn form — the story designs the minimal form). Old→new mapping: 6.1→6.1 · 6.2→6.2 · old 6.3→6.3 (the `item_triaged` substrate AC) + 6.4 (the surface ACs) · old 6.4→6.5 (substrate + entry) + 6.6 (the six-month strip resident, which carries the Epic 5 F-D2 write-path extraction — no fifth copy) · 6.5→6.7. Ordering: 6.1→6.2→6.3→6.4→6.5→6.6; 6.7 after 6.3 and before Epic 7 opens.
 
 **Implementation notes:** the `destination-flow` at 64px with no tile, no default and no ordering signal — and the load-bearing accessibility consequence honoured: with tiles dropped, hue lives only inside each glyph, so the three choices are told apart by silhouette alone and the three destination hues may never appear as a field, tile, bar or band without their glyph inside. The Quarantine Box is reconstructed from `box_created` and `item_triaged` acts with its follow-up derived from the box's instant — never a stored date. `item_triaged` carries a destination plus an optional coarse volume tag from the four allowed values and never a number. This epic produces the figures Epic 7 renders.
 
@@ -2323,7 +2324,27 @@ So that deciding costs me a thought instead of a justification.
 **When** this story is planned
 **Then** each question has only `Sí` and `No`, followed by the required 3-Destination Flow; no skip affordance is built (UX-DR58, FR-20)
 
-### Story 6.3: Three destinations of equal weight
+### Story 6.3: The triage act — `item_triaged` with destination and coarse volume
+
+As Sergio,
+I want each letting-go decision to leave one honest, coarse trace,
+So that what I freed can be remembered by the app without being measured or judged.
+
+**Acceptance Criteria:**
+
+**Given** a triage decision
+**When** it is recorded
+**Then** an `item_triaged` entry is appended carrying the destination and an **optional coarse volume tag** from exactly `bolsa` / `caja` / `caja grande` / `mueble` — **never a number** (FR-22, AD-21)
+
+**Given** the destination vocabulary
+**When** it is defined
+**Then** it carries exactly the three surfaced destinations — keep, donate-sell, trash-recycle — as data, with `quarantine` arriving later as an additive value under AD-23 and nothing else ever added (AD-23)
+
+**Given** a volume tag
+**When** it is offered
+**Then** the tagging act is a minimal spine-only form — the user may tag a batch during purge steps, or skip tagging entirely, and skipping writes nothing (FR-22)
+
+### Story 6.4: Three destinations of equal weight
 
 As Sergio,
 I want the choice to keep, to give away or to let go to feel like three equal choices,
@@ -2360,11 +2381,7 @@ So that letting something go is not the answer the app was pushing me toward.
 **When** the trio is rendered
 **Then** it keeps the **light form unchanged** — two plates, the global offset, mass under line — with the line in `ink-primary-dark` and the mass in the dark hue. The earlier 6px-bar construction is superseded (UX-DR13)
 
-**Given** a triage decision
-**When** it is recorded
-**Then** an `item_triaged` entry is appended carrying the destination and an **optional coarse volume tag** from exactly `bolsa` / `caja` / `caja grande` / `mueble` — **never a number** (FR-22, AD-21)
-
-### Story 6.4: The Quarantine Box and its blind timer
+### Story 6.5: The Quarantine Box, derived from the log
 
 As Sergio,
 I want somewhere to put the things I cannot decide about today,
@@ -2384,6 +2401,14 @@ So that hesitating is a valid outcome instead of a decision I keep re-opening.
 **When** it is reconstructed
 **Then** it is derived from `box_created` and `item_triaged` acts — there is **no quarantine table** and its follow-up is derived from the box's own instant, **never a stored date** (AD-1)
 
+### Story 6.6: The blind six-month follow-up
+
+As Sergio,
+I want the box I dated to knock exactly once, six months later,
+So that even my hesitation eventually closes itself.
+
+**Acceptance Criteria:**
+
 **Given** six months since the box's date
 **When** the follow-up is offered
 **Then** it appears **at most once per box**, on the ambient strip, dismissible in one tap (FR-21, UX-DR22)
@@ -2396,7 +2421,7 @@ So that hesitating is a valid outcome instead of a decision I keep re-opening.
 **When** side effects are inspected
 **Then** there are none, and it never returns for that box (FR-21)
 
-### Story 6.5: The cumulative declutter metric
+### Story 6.7: The cumulative declutter metric
 
 As Sergio,
 I want to see roughly how much space I have freed,
