@@ -57,7 +57,10 @@ import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/session.dart';
-import 'package:core/weave/weave.dart';
+
+// No `core/weave` import (Story 6.1's review round): the one name
+// this library reads from it — the 🔴 ceiling — moved beside the
+// walk that charges it, so `core/weave/session` provides it directly.
 
 /// The deal window's width (FR-27, AD-24): three eligible days — a
 /// named const, the one statement of it that FR-5's counter and

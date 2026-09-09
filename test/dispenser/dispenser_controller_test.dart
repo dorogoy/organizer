@@ -4477,4 +4477,235 @@ void main() {
       expect(view.rescueStep, isFalse);
     });
   });
+
+  group('the purge comes first (Story 6.1, FR-19, UX-DR31)', () {
+    /// An activated organizing group's slice as pool-fact records —
+    /// the seasonal group's own dormant shape, activated: the scan
+    /// landing's shape (cloud origin, no `rescueOf`, `stepText` set)
+    /// with an `epic_activated` row naming the stable id.
+    List<PoolFactRecord> epicFacts() => [
+      (
+        id: 's1',
+        origin: Origin.cloud,
+        size: sizeOfEstimateSeconds(180),
+        instantUtcMicros: DateTime.utc(2026, 8, 28, 9).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'el trastero del fondo',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: 180,
+        stepText: 'Recoger las cajas',
+      ),
+      (
+        id: 's2',
+        origin: Origin.cloud,
+        size: sizeOfEstimateSeconds(180),
+        instantUtcMicros: DateTime.utc(2026, 8, 28, 9).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'el trastero del fondo',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: 180,
+        stepText: 'Etiquetar los archivadores',
+      ),
+    ];
+
+    LogEntryRecord epicActivatedRow() => (
+      id: 'seed-epic-activated',
+      kind: 'epic_activated',
+      instantUtcMicros: DateTime.utc(2026, 8, 29, 10).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: 's1',
+      itemOrigin: Origin.cloud,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+    );
+
+    _RecordingStore activatedStore() => _RecordingStore(epicFacts())
+      ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'))
+      ..entries.add(_installOpen())
+      ..entries.add(epicActivatedRow());
+
+    test('the launch deal over a newly activated group is its purge — '
+        'an ordinary DispenserDealt whose discriminator is the shell\'s '
+        'only routing signal, and the authored text is the ARB\'s own '
+        'copy', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+
+      expect(dealt.card.id, '${purgeItemIdPrefix}s1');
+      expect(dealt.card.name, AppStringsEs().purgeStepText);
+      expect(dealt.card.size, Size.instant);
+      expect(dealt.card.origin, Origin.cloud);
+      expect(dealt.card.estimateSeconds, purgeStepEstimateSeconds);
+      expect(dealt.card.zone, isNull);
+      expect(dealt.purgeStep, isTrue);
+      expect(dealt.rescueStep, isFalse);
+      expect(dealt.autoRescueDue, isFalse);
+      // The launch rows: the seeded opening rows, then the open,
+      // the session, the purge deal.
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'report_answered',
+        'app_opened',
+        'epic_activated',
+        'app_opened',
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(store.entries.last.itemId, '${purgeItemIdPrefix}s1');
+      expect(store.entries.last.itemOrigin, Origin.cloud);
+    });
+
+    test('a standing purge card survives reads — the read path '
+        're-materializes the card, not the resolver\'s fresh choice '
+        '(AD-3)', () async {
+      final store = activatedStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final view = (await controller.read()) as DispenserDealt;
+      expect(view.card.id, '${purgeItemIdPrefix}s1');
+      expect(view.purgeStep, isTrue);
+      // Re-reading wrote nothing: no second deal, no answer.
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(1),
+      );
+    });
+
+    test('complete appends exactly one card_done on the purge id and '
+        'the bundled next deal is the group\'s head step — the '
+        'existing complete path, no new append site', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.complete(dealt);
+
+      final done = store.entries
+          .where((entry) => entry.kind == 'card_done')
+          .toList();
+      expect(done, hasLength(1));
+      expect(done.single.itemId, '${purgeItemIdPrefix}s1');
+      expect(done.single.itemOrigin, Origin.cloud);
+      final nextDealRow = store.entries.last;
+      expect(nextDealRow.kind, 'card_dealt');
+      expect(
+        nextDealRow.itemId,
+        's1',
+        reason: 'the purge closed, the organization steps begin',
+      );
+    });
+
+    test('skip appends exactly one card_skipped on the purge id — the '
+        'purge closes for good and never re-deals', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.skip(dealt);
+
+      final skipped = store.entries
+          .where((entry) => entry.kind == 'card_skipped')
+          .toList();
+      expect(skipped, hasLength(1));
+      expect(skipped.single.itemId, '${purgeItemIdPrefix}s1');
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(store.entries.last.itemId, 's1');
+      // The next read deals a step, never the purge again.
+      final view = await controller.read();
+      expect(view, isA<DispenserDealt>());
+      expect(
+        (view as DispenserDealt).card.id.startsWith(purgeItemIdPrefix),
+        isFalse,
+        reason: 'no nagging: a skipped purge never returns',
+      );
+    });
+
+    test('a purge left standing by a pause re-deals through the '
+        'declared pocket — the bundled card_dealt names the purge id '
+        '(the nullable seam, pinned: the pause cleared the standing '
+        'card, so the deal is the resolver\'s fresh choice)', () async {
+      final store = activatedStore();
+      await openSessionAndReadFirstDeal(store);
+      // A movable clock, the `nowOf: () => now` precedent: at the '
+      // frozen instant the pause\'s `session_ended` and the '
+      // declaration\'s `session_started` would share an instant and '
+      // the walk would read the accidental pair as a supersede — '
+      // holding the standing card and suppressing the bundled deal.
+      // Distinct instants keep the end an end.
+      var now = _fixedClock();
+      final controller = buildFor(store, nowOf: () => now);
+      now = now.add(const Duration(seconds: 30));
+      await controller.pause();
+      now = now.add(const Duration(seconds: 30));
+
+      final view = await controller.declarePocket(5);
+
+      // The seeded rows, the launch sitting (open, session, purge
+      // deal), its end, and the declaration's fresh sitting — whose
+      // bundled deal is the purge again, 60 s against a 300 s pocket.
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        'report_answered',
+        'app_opened',
+        'epic_activated',
+        'app_opened',
+        'session_started',
+        'card_dealt',
+        'session_ended',
+        'session_started',
+        'card_dealt',
+      ]);
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(store.entries.last.itemId, '${purgeItemIdPrefix}s1');
+      expect(store.entries.last.itemOrigin, Origin.cloud);
+      expect(view, isA<DispenserDealt>());
+      expect((view as DispenserDealt).card.id, '${purgeItemIdPrefix}s1');
+      expect(view.pocketMinutes, 5);
+    });
+
+    test('a 1-minute pocket still admits the purge — its 60 s meets '
+        'the declared ceiling exactly, through the same bundled '
+        'deal (matrix: minimal pocket)', () async {
+      final store = activatedStore();
+      await openSessionAndReadFirstDeal(store);
+      // The same movable clock as the 5-minute pin: no accidental
+      // supersede pair, and the declare lands 30 s before its own
+      // 1-minute deadline — the ceiling is what the pin reads.
+      var now = _fixedClock();
+      final controller = buildFor(store, nowOf: () => now);
+      now = now.add(const Duration(seconds: 30));
+      await controller.pause();
+      now = now.add(const Duration(seconds: 30));
+
+      final view = await controller.declarePocket(1);
+
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(store.entries.last.itemId, '${purgeItemIdPrefix}s1');
+      expect((view as DispenserDealt).card.id, '${purgeItemIdPrefix}s1');
+      expect(view.pocketMinutes, 1);
+    });
+  });
 }

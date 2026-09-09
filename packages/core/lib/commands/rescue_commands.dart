@@ -201,6 +201,7 @@ RescueReturnedContent rescueReturned({
   required int offsetSeconds,
   int? bagMinutes,
   required List<PoolFact> poolFacts,
+  String? purgeStepText,
 }) {
   // The activation located first (the latest `slice_requested`
   // naming the item, append order being the one order the log
@@ -271,6 +272,7 @@ RescueReturnedContent rescueReturned({
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(log),
     energy: deriveLivePoolEnergy(log, instantUtcMicros, offsetSeconds),
     poolFacts: [...poolFacts, ...synthesizedFacts],
+    purgeStepText: purgeStepText,
   );
   return (
     facts: [

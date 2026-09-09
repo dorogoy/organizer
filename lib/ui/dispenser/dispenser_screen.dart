@@ -59,6 +59,7 @@ import '../../genesis/genesis_controller.dart';
 import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
+import '../destinations/decluttering_protocol_screen.dart';
 import '../no_slicer/no_slicer_surface.dart';
 import '../settings/curation_screen.dart';
 import '../settings/nuevo_proyecto_screen.dart';
@@ -415,12 +416,16 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// the control stated its cause once and degrades; any other dealt
   /// card, any moment, asks. The string never changes
   /// (`Otra más fácil / Ahora no`, FR-3 + FR-5's one unsplit control)
-  /// — only the resolution moves.
+  /// — only the resolution moves. A purge card's tap skips too
+  /// (Story 6.1, FR-19): its synthetic id has nothing to re-slice,
+  /// and the skip is terminal — the purge closes, no nag, no re-deal.
   Future<void> _onSecondaryAction(DispenserDealt dealt) async {
     if (_writeInFlight) {
       return;
     }
-    if (dealt.rescueStep || _degradedRescueDealId == dealt.card.id) {
+    if (dealt.rescueStep ||
+        dealt.purgeStep ||
+        _degradedRescueDealId == dealt.card.id) {
       return _onSkip(dealt);
     }
     // A tap inside a pending flight passes the card too (FR-3 stays
@@ -552,6 +557,34 @@ class _DispenserScreenState extends State<DispenserScreen>
             controller: widget.capture,
             dictation: widget.dictation,
           ),
+        ),
+      );
+    }
+  }
+
+  /// The dealt purge card's `Hecho` (Story 6.1, FR-19, UX-DR31): the
+  /// Decluttering Protocol's one and only entry — `_openScan`'s push
+  /// pattern, the same rapid-tap guard every push this surface owns.
+  /// No completion happens on this tap: the frame's own `Hecho`
+  /// funnels into the existing completion path ([_onDone]) once the
+  /// surface is open, and the purge card stands dealable behind the
+  /// route until then — the system back gesture is the OS pop, and
+  /// leaving uncompleted leaves the card exactly as it was.
+  void _openDeclutteringProtocol(DispenserDealt dealt) {
+    // The in-flight guard `_onDone` owns (Story 6.1's review round):
+    // a stale purge card — its skip write still between tap and
+    // settle — must not open the protocol either, or the frame's own
+    // `Hecho` could later land on a dead deal and append a spurious
+    // second terminal act. The entry is refused before anything
+    // observable, exactly as a rapid second answer is.
+    if (_writeInFlight) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) =>
+              DeclutteringProtocolScreen(onComplete: () => _onDone(dealt)),
         ),
       );
     }
@@ -750,7 +783,9 @@ class _DispenserScreenState extends State<DispenserScreen>
         child: switch (view) {
           DispenserDealt dealt => DealtView(
             card: dealt.card,
-            onDone: () => _onDone(dealt),
+            onDone: dealt.purgeStep
+                ? () => _openDeclutteringProtocol(dealt)
+                : () => _onDone(dealt),
             onSkip: () => _onSecondaryAction(dealt),
           ),
           DispenserRestOffer() => RestOfferView(

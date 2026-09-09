@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/curation/curation.dart';
@@ -4647,6 +4649,336 @@ void main() {
           if (soleComposition.focus != null) soleComposition.focus!,
         ].any((c) => c.id == 's1'),
         isFalse,
+      );
+    });
+  });
+
+  group('the purge injection (Story 6.1, FR-19, AD-20, AD-1)', () {
+    // The standing fixture's clock: Friday 2026-08-28 noon, the Epic
+    // group's own fixture clock — the purge derives from the same
+    // groups, over the same day.
+    final now = utcMicros(2026, 8, 28, 12);
+    const purgeText = 'Elegir un objeto del espacio y decidir sobre él';
+
+    Card? deal(
+      List<LogEntry> log,
+      List<PoolFact> facts, {
+      int? at,
+      EnergyLevel energy = EnergyLevel.full,
+      int bagMinutes = 15,
+      String? stepText = purgeText,
+    }) => nextDeal(
+      catalogue: _catalogue,
+      log: log,
+      instantUtcMicros: at ?? now,
+      offsetSeconds: 0,
+      energy: energy,
+      bagMinutes: bagMinutes,
+      poolFacts: facts,
+      purgeStepText: stepText,
+    );
+
+    /// One activated group's slice — the Epic group's own shape,
+    /// two steps so "before any organization step" is visible.
+    List<PoolFact> slice({
+      String first = 's1',
+      String second = 's2',
+      String description = 'El trastero ordenado',
+    }) => [
+      _scanStep(
+        first,
+        utcMicros(2026, 8, 28, 9),
+        description,
+        stepText: 'Recoger las cajas',
+      ),
+      _scanStep(
+        second,
+        utcMicros(2026, 8, 28, 9),
+        description,
+        stepText: 'Etiquetar los archivadores',
+      ),
+    ];
+
+    List<LogEntry> activatedLog() => [
+      _epicActivated(utcMicros(2026, 8, 28, 9), 's1'),
+      _sessionStarted(utcMicros(2026, 8, 28, 10)),
+    ];
+
+    test('a newly activated group\'s first dealt Micro-task is always '
+        'its purge — an ordinary candidate: authored text, 60 s, the '
+        'group\'s own origin, never a flag anywhere (FR-19)', () {
+      final card = deal(activatedLog(), slice());
+      expect(card, isNotNull);
+      expect(card!.id, '${purgeItemIdPrefix}s1');
+      expect(card.size, Size.instant);
+      expect(card.name, purgeText);
+      expect(card.origin, Origin.cloud);
+      expect(card.zone, isNull);
+      expect(card.estimateSeconds, purgeStepEstimateSeconds);
+
+      // The card composes as the day's "1" and never leaks into the
+      // draws its size would qualify it for — the epic treatment,
+      // mirrored exactly (the two draw exclusions).
+      final composition = composeDay(
+        catalogue: _catalogue,
+        log: activatedLog(),
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        poolFacts: slice(),
+        purgeStepText: purgeText,
+      );
+      expect(composition.focus?.id, '${purgeItemIdPrefix}s1');
+      expect(
+        [
+          ...composition.maintenance,
+          ...composition.instantHabits,
+        ].any((c) => c.id.startsWith(purgeItemIdPrefix)),
+        isFalse,
+        reason:
+            'a purge candidate never joins a draw — it holds the chunk '
+            'while it stands, exactly as an Epic head does',
+      );
+    });
+
+    test('no authored text, no purge — the seam: nothing was injected '
+        'on any call path that hands no copy (AD-15\'s grammar, the '
+        'core tests\' own unprefixed world)', () {
+      final card = deal(activatedLog(), slice(), stepText: null);
+      expect(card!.id, 's1', reason: 'the head step deals, as ever');
+      // Blank is null's equal (Story 6.1's review round): whitespace-
+      // only copy must never render as a task, so it derives nothing
+      // either.
+      final blank = deal(activatedLog(), slice(), stepText: '  \t ');
+      expect(blank!.id, 's1', reason: 'blank copy injects nothing');
+    });
+
+    test('a dormant group derives no purge — activation is the only '
+        'door, invisible by construction', () {
+      final log = [_sessionStarted(utcMicros(2026, 8, 28, 10))];
+      final card = deal(log, slice());
+      expect(
+        card!.id.startsWith(purgeItemIdPrefix),
+        isFalse,
+        reason: 'no epic_activated row, no project, nothing to purge',
+      );
+    });
+
+    test('a terminal card_done on the purge id closes it — the '
+        'group\'s steps become eligible (AD-25\'s derivation, no '
+        'stored state)', () {
+      final log = [
+        ...activatedLog(),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'purge:s1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 'purge:s1'),
+      ];
+      final card = deal(log, slice());
+      expect(card!.id, 's1', reason: 'the purge is gone; the head deals');
+    });
+
+    test('a terminal card_skipped closes it too — no re-deal, no '
+        'nagging, the first-dealt guarantee already holds', () {
+      final log = [
+        ...activatedLog(),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'purge:s1'),
+        _epicSkipped(utcMicros(2026, 8, 28, 10, 0, 2), 'purge:s1'),
+      ];
+      final card = deal(log, slice());
+      expect(
+        card!.id,
+        's1',
+        reason: 'a skipped purge closes it for good — the steps stand',
+      );
+      final later = deal([
+        ...log,
+        _sessionStarted(utcMicros(2026, 8, 28, 11)),
+      ], slice());
+      expect(
+        later!.id.startsWith(purgeItemIdPrefix),
+        isFalse,
+        reason: 'no re-deal ever: the app does not nag',
+      );
+    });
+
+    test('two un-purged groups arbitrate like Epic material — '
+        'activation order first, and each group\'s own first dealt is '
+        'its purge', () {
+      final facts = [
+        ...slice(first: 'e1s1', second: 'e1s2'),
+        ...slice(
+          first: 'e2s1',
+          second: 'e2s2',
+          description: 'El armario ordenado',
+        ),
+      ];
+      final log = [
+        _epicActivated(utcMicros(2026, 8, 27, 11), 'e2s1'),
+        _epicActivated(utcMicros(2026, 8, 27, 12), 'e1s1'),
+        _sessionStarted(utcMicros(2026, 8, 28, 10)),
+      ];
+      // Never-served both: activation order decides — e2 activated
+      // first, its purge stands first.
+      expect(deal(log, facts)!.id, 'purge:e2s1');
+
+      // e2's purge served and answered: e1's never-served purge stands
+      // ahead of every Epic head — including e1's own.
+      final logAfterE2 = [
+        ...log,
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'purge:e2s1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 'purge:e2s1'),
+      ];
+      expect(deal(logAfterE2, facts)!.id, 'purge:e1s1');
+    });
+
+    test('a pending capture keeps its tier above the purge — the '
+        'user\'s live material outranks the injection (matrix: capture '
+        'in flight)', () {
+      final capture = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final card = deal(activatedLog(), [capture, ...slice()]);
+      expect(
+        card!.id,
+        'cap-focus',
+        reason: 'the capture deals first, then the purge, then steps',
+      );
+    });
+
+    test('a live rescue head outranks the purge — the conversion of a '
+        'card the user already faced buries nothing', () {
+      final parent = _captureFact(
+        'cap-focus',
+        Size.focus,
+        utcMicros(2026, 8, 27, 8),
+      );
+      final rescueStep = _stepFact(
+        'r1',
+        utcMicros(2026, 8, 28, 9, 30),
+        'cap-focus',
+        line: 'Paso de rescate',
+      );
+      final card = deal(activatedLog(), [parent, rescueStep, ...slice()]);
+      expect(card!.id, 'r1', reason: 'the rescue tier stands above all');
+    });
+
+    test('a 🔴 day and a bag under the chunk floor still deal the '
+        'purge — 60 s passes the estimate filters by construction '
+        '(matrix: low energy / small pocket)', () {
+      final lowEnergy = deal(activatedLog(), slice(), energy: EnergyLevel.low);
+      expect(
+        lowEnergy!.id,
+        'purge:s1',
+        reason: 'the purge\'s 60 s meets the 🔴 ceiling exactly',
+      );
+      final smallBag = deal(activatedLog(), slice(), bagMinutes: 5);
+      expect(
+        smallBag!.id,
+        'purge:s1',
+        reason:
+            'the chunk composes not, the purge tier still holds — no '
+            'organization step of the group deals before it',
+      );
+    });
+
+    test('a purge left standing across session_ended re-deals as the '
+        'purge of the next session — the fresh-candidate path, never '
+        'the standing card (AD-19: the end clears the card, the '
+        'candidacy stands)', () {
+      final log = [
+        ...activatedLog(),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'purge:s1'),
+        _sessionEnded(utcMicros(2026, 8, 28, 10, 30)),
+        _sessionStarted(utcMicros(2026, 8, 28, 11)),
+      ];
+      // Not a supersede pair (the instants differ): the end cleared
+      // the standing card, so the deal below can only be the
+      // resolver's fresh choice — the purge candidate still stands, no
+      // terminal act ever named it.
+      expect(
+        walkLog(log, catalogue: _catalogue, poolFacts: slice()).dealtUnanswered,
+        isNull,
+        reason: 'the standing card died with the sitting',
+      );
+      expect(deal(log, slice())!.id, 'purge:s1');
+    });
+
+    test('cardForItem re-materializes a purge card from the prefix '
+        'alone — id passthrough, Size.instant, 60 s, no zone, the '
+        'authored text as the name (the standing-card read path)', () {
+      final card = cardForItem(
+        catalogue: _catalogue,
+        itemId: '${purgeItemIdPrefix}s1',
+        origin: Origin.cloud,
+        purgeStepText: purgeText,
+      );
+      expect(card!.id, '${purgeItemIdPrefix}s1');
+      expect(card.size, Size.instant);
+      expect(card.estimateSeconds, purgeStepEstimateSeconds);
+      expect(card.zone, isNull);
+      expect(card.name, purgeText);
+      expect(card.origin, Origin.cloud);
+
+      // The documented null-text seam (AD-15): no copy handed in, the
+      // empty name — never a production state, pinned here so the
+      // seam cannot drift.
+      final seam = cardForItem(
+        catalogue: _catalogue,
+        itemId: '${purgeItemIdPrefix}s1',
+        origin: Origin.cloud,
+      );
+      expect(seam!.name, '');
+    });
+
+    test('a dealt and answered purge charges like any dealt card — '
+        'one Size.instant draw of its day and exactly its 60 s to the '
+        'open session (Story 6.1: every dealt card charges, synthetic '
+        'or not — no stored state, AD-1)', () {
+      final log = [
+        ...activatedLog(),
+        _epicDealt(utcMicros(2026, 8, 28, 10, 0, 1), 'purge:s1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 'purge:s1'),
+      ];
+      final facts = walkLog(log, catalogue: _catalogue, poolFacts: slice());
+      const calendar = Calendar();
+      final day = calendar.dayOf(utcMicros(2026, 8, 28, 10), 0);
+      expect(
+        facts.dealtCountsByDay[day]?[Size.instant],
+        1,
+        reason:
+            'the purge consumes one instant draw slot of its day — '
+            'exactly as any dealt card of that size',
+      );
+      expect(
+        facts.openSessionAnsweredSeconds,
+        purgeStepEstimateSeconds,
+        reason:
+            'the purge\'s own 60 s charges to the sitting — never '
+            'Size.instant\'s 30 default, which would be wrong',
+      );
+    });
+
+    test('no shipped catalogue entry id begins with the purge prefix — '
+        'the discriminator\'s one-signal claim holds over the shipped '
+        'asset itself (FR-19, AD-16)', () {
+      // The build-time census, the `no_lateness_proof` suite's own
+      // either-root idiom: `dart test` inside packages/core, or
+      // `flutter test packages/core/...` from the repository root.
+      final asset = File(
+        Directory('packages/core/lib').existsSync()
+            ? 'assets/evergreen/catalogue.json'
+            : '../../assets/evergreen/catalogue.json',
+      ).readAsStringSync();
+      final catalogue = parseCatalogue(asset, nameOf: (_) => '');
+      expect(
+        catalogue.entries.any(
+          (entry) => entry.id.startsWith(purgeItemIdPrefix),
+        ),
+        isFalse,
+        reason:
+            'a shipped id in the purge namespace would make the prefix '
+            'two signals — a real task could route into the '
+            'Decluttering Protocol, and a purge could shadow a task',
       );
     });
   });
