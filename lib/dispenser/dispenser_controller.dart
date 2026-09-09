@@ -367,16 +367,18 @@ class DispenserController {
   /// behind the offer and returns with one silent tap, never re-dealt.
   ///
   /// Story 2.5 adds the ambient strip's fact to the same snapshot, and
-  /// Stories 2.6 and 5.12 complete its current residents: the strip
-  /// derivation resolves the once-ever curation offer, the report while
-  /// its due week stands unanswered, or the check-in while the day holds
-  /// no `energy_set` row. Their dismissals and the curation offer's
-  /// accept path are composed as read-scoped exclusions, so the
-  /// precedence walk itself hands the slot to the next resident in the
-  /// same opening the moment a terminal action frees it (FR-4's
-  /// deterministic handoff, strip.dart's seam). Suppression never writes
-  /// and never stores: the same log without the markers resolves
-  /// identically.
+  /// Stories 2.6, 5.12 and 5.13 complete its current residents: the
+  /// strip derivation resolves the once-ever curation offer, the
+  /// once-per-season suggestion while a dormant Epic stands undismissed
+  /// this season, the report while its due week stands unanswered, or
+  /// the check-in while the day holds no `energy_set` row. Check-in and
+  /// report dismissals and the curation offer's paths are composed as
+  /// read-scoped exclusions; the suggestion's ✕ persists one
+  /// `suggestion_dismissed` row and the derivation hides that project
+  /// for the rest of the season. The precedence walk itself hands the
+  /// slot to the next resident in the same opening the moment a
+  /// terminal action frees it (FR-4's deterministic handoff,
+  /// strip.dart's seam).
   Future<DispenserView> read() => writeQueue.enqueue(() async {
     final now = nowOf();
     final catalogue = await _loadCatalogue();
@@ -392,15 +394,18 @@ class DispenserController {
     final poolFacts = poolFactsOf(await store.readPoolFacts());
     final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
     final pocket = facts.openSessionPocketMinutes;
-    // The strip's fact (Stories 2.5–2.6): the resident derivation over
-    // the same queue-consistent log, both dismissals composed as
-    // exclusions — the check-in's skip-for-TODAY day marker and the
-    // report's skip-for-THIS-OPENING (day, opens) marker. The
-    // derivation's own walk falls through an excluded resident to the
-    // next eligible one, which is what makes the handoff deterministic;
-    // no later app_opened of the same day can resurrect a dismissed
-    // check-in (the day marker), and a new day is a different `Day` by
-    // construction, decided by the derivation on its own rows.
+    // The strip's fact (Stories 2.5–2.6, 5.12, 5.13): the resident
+    // derivation over the same queue-consistent log. Check-in and
+    // report dismissals and the curation offer's consumption are
+    // composed as read-scoped exclusions — the check-in's
+    // skip-for-TODAY day marker, the report's skip-for-THIS-OPENING
+    // (day, opens) marker, the offer's process-lifetime bool. The
+    // suggestion's ✕ is a persisted `suggestion_dismissed` row the
+    // derivation reads. The walk falls through an excluded or
+    // suppressed resident to the next eligible one, which is what
+    // makes the handoff deterministic; no later app_opened of the
+    // same day can resurrect a dismissed check-in (the day marker),
+    // and a new day is a different `Day` by construction.
     final today = _dayOf(now);
     final excludeResidents = <StripResident>{
       if (_checkInDismissMarker == today) StripResident.energyCheckIn,

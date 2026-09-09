@@ -318,3 +318,7 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/5-13-the-gentle-seasonal-suggestion.md`
   summary: The controller suite's `_DelegatingStore.appendPoolFact` is a silent no-op — a future path under test that appended a pool fact through this store would pass while dropping the data; make it record or throw like `_RecordingStore`.
   evidence: Story 5.13 blind-hunter review; the class is pre-existing (the story only added three usages), and no current path under it appends facts — latent hazard, not a live one.
+
+## Deferred from: code review of 5-13-the-gentle-seasonal-suggestion (2026-09-09)
+
+- `ItemActEntry`'s class documentation still names only `card_dealt` / `card_done` / `card_skipped` / `capture_created` (`packages/core/lib/log/log_entry.dart:229`). Pre-existing: Story 5.9 already rides this shape with `epic_activated` and did not update the list; 5.13's `suggestion_dismissed` is the same omission, not a new contract hole.

@@ -6377,6 +6377,76 @@ void main() {
       expect(find.text('Hecho'), findsOneWidget);
     });
 
+    testWidgets('a failed ✕ keeps the standing suggestion — not the empty '
+        'frame — and the log is unchanged', (tester) async {
+      final inner = _RecordingStore([dormantEpic('s1')])
+        ..entries.add(_installOpen())
+        ..entries.add((
+          id: 'seed-week-answered',
+          kind: 'report_answered',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            23,
+            12,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: 3,
+          reportWeek: 1389,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ));
+      final failing = _FailNextAppendStore(inner);
+      final session = SessionController(
+        store: failing,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      final controller = buildController(failing);
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+
+      final strings = AppStringsEs();
+      final sentence = strings.seasonalSuggestion('el trastero del fondo');
+      expect(find.text(sentence), findsOneWidget);
+
+      failing.failNextAppend = true;
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(sentence),
+        findsOneWidget,
+        reason:
+            'the recovery read returns the standing suggestion — never '
+            'the empty frame',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'suggestion_dismissed'),
+        isEmpty,
+        reason: 'nothing landed — the retry is the same tap',
+      );
+    });
+
     testWidgets('accepting the suggestion drops a stale refresh read', (
       tester,
     ) async {
