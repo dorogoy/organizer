@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-09-2026 00:34
+last_updated: 09-09-2026 21:46
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -89,7 +89,7 @@ development_status:
   5-11-the-curation-row-and-its-settings-home: done
   5-12-curation-s-other-two-homes-the-e1-surface-and-the-one-time-s: done
   5-13-the-gentle-seasonal-suggestion: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   epic-6: backlog
   6-1-purge-comes-first: backlog
@@ -187,5 +187,83 @@ action_items:
       story (orchestrator and workers separately), wall time and gate outcome; written
       verdict at the Epic 5 retrospective feeds Epic 6''s mode decision at its door'
     owner: dev-loop
-    status: open
+    status: done
     ref: _bmad-output/implementation-artifacts/choir-pilot-protocol.md
+  - id: "epic-5-retro-item-9-epic-5-f-d1-scan-landing-epoch-parity-wi"
+    epic: 5
+    action: "Epic 5 F-D1: scan landing epoch parity with genesis — in-queue _epoch
+      guards on _appendScanLanded/_appendScanSliceFailed; do not return ScanConsentDelivered
+      if landing catchError swallowed a store failure; pin the queued-landing close
+      on ScanController"
+    owner: "dev-loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-10-epic-5-f-s3-abort-the-in-flight-wire-pos"
+    epic: 5
+    action: "Epic 5 F-S3: abort the in-flight wire POST when scan/genesis close()
+      runs so abandonment cancels transport, not only the local cache"
+    owner: "dev-loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-11-epic-5-f-r1-backgrounding-during-an-in-f"
+    epic: 5
+    action: "Epic 5 F-R1: backgrounding during an in-flight shoot still closes (or
+      unlinks) the scan — scan_screen.dart currently skips close while _shooting"
+    owner: "dev-loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-12-epic-5-f-s1-face-gate-composition-ruling"
+    epic: 5
+    action: "Epic 5 F-S1: face-gate composition ruling — stay face-only with accepted
+      4 FN/12, or reopen (face/pose/object or AD-11 promotion) before the next payload-bearing
+      epic; update face_gate_port.dart and face-gate/BAR.md to the ruling"
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-13-epic-5-f-s2-quiet-close-ruling-decide-wh"
+    epic: 5
+    action: "Epic 5 F-S2: quiet-close ruling — decide whether missed shot and detector-error-past-retry
+      stay fail-closed silent, or join scanOpenFailed"
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-14-epic-5-f-a1-f-a3-reconcile-ad-11-in-the"
+    epic: 5
+    action: "Epic 5 F-A1/F-A3: reconcile AD-11 in the architecture spine (four decided
+      channels; camera permission is ours, capture stays plugin-served) and delete
+      the stale reopens-before-5.5 sentence in face_gate_port.dart"
+    owner: "docs"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-15-epic-5-f-p1-choir-pilot-unmeasured-do-no"
+    epic: 5
+    action: "Epic 5 F-P1: choir pilot unmeasured — do not invent credits; Epic 6 working
+      mode is decided at its door without a choir scoreboard; keep epic-5-choir-pilot-run-and-measure
+      open until Sergio accepts not-run"
+    owner: "Sergio"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-16-epic-5-f-s2-ruled-detector-error-past-re"
+    epic: 5
+    action: "Epic 5 F-S2 ruled: detector-error-past-retry joins scanOpenFailed (honest
+      notice, no permission_refused, no quiet pop); widget pin in scan_screen_test;
+      before Epic 6. Missed shot not included until ruled."
+    owner: "dev-loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-17-epic-5-f-s2-broadened-missed-shot-camera"
+    epic: 5
+    action: "Epic 5 F-S2 broadened: missed shot (CameraShotNone) also joins scanOpenFailed;
+      functioning failures are communicated, anti-frustration is task-spirit only.
+      Same train as detector notice, before Epic 6."
+    owner: "dev-loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-5-retro-item-18-epic-5-f-s1-ruled-face-gate-is-courtesy"
+    epic: 5
+    action: "Epic 5 F-S1 ruled: face-gate is courtesy not load-bearing; stay face-only,
+      no pose/object packs, no composition reopen; update face_gate_port.dart and
+      face-gate/BAR.md; residual 4 FN/12 is not a blocking finding."
+    owner: "docs"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"

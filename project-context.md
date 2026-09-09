@@ -12,6 +12,18 @@ Loaded automatically by BMad skills as persistent facts. Canonical agent instruc
 - Canon: *"una story que no cabe en una sesión no cabe en la máquina"*.
 - Applies to the spec only. The choir pilot's worker briefs stay small by design and are governed by the pilot protocol, not by this gate.
 
+## Honest functioning vs anti-frustration
+
+- Failures that prevent the app from working, or that change the result the user perceives of that working, are **communicated**. Never a quiet close that reads as success. Never folded into the user's refusal (`permission_refused` / `face_refused` are user acts, not a costume for a plugin crash).
+- Anti-frustration is the spirit of the *household tasks* the app proposes (no nag, no "¿seguimos?", no backup guilt, checkpoint not a wall). It is **not** a license to hide OS, plugin, hardware, or product errors.
+- Decided 2026-09-09 (Epic 5 retrospective party). Lineage: 5.2 lost CAMERA at shutter → `scanOpenFailed`; detector-error and missed shot join that notice, not a silent pop.
+
+## Face gate — courtesy, not load-bearing
+
+- On-device face refusal is **nice to have**: if a face is found, tell the user and offer the reframe (`personInFrame`). It is **not** indispensable and must **not** grow the APK (no pose/object packs, no composition reopen, no AD-11 promotion *for this*). That would be bloatware relative to what the app is.
+- The load-bearing send control is **per-scan consent** (and the BYOK token). Accepting a third-party credential already implies the send clause; the face gate does not get to hold the product hostage over residual false negatives.
+- Decided 2026-09-09 (Epic 5 retrospective party). Residual 4 FN/12 on the face-only interim gate stays accepted; do not re-escalate it as a blocking privacy finding.
+
 ## Development environment — devbox
 
 - The development toolchain is owned by **devbox** (`/usr/local/bin/devbox`, 0.18.0). `devbox.json` and a committed `devbox.lock` live at the repository root (created by Story 1.1); they are the single definition of the environment for every machine and for CI.
