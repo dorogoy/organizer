@@ -17,8 +17,9 @@
 // the scan's terminal close from there.
 //
 // The ruling's system-problem notice: an **interrupted** ask (the
-// system swallowed the dialog — no answer existed) and a **failed
-// open** (no hardware, a device error) keep the surface standing and
+// system swallowed the dialog — no answer existed), a **failed
+// open** (no hardware, a device error), a missed shot, a lost grant
+// at the shutter, or a detector throw keep the surface standing and
 // state the problem honestly (`scanOpenFailed`) — never a pop to the
 // Dispenser, never a log row, never the entry touched: a malfunction
 // is not hidden and not mistaken for the user's choice. The OS back
@@ -141,13 +142,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        if (!_openInFlight && !_shooting && _granted) {
+        if (!_openInFlight && _granted) {
           // The camera releases on the way out — no lens stands open
-          // behind a backgrounded surface — while the ask is staged
-          // never: the dialog owns the moment, and its `inactive` is
-          // not this surface's exit. An in-flight shoot owns the
-          // lens until it settles (the epoch guard retires a late
-          // landing if the user left by another path).
+          // behind a backgrounded surface, including an in-flight
+          // shutter — while the ask is staged never: the dialog owns
+          // the moment, and its `inactive` is not this surface's
+          // exit. A late shot after this close is ScanShootClosed.
           setState(() => _granted = false);
           _enqueueLifecycle(() async {
             await WidgetsBinding.instance.endOfFrame;
@@ -214,13 +214,15 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   /// The shutter tap (FR-25): the shoot runs to its terminal outcome,
-  /// then the surface leaves — a refusal replaces this route with the
-  /// one calm surface, everything else pops. The outcome arrives with
-  /// the row already appended and — refusal, closed and failed — the
-  /// scan's directory already unlinked; the one exception is the
+  /// then the surface branches — a refusal replaces this route with
+  /// the one calm surface; Failed keeps the surface with
+  /// `scanOpenFailed` (missed shot, lost grant, detector throw);
+  /// Closed pops; gate-pass continues to consent. The outcome arrives
+  /// with the row already appended and — refusal, closed and failed —
+  /// the scan's directory already unlinked; the one exception is the
   /// gate-pass arm, whose directory deliberately stands: the consent
   /// phase owns the unlink from there (Story 5.5). Navigation is all
-  /// that is left. A throwing seam is the
+  /// that is left. A throwing `takePicture` seam is still the
   /// fail-closed quiet close — the flight flag resets, nothing is
   /// surfaced, and the pop is the same one every quiet close takes.
   Future<void> _onShoot() async {

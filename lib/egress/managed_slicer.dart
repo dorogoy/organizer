@@ -17,4 +17,7 @@ final class ManagedSlicer implements SlicerPort {
   @override
   Future<SlicerOutcome> slice(SlicerRequest request) async =>
       const SlicerFailed(SlicerFailureCause.managedUnavailable);
+
+  /// No HTTP stands behind Managed — abandonment has nothing to cancel.
+  void abortInFlight() {}
 }

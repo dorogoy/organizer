@@ -28,6 +28,9 @@ import 'package:core/ports/slicer_port.dart';
 import 'package:core/slicer/rescue_steps.dart';
 import 'package:core/slicer/scan_steps.dart';
 
+import 'byok_slicer.dart';
+import 'managed_slicer.dart';
+
 /// The canned body's step count — two, inside BOTH contracts' bands
 /// (scan 1–6, rescue 2–4), so the stub's output is shape-plausible
 /// while its text announces itself.
@@ -62,6 +65,9 @@ final class LocalSlicer implements SlicerPort {
         ? _scanCannedBody()
         : _rescueCannedBody(),
   );
+
+  /// No HTTP stands behind Local — abandonment has nothing to cancel.
+  void abortInFlight() {}
 
   /// The canned scan body: a JSON object shaped like a scan answer —
   /// the scan parse's own field names — whose description and every
@@ -99,5 +105,22 @@ final class LocalSlicer implements SlicerPort {
           },
       ],
     });
+  }
+}
+
+/// Completes a standing BYOK send's abort trigger. Local and Managed
+/// have no HTTP to cancel — [LocalSlicer.abortInFlight] /
+/// [ManagedSlicer.abortInFlight] are no-ops — and test fakes fall
+/// through the same way.
+void abortSlicerInFlight(SlicerPort? slicer) {
+  switch (slicer) {
+    case ByokSlicer byok:
+      byok.abortInFlight();
+    case LocalSlicer local:
+      local.abortInFlight();
+    case ManagedSlicer managed:
+      managed.abortInFlight();
+    case _:
+      break;
   }
 }

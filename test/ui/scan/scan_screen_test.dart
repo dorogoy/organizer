@@ -99,6 +99,9 @@ class _FakeCamera implements CameraShell {
   /// When set, [open] parks on this completer before answering.
   Completer<CameraOpenOutcome>? openGate;
 
+  /// When set, [takePicture] parks on this completer before answering.
+  Completer<CameraShotOutcome>? shotGate;
+
   static const Key previewKey = Key('fake-camera-preview');
 
   @override
@@ -119,6 +122,10 @@ class _FakeCamera implements CameraShell {
     if (throwOnShoot) {
       throw StateError('shoot seam threw');
     }
+    final gate = shotGate;
+    if (gate != null) {
+      return gate.future;
+    }
     return shotOutcome;
   }
 
@@ -133,12 +140,27 @@ class _FakeCamera implements CameraShell {
 }
 
 class _FakeGate implements FaceGatePort {
-  _FakeGate(this.outcome);
+  _FakeGate(this.outcome, {this.hold});
 
-  final FaceGateOutcome outcome;
+  final Object outcome;
+  final Completer<void>? hold;
+  final started = Completer<void>();
 
   @override
-  Future<FaceGateOutcome> gate(String framePath) async => outcome;
+  Future<FaceGateOutcome> gate(String framePath) async {
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    final hold = this.hold;
+    if (hold != null) {
+      await hold.future;
+    }
+    final outcome = this.outcome;
+    if (outcome is FaceGateOutcome) {
+      return outcome;
+    }
+    throw outcome;
+  }
 }
 
 /// The Slicer fake: requests recorded, outcome steered (the routing
@@ -721,6 +743,46 @@ void main() {
     expect(find.byType(ErrorWidget), findsNothing);
   });
 
+  testWidgets('a missed shot at the shutter keeps the surface with the '
+      'honest notice — no pop that would read as a taken photo, no '
+      'row', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera(shotOutcome: const CameraShotNone());
+    final gate = _FakeGate(const FaceGatePass());
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsOneWidget);
+    expect(find.text(strings.scanOpenFailed), findsOneWidget);
+    expect(find.text(strings.scanShutter), findsNothing);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+    expect(find.byType(ErrorWidget), findsNothing);
+  });
+
+  testWidgets('a throwing face gate keeps the surface with the honest '
+      'notice — no pop that would read as a taken photo, no '
+      'face_refused row', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera();
+    final gate = _FakeGate(StateError('detector errored'));
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsOneWidget);
+    expect(find.text(strings.scanOpenFailed), findsOneWidget);
+    expect(find.text(strings.scanShutter), findsNothing);
+    expect(store.entries, isEmpty);
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+    expect(find.byType(ErrorWidget), findsNothing);
+  });
+
   testWidgets('a lost grant at the shutter keeps the surface with the '
       'honest notice — no pop that would read as a taken photo, no '
       'permission_refused row', (tester) async {
@@ -757,6 +819,92 @@ void main() {
     expect(find.byType(ScanScreen), findsNothing);
     expect(store.entries, isEmpty);
     expect(find.byType(ErrorWidget), findsNothing);
+  });
+
+  testWidgets('a backgrounding during the shutter unlinks and disposes '
+      'before the shot returns', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera()..shotGate = Completer<CameraShotOutcome>();
+    final gate = _FakeGate(const FaceGatePass());
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_FakeCamera.previewKey), findsOneWidget);
+
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pump();
+    expect(files.unlinkedScans, isEmpty);
+    expect(camera.disposedCalls, isEmpty);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpAndSettle();
+    expect(
+      files.unlinkedScans,
+      isNotEmpty,
+      reason: 'close unlinks before the late shot returns',
+    );
+    expect(
+      camera.disposedCalls,
+      isNotEmpty,
+      reason: 'close disposes before the late shot returns',
+    );
+
+    camera.shotGate!.complete(const CameraShotCaptured([1]));
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(ScanScreen),
+      findsNothing,
+      reason: 'the late shot is ScanShootClosed — left, not Failed',
+    );
+    expect(store.entries, isEmpty);
+  });
+
+  testWidgets('a backgrounding during the shutter, then CameraShotNone, '
+      'pops Closed — no scanOpenFailed', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final camera = _FakeCamera()..shotGate = Completer<CameraShotOutcome>();
+    final gate = _FakeGate(const FaceGatePass());
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpAndSettle();
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+
+    camera.shotGate!.complete(const CameraShotNone());
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.text(strings.scanOpenFailed), findsNothing);
+    expect(store.entries, isEmpty);
+  });
+
+  testWidgets('a backgrounding during the shutter, then a throwing '
+      'gate, pops Closed — no scanOpenFailed', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    final hold = Completer<void>();
+    final gate = _FakeGate(StateError('detector errored'), hold: hold);
+    final camera = _FakeCamera();
+    await launch(tester, controllerWith(store, files, camera, gate: gate));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pump();
+    await gate.started.future;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpAndSettle();
+    expect(files.unlinkedScans, isNotEmpty);
+    expect(camera.disposedCalls, isNotEmpty);
+
+    hold.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanScreen), findsNothing);
+    expect(find.text(strings.scanOpenFailed), findsNothing);
+    expect(store.entries, isEmpty);
   });
 
   testWidgets('a backgrounding releases the camera and a resume '

@@ -49,6 +49,25 @@ final class ByokSlicer implements SlicerPort {
   /// The per-call selected-provider reader.
   final SelectedProviderReader readSelectedProvider;
 
+  /// Abort triggers for sends that have not yet settled — completed
+  /// by [abortInFlight] (a scan/genesis close) without closing the
+  /// process [client], which the rescue path shares.
+  final Set<_InFlightSend> _inFlightAborts = <_InFlightSend>{};
+
+  /// Completes standing scan/genesis abort triggers. Rescue flights
+  /// on the shared client are left alone. No-op when nothing abortable
+  /// is in flight. Does not close [client].
+  void abortInFlight() {
+    for (final flight in List<_InFlightSend>.of(_inFlightAborts)) {
+      if (flight.rescue) {
+        continue;
+      }
+      if (!flight.abort.isCompleted) {
+        flight.abort.complete();
+      }
+    }
+  }
+
   @override
   Future<SlicerOutcome> slice(SlicerRequest request) async {
     try {
@@ -72,35 +91,46 @@ final class ByokSlicer implements SlicerPort {
   }
 
   Future<SlicerOutcome> _slice(SlicerRequest request) async {
-    final selected = await readSelectedProvider();
-    final entry = selected == null ? null : allowlistEntryById(selected);
-    if (entry == null) {
-      // No provider selected, or one the frozen allowlist does not
-      // carry: nothing is sent and nothing is surfaced — the quiet
-      // config-family cause.
-      return const SlicerFailed(SlicerFailureCause.credentialUnavailable);
-    }
-    final payload = _payloadOf(request);
-    final access = await vault.withCredential(
-      entry.id,
-      (plaintext) => EgressDispatch(
-        (prepared) => sendSlicerWire(
-          client: client,
-          entry: entry,
-          apiKey: plaintext,
-          payload: prepared,
-        ),
-      ).send(payload),
+    final abort = Completer<void>();
+    final flight = _InFlightSend(
+      abort: abort,
+      rescue: request is RescueSliceRequest,
     );
-    return switch (access) {
-      // Missing, corrupt or invalidated material — the operation was
-      // never invoked, nothing was sent, and the three fold into the
-      // one config-family cause 4-5's copy owns.
-      AccessUnavailable() => const SlicerFailed(
-        SlicerFailureCause.credentialUnavailable,
-      ),
-      AccessGranted(:final result) => _outcomeOf(entry, result),
-    };
+    _inFlightAborts.add(flight);
+    try {
+      final selected = await readSelectedProvider();
+      final entry = selected == null ? null : allowlistEntryById(selected);
+      if (entry == null) {
+        // No provider selected, or one the frozen allowlist does not
+        // carry: nothing is sent and nothing is surfaced — the quiet
+        // config-family cause.
+        return const SlicerFailed(SlicerFailureCause.credentialUnavailable);
+      }
+      final payload = _payloadOf(request);
+      final access = await vault.withCredential(
+        entry.id,
+        (plaintext) => EgressDispatch(
+          (prepared) => sendSlicerWire(
+            client: client,
+            entry: entry,
+            apiKey: plaintext,
+            payload: prepared,
+            abortTrigger: abort,
+          ),
+        ).send(payload),
+      );
+      return switch (access) {
+        // Missing, corrupt or invalidated material — the operation was
+        // never invoked, nothing was sent, and the three fold into the
+        // one config-family cause 4-5's copy owns.
+        AccessUnavailable() => const SlicerFailed(
+          SlicerFailureCause.credentialUnavailable,
+        ),
+        AccessGranted(:final result) => _outcomeOf(entry, result),
+      };
+    } finally {
+      _inFlightAborts.remove(flight);
+    }
   }
 
   /// The request→payload mapping: three kinds onto three payloads,
@@ -187,4 +217,14 @@ final class ByokSlicer implements SlicerPort {
     }
     return SlicerFailureCause.providerUnreachable;
   }
+}
+
+/// One in-flight wire send: the abort Completer, tagged so a scan or
+/// genesis close does not cancel a standing rescue on the shared
+/// client.
+final class _InFlightSend {
+  _InFlightSend({required this.abort, required this.rescue});
+
+  final Completer<void> abort;
+  final bool rescue;
 }

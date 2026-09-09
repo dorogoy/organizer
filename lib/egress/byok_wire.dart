@@ -289,26 +289,28 @@ const Duration wireSendTimeout = Duration(minutes: 2);
 /// headers and body per the entry's kind, POSTs exactly once under
 /// [wireSendTimeout], and returns the 2xx response body as text. The
 /// POST does not follow redirects (a 3xx is status evidence, never a
-/// second host) and a stall completes the abort trigger so the
-/// in-flight send does not outlive the bound. A non-2xx status
-/// throws [WireStatusException] (the classification evidence); a
-/// stall throws `TimeoutException`; socket-level failures propagate
-/// as themselves — all three for the same reason: the classifier
-/// reads the evidence. A 2xx body that is not valid UTF-8 throws
-/// `FormatException` — the delivered-but-unusable evidence,
-/// `malformedResponse` by the taxonomy's own definition. The schema
-/// is the request's structured-output contract — the rescue contract
-/// for rescue payloads; scan and genesis ride their prompts
-/// verbatim with no schema until Epic 5 authors their contracts.
+/// second host) and a stall — or a caller-supplied [abortTrigger] —
+/// completes the abort so the in-flight send does not outlive the
+/// bound or a close. A non-2xx status throws [WireStatusException]
+/// (the classification evidence); a stall throws `TimeoutException`;
+/// socket-level failures propagate as themselves — all three for the
+/// same reason: the classifier reads the evidence. A 2xx body that
+/// is not valid UTF-8 throws `FormatException` — the
+/// delivered-but-unusable evidence, `malformedResponse` by the
+/// taxonomy's own definition. The schema is the request's
+/// structured-output contract — the rescue contract for rescue
+/// payloads; scan and genesis ride their prompts verbatim with no
+/// schema until Epic 5 authors their contracts.
 Future<String> sendSlicerWire({
   required http.Client client,
   required ProviderAllowlistEntry entry,
   required String apiKey,
   required EgressPayload payload,
+  Completer<void>? abortTrigger,
 }) async {
   final prompt = _promptOf(payload);
   final schema = payload is RescueResliceText ? rescueSliceSchemaJson : null;
-  final abort = Completer<void>();
+  final abort = abortTrigger ?? Completer<void>();
   final request =
       http.AbortableRequest(
           wirePostMethod,

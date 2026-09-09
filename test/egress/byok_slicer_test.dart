@@ -18,6 +18,7 @@ import 'package:organizer/egress/byok_slicer.dart';
 import 'package:organizer/egress/byok_wire.dart';
 import 'package:organizer/egress/image_cap.dart';
 import 'package:organizer/egress/local_slicer.dart';
+import 'package:organizer/egress/managed_slicer.dart';
 import 'package:organizer/egress/provider_allowlist.dart';
 import 'package:organizer/egress/rescue_contract.dart';
 import 'package:organizer/platform/credentials/credentials_cipher.dart';
@@ -1014,6 +1015,98 @@ void main() {
       });
     });
 
+    test('abortInFlight completes the send abortTrigger once and does '
+        'not retry', () async {
+      await seedKey('openai', 'o-key');
+      late http.AbortableRequest sent;
+      final sentStarted = Completer<void>();
+      final client = _AbortHangClient(
+        onSent: (request) {
+          sent = request;
+          sentStarted.complete();
+        },
+      );
+      final slicer = slicerWith(client, 'openai');
+      final slicing = slicer.slice(
+        const GenesisSliceRequest(text: 'ordenar el trastero'),
+      );
+      await sentStarted.future;
+      expect(client.sends, 1, reason: 'the abort accepted the one send');
+      expect(sent.abortTrigger, isNotNull);
+      slicer.abortInFlight();
+      await sent.abortTrigger;
+      final outcome = await slicing;
+      expect(client.sends, 1, reason: 'no retry after abort');
+      expect(outcome, isA<SlicerFailed>());
+      expect(
+        (outcome as SlicerFailed).cause,
+        SlicerFailureCause.networkUnreachable,
+        reason: 'an aborted send is the socket-family ClientException',
+      );
+    });
+
+    test('abortInFlight does not cancel a rescue-only flight', () async {
+      await seedKey('openai', 'o-key');
+      late http.AbortableRequest sent;
+      final sentStarted = Completer<void>();
+      var aborted = false;
+      final client = _AbortHangClient(
+        onSent: (request) {
+          sent = request;
+          sentStarted.complete();
+        },
+      );
+      final slicer = slicerWith(client, 'openai');
+      final slicing = slicer.slice(rescue);
+      await sentStarted.future;
+      sent.abortTrigger!.then((_) => aborted = true);
+      slicer.abortInFlight();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        aborted,
+        isFalse,
+        reason: 'a scan/genesis close must not abort a standing rescue',
+      );
+      expect(client.sends, 1);
+      client.release();
+      expect(await slicing, isA<SlicerFailed>());
+    });
+
+    test('abortInFlight on a scan send still burns the consent token '
+        '(AD-8) and does not retry', () async {
+      await seedKey('openai', 'o-key');
+      final sentStarted = Completer<void>();
+      final client = _AbortHangClient(
+        onSent: (_) {
+          sentStarted.complete();
+        },
+      );
+      final consent = mintScanConsent(scanId: 'scan-cache-dir');
+      final slicer = slicerWith(client, 'openai');
+      final slicing = slicer.slice(
+        ScanSliceRequest(
+          imageBytes: gradientJpeg(64, 48),
+          prompt: 'x',
+          scanId: 'scan-cache-dir',
+          consent: consent,
+        ),
+      );
+      await sentStarted.future;
+      slicer.abortInFlight();
+      await slicing;
+      expect(client.sends, 1, reason: 'no retry after abort');
+      expect(
+        () => consent.consume(),
+        throwsA(isA<ScanConsentStateError>()),
+        reason: 'abort is transport-only — the token stays burned',
+      );
+    });
+
+    test('abortInFlight is a no-op on Local and Managed', () {
+      const LocalSlicer(cannedMarker: 'x').abortInFlight();
+      const ManagedSlicer().abortInFlight();
+    });
+
     test('a throwing provider reader folds to providerUnreachable — the '
         'port answers outcomes only', () async {
       final client = recording((request) => jsonResponse({}));
@@ -1396,4 +1489,33 @@ class _CorruptUnsealCipher implements CredentialsCipher {
   @override
   Future<CredentialsUnsealConversion> unseal(List<int> envelope) async =>
       (plaintext: null, failure: CredentialsCipherFailure.corrupt);
+}
+
+/// A client that hangs until the request's abortTrigger completes —
+/// MockClient rewrites AbortableRequest and would drop the trigger.
+final class _AbortHangClient extends http.BaseClient {
+  _AbortHangClient({required this.onSent});
+
+  final void Function(http.AbortableRequest request) onSent;
+  var sends = 0;
+  final Completer<void> _release = Completer<void>();
+
+  /// Settles a hang that abortInFlight will not (a rescue flight).
+  void release() {
+    if (!_release.isCompleted) {
+      _release.complete();
+    }
+  }
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    sends++;
+    final abortable = request as http.AbortableRequest;
+    onSent(abortable);
+    await Future.any([
+      abortable.abortTrigger ?? _release.future,
+      _release.future,
+    ]);
+    throw http.RequestAbortedException(request.url);
+  }
 }
