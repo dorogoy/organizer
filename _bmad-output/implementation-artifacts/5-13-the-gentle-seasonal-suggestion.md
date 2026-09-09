@@ -126,6 +126,11 @@ context:
 - [x] [Review][Defer] Shared dormant-Epic test fixture across the three suites (controller/ambient/screen each hand-roll one) → `deferred-work.md`
 - [x] [Review][Defer] Pre-existing silent `_DelegatingStore.appendPoolFact` no-op in the controller suite → `deferred-work.md`
 - [x] [Review][Record] Rejected after verification: the `?? ''` description arm is unconstructible (the grouping fold requires `stepText != null` on every member fact); the `tapTime`/`tappedAt` split follows the family's own convention (dismissals `tapTime`, answers `tappedAt`); the `dormantEpics` default `const []` is the spec's own decision (existing call sites stay green); spec "expected:" verification entries are the house convention
+- [x] [Review][Patch] Same-season suppression is never observed past the dismissal's own day — added the Sunday-still-summer pin (dismiss 2026-08-29, first open 2026-08-30 stays silent) and the next-summer re-offer twin (2027-06-01) [`packages/core/test/strip_test.dart`]
+- [x] [Review][Patch] Screen recovery after a failed seasonal write is untested — added the widget pin: a throwing ✕ keeps the standing sentence, not the empty frame, and the log is unchanged [`test/ui/dispenser/dispenser_screen_test.dart`]
+- [x] [Review][Patch] Overlapping one-tap controller calls have no test — added the consume-at-entry pin: overlapping dismiss+accept mint one `suggestion_dismissed` and zero `epic_activated` [`test/dispenser/dispenser_controller_test.dart`]
+- [x] [Review][Patch] `DispenserController.read` still documents three strip residents and write-free dismissals — method doc and in-method note now name the fourth resident and the persisted `suggestion_dismissed` row [`lib/dispenser/dispenser_controller.dart`]
+- [x] [Review][Defer] `ItemActEntry`'s class doc still names only `card_dealt` / `card_done` / `card_skipped` / `capture_created` — pre-existing incomplete family list (5.9's `epic_activated` already missing) [`packages/core/lib/log/log_entry.dart:229`] — deferred, pre-existing
 
 ## Design Notes
 
