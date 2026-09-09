@@ -369,7 +369,7 @@ LogFacts walkLog(
           if (openSessionStart != null) {
             dealtUnanswered = (itemId: itemId, itemOrigin: itemOrigin);
           }
-        } else {
+        } else if (kind == LogKind.cardSkipped || kind == LogKind.cardDone) {
           if (kind == LogKind.cardSkipped) {
             // The decline's own charge (Story 4.6): a skip lands on its
             // session's day exactly as a deal does — the refusal

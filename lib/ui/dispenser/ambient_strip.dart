@@ -80,10 +80,11 @@ class _DismissPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// The ✕ dismissal (UX-DR22): one tap, no write, with the resident owning
-/// its scope — today for the check-in, this opening for the report. The
-/// quietest control the surface owns, in the unsplit secondary grammar:
-/// no fill, no ripple, nothing animated.
+/// The ✕ dismissal (UX-DR22): one tap, with the resident owning its
+/// behavior and scope — today for the check-in, this opening for the
+/// report, one persisted `suggestion_dismissed` row for the seasonal
+/// suggestion. The quietest control the surface owns, in the unsplit
+/// secondary grammar: no fill, no ripple, nothing animated.
 class _DismissMark extends StatelessWidget {
   const _DismissMark({this.onTap});
 

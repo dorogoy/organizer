@@ -17,13 +17,15 @@
 /// quarantine follow-up, the once-per-season suggestion, the snowball,
 /// the weekly self-report, then the daily check-in — ties broken by
 /// earliest-eligible instant, then stable id (AD-3's discipline). This
-/// build implements three residents' eligibilities (the offer, the
-/// report and the check-in, below); the later stories add the others
-/// as data under the same order. A displaced resident is neither
-/// consumed nor dismissed — it re-offers at the next opening, because
-/// only the surface's ✕ is a dismissal, and a dismissal writes nothing
-/// (AD-21's vocabulary has no dismissal kind; within the opening,
-/// shell state hides it).
+/// build implements four eligibilities (the first-run curation offer,
+/// the seasonal suggestion, the report and the check-in, below); the
+/// later stories add the others as data under the same order. A
+/// displaced resident is neither consumed nor dismissed — it re-offers
+/// at the next opening: only the surface's ✕ is a dismissal, and its
+/// scope belongs to the resident — the seasonal suggestion's ✕ alone
+/// persists a `suggestion_dismissed` row, while the other residents'
+/// dismissal scopes stay shell/read-scoped (within the opening, shell
+/// state hides it; nothing is written).
 ///
 /// The check-in's eligibility is pure over the log: due iff the
 /// current domestic day holds no `energy_set` row AND the day's first
@@ -67,7 +69,8 @@ enum StripResident {
   /// The once-per-season suggestion (FR-15, Story 5.13): eligible
   /// at the day's first opening while a dormant Epic stands whose
   /// suggestion holds no live same-season `suggestion_dismissed`
-  /// row — the derivation below, never a stored dismissal (AD-21).
+  /// row — that live row is the resident's persisted per-project
+  /// rate limit, written by its own ✕.
   seasonalSuggestion,
 
   /// The snowball suggestion (Epic 7's data).
@@ -85,10 +88,11 @@ enum StripResident {
 /// in order and takes the first eligible resident — the order is
 /// load-bearing, not documentation — and ties by earliest-eligible
 /// instant then stable id apply only between residents eligible at
-/// the same opening; this build's three implemented residents (the
-/// first-run offer, report and check-in) never need them, the order
-/// alone deciding the overlaps they can produce. The order is the
-/// contract the later stories plug their eligibility into.
+/// the same opening; this build's four implemented residents (the
+/// first-run offer, suggestion, report and check-in) never need
+/// them, the order alone deciding the overlaps they can produce.
+/// The order is the contract the later stories plug their
+/// eligibility into.
 const List<StripResident> stripResidentPrecedence = [
   StripResident.firstRunCuration,
   StripResident.quarantineFollowUp,

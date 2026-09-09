@@ -120,6 +120,8 @@ context:
 - [x] [Review][Patch] Overlapping one-tap calls could double-mint at the controller level (the screen's in-flight guard was the only defence) — both paths now consume the shown record at entry; a second call mints nothing [`lib/dispenser/dispenser_controller.dart`]
 - [x] [Review][Patch] The shell no-lateness scan dropped its `missed` token entirely (leaned on the vocabulary lint) — restored independent coverage as the word-bounded `\bmissed\b` alternative, which never trips on `dismissed`; the core scan's vetted-name exemption scoped to the `missed` segment alone [`test/no_lateness_proof_test.dart`, `packages/core/test/no_lateness_proof_test.dart`]
 - [x] [Review][Patch] The strip layer's header comment was mangled by the story's insertion (broken sentence, dropped FR-4 reference, "Either resolution" orphaned) — rewritten with every original claim intact; the ambient strip header's stale "both residents" count fixed [`lib/ui/dispenser/dispenser_strip_layer.dart`, `lib/ui/dispenser/ambient_strip.dart`]
+- [x] [Review][Patch] Manual-verification follow-up found `suggestion_dismissed` still entered `walkLog`'s generic item-act outcome branch and could clear a standing card with the same `(itemId, itemOrigin)` pair — restricted the branch to `card_skipped`/`card_done` and corrected the regression fixture to exercise an exact matching pair [`packages/core/lib/weave/session.dart`, `packages/core/test/weave_test.dart`]
+- [x] [Review][Patch] Manual-verification review found stale strip documentation still claiming three implemented residents and write-free dismissals — corrected the core/UI docs and dismissal localization metadata to record the seasonal resident's persisted per-project season scope [`packages/core/lib/derive/strip.dart`, `lib/ui/dispenser/ambient_strip.dart`, `lib/l10n/app_es.arb`]
 - [x] [Review][Defer] Extract the screen's shared write-path helper — `_seasonalSuggestionWrite` is a fourth copy of the family's write-then-read mechanics → `deferred-work.md`
 - [x] [Review][Defer] Shared dormant-Epic test fixture across the three suites (controller/ambient/screen each hand-roll one) → `deferred-work.md`
 - [x] [Review][Defer] Pre-existing silent `_DelegatingStore.appendPoolFact` no-op in the controller suite → `deferred-work.md`
@@ -141,8 +143,9 @@ context:
 - `devbox run -- flutter test test/ui/dispenser test/dispenser` -- expected: exit 0
 
 **Manual checks (device, AGENTS.md recipe):**
-- Seed a dormant Epic directly into `organizer_substrate.sqlite` (adb root + sqlite3: Epic-shaped facts — `cloud`/`local` origin, `rescue_of` null, `step_text` set, one shared instant + `origin_context` — with NO `epic_activated` row). First opening in-season: the suggestion shows; ✕ → row appended, silent for the season; `date -s` across the season boundary → re-offers; tap → `epic_activated` row, strip gone.
-- Pull the substrate after each path: only the expected row each time; schema still v11; energy/report/session tables untouched by the decline.
+- [x] 2026-09-09, Android 36 `organizer36`: seeded a two-step dormant local Epic directly into `organizer_substrate.sqlite`. The next valid first opening showed “¿Unos minutos al día para El trastero del fondo?” with the expected bare strip and ✕; dismissal handed the slot to the weekly report.
+- [x] The ✕ appended exactly one `suggestion_dismissed` row naming `manual-epic-5-13-a` / `local`; no energy, report, or additional session row landed, and schema remained v11. A later first opening in the same season did not show the suggestion.
+- [x] After advancing the device from September to 2026-12-01, the suggestion reappeared. Tapping the sentence appended exactly one `epic_activated` row naming the same Epic; the strip disappeared and the displaced weekly report returned. Final relevant census: one dismissal, one activation, zero energy/report rows.
 
 ## Suggested Review Order
 

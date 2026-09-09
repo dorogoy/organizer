@@ -4767,20 +4767,20 @@ void main() {
     test('the walk is inert to dismissal rows — the kind\'s only '
         'reader is the strip\'s own eligibility (FR-15\'s zero-side-effects '
         'consequence, the setting/report idiom)', () {
-      // The worst case for the walk's generic pair-match else-branch:
-      // the dismissal names the SAME id as the standing dealt card, so
-      // any fold that matched ItemActEntry pairs generically would
-      // clear dealtUnanswered here. The walk moves no fact —
-      // deal state, activation map, answered set all stand — and
+      // The worst case for an over-broad pair-match outcome branch:
+      // the dismissal names the SAME (itemId, itemOrigin) pair as the
+      // standing dealt card, so any fold that matched ItemActEntry pairs
+      // generically would clear dealtUnanswered here. The walk moves no
+      // fact — deal state, activation map, answered set all stand — and
       // dormancy is unchanged beside them.
       final withDismissal = walkLog([
         _sessionStarted(_day(0, 9), pocketMinutes: 15),
-        _dealt(_day(0, 9), 'zona-z1-a'),
+        _epicDealt(_day(0, 9), 'zona-z1-a'),
         suggestionDismissed(_day(0, 10), 'zona-z1-a'),
       ], catalogue: _catalogue);
       final without = walkLog([
         _sessionStarted(_day(0, 9), pocketMinutes: 15),
-        _dealt(_day(0, 9), 'zona-z1-a'),
+        _epicDealt(_day(0, 9), 'zona-z1-a'),
       ], catalogue: _catalogue);
       expect(
         withDismissal.lastDealtInstantByItemId,
