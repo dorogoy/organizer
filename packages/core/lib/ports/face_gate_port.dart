@@ -17,9 +17,9 @@
 /// The outcome vocabulary is closed at two: a gate that decided says
 /// pass or refusal, never "maybe", never "queued". A gate that could
 /// not decide — the detector erred past its one retry — throws: a
-/// failure is not a refusal, and the caller folds it into a quiet
-/// fail-closed abort with no `face_refused` row, so the log can never
-/// claim a privacy decision that was not made.
+/// failure is not a refusal, and the caller surfaces
+/// `ScanShootFailed` (`scanOpenFailed`) with no `face_refused` row,
+/// so the log can never claim a privacy decision that was not made.
 
 library;
 

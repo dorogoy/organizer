@@ -269,6 +269,7 @@ class GenesisController {
       abandonment = null;
     }
     _epoch++;
+    abortSlicerInFlight(slicer);
     await abandonment;
   }
 

@@ -28,6 +28,7 @@ import 'package:uuid/uuid.dart';
 import 'package:organizer/egress/local_slicer.dart';
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/scan/scan_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 
 /// The recording store (the capture suite's own contract).
 class _RecordingStore implements StorePort {
@@ -536,8 +537,9 @@ void main() {
       expect(files.unlinkedScans, hasLength(1));
     });
 
-    test('a detector error folds closed: no face_refused row — a '
-        'failure is not a refusal — the frame unlinked, fail closed', () async {
+    test('a detector error is a system problem: Failed, no '
+        'face_refused row — a failure is not a refusal — the frame '
+        'unlinked', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final gate = _FakeGate(StateError('detector errored'));
@@ -548,7 +550,7 @@ void main() {
         gate: gate,
       );
       final outcome = await controller.shoot();
-      expect(outcome, isA<ScanShootClosed>());
+      expect(outcome, isA<ScanShootFailed>());
       expect(
         store.entries,
         isEmpty,
@@ -557,15 +559,15 @@ void main() {
       expect(files.unlinkedScans, hasLength(1));
     });
 
-    test('a failed shot (no bytes) is the same quiet fail-closed '
-        'close: nothing written, nothing gated, nothing appended', () async {
+    test('a failed shot (no bytes) is a system problem: Failed, '
+        'nothing written, nothing gated, nothing appended', () async {
       final store = _RecordingStore();
       final files = _RecordingFiles();
       final gate = _FakeGate(const FaceGatePass());
       final camera = _FakeCamera()..shotOutcome = const CameraShotNone();
       final controller = await openGranted(store, files, camera, gate: gate);
       final outcome = await controller.shoot();
-      expect(outcome, isA<ScanShootClosed>());
+      expect(outcome, isA<ScanShootFailed>());
       expect(files.writtenFrames, isEmpty);
       expect(gate.gatedPaths, isEmpty);
       expect(store.entries, isEmpty);
@@ -632,6 +634,44 @@ void main() {
         hasLength(1),
         reason: 'the stale path unlinks nothing new: it created nothing',
       );
+    });
+
+    test('a close that wins, then CameraShotNone, is Closed — left, '
+        'not a Failed notice', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera()..shotGate = Completer<CameraShotOutcome>();
+      final controller = await openGranted(
+        store,
+        files,
+        camera,
+        gate: _FakeGate(const FaceGatePass()),
+      );
+      final shooting = controller.shoot();
+      await controller.close();
+      camera.shotGate!.complete(const CameraShotNone());
+      expect(await shooting, isA<ScanShootClosed>());
+      expect(store.entries, isEmpty);
+    });
+
+    test('a close that wins, then a detector throw, is Closed — left, '
+        'not a Failed notice', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final hold = Completer<void>();
+      final gate = _FakeGate(StateError('detector errored'), hold: hold);
+      final controller = await openGranted(
+        store,
+        files,
+        _FakeCamera(),
+        gate: gate,
+      );
+      final shooting = controller.shoot();
+      await gate.started.future;
+      await controller.close();
+      hold.complete();
+      expect(await shooting, isA<ScanShootClosed>());
+      expect(store.entries, isEmpty);
     });
 
     test('a lost grant at the shutter is a system problem: the failed '
@@ -1106,9 +1146,9 @@ void main() {
       expect(files.unlinkedScans, [passed.scanId]);
     });
 
-    test('a close landing during the resolution\'s tail unlink mints '
-        'nothing — the flag cleared before the unlink await, the outcome '
-        'still routes, the close still completes', () async {
+    test('a close landing during the resolution\'s tail unlink abandons '
+        'the wait — the flag stays armed through persist, so a close '
+        'here is the departure, and the landing does not complete', () async {
       final store = _RecordingStore();
       final unlinkBrake = Completer<void>();
       final files = _RecordingFiles()..unlinkGate = unlinkBrake;
@@ -1131,20 +1171,64 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await controller.close();
       unlinkBrake.complete();
-      expect(await granting, isA<ScanConsentDelivered>());
-      expect(
-        store.entries.map((entry) => entry.kind),
-        ['consent_granted', 'epic_activated'],
-        reason:
-            'the dispatch resolved — a close after it abandons nothing, '
-            'and the landing completes unconditionally (Story 5.9)',
-      );
+      expect(await granting, isA<ScanConsentStale>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ]);
+      expect(store.facts, isEmpty);
       expect(files.unlinkedScans.toSet(), {files.writtenFrames.single.$1});
       expect(camera.disposedCalls, isNotEmpty);
     });
 
-    test('a failed resolution that parks in its tail unlink cannot mint '
-        'scan_abandoned when close lands (Story 5.6)', () async {
+    test('a close during terminal persistence abandons the wait and '
+        'discards the queued landing', () async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final queue = LogWriteQueue();
+      final slicer = _FakeSlicer()..gate = Completer<void>();
+      slicer.sliceStarted = Completer<void>();
+      final controller = ScanController(
+        store: store,
+        files: files,
+        camera: _FakeCamera()
+          ..shotOutcome = const CameraShotCaptured([1, 2, 3]),
+        gate: _FakeGate(const FaceGatePass()),
+        slicer: slicer,
+        readSelectedProvider: () async => 'gemini',
+        writeQueue: queue,
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+      expect(await controller.open(), CameraOpenOutcome.granted);
+      expect(await controller.shoot(), isA<ScanShootGatePassed>());
+      final granting = controller.grantConsent();
+      await slicer.sliceStarted!.future;
+
+      final blockerGate = Completer<void>();
+      final blockerStarted = Completer<void>();
+      queue.enqueue(() async {
+        blockerStarted.complete();
+        await blockerGate.future;
+      });
+      await blockerStarted.future;
+
+      slicer.gate!.complete();
+      await Future<void>.delayed(Duration.zero);
+      final closing = controller.close();
+      blockerGate.complete();
+      await closing;
+
+      expect(await granting, isA<ScanConsentStale>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ]);
+      expect(store.facts, isEmpty);
+    });
+
+    test('a failed resolution that parks in its tail unlink is abandoned '
+        'when close lands — wait stays armed through persist', () async {
       final store = _RecordingStore();
       final unlinkBrake = Completer<void>();
       final files = _RecordingFiles()..unlinkGate = unlinkBrake;
@@ -1168,21 +1252,17 @@ void main() {
       expect(files.unlinkedScans, isNotEmpty);
       await controller.close();
       unlinkBrake.complete();
-      expect(await granting, isA<ScanConsentFailed>());
+      expect(await granting, isA<ScanConsentStale>());
       expect(store.entries.map((entry) => entry.kind), [
         'consent_granted',
-        'slice_failed',
-      ], reason: 'the failed resolution is on record (Story 5.7)');
-      expect(store.entries[1].sliceCause, 'invalidKey');
-      // The accepted double, asserted exactly rather than masked: the
-      // resolution's tail unlink recorded first, then the close's own
-      // — the port's delete is idempotent, the second a quiet no-op.
+        'scan_abandoned',
+      ]);
       final scanId = files.writtenFrames.single.$1;
       expect(files.unlinkedScans, [scanId, scanId]);
     });
 
-    test('a throwing resolution that parks in its tail unlink cannot mint '
-        'scan_abandoned when close lands (Story 5.6)', () async {
+    test('a throwing resolution that parks in its tail unlink is abandoned '
+        'when close lands — wait stays armed through persist', () async {
       final store = _RecordingStore();
       final unlinkBrake = Completer<void>();
       final files = _RecordingFiles()..unlinkGate = unlinkBrake;
@@ -1205,18 +1285,11 @@ void main() {
       expect(files.unlinkedScans, isNotEmpty);
       await controller.close();
       unlinkBrake.complete();
-      expect(await granting, isA<ScanConsentFailed>());
-      expect(
-        store.entries.map((entry) => entry.kind),
-        ['consent_granted', 'slice_failed'],
-        reason:
-            'the throw folded to providerUnreachable is a failed '
-            'dispatch on record (Story 5.7)',
-      );
-      expect(store.entries[1].sliceCause, 'providerUnreachable');
-      // The accepted double, asserted exactly rather than masked: the
-      // resolution's tail unlink recorded first, then the close's own
-      // — the port's delete is idempotent, the second a quiet no-op.
+      expect(await granting, isA<ScanConsentStale>());
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'scan_abandoned',
+      ]);
       final scanId = files.writtenFrames.single.$1;
       expect(files.unlinkedScans, [scanId, scanId]);
     });
@@ -1254,11 +1327,9 @@ void main() {
       expect(inner.entries, isEmpty, reason: 'nothing landed, nothing escaped');
     });
 
-    test('a failing store on the landing\'s fact appends is absorbed '
-        'quietly — a delivered body still resolves delivered, the '
-        'unlink stands, and the partial plan derives honestly (the '
-        'landing\'s own catchError, the abandonment suite\'s '
-        'throwing-store sibling)', () async {
+    test('a failing store on the landing\'s fact appends is not '
+        'Delivered — Failed maps to no-Slicer, the queue does not '
+        'stall, and the partial plan derives honestly', () async {
       final inner = _RecordingStore();
       final files = _RecordingFiles();
       final slicer = _FakeSlicer()
@@ -1280,9 +1351,12 @@ void main() {
       );
       expect(await controller.open(), CameraOpenOutcome.granted);
       expect(await controller.shoot(), isA<ScanShootGatePassed>());
-      // The second fact append throws (absorbed): no throw escapes the
-      // wait — the outcome is delivered, the one landed fact stands.
-      expect(await controller.grantConsent(), isA<ScanConsentDelivered>());
+      final outcome = await controller.grantConsent();
+      expect(outcome, isA<ScanConsentFailed>());
+      expect(
+        (outcome as ScanConsentFailed).cause,
+        SlicerFailureCause.providerUnreachable,
+      );
       expect(inner.facts, hasLength(1));
       // The plan crashed mid-landing: no epic_activated row exists,
       // even though one fact landed — the Epic derives dormant, never

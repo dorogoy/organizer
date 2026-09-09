@@ -82,8 +82,9 @@ final class CameraShotCaptured extends CameraShotOutcome {
   final List<int> bytes;
 }
 
-/// The shot failed for a reason that is not a lost grant — the
-/// caller's fail-closed quiet close (a detector error's sibling).
+/// The shot failed for a reason that is not a lost grant — a missed
+/// frame. The caller surfaces `scanOpenFailed` (a detector error's
+/// sibling), never a quiet close that reads as a taken photo.
 final class CameraShotNone extends CameraShotOutcome {
   const CameraShotNone();
 }

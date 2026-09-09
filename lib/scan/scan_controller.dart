@@ -35,11 +35,11 @@ final class ScanShootRefused extends ScanShootOutcome {
   const ScanShootRefused();
 }
 
-/// The scan ended quietly — a failure folded closed (a missed shot, a
-/// detector error past its retry, no gate behind the test seam): no
-/// row, nothing surfaced, the surface simply closes. The gate pass is
-/// no longer this arm — it carries the consent continuation (Story
-/// 5.5).
+/// The scan ended quietly — empty frame path, no gate behind the test
+/// seam, or a close that won the epoch mid-shot: no row, nothing
+/// surfaced, the surface simply closes. The gate pass is no longer
+/// this arm — it carries the consent continuation (Story 5.5). A
+/// missed shot or a detector throw is [ScanShootFailed], not this.
 final class ScanShootClosed extends ScanShootOutcome {
   const ScanShootClosed();
 }
@@ -60,10 +60,11 @@ final class ScanShootGatePassed extends ScanShootOutcome {
   final String scanId;
 }
 
-/// The shutter found a system problem (a lost grant at the shot):
-/// no row — a malfunction is not a refusal — and the surface owes
-/// the honest notice (`scanOpenFailed`), never a quiet pop that
-/// would read as a taken photo.
+/// The shutter found a system problem (a lost grant at the shot, a
+/// missed frame, a detector throw past retry): no row — a malfunction
+/// is not a refusal — and the surface owes the honest notice
+/// (`scanOpenFailed`), never a quiet pop that would read as a taken
+/// photo.
 final class ScanShootFailed extends ScanShootOutcome {
   const ScanShootFailed();
 }
@@ -301,11 +302,11 @@ class ScanController {
   /// whose copy offers the reframe. A pass keeps the frame — directory
   /// and bytes — and answers [ScanShootGatePassed]: the scan stands for
   /// the consent act (Story 5.5), whose phase owns the unlink on every
-  /// real resolution. A detector error
-  /// past its retry folds closed with **no** row — a failure is not a
-  /// refusal, and the log must not claim a privacy decision that was
-  /// not made — and a failed shot or a missing gate seam takes the
-  /// same quiet fail-closed path.
+  /// real resolution. A detector error past its retry answers
+  /// [ScanShootFailed] with **no** row — a failure is not a refusal,
+  /// and the log must not claim a privacy decision that was not made
+  /// — and a missed shot takes the same Failed notice. A missing
+  /// gate seam or empty frame path still folds closed.
   ///
   /// The whole flow is epoch-guarded against the surface's exit: a
   /// [close] landing mid-shot makes every later step stale — no frame
@@ -327,15 +328,25 @@ class ScanController {
       final shot = await camera.takePicture();
       switch (shot) {
         case CameraShotNone():
+          // A missed shot is a system problem, never a quiet close
+          // that reads as a taken photo: unlink, no row, Failed
+          // notice. A close that already won the epoch is Closed —
+          // left, not a Failed notice behind a gone surface.
           await _unlinkCaptured(scanId);
-          return const ScanShootClosed();
+          if (_epoch != epoch) {
+            return const ScanShootClosed();
+          }
+          return const ScanShootFailed();
         case CameraShotAccessLost():
           // A grant gone at the shutter is a system problem, never a
           // user refusal and never a quiet close that reads as a
           // taken photo: unlink the frame and let the surface drop
           // the preview, then close (dispose-under-preview is a
-          // crash). No row.
+          // crash). No row. A close that already won is Closed.
           await _unlinkCaptured(scanId);
+          if (_epoch != epoch) {
+            return const ScanShootClosed();
+          }
           return const ScanShootFailed();
         case CameraShotCaptured(:final bytes):
           if (_epoch != epoch) {
@@ -364,9 +375,13 @@ class ScanController {
             verdict = await gate.gate(framePath);
           } on Object {
             // Fail closed, never falsely refused: the frame is unlinked,
-            // nothing proceeds, no row lands.
+            // nothing proceeds, no row lands — Failed notice, not a
+            // quiet pop. A close that already won is Closed.
             await _unlinkCaptured(scanId);
-            return const ScanShootClosed();
+            if (_epoch != epoch) {
+              return const ScanShootClosed();
+            }
+            return const ScanShootFailed();
           }
           if (_epoch != epoch) {
             // The surface left while the gate ran: a late refusal must
@@ -427,6 +442,7 @@ class ScanController {
       abandonment = null;
     }
     _epoch++;
+    abortSlicerInFlight(slicer);
     _open = false;
     await _unlinkScan();
     await camera.dispose();
@@ -633,17 +649,18 @@ class ScanController {
         if (_epoch != epoch) {
           return const ScanConsentStale();
         }
-        // The dispatch has resolved: a close landing during the tail
-        // unlink below mints nothing — the flag clears before the
-        // await (the finally clear stays as the early arms' backstop).
-        _sliceInFlight = false;
         await _unlinkCaptured(scanId);
         _frameBytes = null;
-        // The resolution is a failed dispatch: its one row mints here
-        // exactly as the typed failure arm's does below (Story 5.7,
-        // FR-26 b — a throw-resolved providerUnreachable is a failure
-        // on record, never an outcome inferred from absent facts).
-        await _appendScanSliceFailed(SlicerFailureCause.providerUnreachable);
+        // Keep the wait armed through terminal persistence. A close
+        // during this tail must still invalidate the resolution and
+        // mint the one abandonment row.
+        await _appendScanSliceFailed(
+          SlicerFailureCause.providerUnreachable,
+          epoch: epoch,
+        );
+        if (_epoch != epoch) {
+          return const ScanConsentStale();
+        }
         return const ScanConsentFailed(SlicerFailureCause.providerUnreachable);
       }
       if (_epoch != epoch) {
@@ -652,11 +669,9 @@ class ScanController {
         // (and its own scan_abandoned row already stands).
         return const ScanConsentStale();
       }
-      // Same as the throw arm: the resolution owns the rest, so a
-      // close during the tail unlink mints nothing.
-      _sliceInFlight = false;
       await _unlinkCaptured(scanId);
       _frameBytes = null;
+      // Keep the wait armed through parsing and terminal persistence.
       switch (outcome) {
         case SlicerDelivered(:final responseBody):
           // The landing (Story 5.7, FR-16): the delivered body is
@@ -674,21 +689,46 @@ class ScanController {
             // existing provider-unresponsive string, never an eighth
             // cause, and nothing is dealt as-is (the one fold
             // `parseScanSlice`'s own contract keeps).
-            await _appendScanSliceFailed(SlicerFailureCause.malformedResponse);
+            await _appendScanSliceFailed(
+              SlicerFailureCause.malformedResponse,
+              epoch: epoch,
+            );
+            if (_epoch != epoch) {
+              return const ScanConsentStale();
+            }
             return const ScanConsentFailed(
               SlicerFailureCause.malformedResponse,
             );
           }
-          await _appendScanLanded(
-            slice,
-            origin: slicer is LocalSlicer ? Origin.local : Origin.cloud,
-          );
+          try {
+            await _appendScanLanded(
+              slice,
+              origin: slicer is LocalSlicer ? Origin.local : Origin.cloud,
+              epoch: epoch,
+            );
+          } on Object {
+            // A store throw is not Delivered: the wait surface maps
+            // Failed onto the standing no-Slicer arm. The queue's
+            // tail does not stall.
+            if (_epoch != epoch) {
+              return const ScanConsentStale();
+            }
+            return const ScanConsentFailed(
+              SlicerFailureCause.providerUnreachable,
+            );
+          }
+          if (_epoch != epoch) {
+            return const ScanConsentStale();
+          }
           return const ScanConsentDelivered();
         case SlicerFailed(:final cause):
           // A failed dispatch resolves on record (Story 5.7, FR-26
           // b): one `slice_failed` row carrying the raw cause, then
           // the standing 4-5 mapping the caller routes.
-          await _appendScanSliceFailed(cause);
+          await _appendScanSliceFailed(cause, epoch: epoch);
+          if (_epoch != epoch) {
+            return const ScanConsentStale();
+          }
           return ScanConsentFailed(cause);
       }
     } finally {
@@ -738,14 +778,29 @@ class ScanController {
   Future<void> _appendScanAbandoned() => _appendMinted(() => scanAbandoned());
 
   /// Appends exactly one `slice_failed` row through the scan's single
-  /// sanctioned failure minter (Story 5.7, FR-16, FR-26 b, AD-21) —
-  /// on [_appendScanAbandoned]'s own shape: no in-closure epoch
-  /// re-check, because the dispatch's resolution is what makes the
-  /// row true (a violation arm's `malformedResponse` or a failed
-  /// dispatch's raw cause alike), and the row mints only after the
-  /// resolution survived the caller's existing epoch checks.
-  Future<void> _appendScanSliceFailed(SlicerFailureCause cause) =>
-      _appendMinted(() => scanSliceFailed(cause: cause));
+  /// sanctioned failure minter (Story 5.7, FR-16, FR-26 b, AD-21). The
+  /// queue closure checks the resolution epoch as well as its caller:
+  /// a close that wins while this write is queued prevents the stale
+  /// row from landing after the abandonment.
+  Future<void> _appendScanSliceFailed(
+    SlicerFailureCause cause, {
+    required int epoch,
+  }) {
+    final now = nowOf();
+    return writeQueue
+        .enqueue(() async {
+          if (_epoch != epoch) {
+            return;
+          }
+          for (final content in scanSliceFailed(cause: cause)) {
+            if (_epoch != epoch) {
+              return;
+            }
+            await _appendContent(content, now);
+          }
+        })
+        .catchError((Object _) {});
+  }
 
   /// Lands a delivered slice's steps as pool facts (Story 5.7,
   /// FR-16), then — once every step has landed — mints the Epic's own
@@ -766,62 +821,71 @@ class ScanController {
   /// fact loop skips the activation append below it too: the Epic
   /// derives dormant exactly as a landing that never happened would.
   /// The whole landing rides the shared `LogWriteQueue`, serialized
-  /// against every other write the shell owns, and a failing store is
-  /// absorbed quietly — the house write-queue discipline.
-  Future<void> _appendScanLanded(ScanSlice slice, {required Origin origin}) {
+  /// against every other write the shell owns. A failing store is
+  /// not absorbed here — [grantConsent] refuses Delivered when the
+  /// landing throws — and the queue's own tail still does not stall.
+  Future<void> _appendScanLanded(
+    ScanSlice slice, {
+    required Origin origin,
+    required int epoch,
+  }) {
     final now = nowOf();
-    return writeQueue
-        .enqueue(() async {
-          String? stableId;
-          for (final seed in scanSliceLanded(
-            origin: origin,
-            description: slice.description,
-            steps: slice.steps,
-          )) {
-            final factId = idMinter.v7();
-            stableId ??= factId;
-            await store.appendPoolFact((
-              id: factId,
-              origin: seed.origin,
-              size: seed.size,
-              instantUtcMicros: now.microsecondsSinceEpoch,
-              offsetSeconds: now.timeZoneOffset.inSeconds,
-              originContext: seed.originContext,
-              dictated: null,
-              rescueOf: null,
-              estimateSeconds: seed.estimateSeconds,
-              stepText: seed.stepText,
-            ));
-          }
-          if (stableId != null) {
-            for (final content in epicActivated(
-              itemId: stableId,
-              origin: origin,
-            )) {
-              await store.appendLogEntry((
-                id: idMinter.v7(),
-                kind: content.kind.name,
-                instantUtcMicros: now.microsecondsSinceEpoch,
-                offsetSeconds: now.timeZoneOffset.inSeconds,
-                itemId: content.itemId,
-                itemOrigin: content.itemOrigin,
-                stack: content.stack,
-                settingKey: content.settingKey,
-                settingValue: content.settingValue,
-                settingTextValue: content.settingTextValue,
-                pocketMinutes: content.pocketMinutes,
-                energyLevel: content.energyLevel,
-                reportValue: content.reportValue,
-                reportWeek: content.reportWeek,
-                permission: content.permission?.name,
-                sliceCause: content.sliceCause,
-                cluster: content.cluster?.name,
-                enabled: content.enabled,
-              ));
-            }
-          }
-        })
-        .catchError((Object _) {});
+    return writeQueue.enqueue(() async {
+      if (_epoch != epoch) {
+        return;
+      }
+      String? stableId;
+      for (final seed in scanSliceLanded(
+        origin: origin,
+        description: slice.description,
+        steps: slice.steps,
+      )) {
+        if (_epoch != epoch) {
+          return;
+        }
+        final factId = idMinter.v7();
+        stableId ??= factId;
+        await store.appendPoolFact((
+          id: factId,
+          origin: seed.origin,
+          size: seed.size,
+          instantUtcMicros: now.microsecondsSinceEpoch,
+          offsetSeconds: now.timeZoneOffset.inSeconds,
+          originContext: seed.originContext,
+          dictated: null,
+          rescueOf: null,
+          estimateSeconds: seed.estimateSeconds,
+          stepText: seed.stepText,
+        ));
+      }
+      if (stableId != null) {
+        if (_epoch != epoch) {
+          return;
+        }
+        for (final content in epicActivated(itemId: stableId, origin: origin)) {
+          await store.appendLogEntry((
+            id: idMinter.v7(),
+            kind: content.kind.name,
+            instantUtcMicros: now.microsecondsSinceEpoch,
+            offsetSeconds: now.timeZoneOffset.inSeconds,
+            itemId: content.itemId,
+            itemOrigin: content.itemOrigin,
+            stack: content.stack,
+            settingKey: content.settingKey,
+            settingValue: content.settingValue,
+            settingTextValue: content.settingTextValue,
+            pocketMinutes: content.pocketMinutes,
+            energyLevel: content.energyLevel,
+            reportValue: content.reportValue,
+            reportWeek: content.reportWeek,
+            permission: content.permission?.name,
+            sliceCause: content.sliceCause,
+            cluster: content.cluster?.name,
+            enabled: content.enabled,
+          ));
+        }
+      }
+    });
   }
 }
 
