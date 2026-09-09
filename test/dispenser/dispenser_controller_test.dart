@@ -3352,6 +3352,32 @@ void main() {
       );
     });
 
+    test('overlapping one-tap calls mint exactly one row — consume-at-entry '
+        'is the guard, not the screen', () async {
+      final store = storeOfFacts([dormantEpic('s1')]);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+
+      // Both paths capture `_shownSuggestion` synchronously at entry.
+      // The second call sees null and mints nothing, even though its
+      // write has not yet been queued past the first append.
+      final dismiss = controller.dismissSeasonalSuggestion();
+      final accept = controller.acceptSeasonalSuggestion();
+      await Future.wait([dismiss, accept]);
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'suggestion_dismissed'),
+        hasLength(1),
+        reason: 'the first capture owns the shown record',
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'epic_activated'),
+        isEmpty,
+        reason: 'the overlapping accept minted nothing',
+      );
+    });
+
     test('a stale ✕ — a handler firing after a read that showed no '
         'suggestion — writes nothing, quietly (matrix: stale tap)', () async {
       final store = storeOfFacts([dormantEpic('s1')]);

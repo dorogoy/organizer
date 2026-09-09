@@ -985,6 +985,49 @@ void main() {
       );
     });
 
+    test('a later first opening of the same season still suppresses — '
+        'the rate limit is season, not day (AC3)', () {
+      // The named "silent for the season" pin above re-reads the
+      // dismissal's own Saturday. A day-scoped fold would still pass
+      // that and the prior-season / 04:00 cases (those leave the day
+      // by changing SeasonKind). Sunday 2026-08-30 is still summer
+      // 2026: the project stays silent; next summer is a different
+      // (kind, year) and re-offers.
+      final dismissedSaturday = [
+        ...opening,
+        dismissed(utcMicros(2026, 8, 29, 9, 30), 'epic-a'),
+        _ended(utcMicros(2026, 8, 29, 10)),
+      ];
+      expect(
+        resolve(
+          [
+            ...dismissedSaturday,
+            _opened(utcMicros(2026, 8, 30, 9), id: 'sunday-open'),
+          ],
+          utcMicros(2026, 8, 30, 12),
+          const {},
+          [dormant('epic-a')],
+        )?.resident,
+        StripResident.weeklySelfReport,
+        reason:
+            'a later first opening still in summer 2026 does not '
+            're-offer the dismissed project',
+      );
+      expect(
+        resolve(
+          [
+            ...dismissedSaturday,
+            _opened(utcMicros(2027, 6, 1, 9), id: 'next-summer-open'),
+          ],
+          utcMicros(2027, 6, 1, 12),
+          const {},
+          [dormant('epic-a')],
+        )?.resident,
+        StripResident.seasonalSuggestion,
+        reason: 'next summer is a different season — the suppression died',
+      );
+    });
+
     test('dismissed a prior season — eligible again: the suppression '
         'died with the season (matrix: dismissed last season)', () {
       // 2026-05-20 is spring; the read is summer — a different
