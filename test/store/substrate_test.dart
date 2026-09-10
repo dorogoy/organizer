@@ -50,6 +50,8 @@ LogEntryRecord _entry({
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -331,6 +333,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -362,6 +366,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     test(
@@ -443,6 +449,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -464,6 +472,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -485,6 +495,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -600,7 +612,7 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its eighteen declared columns — the two '
+    test('log_entries holds exactly its twenty declared columns — the two '
         'nullable setting columns are schema v2\'s additive pair (Story '
         '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
         'AD-23), the nullable energy level column is schema v4\'s '
@@ -611,7 +623,10 @@ void main() {
         'the nullable slice-cause column is schema v9\'s (Story 4.6, '
         'FR-5, AD-23) and the nullable cluster and enabled columns '
         'are schema v11\'s additive pair (Story 5.11, FR-31, AD-16, '
-        'AD-23 — the curation payload rides its own columns) — '
+        'AD-23 — the curation payload rides its own columns) and the '
+        'nullable triage destination and tag columns are schema v12\'s '
+        'additive pair (Story 6.3, FR-22, AD-23 — the triage payload '
+        'rides its own columns, never a numeric volume) — '
         'asserted on a brand-new database, so a fresh '
         'create that dropped it fails here', () async {
       await store.appendLogEntry(_entry());
@@ -634,6 +649,8 @@ void main() {
         'slice_cause',
         'stack',
         'text_value',
+        'triage_destination',
+        'triage_volume_tag',
       ]);
     });
 
@@ -679,6 +696,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -716,6 +735,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -753,6 +774,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // An out-of-range level stays stored verbatim too — the entry
       // stays in the log and the core's read boundary excludes it,
@@ -800,6 +823,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -837,6 +862,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -854,6 +881,80 @@ void main() {
       expect(accepted, hasLength(1));
       expect((accepted.single as ReportAnsweredEntry).value, 3);
       expect((accepted.single as ReportAnsweredEntry).week, 1394);
+    });
+
+    test('a triage row round-trips through both production layers — '
+        'stored by DriftStore with its wire names, then converted to '
+        'TriageEntry carrying the destination and exactly the tag '
+        'given (Story 6.3, FR-22)', () async {
+      // The tagged act.
+      final id = const Uuid().v7();
+      await store.appendLogEntry((
+        id: id,
+        kind: LogKind.itemTriaged.name,
+        instantUtcMicros: 1758900000777001,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: 'donate_sell',
+        triageVolumeTag: 'caja_grande',
+      ));
+      // And the declined one: no tag column written at all.
+      await store.appendLogEntry((
+        id: 'triage-declined',
+        kind: LogKind.itemTriaged.name,
+        instantUtcMicros: 1758900000777002,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: 'keep',
+        triageVolumeTag: null,
+      ));
+
+      final snapshot = await store.readLogEntries();
+      expect(snapshot, hasLength(2));
+      expect(snapshot.first.triageDestination, 'donate_sell');
+      expect(snapshot.first.triageVolumeTag, 'caja_grande');
+      expect(snapshot.last.triageDestination, 'keep');
+      expect(snapshot.last.triageVolumeTag, isNull);
+
+      final tagged = convertLogEntryRecord(snapshot.first);
+      expect(tagged.flaw, isNull);
+      final taggedEntry = tagged.entry as TriageEntry;
+      expect(taggedEntry.kind, LogKind.itemTriaged);
+      expect(taggedEntry.destination, TriageDestination.donate_sell);
+      expect(taggedEntry.volumeTag, CoarseVolumeTag.caja_grande);
+
+      final declined = convertLogEntryRecord(snapshot.last);
+      expect(declined.flaw, isNull);
+      final declinedEntry = declined.entry as TriageEntry;
+      expect(declinedEntry.destination, TriageDestination.keep);
+      expect(declinedEntry.volumeTag, isNull);
+      expect(logEntriesOf(snapshot), hasLength(2));
     });
   });
 
@@ -914,7 +1015,7 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -939,6 +1040,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1002,6 +1105,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -1022,6 +1127,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await store.appendLogEntry((
         id: 'new-energy',
@@ -1042,6 +1149,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await store.appendLogEntry((
         id: 'new-report',
@@ -1062,6 +1171,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(5));
@@ -1075,7 +1186,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1157,7 +1268,7 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 11);
+        expect(db.schemaVersion, 12);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1182,6 +1293,8 @@ void main() {
             'slice_cause',
             'stack',
             'text_value',
+            'triage_destination',
+            'triage_volume_tag',
           ],
         );
         expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1235,6 +1348,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
         // ...and a v5 answer row lands beside them just the same.
         await store.appendLogEntry((
@@ -1256,6 +1371,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(4));
@@ -1328,7 +1445,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1353,6 +1470,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1411,6 +1530,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // ...and a v5 answer row lands beside them just the same.
       await store.appendLogEntry((
@@ -1432,6 +1553,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(4));
@@ -1504,7 +1627,7 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1529,6 +1652,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -1589,6 +1714,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await db.customInsert(
         'INSERT INTO log_entries '
@@ -1676,7 +1803,7 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -1811,7 +1938,7 @@ void main() {
         'null boolean, and both new shapes append beside them', () async {
       await takeOverWithV6();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -1836,6 +1963,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(
@@ -1922,6 +2051,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
 
       final factsAfter = await store.readPoolFacts();
@@ -2057,7 +2188,7 @@ void main() {
         'text, and a selected_provider row appends beside them', () async {
       await takeOverWithV7();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -2082,6 +2213,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -2137,6 +2270,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
 
       final logAfter = await store.readLogEntries();
@@ -2213,7 +2348,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 11);
+        expect(db.schemaVersion, 12);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingValue, 15);
@@ -2291,7 +2426,7 @@ void main() {
     test('an empty v8 database upgrades too — no rows, same three '
         'ALTERs, same version bump, appends work', () async {
       await takeOverWithV8(seedRows: false);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -2315,7 +2450,7 @@ void main() {
         'shapes append beside them', () async {
       await takeOverWithV8();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -2340,6 +2475,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(
@@ -2437,6 +2574,8 @@ void main() {
         sliceCause: 'networkUnreachable',
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final logAfter = await store.readLogEntries();
       expect(logAfter, hasLength(2));
@@ -2468,6 +2607,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
         (
           id: 'v9-returned',
@@ -2488,6 +2629,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       ]) {
         await store.appendLogEntry(row);
@@ -2565,7 +2708,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 11);
+        expect(db.schemaVersion, 12);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingTextValue, 'openai');
@@ -2644,14 +2787,14 @@ void main() {
         '(slice_cause) re-opens idempotently — the pool\'s pair is '
         'still added, the already-added log column is not', () async {
       await takeOverWithV8Partial(sliceCause: true);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         await columnsOf('log_entries'),
         containsAll(['slice_cause', 'text_value']),
       );
       expect(
         await columnsOf('log_entries'),
-        hasLength(18),
+        hasLength(20),
         reason: 'slice_cause once, never twice — beside v11\'s two',
       );
       expect(
@@ -2679,8 +2822,8 @@ void main() {
         'estimate_seconds still missing — re-opens idempotently, the '
         'half-upgraded pool columns are not re-added', () async {
       await takeOverWithV8Partial(sliceCause: true, rescueOf: true);
-      expect(db.schemaVersion, 11);
-      expect(await columnsOf('log_entries'), hasLength(18));
+      expect(db.schemaVersion, 12);
+      expect(await columnsOf('log_entries'), hasLength(20));
       expect(await columnsOf('pool_facts'), hasLength(10));
       expect(
         await columnsOf('pool_facts'),
@@ -2793,7 +2936,7 @@ void main() {
     test('an empty v9 database upgrades too — no rows, one ALTER, the '
         'version bump, appends work', () async {
       await takeOverWithV9(seedRows: false);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -2817,7 +2960,7 @@ void main() {
         '(FR-16, AD-23)', () async {
       await takeOverWithV9();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -2895,7 +3038,7 @@ void main() {
         'bump re-opens idempotently — a half-upgraded column is not '
         're-added', () async {
       await takeOverWithV9(stepText: true);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       final poolColumns =
           (await db.customSelect('PRAGMA table_info(pool_facts)').get())
               .map((row) => row.read<String>('name'))
@@ -2942,6 +3085,8 @@ void main() {
       sliceCause: null,
       cluster: 'z3',
       enabled: false,
+      triageDestination: null,
+      triageVolumeTag: null,
     ));
     final rows = await store.readLogEntries();
     expect(rows, hasLength(1));
@@ -3037,7 +3182,7 @@ void main() {
     test('an empty v10 database upgrades too — no rows, two ALTERs, the '
         'version bump, appends work', () async {
       await takeOverWithV10(seedRows: false);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendLogEntry((
@@ -3059,6 +3204,8 @@ void main() {
         sliceCause: null,
         cluster: 'anclas',
         enabled: true,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect((await store.readLogEntries()).single.cluster, 'anclas');
     });
@@ -3069,7 +3216,7 @@ void main() {
         'beside them (FR-31, AD-23)', () async {
       await takeOverWithV10();
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -3094,6 +3241,8 @@ void main() {
           'slice_cause',
           'stack',
           'text_value',
+          'triage_destination',
+          'triage_volume_tag',
         ],
       );
       expect(await _objects(db, 'table'), ['log_entries', 'pool_facts']);
@@ -3148,6 +3297,8 @@ void main() {
         sliceCause: null,
         cluster: 'fondo',
         enabled: false,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final logAfter = await store.readLogEntries();
       expect(logAfter, hasLength(2));
@@ -3159,14 +3310,14 @@ void main() {
         'the second — cluster present, enabled absent — finishes the '
         'upgrade without re-adding cluster', () async {
       await takeOverWithV10(clusterColumnOnly: true);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       final logColumns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList();
       expect(
         logColumns,
-        hasLength(18),
+        hasLength(20),
         reason: 'cluster once from the crash, enabled added, never doubled',
       );
       expect(logColumns, containsAll(['cluster', 'enabled']));
@@ -3189,6 +3340,8 @@ void main() {
         sliceCause: null,
         cluster: 'anclas',
         enabled: false,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect((await store.readLogEntries()).last.enabled, isFalse);
     });
@@ -3197,14 +3350,14 @@ void main() {
         'the version bump re-opens idempotently — a half-upgraded '
         'column is not re-added', () async {
       await takeOverWithV10(curationColumns: true);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 12);
       final logColumns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList();
       expect(
         logColumns,
-        hasLength(18),
+        hasLength(20),
         reason: 'cluster and enabled once, never twice',
       );
       expect(logColumns, containsAll(['cluster', 'enabled']));
@@ -3228,8 +3381,242 @@ void main() {
         sliceCause: null,
         cluster: 'sosten',
         enabled: true,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect((await store.readLogEntries()).last.enabled, isTrue);
+    });
+  });
+
+  group('the v11→v12 upgrade (Story 6.3, AD-23 — additive, ALTER-only)', () {
+    /// The v11 schema exactly as a v11 install presents it: the v10
+    /// shape plus the log's cluster and enabled columns,
+    /// `user_version` 11 — seeded over a memory executor so drift's
+    /// runner sees version 11 and upgrades.
+    Future<void> takeOverWithV11({
+      bool seedRows = true,
+      bool destinationColumnOnly = false,
+    }) async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL, '
+                  'rescue_of TEXT NULL, '
+                  'estimate_seconds INTEGER NULL, '
+                  'step_text TEXT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'text_value TEXT NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL, '
+                  'slice_cause TEXT NULL, '
+                  'cluster TEXT NULL, '
+                  'enabled BOOL NULL'
+                  '${destinationColumnOnly ? ', triage_destination TEXT NULL' : ''})',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              if (seedRows)
+                "INSERT INTO log_entries (id, kind, instant_utc_micros, "
+                    "offset_seconds, cluster, enabled) VALUES "
+                    "('v11-curation', 'cluster_curation_changed', 100, 3600, "
+                    "'sosten', 1)",
+              'PRAGMA user_version = 11',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v11 database upgrades in place: the two ALTERs add '
+        'the triage columns, the v11 rows — curation payloads intact, '
+        'triage fields null — read back unchanged, and a triage row '
+        'appends beside them', () async {
+      await takeOverWithV11();
+
+      expect(db.schemaVersion, 12);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .where((name) => name.startsWith('triage'))
+            .toList()
+          ..sort(),
+        ['triage_destination', 'triage_volume_tag'],
+        reason: 'each triage column once, never twice',
+      );
+
+      // The v11 rows ride the migration untouched: the curation
+      // payload stands and the triage fields read as null.
+      final before = await store.readLogEntries();
+      expect(before, hasLength(1));
+      expect(before.single.id, 'v11-curation');
+      expect(before.single.cluster, 'sosten');
+      expect(before.single.enabled, isTrue);
+      expect(before.single.triageDestination, isNull);
+      expect(before.single.triageVolumeTag, isNull);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET kind = 'card_skipped' "
+          "WHERE id = 'v11-curation'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts a triage row beside the old.
+      await store.appendLogEntry((
+        id: 'v12-triage',
+        kind: LogKind.itemTriaged.name,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: 'trash_recycle',
+        triageVolumeTag: 'bolsa',
+      ));
+      final after = await store.readLogEntries();
+      expect(after, hasLength(2));
+      expect(after.last.triageDestination, 'trash_recycle');
+      expect(after.last.triageVolumeTag, 'bolsa');
+      final entry = convertLogEntryRecord(after.last).entry as TriageEntry;
+      expect(entry.destination, TriageDestination.trash_recycle);
+      expect(entry.volumeTag, CoarseVolumeTag.bolsa);
+    });
+
+    test('a half-upgraded v11 database — the crash between the two '
+        'ALTERs left triage_destination present, triage_volume_tag '
+        'missing, user_version still 11 — re-upgrades idempotently: '
+        'each column once, the seeded row intact, appends work', () async {
+      await takeOverWithV11(destinationColumnOnly: true);
+
+      expect(db.schemaVersion, 12);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .where((name) => name.startsWith('triage'))
+            .toList()
+          ..sort(),
+        ['triage_destination', 'triage_volume_tag'],
+        reason: 'the pre-existing column is not doubled',
+      );
+      final rows = await store.readLogEntries();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'v11-curation');
+      expect(rows.single.triageDestination, isNull);
+      await store.appendLogEntry((
+        id: 'v12-after-half',
+        kind: LogKind.itemTriaged.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: 'keep',
+        triageVolumeTag: null,
+      ));
+      expect(
+        convertLogEntryRecord((await store.readLogEntries()).last).entry,
+        isA<TriageEntry>()
+            .having((e) => e.destination, 'destination', TriageDestination.keep)
+            .having((e) => e.volumeTag, 'volumeTag', isNull),
+      );
+    });
+
+    test('an empty v11 database upgrades too — no rows, the ALTERs, the '
+        'version bump, a triage append works', () async {
+      await takeOverWithV11(seedRows: false);
+
+      expect(db.schemaVersion, 12);
+      expect(await store.readLogEntries(), isEmpty);
+      await store.appendLogEntry((
+        id: 'v12-first',
+        kind: LogKind.itemTriaged.name,
+        instantUtcMicros: 500,
+        offsetSeconds: 0,
+        itemId: null,
+        itemOrigin: null,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: 'donate_sell',
+        triageVolumeTag: 'caja_grande',
+      ));
+      final entry =
+          convertLogEntryRecord((await store.readLogEntries()).single).entry
+              as TriageEntry;
+      expect(entry.destination, TriageDestination.donate_sell);
+      expect(entry.volumeTag, CoarseVolumeTag.caja_grande);
     });
   });
 }

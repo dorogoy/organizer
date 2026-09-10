@@ -54,6 +54,8 @@ List<LogEntryContent> reportAnswered({required int value, required int week}) {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     ),
   ];
 }

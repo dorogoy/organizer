@@ -74,6 +74,19 @@ ItemActEntry _captured(int micros, String itemId, {String id = 'capture'}) =>
       itemOrigin: Origin.manual,
     );
 
+TriageEntry _triaged(
+  int micros, {
+  TriageDestination destination = TriageDestination.keep,
+  CoarseVolumeTag? volumeTag,
+  String id = 'triage',
+}) => TriageEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: 0,
+  destination: destination,
+  volumeTag: volumeTag,
+);
+
 SessionExtendEntry _extended(int micros, {String id = 'extend'}) =>
     SessionExtendEntry(
       id: id,
@@ -305,6 +318,10 @@ void main() {
         _energy(before(const Duration(hours: 47))),
         _report(before(const Duration(hours: 47))),
         _captured(before(const Duration(hours: 47)), 'man-cap-a'),
+        _triaged(
+          before(const Duration(hours: 47)),
+          volumeTag: CoarseVolumeTag.caja,
+        ),
       ];
       for (final act in acts) {
         expect(

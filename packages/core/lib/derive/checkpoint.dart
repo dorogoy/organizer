@@ -141,6 +141,7 @@ CheckpointState deriveCheckpoint({
       case ReportAnsweredEntry():
       case PermissionRefusedEntry():
       case ClusterCurationChangedEntry():
+      case TriageEntry():
       case UnknownEntry():
       case SliceEntry():
         break;

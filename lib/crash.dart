@@ -55,6 +55,8 @@ Future<void> appendCrashEntry(
     sliceCause: null,
     cluster: null,
     enabled: null,
+    triageDestination: null,
+    triageVolumeTag: null,
   );
   try {
     await store.appendLogEntry(entry);

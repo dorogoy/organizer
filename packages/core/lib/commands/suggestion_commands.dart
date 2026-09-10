@@ -51,6 +51,8 @@ List<LogEntryContent> suggestionDismissed({
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     ),
   ];
 }

@@ -69,6 +69,8 @@ class DriftStore implements StorePort {
             sliceCause: Value(entry.sliceCause),
             cluster: Value(entry.cluster),
             enabled: Value(entry.enabled),
+            triageDestination: Value(entry.triageDestination),
+            triageVolumeTag: Value(entry.triageVolumeTag),
           ),
         );
   }
@@ -139,6 +141,8 @@ class DriftStore implements StorePort {
           sliceCause: row.sliceCause,
           cluster: row.cluster,
           enabled: row.enabled,
+          triageDestination: row.triageDestination,
+          triageVolumeTag: row.triageVolumeTag,
         ),
     ];
   }

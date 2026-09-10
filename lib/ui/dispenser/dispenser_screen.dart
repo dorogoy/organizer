@@ -47,6 +47,7 @@
 import 'dart:async';
 
 import 'package:core/energy/energy.dart';
+import 'package:core/log/log_entry.dart';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
@@ -562,11 +563,12 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// The dealt purge card's `Hecho` (Stories 6.1–6.2, FR-19/20, UX-DR31):
-  /// the Decluttering Protocol's one and only entry — `_openScan`'s push
-  /// pattern, the same rapid-tap guard every push this surface owns. The
-  /// protocol hands its typed answer pair to the later destination flow;
-  /// this story deliberately does not complete the card or write anything.
+  /// The dealt purge card's `Hecho` (Stories 6.1–6.3, FR-19/20/22,
+  /// UX-DR31): the Decluttering Protocol's one and only entry —
+  /// `_openScan`'s push pattern, the same rapid-tap guard every push
+  /// this surface owns. The protocol hands its typed answer pair plus
+  /// the optional volume tag to the later destination flow; this story
+  /// deliberately does not complete the card or write anything.
   void _openDeclutteringProtocol(DispenserDealt dealt) {
     // The in-flight guard `_onDone` owns (Story 6.1's review round):
     // a stale purge card — its skip write still between tap and
@@ -581,17 +583,24 @@ class _DispenserScreenState extends State<DispenserScreen>
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => DeclutteringProtocolScreen(
-            onAnswers: (answers) => _onDetachmentAnswers(dealt, answers),
+            onAnswers: (answers, volumeTag) =>
+                _onDetachmentAnswers(dealt, answers, volumeTag),
           ),
         ),
       );
     }
   }
 
-  /// Story 6.2 stops at the typed seam. Destination selection and purge
-  /// completion arrive in later stories, so receiving the pair is
-  /// intentionally side-effect free for this visit.
-  void _onDetachmentAnswers(DispenserDealt dealt, DetachmentAnswers answers) {}
+  /// Story 6.3 stops at the widened typed seam. The destination choice
+  /// that completes a triage act and the purge card's completion arrive
+  /// in 6.4, so receiving the pair and the optional tag is intentionally
+  /// side-effect free for this visit — the tag declined is null and
+  /// writes nothing (FR-22).
+  void _onDetachmentAnswers(
+    DispenserDealt dealt,
+    DetachmentAnswers answers,
+    CoarseVolumeTag? volumeTag,
+  ) {}
 
   Future<void> _readAfterSessionSettles(int generation) async {
     try {

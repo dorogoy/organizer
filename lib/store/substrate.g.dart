@@ -833,6 +833,29 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _triageDestinationMeta = const VerificationMeta(
+    'triageDestination',
+  );
+  late final GeneratedColumn<String> triageDestination =
+      GeneratedColumn<String>(
+        'triage_destination',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        $customConstraints: 'NULL',
+      );
+  static const VerificationMeta _triageVolumeTagMeta = const VerificationMeta(
+    'triageVolumeTag',
+  );
+  late final GeneratedColumn<String> triageVolumeTag = GeneratedColumn<String>(
+    'triage_volume_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -853,6 +876,8 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     sliceCause,
     cluster,
     enabled,
+    triageDestination,
+    triageVolumeTag,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -997,6 +1022,24 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
       );
     }
+    if (data.containsKey('triage_destination')) {
+      context.handle(
+        _triageDestinationMeta,
+        triageDestination.isAcceptableOrUnknown(
+          data['triage_destination']!,
+          _triageDestinationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('triage_volume_tag')) {
+      context.handle(
+        _triageVolumeTagMeta,
+        triageVolumeTag.isAcceptableOrUnknown(
+          data['triage_volume_tag']!,
+          _triageVolumeTagMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1078,6 +1121,14 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.bool,
         data['${effectivePrefix}enabled'],
       ),
+      triageDestination: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}triage_destination'],
+      ),
+      triageVolumeTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}triage_volume_tag'],
+      ),
     );
   }
 
@@ -1109,6 +1160,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final String? sliceCause;
   final String? cluster;
   final bool? enabled;
+  final String? triageDestination;
+  final String? triageVolumeTag;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -1128,6 +1181,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.sliceCause,
     this.cluster,
     this.enabled,
+    this.triageDestination,
+    this.triageVolumeTag,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1177,6 +1232,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || enabled != null) {
       map['enabled'] = Variable<bool>(enabled);
+    }
+    if (!nullToAbsent || triageDestination != null) {
+      map['triage_destination'] = Variable<String>(triageDestination);
+    }
+    if (!nullToAbsent || triageVolumeTag != null) {
+      map['triage_volume_tag'] = Variable<String>(triageVolumeTag);
     }
     return map;
   }
@@ -1229,6 +1290,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       enabled: enabled == null && nullToAbsent
           ? const Value.absent()
           : Value(enabled),
+      triageDestination: triageDestination == null && nullToAbsent
+          ? const Value.absent()
+          : Value(triageDestination),
+      triageVolumeTag: triageVolumeTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(triageVolumeTag),
     );
   }
 
@@ -1256,6 +1323,10 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       sliceCause: serializer.fromJson<String?>(json['slice_cause']),
       cluster: serializer.fromJson<String?>(json['cluster']),
       enabled: serializer.fromJson<bool?>(json['enabled']),
+      triageDestination: serializer.fromJson<String?>(
+        json['triage_destination'],
+      ),
+      triageVolumeTag: serializer.fromJson<String?>(json['triage_volume_tag']),
     );
   }
   @override
@@ -1280,6 +1351,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'slice_cause': serializer.toJson<String?>(sliceCause),
       'cluster': serializer.toJson<String?>(cluster),
       'enabled': serializer.toJson<bool?>(enabled),
+      'triage_destination': serializer.toJson<String?>(triageDestination),
+      'triage_volume_tag': serializer.toJson<String?>(triageVolumeTag),
     };
   }
 
@@ -1302,6 +1375,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<String?> sliceCause = const Value.absent(),
     Value<String?> cluster = const Value.absent(),
     Value<bool?> enabled = const Value.absent(),
+    Value<String?> triageDestination = const Value.absent(),
+    Value<String?> triageVolumeTag = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -1323,6 +1398,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     sliceCause: sliceCause.present ? sliceCause.value : this.sliceCause,
     cluster: cluster.present ? cluster.value : this.cluster,
     enabled: enabled.present ? enabled.value : this.enabled,
+    triageDestination: triageDestination.present
+        ? triageDestination.value
+        : this.triageDestination,
+    triageVolumeTag: triageVolumeTag.present
+        ? triageVolumeTag.value
+        : this.triageVolumeTag,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -1366,6 +1447,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           : this.sliceCause,
       cluster: data.cluster.present ? data.cluster.value : this.cluster,
       enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      triageDestination: data.triageDestination.present
+          ? data.triageDestination.value
+          : this.triageDestination,
+      triageVolumeTag: data.triageVolumeTag.present
+          ? data.triageVolumeTag.value
+          : this.triageVolumeTag,
     );
   }
 
@@ -1389,7 +1476,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('permission: $permission, ')
           ..write('sliceCause: $sliceCause, ')
           ..write('cluster: $cluster, ')
-          ..write('enabled: $enabled')
+          ..write('enabled: $enabled, ')
+          ..write('triageDestination: $triageDestination, ')
+          ..write('triageVolumeTag: $triageVolumeTag')
           ..write(')'))
         .toString();
   }
@@ -1414,6 +1503,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     sliceCause,
     cluster,
     enabled,
+    triageDestination,
+    triageVolumeTag,
   );
   @override
   bool operator ==(Object other) =>
@@ -1436,7 +1527,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.permission == this.permission &&
           other.sliceCause == this.sliceCause &&
           other.cluster == this.cluster &&
-          other.enabled == this.enabled);
+          other.enabled == this.enabled &&
+          other.triageDestination == this.triageDestination &&
+          other.triageVolumeTag == this.triageVolumeTag);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1458,6 +1551,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<String?> sliceCause;
   final Value<String?> cluster;
   final Value<bool?> enabled;
+  final Value<String?> triageDestination;
+  final Value<String?> triageVolumeTag;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1478,6 +1573,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.sliceCause = const Value.absent(),
     this.cluster = const Value.absent(),
     this.enabled = const Value.absent(),
+    this.triageDestination = const Value.absent(),
+    this.triageVolumeTag = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1499,6 +1596,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.sliceCause = const Value.absent(),
     this.cluster = const Value.absent(),
     this.enabled = const Value.absent(),
+    this.triageDestination = const Value.absent(),
+    this.triageVolumeTag = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1523,6 +1622,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<String>? sliceCause,
     Expression<String>? cluster,
     Expression<bool>? enabled,
+    Expression<String>? triageDestination,
+    Expression<String>? triageVolumeTag,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1544,6 +1645,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (sliceCause != null) 'slice_cause': sliceCause,
       if (cluster != null) 'cluster': cluster,
       if (enabled != null) 'enabled': enabled,
+      if (triageDestination != null) 'triage_destination': triageDestination,
+      if (triageVolumeTag != null) 'triage_volume_tag': triageVolumeTag,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1567,6 +1670,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<String?>? sliceCause,
     Value<String?>? cluster,
     Value<bool?>? enabled,
+    Value<String?>? triageDestination,
+    Value<String?>? triageVolumeTag,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1588,6 +1693,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       sliceCause: sliceCause ?? this.sliceCause,
       cluster: cluster ?? this.cluster,
       enabled: enabled ?? this.enabled,
+      triageDestination: triageDestination ?? this.triageDestination,
+      triageVolumeTag: triageVolumeTag ?? this.triageVolumeTag,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1649,6 +1756,12 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (enabled.present) {
       map['enabled'] = Variable<bool>(enabled.value);
     }
+    if (triageDestination.present) {
+      map['triage_destination'] = Variable<String>(triageDestination.value);
+    }
+    if (triageVolumeTag.present) {
+      map['triage_volume_tag'] = Variable<String>(triageVolumeTag.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1676,6 +1789,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('sliceCause: $sliceCause, ')
           ..write('cluster: $cluster, ')
           ..write('enabled: $enabled, ')
+          ..write('triageDestination: $triageDestination, ')
+          ..write('triageVolumeTag: $triageVolumeTag, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2062,6 +2177,8 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> sliceCause,
   Value<String?> cluster,
   Value<bool?> enabled,
+  Value<String?> triageDestination,
+  Value<String?> triageVolumeTag,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -2083,6 +2200,8 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> sliceCause,
   Value<String?> cluster,
   Value<bool?> enabled,
+  Value<String?> triageDestination,
+  Value<String?> triageVolumeTag,
   Value<int> rowid,
 });
 
@@ -2182,6 +2301,16 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<bool> get enabled => $composableBuilder(
     column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get triageDestination => $composableBuilder(
+    column: $table.triageDestination,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get triageVolumeTag => $composableBuilder(
+    column: $table.triageVolumeTag,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2284,6 +2413,16 @@ class $LogEntriesOrderingComposer
     column: $table.enabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get triageDestination => $composableBuilder(
+    column: $table.triageDestination,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get triageVolumeTag => $composableBuilder(
+    column: $table.triageVolumeTag,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -2370,6 +2509,16 @@ class $LogEntriesAnnotationComposer
 
   GeneratedColumn<bool> get enabled =>
       $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<String> get triageDestination => $composableBuilder(
+    column: $table.triageDestination,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get triageVolumeTag => $composableBuilder(
+    column: $table.triageVolumeTag,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -2418,6 +2567,8 @@ class $LogEntriesTableManager
                 Value<String?> sliceCause = const Value.absent(),
                 Value<String?> cluster = const Value.absent(),
                 Value<bool?> enabled = const Value.absent(),
+                Value<String?> triageDestination = const Value.absent(),
+                Value<String?> triageVolumeTag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -2438,6 +2589,8 @@ class $LogEntriesTableManager
                 sliceCause: sliceCause,
                 cluster: cluster,
                 enabled: enabled,
+                triageDestination: triageDestination,
+                triageVolumeTag: triageVolumeTag,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2460,6 +2613,8 @@ class $LogEntriesTableManager
                 Value<String?> sliceCause = const Value.absent(),
                 Value<String?> cluster = const Value.absent(),
                 Value<bool?> enabled = const Value.absent(),
+                Value<String?> triageDestination = const Value.absent(),
+                Value<String?> triageVolumeTag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -2480,6 +2635,8 @@ class $LogEntriesTableManager
                 sliceCause: sliceCause,
                 cluster: cluster,
                 enabled: enabled,
+                triageDestination: triageDestination,
+                triageVolumeTag: triageVolumeTag,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -322,6 +322,8 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 /// An install-day `app_opened` — a row from the day before the fixed
@@ -354,6 +356,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -375,6 +379,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
@@ -396,6 +402,8 @@ LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -1123,6 +1131,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1258,6 +1268,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1706,6 +1718,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     }
 
@@ -1752,6 +1766,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1783,6 +1799,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1810,6 +1828,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1830,6 +1850,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       }
 
@@ -1879,6 +1901,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       final view = await buildFor(
         store,
@@ -2464,6 +2488,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2487,6 +2513,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2685,6 +2713,8 @@ void main() {
             sliceCause: null,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3775,6 +3805,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -4532,6 +4564,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     _RecordingStore activatedStore() => _RecordingStore(epicFacts())

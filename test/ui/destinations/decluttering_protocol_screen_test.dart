@@ -1,3 +1,4 @@
+import 'package:core/log/log_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
@@ -7,21 +8,43 @@ import 'package:organizer/ui/destinations/decluttering_protocol_screen.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
 
+/// One handed-off visit: the answers as they stood at the tap, plus
+/// the tag the visit ended on — null when declined.
+typedef ReceivedVisit = ({DetachmentAnswers answers, CoarseVolumeTag? tag});
+
 void main() {
   const usageQuestion = '¿Has utilizado este objeto en los últimos 12 meses?';
   const spaceQuestion = '¿Merece este objeto tu espacio físico y mental?';
+  const volumeQuestion = '¿Cuánto era?';
   const yesLabel = 'Sí';
   const noLabel = 'No';
+  const bolsaLabel = 'Bolsa';
+  const cajaLabel = 'Caja';
+  const cajaGrandeLabel = 'Caja grande';
+  const muebleLabel = 'Mueble';
+  const skipLabel = 'Sin etiqueta';
   const usageQuestionKey = ValueKey<String>('decluttering-protocol-usage');
   const spaceQuestionKey = ValueKey<String>('decluttering-protocol-space');
   const usageYesKey = ValueKey<String>('decluttering-protocol-usage-yes');
   const usageNoKey = ValueKey<String>('decluttering-protocol-usage-no');
   const spaceYesKey = ValueKey<String>('decluttering-protocol-space-yes');
   const spaceNoKey = ValueKey<String>('decluttering-protocol-space-no');
+  const volumeBlockKey = ValueKey<String>('decluttering-protocol-volume');
+  const volumeBolsaKey = ValueKey<String>('decluttering-protocol-volume-bolsa');
+  const volumeCajaKey = ValueKey<String>('decluttering-protocol-volume-caja');
+  const volumeCajaGrandeKey = ValueKey<String>(
+    'decluttering-protocol-volume-caja-grande',
+  );
+  const volumeMuebleKey = ValueKey<String>(
+    'decluttering-protocol-volume-mueble',
+  );
+  const volumeSkipKey = ValueKey<String>('decluttering-protocol-volume-skip');
 
+  /// Pumps the protocol pushed over a host page, the route shape the
+  /// dispenser owns — so the handoff's pop lands somewhere observable.
   Future<void> pumpProtocol(
     WidgetTester tester, {
-    required DetachmentAnswersCallback onAnswers,
+    required void Function(ReceivedVisit visit) onVisit,
     Key? screenKey,
   }) async {
     await tester.pumpWidget(
@@ -29,9 +52,28 @@ void main() {
         theme: OrganizerTheme.light(),
         localizationsDelegates: AppStrings.localizationsDelegates,
         supportedLocales: AppStrings.supportedLocales,
-        home: DeclutteringProtocolScreen(key: screenKey, onAnswers: onAnswers),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DeclutteringProtocolScreen(
+                      key: screenKey,
+                      onAnswers: (answers, tag) =>
+                          onVisit((answers: answers, tag: tag)),
+                    ),
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
 
@@ -40,10 +82,10 @@ void main() {
     matching: find.byType(OutlinedButton),
   );
 
-  testWidgets('the initial visit shows both pressure-free questions and only '
-      'their equal Sí/No choices', (tester) async {
-    final received = <DetachmentAnswers>[];
-    await pumpProtocol(tester, onAnswers: received.add);
+  testWidgets('the initial visit shows both pressure-free questions, only '
+      'their equal Sí/No choices, and no volume block', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
 
     expect(find.text(usageQuestion), findsOneWidget);
     expect(find.text(spaceQuestion), findsOneWidget);
@@ -57,13 +99,16 @@ void main() {
     expect(find.byKey(usageNoKey), findsOneWidget);
     expect(find.byKey(spaceYesKey), findsOneWidget);
     expect(find.byKey(spaceNoKey), findsOneWidget);
+    // The volume block appears only after both answers stand.
+    expect(find.byKey(volumeBlockKey), findsNothing);
+    expect(find.text(volumeQuestion), findsNothing);
     expect(received, isEmpty);
   });
 
   testWidgets('each question starts unanswered and exposes an independent '
       'choice group', (tester) async {
     final semanticsHandle = tester.ensureSemantics();
-    await pumpProtocol(tester, onAnswers: (_) {});
+    await pumpProtocol(tester, onVisit: (_) {});
 
     for (final key in [usageYesKey, usageNoKey, spaceYesKey, spaceNoKey]) {
       final semantics = tester.widget<Semantics>(find.byKey(key));
@@ -107,57 +152,162 @@ void main() {
     semanticsHandle.dispose();
   });
 
-  testWidgets('one answer stays transient and the second answer is required '
-      'before the typed handoff', (tester) async {
-    final received = <DetachmentAnswers>[];
-    await pumpProtocol(tester, onAnswers: received.add);
+  testWidgets('the second standing answer reveals the volume block — one '
+      'question, four tag choices, one decline, nothing handed off yet '
+      '(FR-22)', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
 
     await tester.tap(answer(usageYesKey));
     await tester.pump();
-    expect(received, isEmpty);
+    // One answer alone reveals nothing.
+    expect(find.byKey(volumeBlockKey), findsNothing);
 
     await tester.tap(answer(spaceNoKey));
-    await tester.pump();
-    expect(received, [
-      const DetachmentAnswers(
-        usedInLastTwelveMonths: DetachmentAnswer.yes,
-        deservesPhysicalAndMentalSpace: DetachmentAnswer.no,
-      ),
-    ]);
+    await tester.pumpAndSettle();
 
-    // The pair is handed off once, while each selected answer remains
-    // revisable as long as the surface stays open.
-    await tester.tap(answer(usageNoKey));
-    await tester.pump();
-    expect(received, hasLength(1));
-  });
+    expect(find.byKey(volumeBlockKey), findsOneWidget);
+    expect(find.text(volumeQuestion), findsOneWidget);
+    expect(find.text(bolsaLabel), findsOneWidget);
+    expect(find.text(cajaLabel), findsOneWidget);
+    expect(find.text(cajaGrandeLabel), findsOneWidget);
+    expect(find.text(muebleLabel), findsOneWidget);
+    expect(find.text(skipLabel), findsOneWidget);
+    expect(received, isEmpty, reason: 'the reveal hands off nothing');
 
-  testWidgets('answer order is independent and the handoff is one-shot per '
-      'visit', (tester) async {
-    final received = <DetachmentAnswers>[];
-    await pumpProtocol(tester, onAnswers: received.add);
-
-    await tester.tap(answer(spaceNoKey));
-    await tester.pump();
-    expect(received, isEmpty);
-
-    await tester.tap(answer(usageYesKey));
-    await tester.pump();
-    expect(received, [
-      const DetachmentAnswers(
-        usedInLastTwelveMonths: DetachmentAnswer.yes,
-        deservesPhysicalAndMentalSpace: DetachmentAnswer.no,
-      ),
-    ]);
-
+    // Answer order is independent: the block appears whichever answer
+    // lands second — a fresh visit, the first route closed.
+    final orderReceived = <ReceivedVisit>[];
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await pumpProtocol(
+      tester,
+      screenKey: const ValueKey<String>('order'),
+      onVisit: orderReceived.add,
+    );
     await tester.tap(answer(spaceYesKey));
     await tester.pump();
-    expect(received, hasLength(1));
+    expect(find.byKey(volumeBlockKey), findsNothing);
+    await tester.tap(answer(usageNoKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(volumeBlockKey), findsOneWidget);
+    expect(orderReceived, isEmpty);
   });
 
-  testWidgets('all Sí/No combinations map to the correct question fields', (
-    tester,
-  ) async {
+  testWidgets('tag and decline read as equal one-tap outcomes — no '
+      'preselection, no grouping, no confirm step (UX-DR31)', (tester) async {
+    final semanticsHandle = tester.ensureSemantics();
+    await pumpProtocol(tester, onVisit: (_) {});
+    await tester.tap(answer(usageYesKey));
+    await tester.pump();
+    await tester.tap(answer(spaceYesKey));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Semantics>(find.byKey(volumeBlockKey)).properties.label,
+      volumeQuestion,
+    );
+    for (final key in [
+      volumeBolsaKey,
+      volumeCajaKey,
+      volumeCajaGrandeKey,
+      volumeMuebleKey,
+      volumeSkipKey,
+    ]) {
+      final semantics = tester.widget<Semantics>(find.byKey(key));
+      expect(semantics.properties.button, isTrue, reason: '$key');
+      expect(semantics.properties.selected, isFalse, reason: '$key');
+      expect(
+        semantics.properties.inMutuallyExclusiveGroup,
+        isFalse,
+        reason: 'the tap is the act — no selection state exists',
+      );
+    }
+    semanticsHandle.dispose();
+  });
+
+  testWidgets('a tag tap fires the one-shot handoff with the answers and '
+      'the tag, then pops the route', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
+    await tester.tap(answer(usageYesKey));
+    await tester.pump();
+    await tester.tap(answer(spaceNoKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(answer(volumeCajaKey));
+    await tester.pumpAndSettle();
+
+    expect(received, [
+      (
+        answers: const DetachmentAnswers(
+          usedInLastTwelveMonths: DetachmentAnswer.yes,
+          deservesPhysicalAndMentalSpace: DetachmentAnswer.no,
+        ),
+        tag: CoarseVolumeTag.caja,
+      ),
+    ]);
+    // The honest 6.3 intermediate state: the visit ends here.
+    expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('the decline tap fires the same one-shot handoff with a null '
+      'tag — declining writes nothing anywhere', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
+    await tester.tap(answer(usageNoKey));
+    await tester.pump();
+    await tester.tap(answer(spaceNoKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(answer(volumeSkipKey));
+    await tester.pumpAndSettle();
+
+    expect(received, [
+      (
+        answers: const DetachmentAnswers(
+          usedInLastTwelveMonths: DetachmentAnswer.no,
+          deservesPhysicalAndMentalSpace: DetachmentAnswer.no,
+        ),
+        tag: null,
+      ),
+    ]);
+    expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+  });
+
+  testWidgets('the answers stay revisable while the block is visible, and '
+      'the handoff carries them as they stand at the tap', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
+    await tester.tap(answer(usageYesKey));
+    await tester.pump();
+    await tester.tap(answer(spaceNoKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(volumeBlockKey), findsOneWidget);
+
+    // A revision after the reveal: the block stays visible (both
+    // answers still stand) and nothing fires.
+    await tester.tap(answer(spaceYesKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(volumeBlockKey), findsOneWidget);
+    expect(received, isEmpty);
+
+    await tester.tap(answer(volumeBolsaKey));
+    await tester.pumpAndSettle();
+    expect(received, [
+      (
+        answers: const DetachmentAnswers(
+          usedInLastTwelveMonths: DetachmentAnswer.yes,
+          deservesPhysicalAndMentalSpace: DetachmentAnswer.yes,
+        ),
+        tag: CoarseVolumeTag.bolsa,
+      ),
+    ]);
+  });
+
+  testWidgets('all Sí/No combinations map to the correct question fields at '
+      'the handoff, each with the tapped tag', (tester) async {
     const cases = [
       (used: DetachmentAnswer.yes, space: DetachmentAnswer.yes),
       (used: DetachmentAnswer.yes, space: DetachmentAnswer.no),
@@ -166,11 +316,11 @@ void main() {
     ];
 
     for (var index = 0; index < cases.length; index++) {
-      final received = <DetachmentAnswers>[];
+      final received = <ReceivedVisit>[];
       await pumpProtocol(
         tester,
         screenKey: ValueKey<String>('answer-case-$index'),
-        onAnswers: received.add,
+        onVisit: received.add,
       );
       final values = cases[index];
       await tester.tap(
@@ -180,81 +330,116 @@ void main() {
       await tester.tap(
         answer(values.space == DetachmentAnswer.yes ? spaceYesKey : spaceNoKey),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(answer(volumeMuebleKey));
+      await tester.pumpAndSettle();
 
       expect(received, [
-        DetachmentAnswers(
-          usedInLastTwelveMonths: values.used,
-          deservesPhysicalAndMentalSpace: values.space,
+        (
+          answers: DetachmentAnswers(
+            usedInLastTwelveMonths: values.used,
+            deservesPhysicalAndMentalSpace: values.space,
+          ),
+          tag: CoarseVolumeTag.mueble,
         ),
       ]);
     }
   });
 
-  testWidgets('system back discards the partial pair before a return', (
-    tester,
-  ) async {
-    final received = <DetachmentAnswers>[];
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: OrganizerTheme.light(),
-        localizationsDelegates: AppStrings.localizationsDelegates,
-        supportedLocales: AppStrings.supportedLocales,
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        DeclutteringProtocolScreen(onAnswers: received.add),
-                  ),
-                ),
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets('every coarse tag hands off as itself — the four the enum '
+      'names, one row each', (tester) async {
+    const tags = [
+      (key: volumeBolsaKey, tag: CoarseVolumeTag.bolsa),
+      (key: volumeCajaKey, tag: CoarseVolumeTag.caja),
+      (key: volumeCajaGrandeKey, tag: CoarseVolumeTag.caja_grande),
+      (key: volumeMuebleKey, tag: CoarseVolumeTag.mueble),
+    ];
 
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    for (var index = 0; index < tags.length; index++) {
+      final received = <ReceivedVisit>[];
+      await pumpProtocol(
+        tester,
+        screenKey: ValueKey<String>('tag-case-$index'),
+        onVisit: received.add,
+      );
+      await tester.tap(answer(usageYesKey));
+      await tester.pump();
+      await tester.tap(answer(spaceYesKey));
+      await tester.pumpAndSettle();
+      await tester.tap(answer(tags[index].key));
+      await tester.pumpAndSettle();
+
+      expect(received.single.tag, tags[index].tag);
+    }
+  });
+
+  testWidgets('system back from the volume block discards the transient '
+      'answers and the visibility — no event, re-opening starts '
+      'unanswered', (tester) async {
+    final received = <ReceivedVisit>[];
+    await pumpProtocol(tester, onVisit: received.add);
     await tester.tap(answer(usageYesKey));
     await tester.pump();
-    expect(received, isEmpty);
+    await tester.tap(answer(spaceNoKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(volumeBlockKey), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+    expect(received, isEmpty);
 
+    // A fresh visit starts from nothing: unanswered questions, no
+    // block, nothing standing from the discarded visit.
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    final semanticsHandle = tester.ensureSemantics();
+    for (final key in [usageYesKey, spaceYesKey]) {
+      expect(
+        tester.widget<Semantics>(find.byKey(key)).properties.selected,
+        isFalse,
+      );
+    }
+    semanticsHandle.dispose();
+    expect(find.byKey(volumeBlockKey), findsNothing);
+
+    // And one answer from the discarded visit cannot satisfy the new
+    // one's block rule alone.
     await tester.tap(answer(spaceNoKey));
     await tester.pump();
+    expect(find.byKey(volumeBlockKey), findsNothing);
     expect(
       received,
       isEmpty,
-      reason: 'the first answer must not survive a route departure',
+      reason: 'no answer may survive a route departure',
     );
   });
 
-  testWidgets('at 200% text scale the question copy wraps, the route scrolls, '
-      'and every answer target remains at least 48dp', (tester) async {
+  testWidgets('at 200% text scale the question copy wraps, the route '
+      'scrolls, and every target — answers, tags and decline — remains at '
+      'least 48dp', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearAllTestValues);
     await tester.binding.setSurfaceSize(const Size(320, 480));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await pumpProtocol(tester, onAnswers: (_) {});
+    await pumpProtocol(tester, onVisit: (_) {});
+    await tester.tap(answer(usageYesKey));
+    await tester.pump();
+    // The second question sits below the fold at 200% — bring it in
+    // before its target can be tapped.
+    await tester.ensureVisible(answer(spaceNoKey));
+    await tester.pumpAndSettle();
+    await tester.tap(answer(spaceNoKey));
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
     final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
     expect(scrollable.position.maxScrollExtent, greaterThan(0));
 
-    for (final question in [usageQuestion, spaceQuestion]) {
+    for (final question in [usageQuestion, spaceQuestion, volumeQuestion]) {
       final questionFinder = find.text(question);
       expect(questionFinder, findsOneWidget);
       expect(tester.getSize(questionFinder).height, greaterThan(48));
@@ -264,9 +449,10 @@ void main() {
       );
     }
 
+    // Four answer targets, four tags and the decline — nine in all.
     final buttons = find.byType(OutlinedButton);
-    expect(buttons, findsNWidgets(4));
-    for (var index = 0; index < 4; index++) {
+    expect(buttons, findsNWidgets(9));
+    for (var index = 0; index < 9; index++) {
       expect(
         tester.getSize(buttons.at(index)).height,
         greaterThanOrEqualTo(Spacing.touchTargetMin),

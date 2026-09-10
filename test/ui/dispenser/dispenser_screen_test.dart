@@ -579,6 +579,8 @@ LogEntryRecord _installOpen() => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 Rect _rect(WidgetTester tester, Finder finder) {
@@ -1260,6 +1262,8 @@ void main() {
             sliceCause: null,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
           (
             id: 'seed-deal',
@@ -1287,6 +1291,8 @@ void main() {
             sliceCause: null,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2870,6 +2876,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     // Three eligible days of declines, each its own closed sitting.
@@ -2977,6 +2985,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     // An eligible decline day: its own closed sitting around the item.
@@ -3095,6 +3105,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
 
       List<LogEntryRecord> decline(int day) => [
@@ -3192,6 +3204,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     // Three eligible days of declines, each its own closed sitting —
@@ -3322,6 +3336,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     List<LogEntryRecord> decline(int day) => [
@@ -3494,6 +3510,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     final gapStore = _RecordingStore()
@@ -3720,6 +3738,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         id: 'seed-epic-activated',
@@ -3740,6 +3760,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         id: 'seed-session-started',
@@ -3760,6 +3782,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         // Story 6.1's world: an activated group's purge closes only
@@ -3784,6 +3808,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         id: 'seed-card-dealt',
@@ -3804,6 +3830,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         id: 'seed-card-done',
@@ -3824,6 +3852,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
       (
         id: 'seed-session-ended',
@@ -3844,6 +3874,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ),
     ];
 
@@ -4018,6 +4050,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4097,6 +4131,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4129,6 +4165,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       ]);
 
@@ -4319,6 +4357,8 @@ void main() {
             sliceCause: null,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ));
         }
         await SessionController(
@@ -4399,6 +4439,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     }
 
@@ -4718,6 +4760,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await SessionController(
         store: store,
@@ -4852,6 +4896,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     }
 
@@ -5399,6 +5445,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -5420,6 +5468,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     }
 
@@ -5568,6 +5618,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));
@@ -5870,6 +5922,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     /// A `setting_changed` {camera_enabled, [value]} row.
@@ -5892,6 +5946,8 @@ void main() {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     );
 
     Finder entryTarget(Finder glyph) =>
@@ -6037,6 +6093,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       offered.entries.add((
         id: 'seed-pocket',
@@ -6063,6 +6121,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       await tester.pumpWidget(_harness(buildController(offered)));
       await tester.pumpAndSettle();
@@ -6351,6 +6411,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       final session = SessionController(
         store: store,
@@ -6443,6 +6505,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       final failing = _FailNextAppendStore(inner);
       final session = SessionController(
@@ -6546,8 +6610,8 @@ void main() {
     });
   });
 
-  group('the purge card and the Decluttering Protocol (Stories 6.1–6.2, '
-      'FR-19/20, UX-DR31)', () {
+  group('the purge card and the Decluttering Protocol (Stories 6.1–6.3, '
+      'FR-19/20/22, UX-DR31)', () {
     /// An activated organizing group's slice — the scan landing's own
     /// shape, one step so the post-purge deal is unambiguous.
     List<PoolFactRecord> epicFacts() => [
@@ -6594,6 +6658,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ))
         ..entries.add((
           id: 'seed-session-started',
@@ -6623,6 +6689,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ))
         ..entries.add((
           id: 'seed-purge-dealt',
@@ -6650,6 +6718,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       return store;
     }
@@ -6663,6 +6733,11 @@ void main() {
     const usageNoKey = ValueKey<String>('decluttering-protocol-usage-no');
     const spaceYesKey = ValueKey<String>('decluttering-protocol-space-yes');
     const spaceNoKey = ValueKey<String>('decluttering-protocol-space-no');
+    const volumeBlockKey = ValueKey<String>('decluttering-protocol-volume');
+    const volumeBolsaKey = ValueKey<String>(
+      'decluttering-protocol-volume-bolsa',
+    );
+    const volumeSkipKey = ValueKey<String>('decluttering-protocol-volume-skip');
 
     Finder protocolAnswer(Key key) => find.descendant(
       of: find.byKey(key),
@@ -6716,8 +6791,9 @@ void main() {
       expect(store.entries, orderedEquals(seededEntries));
     });
 
-    testWidgets('both answers reach the typed seam without completing the '
-        'purge card or closing the protocol', (tester) async {
+    testWidgets('both answers reveal the volume block, and the tag tap '
+        'ends the visit — no card or event row lands anywhere (Story 6.3, '
+        'FR-22)', (tester) async {
       final store = purgeStore();
       final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
@@ -6727,18 +6803,31 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(protocolAnswer(usageYesKey));
       await tester.pump();
+      // One answer alone reveals nothing.
+      expect(find.byKey(volumeBlockKey), findsNothing);
       await tester.tap(protocolAnswer(spaceNoKey));
       await tester.pumpAndSettle();
+      expect(find.byKey(volumeBlockKey), findsOneWidget);
 
-      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      await tester.tap(protocolAnswer(volumeBolsaKey));
+      await tester.pumpAndSettle();
+
+      // The visit ends — the inert 6.3 seam wrote nothing, the purge
+      // card stands behind the popped route exactly as it stood.
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
       expect(
         store.entries.where((entry) => entry.kind.startsWith('card_')),
         hasLength(1),
-        reason: 'the answer handoff writes no card or event row',
+        reason: 'the handoff writes no card or event row',
       );
       expect(
         store.entries.where((entry) => entry.kind == 'card_done'),
         isEmpty,
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'item_triaged'),
+        isEmpty,
+        reason: '6.3 mints no triage row from the shell — 6.4\'s act',
       );
       expect(store.entries, orderedEquals(seededEntries));
     });
@@ -6872,9 +6961,13 @@ void main() {
       expect(store.entries, orderedEquals(seededEntries));
     });
 
-    testWidgets('answers remain revisable after the one-shot handoff and '
-        'still do not complete the purge card', (tester) async {
+    testWidgets('answers remain revisable while the volume block is '
+        'visible, and the decline ends the visit writing nothing — the '
+        'purge card still does not complete (Story 6.3, FR-22)', (
+      tester,
+    ) async {
       final store = purgeStore();
+      final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
       await tester.pumpAndSettle();
 
@@ -6883,17 +6976,26 @@ void main() {
       await tester.tap(protocolAnswer(usageYesKey));
       await tester.pump();
       await tester.tap(protocolAnswer(spaceNoKey));
-      await tester.pump();
-      // The second question has a different answer now; the screen remains
-      // open so the ephemeral choices can be revised.
+      await tester.pumpAndSettle();
+      expect(find.byKey(volumeBlockKey), findsOneWidget);
+
+      // The second question has a different answer now; the block
+      // stays visible and nothing fires — the choices stay revisable
+      // for as long as the visit stands.
       await tester.tap(protocolAnswer(spaceYesKey));
       await tester.pumpAndSettle();
+      expect(find.byKey(volumeBlockKey), findsOneWidget);
 
-      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      // The decline: an equal one-tap outcome that writes nothing.
+      await tester.tap(protocolAnswer(volumeSkipKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
       expect(
         store.entries.where((entry) => entry.kind == 'card_done'),
         isEmpty,
       );
+      expect(store.entries, orderedEquals(seededEntries));
     });
   });
 }

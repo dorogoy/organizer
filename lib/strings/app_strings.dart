@@ -155,6 +155,42 @@ abstract class AppStrings {
   /// **'No'**
   String get answerNo;
 
+  /// Decluttering Protocol, the optional coarse volume block's question (Story 6.3, FR-22) — shown only after both detachment answers stand; implies no obligation, and declining carries no guilt (UX-DR31 anti-shaming register).
+  ///
+  /// In es, this message translates to:
+  /// **'¿Cuánto era?'**
+  String get volumeTagQuestion;
+
+  /// Coarse volume tag choice (Story 6.3, FR-22) — a bag's worth; one-tap equal-weight outcome, no preselection.
+  ///
+  /// In es, this message translates to:
+  /// **'Bolsa'**
+  String get volumeTagBolsa;
+
+  /// Coarse volume tag choice (Story 6.3, FR-22) — a box's worth; one-tap equal-weight outcome, no preselection.
+  ///
+  /// In es, this message translates to:
+  /// **'Caja'**
+  String get volumeTagCaja;
+
+  /// Coarse volume tag choice (Story 6.3, FR-22) — a big box's worth; one-tap equal-weight outcome, no preselection.
+  ///
+  /// In es, this message translates to:
+  /// **'Caja grande'**
+  String get volumeTagCajaGrande;
+
+  /// Coarse volume tag choice (Story 6.3, FR-22) — a piece of furniture's worth; one-tap equal-weight outcome, no preselection.
+  ///
+  /// In es, this message translates to:
+  /// **'Mueble'**
+  String get volumeTagMueble;
+
+  /// The volume block's decline action (Story 6.3, FR-22) — a first-class one-tap outcome equal in weight to every tag, never a dismiss gesture; declining writes nothing.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin etiqueta'**
+  String get volumeTagSkip;
+
   /// Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents.
   ///
   /// In es, this message translates to:
