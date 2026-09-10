@@ -283,6 +283,29 @@ final class Calendar {
     );
   }
 
+  /// The day holding [day] shifted [months] whole months later, in
+  /// [day]'s inherited frame — the period authority's only month
+  /// arithmetic (AD-4): the six-month quarantine follow-up (6.6, FR-21)
+  /// is its one consumer, and no other code may grow a second. Pure
+  /// label arithmetic on `DateTime.utc`: the same day-of-month when
+  /// the target month holds it, otherwise the target month's last day
+  /// (Aug 31 + 6 → Feb 28, Feb 29 in a leap year) — a clamp, never a
+  /// roll-over into the next month. The domain is non-negative
+  /// [months] over [Day] labels derived from real instants (the one
+  /// consumer's shape): a negative total truncates toward zero in
+  /// `total ~/ 12` and lands wrong, so no caller may pass one.
+  Day plusMonths(Day day, int months) {
+    final total = day.year * 12 + (day.month - 1) + months;
+    final year = total ~/ 12;
+    final month = total % 12 + 1;
+    // Day zero of the following month is the target month's last day
+    // — `DateTime.utc` normalizes out-of-range parts, so month 13 and
+    // day 0 both land correctly without a second branch.
+    final lastDay = DateTime.utc(year, month + 1, 0).day;
+    final dayOfMonth = day.day < lastDay ? day.day : lastDay;
+    return _dayOfLabel(year, month, dayOfMonth, day.offsetSeconds);
+  }
+
   Day _dayOfLabel(int year, int month, int day, int offsetSeconds) {
     final civil = DateTime.utc(year, month, day);
     final start = _fourAmLocal(civil, offsetSeconds);

@@ -665,6 +665,12 @@ abstract class AppStrings {
   /// **'Cerrar'**
   String get ambientStripDismiss;
 
+  /// The blind six-month quarantine follow-up (Story 6.6, FR-21, ADR-12): one static date-anchored sentence — it names only the date (hace seis meses) and suggests donation, never the box's contents, their use, or any count; there is no accept path, only the shared ✕.
+  ///
+  /// In es, this message translates to:
+  /// **'Hace seis meses fechaste una caja. Hoy es un buen día para donarla.'**
+  String get quarantineFollowUpCopy;
+
   /// End label of the Sunday self-report's 1–5 numeric scale — zero ambiguity.
   ///
   /// In es, this message translates to:
