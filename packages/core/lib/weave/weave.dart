@@ -5,8 +5,10 @@
 /// whenever a deal needs it.
 ///
 /// `core/weave` is the only code that may emit a deal (AD-20): every
-/// work source — the shipped catalogue and, since Story 3.3, manual
-/// capture pool facts; later rescue steps and purge injection —
+/// work source — the shipped catalogue, manual capture pool facts
+/// (Story 3.3), rescue chains' head steps (Story 4.6), active Epic
+/// Projects' head steps (Story 5.9) and, since Story 6.1, the derived
+/// purge injection —
 /// offers candidates with precedence, and the resolver below is the
 /// single place that turns them into a card. The module stays
 /// deterministic (AD-3): no `Random`, no wall clock, no `dart:io`,
@@ -39,13 +41,20 @@ import 'package:core/weave/session.dart';
 // The per-size duration estimates (FR-27) live in `core/weave/session`
 // beside the walk that charges them to a declared pocket (Story 2.2);
 // re-exported here so the weave's callers keep one import — the names
-// below are this library's public surface, unchanged.
+// below are this library's public surface, unchanged. Since Story 6.1
+// three more of the walk's own inputs ride the same seam: the 🔴
+// ceiling (FR-4), the purge step's estimate and the purge id prefix
+// (FR-19) — `session.dart` may not import its own parent, so anything
+// the fold itself charges lives there and is re-exported here.
 export 'package:core/weave/session.dart'
     show
         estimateSecondsOf,
         focusEstimateSeconds,
         instantEstimateSeconds,
-        maintenanceEstimateSeconds;
+        lowEnergyMaxEstimateSeconds,
+        maintenanceEstimateSeconds,
+        purgeItemIdPrefix,
+        purgeStepEstimateSeconds;
 
 /// A Focus Chunk composes only from this much bag (FR-7): below it the
 /// day composes without the "1", silently — no debt, no mention. The
@@ -53,18 +62,6 @@ export 'package:core/weave/session.dart'
 /// one source of truth; this is the weave's own policy threshold, not
 /// the setting's range.
 const int focusChunkLeastBagMinutes = 10;
-
-/// A 🔴 day admits only work this short (FR-4, Story 2.5): while the
-/// derived energy is low, a candidate is dealt — or composed — only
-/// when its duration estimate stays within this ceiling. The rule is
-/// estimate-based, not size-based, on purpose: today's catalogue makes
-/// it ≡ Instant Habits, but FR-5's rescue steps and Epic 6's purge
-/// steps (each ≤ 60 s) stay eligible on a 🔴 day by construction —
-/// the epic's cross-dependency line — and no second filter needs to
-/// know about them. The ceiling applies to the next deal and the
-/// composed day alike, never to a card in progress (work in progress
-/// is never withdrawn, FR-10's grammar).
-const int lowEnergyMaxEstimateSeconds = 60;
 
 /// The canonical 1-3-5 draw counts (FR-12): one Focus Chunk, three
 /// Micro-maintenance draws, five Instant Habit draws. Scaling drops
@@ -128,11 +125,12 @@ final class Card {
       '${zone?.name ?? '-'}, ${estimateSeconds}s)';
 }
 
-/// Where a candidate stands in AD-20's arbitration. Three members since
-/// Story 4.6 — a live rescue chain's head step (the first
-/// not-yet-answered one) AHEAD of manual captures, which stay ahead of
-/// the shipped catalogue; later sources (purge injection) join as
-/// members, never as flags on these.
+/// Where a candidate stands in AD-20's arbitration. Four members
+/// since Story 6.1 — a live rescue chain's head step (the first
+/// not-yet-answered one) AHEAD of manual captures, which stay ahead
+/// of the derived purge injection, which stands directly above the
+/// active Epic Projects' head steps; the shipped catalogue stays
+/// last. Every source is a member, never a flag on these.
 enum CandidatePrecedence {
   /// A live rescue chain's head step (Story 4.6, FR-5) — ahead of every
   /// other source: the chain is the conversion of a card the user
@@ -142,6 +140,14 @@ enum CandidatePrecedence {
   /// A manual capture's pool fact (Story 3.3, FR-27) — ahead of the
   /// catalogue: the index is the arbitration.
   capture,
+
+  /// A derived purge step (Story 6.1, FR-19, AD-20): one synthetic
+  /// candidate per activated organizing group, standing directly
+  /// above the Epic Projects' own steps — prepended before any
+  /// organization step, behind the user's live commitments (rescue,
+  /// captures). A member sourced like any other, never a weave
+  /// special case: the resolver alone turns it into a deal.
+  purge,
 
   /// An active Epic Project's head step (Story 5.9, FR-11, AD-20) —
   /// behind captures, ahead of the catalogue: a member, never a flag
@@ -432,30 +438,18 @@ List<Candidate> epicCandidates(
   // the fold map's own iteration order, a total order with no ties
   // and no dependence on the clock (a retro-dated row cannot
   // reorder arbitration). The stable id remains only as the
-  // comparator's total backstop.
-  final activationRankByStableId = <String, int>{
-    for (final (rank, id) in facts.epicActivatedInstantByStableId.keys.indexed)
-      id: rank,
-  };
-  groups.sort((a, b) {
-    if (a.servedInstant == null && b.servedInstant != null) {
-      return -1;
-    }
-    if (a.servedInstant != null && b.servedInstant == null) {
-      return 1;
-    }
-    if (a.servedInstant != null &&
-        b.servedInstant != null &&
-        a.servedInstant != b.servedInstant) {
-      return a.servedInstant!.compareTo(b.servedInstant!);
-    }
-    final aActivated = activationRankByStableId[a.stableId]!;
-    final bActivated = activationRankByStableId[b.stableId]!;
-    if (aActivated != bActivated) {
-      return aActivated.compareTo(bActivated);
-    }
-    return a.stableId.compareTo(b.stableId);
-  });
+  // comparator's total backstop. The rank map is hoisted out of the
+  // comparator (Story 6.1's review round): it is per-derivation
+  // state, never per-comparison — the sort rebuilds the comparator
+  // O(n log n) times, and the map builds exactly once.
+  final activationRanks = _activationRanks(facts);
+  groups.sort(
+    (a, b) => _byEpicArbitration(
+      (servedInstant: a.servedInstant, stableId: a.stableId),
+      (servedInstant: b.servedInstant, stableId: b.stableId),
+      activationRanks,
+    ),
+  );
 
   return [
     for (final group in groups)
@@ -468,6 +462,133 @@ List<Candidate> epicCandidates(
         precedence: CandidatePrecedence.epic,
         createdInstantUtcMicros: group.head.instantUtcMicros,
         estimateSeconds: group.head.estimateSeconds,
+      ),
+  ];
+}
+
+/// The activation-order ranks (AD-3, AD-20): the `epic_activated`
+/// APPEND order as a stable-id → rank map — the fold map's own
+/// iteration order, a total order with no ties and no dependence on
+/// the clock. Both Epic derivations read this one fold, so the head
+/// arbitration and the purge arbitration can never disagree on what
+/// "activation order" is.
+Map<String, int> _activationRanks(LogFacts facts) => {
+  for (final (rank, id) in facts.epicActivatedInstantByStableId.keys.indexed)
+    id: rank,
+};
+
+/// AD-20's Epic arbitration, the one comparator both Epic derivations
+/// read (`epicCandidates`' heads and `purgeCandidates`' purges):
+/// least-recently-served first (never-served before any served — the
+/// group's own recorded `card_dealt` instants, never the clock), then
+/// activation order, then the stable id as the total backstop.
+int _byEpicArbitration(
+  ({int? servedInstant, String stableId}) a,
+  ({int? servedInstant, String stableId}) b,
+  Map<String, int> activationRankByStableId,
+) {
+  if (a.servedInstant == null && b.servedInstant != null) {
+    return -1;
+  }
+  if (a.servedInstant != null && b.servedInstant == null) {
+    return 1;
+  }
+  if (a.servedInstant != null &&
+      b.servedInstant != null &&
+      a.servedInstant != b.servedInstant) {
+    return a.servedInstant! < b.servedInstant! ? -1 : 1;
+  }
+  final aActivated = activationRankByStableId[a.stableId]!;
+  final bActivated = activationRankByStableId[b.stableId]!;
+  if (aActivated != bActivated) {
+    return aActivated.compareTo(bActivated);
+  }
+  return a.stableId.compareTo(b.stableId);
+}
+
+/// The derived purge injection as a candidate source (Story 6.1,
+/// FR-19, AD-20, AD-1): for every ACTIVE organizing group — the same
+/// groups of [`_epicStepsByGroupKey`], the same activation fold
+/// `epicCandidates` reads — exactly one synthetic candidate
+/// (`purge:{groupStableId}`, [purgeItemIdPrefix]), offered at
+/// [CandidatePrecedence.purge], directly above the group's own steps
+/// and behind the user's live commitments (rescue, captures). Purge
+/// state is derived, never stored (AD-1): the candidate stands
+/// exactly while the group is activated and NO terminal act
+/// (`card_done` or `card_skipped` — `terminalActNames`, the walk's
+/// own fold over both) names its synthetic id; a skip closes it for
+/// good, exactly as a done does, and no re-deal and no nag exists.
+/// The step's text is authored copy handed in as inert data
+/// ([stepText], the ARB table's `purgeStepText` through the shell —
+/// AD-15; the catalogue's own names arrive the same way), and an
+/// absent [stepText] derives no candidate at all: no authored text,
+/// no authored step — the seam the core tests use to pin the
+/// unprefixed world, and the one a production caller never takes.
+/// The returned list is already in AD-20's Epic arbitration order
+/// (`_byEpicArbitration`, `epicCandidates`' own contract —
+/// least-recently-served, then activation order, then stable id), so
+/// the tiers that read it take the first candidate directly, no
+/// further sort: with two un-purged groups standing, the purges
+/// arbitrate between themselves exactly like Epic material, and each
+/// group's own first dealt step is still its purge.
+List<Candidate> purgeCandidates(
+  List<PoolFact> poolFacts,
+  LogFacts facts,
+  String? stepText,
+) {
+  // Blank authored copy is no authored copy (Story 6.1, FR-19): a
+  // whitespace-only [stepText] derives no candidate either, exactly
+  // as an absent one — blank authored copy must never render as a
+  // task, and the seam below stays the seam for every call path that
+  // hands no copy worth showing.
+  if (stepText == null || stepText.trim().isEmpty) {
+    return const [];
+  }
+  // The composed id rides the group tuple (Story 6.1's review
+  // round): `purge:{stableId}` is composed once, here, and the
+  // return comprehension reads it — the prefix construction lives
+  // in exactly one place, never twice.
+  final groups =
+      <({String stableId, String itemId, Origin origin, int? servedInstant})>[];
+  for (final steps in _epicStepsByGroupKey(poolFacts).values) {
+    final stableId = steps.first.id;
+    if (!facts.epicActivatedInstantByStableId.containsKey(stableId)) {
+      continue; // Dormant: no activation row names this Epic.
+    }
+    final itemId = '$purgeItemIdPrefix$stableId';
+    if (facts.terminalActNames(itemId)) {
+      continue; // Answered or skipped once: closed, never re-offered.
+    }
+    if (steps.every((step) => facts.answeredItemIds.contains(step.id))) {
+      continue; // Completed: all organization steps already answered (Story 6.1 review).
+    }
+    groups.add((
+      stableId: stableId,
+      itemId: itemId,
+      origin: steps.first.origin,
+      servedInstant: facts.lastDealtInstantByItemId[itemId],
+    ));
+  }
+  // The rank map is hoisted out of the comparator, `epicCandidates`'
+  // own rule — per-derivation state, built exactly once.
+  final activationRanks = _activationRanks(facts);
+  groups.sort(
+    (a, b) => _byEpicArbitration(
+      (servedInstant: a.servedInstant, stableId: a.stableId),
+      (servedInstant: b.servedInstant, stableId: b.stableId),
+      activationRanks,
+    ),
+  );
+  return [
+    for (final group in groups)
+      Candidate(
+        itemId: group.itemId,
+        size: sizeOfEstimateSeconds(purgeStepEstimateSeconds),
+        name: stepText,
+        origin: group.origin,
+        zone: null,
+        precedence: CandidatePrecedence.purge,
+        estimateSeconds: purgeStepEstimateSeconds,
       ),
   ];
 }
@@ -695,8 +816,8 @@ Card _cardOf(Candidate candidate) => Card(
   name: candidate.name,
   origin: candidate.origin,
   zone: candidate.zone,
-  // A rescue step's own verbatim estimate; every other source's
-  // taxonomy size default (Story 4.6 — the estimate is the estimate).
+  // A rescue step's or purge candidate's own verbatim estimate; every
+  // other source's taxonomy size default (Story 4.6, Story 6.1).
   estimateSeconds:
       candidate.estimateSeconds ?? estimateSecondsOf(candidate.size),
 );
@@ -741,6 +862,17 @@ Candidate? _chunkCandidateOf(
   );
   if (captureTier.isNotEmpty) {
     return captureTier.first;
+  }
+  // The purge tier (Story 6.1, FR-19): the pending purges, already in
+  // `purgeCandidates`' own Epic-arbitration order — this tier takes
+  // the first directly, ahead of every Epic head, so no organization
+  // step composes while any group's purge stands. A capture kept its
+  // tier above (the user's live material outranks the injection).
+  final purgeTier = focusCandidates.where(
+    (candidate) => candidate.precedence == CandidatePrecedence.purge,
+  );
+  if (purgeTier.isNotEmpty) {
+    return purgeTier.first;
   }
   // The epic tier (Story 5.9): `epicCandidates` already returns its
   // list in AD-20's own arbitration order (least-recently-served,
@@ -803,6 +935,7 @@ typedef _DayPolicy = ({
   LogFacts facts,
   Card? chunk,
   List<Card> rescueHeads,
+  List<Card> purgeHeads,
   List<Card> maintenance,
   List<Card> instantHabits,
   Map<Size, int> dealtOnDay,
@@ -818,6 +951,7 @@ _DayPolicy _resolveDay({
   required EnergyLevel energy,
   required Set<CurationCluster>? activeClusters,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
   bool liftedPocket = false,
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
@@ -844,12 +978,12 @@ _DayPolicy _resolveDay({
   // this line narrows the tiers beneath it). The ceiling reads the
   // card's estimate; today that estimate derives from taxonomy size
   // because the catalogue carries no per-item estimates — so the rule
-  // and today's sizes coincide at the instant tier — and transient
+  // and today's sizes coincide at the instant tier — while transient
   // steps that carry their own estimates (FR-5's rescue, Epic 6's
-  // purge, each ≤ 60 s) meet the same ceiling when their sources
-  // arrive. Captures meet it like anyone (Story 3.3): a focus or
-  // maintenance capture reaches no draw on a 🔴 day, an instant
-  // capture (30 s) stands with the habits.
+  // purge — each ≤ 60 s by contract, Story 6.1 since) meet the same
+  // ceiling through it. Captures meet it like anyone (Story 3.3): a
+  // focus or maintenance capture reaches no draw on a 🔴 day, an
+  // instant capture (30 s) stands with the habits.
   bool lowEnergyAdmits(Candidate candidate) =>
       energy != EnergyLevel.low ||
       (candidate.estimateSeconds ?? estimateSecondsOf(candidate.size)) <=
@@ -871,10 +1005,13 @@ _DayPolicy _resolveDay({
       // chains' head steps first (Story 4.6 — the conversion of a
       // card the user already faced), manual captures behind them
       // (Story 3.3 — done-once retirement already applied at the
-      // source), active Epic Projects behind captures (Story 5.9),
-      // the shipped catalogue behind all three.
+      // source), the derived purge injection behind the captures
+      // (Story 6.1 — prepended before any organization step, behind
+      // the user's live commitments), active Epic Projects behind it
+      // (Story 5.9), the shipped catalogue last.
       ...rescueCandidates(poolFacts, facts.answeredItemIds, dissolvedParents),
       ...captureCandidates(poolFacts, facts.answeredItemIds),
+      ...purgeCandidates(poolFacts, facts, purgeStepText),
       ...epicCandidates(poolFacts, facts, day, supersededParents),
       ...shippedCandidates(catalogue, activeClusters: clusters),
     ])
@@ -891,7 +1028,8 @@ _DayPolicy _resolveDay({
           .where(
             (candidate) =>
                 candidate.size == Size.focus ||
-                candidate.precedence == CandidatePrecedence.epic,
+                candidate.precedence == CandidatePrecedence.epic ||
+                candidate.precedence == CandidatePrecedence.purge,
           )
           .toList(),
       facts,
@@ -945,13 +1083,24 @@ _DayPolicy _resolveDay({
       ))
         _cardOf(candidate),
     ],
+    // The pending purges in the source's own arbitration order
+    // (Story 6.1): the list composition preserves it, so the tier
+    // that reads this takes the head directly — `epicCandidates`'
+    // own contract, `purgeHeads`'s too.
+    purgeHeads: [
+      for (final candidate in candidates.where(
+        (candidate) => candidate.precedence == CandidatePrecedence.purge,
+      ))
+        _cardOf(candidate),
+    ],
     maintenance: _draw(
       candidates
           .where(
             (candidate) =>
                 candidate.size == Size.maintenance &&
                 candidate.precedence != CandidatePrecedence.rescue &&
-                candidate.precedence != CandidatePrecedence.epic,
+                candidate.precedence != CandidatePrecedence.epic &&
+                candidate.precedence != CandidatePrecedence.purge,
           )
           .toList(),
       facts,
@@ -963,7 +1112,8 @@ _DayPolicy _resolveDay({
             (candidate) =>
                 candidate.size == Size.instant &&
                 candidate.precedence != CandidatePrecedence.rescue &&
-                candidate.precedence != CandidatePrecedence.epic,
+                candidate.precedence != CandidatePrecedence.epic &&
+                candidate.precedence != CandidatePrecedence.purge,
           )
           .toList(),
       facts,
@@ -1002,6 +1152,7 @@ DayComposition composeDay({
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -1012,6 +1163,7 @@ DayComposition composeDay({
     energy: energy,
     activeClusters: activeClusters,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
   return DayComposition(
     focus: policy.chunk,
@@ -1057,6 +1209,7 @@ Card? nextDeal({
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -1067,6 +1220,7 @@ Card? nextDeal({
     energy: energy,
     activeClusters: activeClusters,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
   return _guardedTierDealOf(policy, policy.pocketAllows);
 }
@@ -1109,6 +1263,19 @@ Card? _guardedTierDealOf(_DayPolicy policy, bool Function(Card card) allows) {
   if (chunk != null && allows(chunk)) {
     return chunk;
   }
+  // The purge tier (Story 6.1, FR-19): directly above the Epic
+  // material's every door — the chunk pool resolves a pending purge
+  // above every Epic head while the "1" composes, and this tier
+  // holds the same order on the days it does not (a 🔴 day, a bag
+  // under the chunk floor, a slot an earlier answer closed), so the
+  // purge still deals — 60 s passes the pocket filter by construction
+  // — before any organization step. Rescue keeps its tier above, and
+  // a capture kept the chunk's own capture tier: the user's live
+  // commitments outrank the injection, the injected step outranks
+  // the plan.
+  if (policy.purgeHeads.isNotEmpty && allows(policy.purgeHeads[0])) {
+    return policy.purgeHeads[0];
+  }
   if ((policy.dealtOnDay[Size.maintenance] ?? 0) < maintenanceDrawsPerDay &&
       policy.maintenance.isNotEmpty &&
       allows(policy.maintenance[0])) {
@@ -1144,6 +1311,7 @@ bool dealExistsIgnoringPocket({
   EnergyLevel energy = EnergyLevel.full,
   Set<CurationCluster>? activeClusters,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final policy = _resolveDay(
     catalogue: catalogue,
@@ -1154,6 +1322,7 @@ bool dealExistsIgnoringPocket({
     energy: energy,
     activeClusters: activeClusters,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
     liftedPocket: true,
   );
   // The lifted pocket's filter admits every card, so the ladder reads
@@ -1174,7 +1343,26 @@ Card? cardForItem({
   required String itemId,
   required Origin origin,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
+  if (itemId.startsWith(purgeItemIdPrefix)) {
+    // The purge card (Story 6.1): synthetic — no catalogue entry and
+    // no pool fact ever carries the id, so the prefix alone names it
+    // and the card re-materializes from the same constants the
+    // candidate was derived with: a dealt-but-unanswered purge
+    // survives reads exactly as any standing card does. [origin]
+    // stays the row's own carried origin, and an absent
+    // [purgeStepText] renders the empty name — the seam
+    // `purgeCandidates` documents, never a production state.
+    return Card(
+      id: itemId,
+      size: sizeOfEstimateSeconds(purgeStepEstimateSeconds),
+      name: purgeStepText ?? '',
+      origin: origin,
+      zone: null,
+      estimateSeconds: purgeStepEstimateSeconds,
+    );
+  }
   for (final entry in catalogue.entries) {
     if (entry.id == itemId) {
       return Card(

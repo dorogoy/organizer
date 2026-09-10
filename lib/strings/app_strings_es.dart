@@ -35,6 +35,10 @@ class AppStringsEs extends AppStrings {
   String get sampleTask => 'Despeja la mesa del salón';
 
   @override
+  String get purgeStepText =>
+      'Elegir un objeto de la estancia y decidir qué hacer con él';
+
+  @override
   String get zoneZ1 => 'Cocina y despensa';
 
   @override

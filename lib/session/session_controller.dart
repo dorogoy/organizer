@@ -149,6 +149,7 @@ class SessionController with WidgetsBindingObserver {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
         poolFacts: poolFacts,
+        purgeStepText: strings.purgeStepText,
       );
       await _appendAll(contents, now);
     });

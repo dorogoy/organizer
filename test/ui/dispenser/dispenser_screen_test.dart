@@ -48,6 +48,7 @@ import 'package:organizer/session/session_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
+import 'package:organizer/ui/destinations/decluttering_protocol_screen.dart';
 import 'package:organizer/ui/dispenser/ambient_strip.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
@@ -460,6 +461,18 @@ class _QueuedAnswerController extends _QueuedReadController {
 
   @override
   Future<void> skip(DispenserDealt dealt) async {}
+}
+
+class _HeldSkipAnswerController extends _QueuedReadController {
+  _HeldSkipAnswerController(super.reads);
+
+  final Completer<void> skipCompleter = Completer<void>();
+
+  @override
+  Future<void> complete(DispenserDealt dealt) async {}
+
+  @override
+  Future<void> skip(DispenserDealt dealt) => skipCompleter.future;
 }
 
 /// A queued reader whose pause resolves from a held completer: it
@@ -3749,6 +3762,30 @@ void main() {
         enabled: null,
       ),
       (
+        // Story 6.1's world: an activated group's purge closes only
+        // by a terminal act on its synthetic id — the fixture's
+        // mid-plan shape (step 1 answered, step 2 standing) needs the
+        // purge answered too, or the launch deal is the purge card.
+        id: 'seed-purge-done',
+        kind: 'card_done',
+        instantUtcMicros: absenceDay.microsecondsSinceEpoch + 2500000,
+        offsetSeconds: 0,
+        itemId: 'purge:epico-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+      ),
+      (
         id: 'seed-card-dealt',
         kind: 'card_dealt',
         instantUtcMicros: absenceDay.microsecondsSinceEpoch + 3000000,
@@ -3876,6 +3913,7 @@ void main() {
       'app_opened',
       'epic_activated',
       'session_started',
+      'card_done',
       'card_dealt',
       'card_done',
       'session_ended',
@@ -6505,6 +6543,357 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(sentence), findsNothing);
       expect(find.text(strings.energyCheckInQuestion), findsNothing);
+    });
+  });
+
+  group('the purge card and the Decluttering Protocol (Story 6.1, '
+      'FR-19, UX-DR31)', () {
+    /// An activated organizing group's slice — the scan landing's own
+    /// shape, one step so the post-purge deal is unambiguous.
+    List<PoolFactRecord> epicFacts() => [
+      (
+        id: 's1',
+        origin: Origin.cloud,
+        size: Size.maintenance,
+        instantUtcMicros: DateTime.utc(2026, 8, 29, 9).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'El trastero ordenado',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: 180,
+        stepText: 'Recoger las cajas',
+      ),
+    ];
+
+    /// The seeded substrate: the group activated, a sitting open, its
+    /// dealt-but-unanswered card the purge — the launch deal's own
+    /// shape, standing before the first frame reads.
+    _RecordingStore purgeStore() {
+      final store = _RecordingStore(epicFacts())
+        ..entries.add((
+          id: 'seed-epic-activated',
+          kind: 'epic_activated',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            10,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: 's1',
+          itemOrigin: Origin.cloud,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ))
+        ..entries.add((
+          id: 'seed-session-started',
+          kind: 'session_started',
+          // Inside the checkpoint's interval of the fixed clock: an
+          // 11:00 start would put the read past the first crossing,
+          // and the rest offer — correctly — preempts the fresh deal.
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            11,
+            55,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ))
+        ..entries.add((
+          id: 'seed-purge-dealt',
+          kind: 'card_dealt',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            11,
+            55,
+            1,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: '${purgeItemIdPrefix}s1',
+          itemOrigin: Origin.cloud,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+        ));
+      return store;
+    }
+
+    Finder cardHecho() => find.descendant(
+      of: find.byType(TaskCard),
+      matching: find.byType(HechoButton),
+    );
+
+    testWidgets('the purge card renders as an ordinary dispenser card — '
+        'the same furniture, the authored task text, no distinct style '
+        'or announcement anywhere (FR-1)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      // The ordinary anatomy, every piece: the duration chip, the task
+      // in the task role, the full-width Hecho, the unsplit secondary
+      // — and no zone marker (the card carries none).
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(AppStringsEs().purgeStepText), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(TaskCard),
+          matching: find.byType(DurationChip),
+        ),
+        findsOneWidget,
+      );
+      expect(cardHecho(), findsOneWidget);
+      expect(cardSecondaryFinder, findsOneWidget);
+      expect(find.byType(ZoneMarker), findsNothing);
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('the card\'s Hecho opens the Decluttering Protocol — '
+        'and nothing completes yet: no answer row lands before the '
+        'frame\'s own Hecho (UX-DR31, the one entry)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      // The purge card stands behind the route, uncompleted.
+      expect(
+        store.entries.where((entry) => entry.kind.startsWith('card_')),
+        hasLength(1),
+        reason: 'only the seeded deal exists — the push writes nothing',
+      );
+    });
+
+    testWidgets('the frame\'s Hecho completes through the existing path — '
+        'one card_done on the purge id, the route closes, and the '
+        'group\'s first organization step deals next', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DeclutteringProtocolScreen),
+          matching: find.byType(HechoButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The route closed back onto the dispenser.
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      final done = store.entries
+          .where((entry) => entry.kind == 'card_done')
+          .toList();
+      expect(done, hasLength(1));
+      expect(done.single.itemId, '${purgeItemIdPrefix}s1');
+      expect(store.entries.last.kind, 'card_dealt');
+      expect(
+        store.entries.last.itemId,
+        's1',
+        reason: 'the purge closed; the first organization step deals',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text('Recoger las cajas'), findsOneWidget);
+    });
+
+    testWidgets('the secondary tap is the ordinary skip — one '
+        'card_skipped on the purge id closes it, no ask, no surface '
+        '(FR-19\'s no-nagging rule)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardSecondaryFinder);
+      await tester.pumpAndSettle();
+
+      final skipped = store.entries
+          .where((entry) => entry.kind == 'card_skipped')
+          .toList();
+      expect(skipped, hasLength(1));
+      expect(skipped.single.itemId, '${purgeItemIdPrefix}s1');
+      // No rescue activation was asked for — the synthetic id has
+      // nothing to re-slice, and no slice row exists anywhere.
+      expect(
+        store.entries.where((entry) => entry.kind.startsWith('slice_')),
+        isEmpty,
+      );
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.text('Recoger las cajas'), findsOneWidget);
+    });
+
+    testWidgets('a rapid double Hecho pushes exactly one protocol '
+        'route — the isCurrent guard holds on the new entry as on every '
+        'entrance (matrix: rapid tap)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardHecho());
+      await tester.pump();
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+
+      // The second tap lands while the first push is still settling —
+      // the guard must have returned early, not stacked a route.
+      expect(
+        find.byType(DeclutteringProtocolScreen),
+        findsOneWidget,
+        reason: 'one entry, never two — the dealt card is the one door',
+      );
+      // And nothing completed behind the double push.
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+    });
+
+    testWidgets(
+      'Hecho on a purge card cannot open the protocol while a '
+      'skip write is in-flight (the _writeInFlight guard, Story 6.1 review)',
+      (tester) async {
+        final first = Completer<DispenserView>();
+        final second = Completer<DispenserView>();
+        final controller = _HeldSkipAnswerController([first, second]);
+
+        await tester.pumpWidget(_harness(controller));
+        await tester.pump();
+        first.complete(
+          const DispenserDealt(
+            Card(
+              id: 'purge:s1',
+              size: Size.instant,
+              name: 'Elegir un objeto de la estancia',
+              origin: Origin.cloud,
+              zone: null,
+              estimateSeconds: 60,
+            ),
+            purgeStep: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(TaskCard), findsOneWidget);
+
+        await tester.tap(cardSecondaryFinder);
+        await tester.pump();
+
+        await tester.tap(cardHecho());
+        await tester.pump();
+
+        expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+
+        controller.skipCompleter.complete();
+        second.complete(const DispenserClosed());
+        await tester.pumpAndSettle();
+        expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      },
+    );
+
+    testWidgets('the back gesture closes the frame uncompleted — zero '
+        'new log rows beyond the seeded deal, and the purge card still '
+        'standing on the dispenser (UX-DR31: nothing is queued, '
+        'retried or persisted on departure)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      // The system back gesture, the suite's own `handlePopRoute`
+      // idiom (the protocol frame carries no back button — the OS
+      // pop is the whole exit): the pop is the route's own, no
+      // completion path runs on the way out.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      // Zero new rows beyond the seeded deal — no answer, no skip, no
+      // second deal; the departure writes nothing.
+      expect(
+        store.entries.where((entry) => entry.kind.startsWith('card_')),
+        hasLength(1),
+        reason: 'only the seeded deal exists — the pop writes nothing',
+      );
+      // The purge card still standing, dealable and finishable.
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(AppStringsEs().purgeStepText), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
+    testWidgets('a second Hecho landing mid-pop-transition is refused — '
+        'the frame pops once, the dispenser route beneath stands (the '
+        'isCurrent guard, on the exit)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      final frameHecho = find.descendant(
+        of: find.byType(DeclutteringProtocolScreen),
+        matching: find.byType(HechoButton),
+      );
+      // The first frame Hecho pops; the second lands while the pop is
+      // still animating (pump, never settle). Mid-transition the
+      // popped route is `IgnorePointer`-wrapped, so a synthetic tap
+      // would fall through to the dispenser beneath — the button's
+      // own callback is invoked directly instead, exactly the call a
+      // real second tap would deliver were the frame still hittable.
+      // Without the guard this pop would target the dispenser route
+      // beneath and strand the user off the dispenser.
+      await tester.tap(frameHecho);
+      await tester.pump();
+      (tester.widget<HechoButton>(frameHecho).onTap!)();
+      await tester.pumpAndSettle();
+
+      // Exactly one completion, and the dispenser still mounted under
+      // the frame — the second pop never ran.
+      final done = store.entries
+          .where((entry) => entry.kind == 'card_done')
+          .toList();
+      expect(done, hasLength(1));
+      expect(find.byType(TaskCard), findsOneWidget);
     });
   });
 }

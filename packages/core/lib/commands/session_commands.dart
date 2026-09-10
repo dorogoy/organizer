@@ -188,6 +188,7 @@ List<LogEntryContent> sessionStart({
   int? bagMinutes,
   int? pocketMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   if (facts.openSessionStart != null) {
@@ -211,6 +212,7 @@ List<LogEntryContent> sessionStart({
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(startLog),
     energy: deriveLivePoolEnergy(startLog, instantUtcMicros, offsetSeconds),
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
   return [_start(pocketMinutes: pocketMinutes), if (deal != null) _deal(deal)];
 }
@@ -230,6 +232,7 @@ List<LogEntryContent> cardDone({
   required int offsetSeconds,
   int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   return _answered(
     kind: LogKind.cardDone,
@@ -241,6 +244,7 @@ List<LogEntryContent> cardDone({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
 }
 
@@ -258,6 +262,7 @@ List<LogEntryContent> cardSkipped({
   required int offsetSeconds,
   int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   return _answered(
     kind: LogKind.cardSkipped,
@@ -269,6 +274,7 @@ List<LogEntryContent> cardSkipped({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
 }
 
@@ -313,6 +319,7 @@ List<LogEntryContent> sessionExtend({
   required int offsetSeconds,
   int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   if (facts.openSessionStart == null) {
@@ -335,6 +342,7 @@ List<LogEntryContent> sessionExtend({
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(extendLog),
     energy: deriveLivePoolEnergy(extendLog, instantUtcMicros, offsetSeconds),
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
   return [_extend(), if (deal != null) _deal(deal)];
 }
@@ -358,6 +366,7 @@ List<LogEntryContent> sessionDeclare({
   required int offsetSeconds,
   int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   if (pocketMinutes < pocketLeastMinutes || pocketMinutes > pocketMostMinutes) {
     return const [];
@@ -384,6 +393,7 @@ List<LogEntryContent> sessionDeclare({
       bagMinutes: bagMinutes,
       pocketMinutes: pocketMinutes,
       poolFacts: poolFacts,
+      purgeStepText: purgeStepText,
     ),
   ];
 }
@@ -405,6 +415,7 @@ List<LogEntryContent> appOpen({
   required int offsetSeconds,
   int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final open = facts.openSessionStart;
@@ -436,6 +447,7 @@ List<LogEntryContent> appOpen({
       offsetSeconds: offsetSeconds,
       bagMinutes: bagMinutes,
       poolFacts: poolFacts,
+      purgeStepText: purgeStepText,
     ),
   ];
 }
@@ -450,6 +462,7 @@ List<LogEntryContent> _answered({
   required int offsetSeconds,
   required int? bagMinutes,
   List<PoolFact> poolFacts = const [],
+  String? purgeStepText,
 }) {
   final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
   final unanswered = facts.dealtUnanswered;
@@ -489,6 +502,7 @@ List<LogEntryContent> _answered({
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(answeredLog),
     energy: deriveLivePoolEnergy(answeredLog, instantUtcMicros, offsetSeconds),
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
   return [
     (
