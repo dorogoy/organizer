@@ -61,9 +61,18 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// prompt pieces and schema, the Local stub's dart-define key, and
 /// the settings section's unreachable-empty render name —
 /// provider-facing protocol identifiers, never widget copy, on the
-/// same terms).
+/// same terms), plus the Decluttering Protocol's stable automation key ids
+/// (test and accessibility selectors, never rendered copy).
 const Map<String, Set<String>> namedConstantAllowance = {
   'lib/ui/tokens.dart': {'lora', 'lexend', 'shortDateFormat', 'durationFormat'},
+  'lib/ui/destinations/decluttering_protocol_screen.dart': {
+    '_usageQuestionKeyId',
+    '_spaceQuestionKeyId',
+    '_usageYesKeyId',
+    '_usageNoKeyId',
+    '_spaceYesKeyId',
+    '_spaceNoKeyId',
+  },
   'lib/store/substrate.dart': {
     'substrateSchemaFile',
     'recursiveTriggersPragma',
@@ -507,6 +516,9 @@ List<LiteralFinding> _scanNamedConstantsFile(
   final declarationPattern = RegExp(
     r'^\s*(?:static\s+)?const\s+String\s+([A-Za-z_]\w*)\s*=',
   );
+  final wrappedDeclarationPattern = RegExp(
+    r'^\s*(?:static\s+)?const\s+String\s+([A-Za-z_]\w*)\s*=\s*$',
+  );
   for (final span in spans) {
     final lineStart = source.lastIndexOf('\n', span.$1 - 1) + 1;
     final lineEnd = source.indexOf('\n', span.$2);
@@ -521,7 +533,7 @@ List<LiteralFinding> _scanNamedConstantsFile(
       // allowance through it.
       final previousStart = source.lastIndexOf('\n', lineStart - 2) + 1;
       final previous = source.substring(previousStart, lineStart - 1);
-      declaration = declarationPattern.firstMatch(previous);
+      declaration = wrappedDeclarationPattern.firstMatch(previous);
     }
     if (declaration == null || !allowedNames.contains(declaration.group(1))) {
       findings.add(LiteralFinding(file.path, _lineOf(source, span.$1)));

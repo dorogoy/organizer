@@ -187,6 +187,32 @@ final t = '${foo(
         expect(findings.single.file, endsWith('lib/main.dart'));
       },
     );
+
+    test('named automation ids are exempt but visible copy remains banned', () {
+      final temp = _makeTemp('automation_ids');
+      final lib = Directory('${temp.path}/lib')..createSync(recursive: true);
+      Directory('${lib.path}/strings').createSync();
+      for (final name in ['app_strings.dart', 'app_strings_es.dart']) {
+        File('${lib.path}/strings/$name')
+            .writeAsStringSync('$generatedStringsHeader\n');
+      }
+      final destinations = Directory('${lib.path}/ui/destinations')
+        ..createSync(recursive: true);
+      File('${destinations.path}/decluttering_protocol_screen.dart')
+          .writeAsStringSync(
+            "const String _usageQuestionKeyId = "
+            "'decluttering-protocol-usage';\n"
+            "Widget build() => Text('Hecho');\n",
+          );
+
+      final findings = scanLib(lib);
+      expect(findings, hasLength(1));
+      expect(findings.single.line, 2);
+      expect(
+        findings.single.file,
+        endsWith('lib/ui/destinations/decluttering_protocol_screen.dart'),
+      );
+    });
   });
 
   group('the executable', () {

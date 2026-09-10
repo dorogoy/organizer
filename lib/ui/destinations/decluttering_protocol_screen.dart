@@ -13,12 +13,19 @@ import '../tokens.dart';
 /// `Spacing.screenMargin` stays in force below it).
 const double _protocolMaxWidth = 480;
 
-const _usageQuestionKey = ValueKey<String>('decluttering-protocol-usage');
-const _spaceQuestionKey = ValueKey<String>('decluttering-protocol-space');
-const _usageYesKey = ValueKey<String>('decluttering-protocol-usage-yes');
-const _usageNoKey = ValueKey<String>('decluttering-protocol-usage-no');
-const _spaceYesKey = ValueKey<String>('decluttering-protocol-space-yes');
-const _spaceNoKey = ValueKey<String>('decluttering-protocol-space-no');
+const String _usageQuestionKeyId = 'decluttering-protocol-usage';
+const String _spaceQuestionKeyId = 'decluttering-protocol-space';
+const String _usageYesKeyId = 'decluttering-protocol-usage-yes';
+const String _usageNoKeyId = 'decluttering-protocol-usage-no';
+const String _spaceYesKeyId = 'decluttering-protocol-space-yes';
+const String _spaceNoKeyId = 'decluttering-protocol-space-no';
+
+const _usageQuestionKey = ValueKey<String>(_usageQuestionKeyId);
+const _spaceQuestionKey = ValueKey<String>(_spaceQuestionKeyId);
+const _usageYesKey = ValueKey<String>(_usageYesKeyId);
+const _usageNoKey = ValueKey<String>(_usageNoKeyId);
+const _spaceYesKey = ValueKey<String>(_spaceYesKeyId);
+const _spaceNoKey = ValueKey<String>(_spaceNoKeyId);
 
 /// A response to one of the protocol's two mandatory questions.
 enum DetachmentAnswer { yes, no }
