@@ -55,6 +55,26 @@ ItemActEntry _dealt(int micros, String itemId, {String id = 'deal'}) =>
       itemOrigin: Origin.shipped,
     );
 
+BoxCreatedEntry _box(int micros, String id, {int offsetSeconds = 0}) =>
+    BoxCreatedEntry(
+      id: id,
+      instantUtcMicros: micros,
+      offsetSeconds: offsetSeconds,
+    );
+
+TriageEntry _intoBox(
+  int micros,
+  String id,
+  String boxId, {
+  int offsetSeconds = 0,
+}) => TriageEntry(
+  id: id,
+  instantUtcMicros: micros,
+  offsetSeconds: offsetSeconds,
+  destination: TriageDestination.quarantine,
+  boxId: boxId,
+);
+
 void main() {
   // "Now" for every no-`at` read — the 2-5 matrix and the 2-6 rows
   // that sit on the Saturday base clock: Saturday 2026-08-29 12:00 UTC
@@ -1202,6 +1222,214 @@ void main() {
         StripResident.weeklySelfReport,
       );
       // The reads wrote nothing (AD-3).
+      expect(entries, hasLength(3));
+    });
+  });
+
+  group('the blind six-month quarantine follow-up (Story 6.6, FR-21, '
+      'AD-4, AD-21)', () {
+    /// One non-empty box dated [at] — a `box_created` row plus its
+    /// linked `item_triaged(quarantine)` row, the act's own shape.
+    List<LogEntry> sealedBox(
+      String id,
+      int micros, {
+      int offsetSeconds = 0,
+    }) => [
+      _box(micros, 'box-$id', offsetSeconds: offsetSeconds),
+      _intoBox(micros + 1, 'into-$id', 'box-$id', offsetSeconds: offsetSeconds),
+    ];
+
+    test('the due day of a non-empty box — the follow-up holds the '
+        'slot over the report and the check-in, carrying no payload '
+        '(matrix: due day, app opened)', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 10));
+      final state = resolve(entries, utcMicros(2026, 9, 1, 12));
+      expect(state?.resident, StripResident.quarantineFollowUp);
+      // No payload crosses the read→tap boundary (AD-1/AD-21): the
+      // copy is one static date-anchored sentence, and nothing — no
+      // box id, no due date, no contents — rides the state.
+      expect(state?.reportWeekOrdinal, isNull);
+      expect(state?.suggestion, isNull);
+    });
+
+    test('before the due day — not yet: the ordinary walk stands '
+        '(matrix: not yet)', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 10));
+      expect(
+        resolve(entries, utcMicros(2026, 8, 31, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'five months on — the box owes no knock yet',
+      );
+    });
+
+    test('a future quarantine row cannot make an old box non-empty at '
+        'this read instant', () {
+      final entries = [
+        _box(utcMicros(2026, 3, 1, 10), 'box-future'),
+        _intoBox(utcMicros(2026, 9, 1, 13), 'into-future', 'box-future'),
+      ];
+      expect(
+        resolve(entries, utcMicros(2026, 9, 1, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the later quarantine row is not a fact yet',
+      );
+    });
+
+    test('after the due day — never eligible again, whatever the log '
+        'grows: the window is derived-closed, nothing stored (matrix: '
+        'day after due)', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 10));
+      expect(
+        resolve(entries, utcMicros(2026, 9, 2, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the due day passed — no read on any later day can make it '
+            'eligible again for that box, and no dismissal row exists '
+            'to need one',
+      );
+    });
+
+    test('an empty box never knocks — a partial-write artifact is no '
+        'decision (matrix: empty/orphan box due)', () {
+      expect(
+        resolve([
+          _box(utcMicros(2026, 3, 1, 10), 'box-empty'),
+        ], utcMicros(2026, 9, 1, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the 6.5 failed-retry orphan reconstructs honestly '
+            'empty — and knocks about nothing',
+      );
+      // An orphan quarantine row is not a box either: the link names
+      // no minted box, so nothing is due at all.
+      expect(
+        resolve([
+          _intoBox(utcMicros(2026, 3, 1, 11), 'into-orphan', 'no-such-box'),
+        ], utcMicros(2026, 9, 1, 12))?.resident,
+        StripResident.weeklySelfReport,
+      );
+    });
+
+    test('two boxes due the same day — one resident, one knock: the '
+        'surface carries no per-box targeting (matrix: two boxes, same '
+        'due day)', () {
+      final entries = [
+        ...sealedBox('a', utcMicros(2026, 3, 1, 10)),
+        ...sealedBox('b', utcMicros(2026, 3, 1, 18)),
+      ];
+      final state = resolve(entries, utcMicros(2026, 9, 1, 12));
+      expect(state?.resident, StripResident.quarantineFollowUp);
+      expect(state?.suggestion, isNull);
+    });
+
+    test('displaced by the rarer first-run offer, not consumed — '
+        'exclude the offer and the knock surfaces at once (matrix: '
+        'displaced by rarer resident)', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 10));
+      // The fresh-install read (no exclusions): the once-ever offer
+      // holds the slot, and the knock reads displaced, not consumed.
+      final fresh = deriveStrip(
+        entries: entries,
+        instantUtcMicros: utcMicros(2026, 9, 1, 12),
+        offsetSeconds: offset,
+      );
+      expect(fresh?.resident, StripResident.firstRunCuration);
+      final displaced = deriveStrip(
+        entries: entries,
+        instantUtcMicros: utcMicros(2026, 9, 1, 12),
+        offsetSeconds: offset,
+        excludeResidents: const {StripResident.firstRunCuration},
+      );
+      expect(displaced?.resident, StripResident.quarantineFollowUp);
+    });
+
+    test('the exclusion seam — the ✕\'s day marker renders as exactly '
+        'this, and the read writes nothing', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 10));
+      expect(
+        resolve(entries, utcMicros(2026, 9, 1, 12), const {
+          StripResident.quarantineFollowUp,
+        })?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the slot hands to the displaced report in the same read',
+      );
+      expect(entries, hasLength(2));
+    });
+
+    test('a 02:00 box belongs to the previous civil day — its due day '
+        'is that day\'s six-months-later, computed on the 4am-bounded '
+        'Day (matrix: 4am boundary)', () {
+      final entries = sealedBox('a', utcMicros(2026, 3, 1, 2));
+      expect(
+        resolve(entries, utcMicros(2026, 8, 28, 12))?.resident,
+        StripResident.quarantineFollowUp,
+        reason: 'the box\'s own day is 2026-02-28 — due 2026-08-28',
+      );
+      expect(
+        resolve(entries, utcMicros(2026, 9, 1, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the naive same-date-plus-six-months reading is not the '
+            'due day — the 4am-bounded day is',
+      );
+    });
+
+    test('each box row\'s own stored offset scopes its due day (AD-4)', () {
+      // The same instant — 2026-03-01 01:30 UTC — stored twice: at
+      // +00:00 the wall clock reads 01:30 (before 04:00, so its day
+      // is 2026-02-28, due 2026-08-28); at +03:00 the wall reads
+      // 04:30 (past the boundary, so its day is 2026-03-01, due
+      // 2026-09-01). Reading on 2026-09-01, only the traveller\'s
+      // box knocks.
+      final at = utcMicros(2026, 9, 1, 12);
+      expect(
+        resolve(sealedBox('local', utcMicros(2026, 3, 1, 1, 30)), at)?.resident,
+        StripResident.weeklySelfReport,
+      );
+      expect(
+        resolve(
+          sealedBox(
+            'traveller',
+            utcMicros(2026, 3, 1, 1, 30),
+            offsetSeconds: 10800,
+          ),
+          at,
+        )?.resident,
+        StripResident.quarantineFollowUp,
+      );
+    });
+
+    test('the month-end clamp reaches the derivation — Aug 31\'s due '
+        'day is Feb 28, and Feb 29 in a leap year (plusMonths pins, '
+        'lived)', () {
+      expect(
+        resolve(
+          sealedBox('a', utcMicros(2026, 8, 31, 10)),
+          utcMicros(2027, 2, 28, 12),
+        )?.resident,
+        StripResident.quarantineFollowUp,
+        reason: '2026-08-31 + 6 → 2027-02-28 (the clamp)',
+      );
+      expect(
+        resolve(
+          sealedBox('leap', utcMicros(2027, 8, 31, 10)),
+          utcMicros(2028, 2, 29, 12),
+        )?.resident,
+        StripResident.quarantineFollowUp,
+        reason: '2027-08-31 + 6 → 2028-02-29 (the leap clamp)',
+      );
+    });
+
+    test('the derivation is pure — the same log and instants resolve '
+        'twice to the same resident, no state outside the inputs '
+        '(AD-1, the AC)', () {
+      final entries = [
+        ...sealedBox('a', utcMicros(2026, 3, 1, 10)),
+        _opened(utcMicros(2026, 9, 1, 9)),
+      ];
+      final at = utcMicros(2026, 9, 1, 12);
+      expect(resolve(entries, at)?.resident, StripResident.quarantineFollowUp);
+      expect(resolve(entries, at)?.resident, StripResident.quarantineFollowUp);
       expect(entries, hasLength(3));
     });
   });

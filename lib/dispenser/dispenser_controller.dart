@@ -325,6 +325,22 @@ class DispenserController {
   /// derivation decides the new day on its own rows.
   Day? _checkInDismissMarker;
 
+  /// The day whose quarantine follow-up the ✕ dismissed (Story 6.6,
+  /// FR-21, UX-DR22) — shell state, never a row: AD-21's vocabulary
+  /// has no dismissal kind, and FR-21's dismissal has no side effects
+  /// at all. The `_checkInDismissMarker` grammar exactly — the day
+  /// minted at entry from the tap's own instant, no log read, no
+  /// write — because the two markers share the same lifetime shape:
+  /// skip-for-TODAY, and the next day is a different `Day` by
+  /// construction. The difference is what tomorrow owes: the check-in
+  /// re-derives fresh on its own rows, while the follow-up's window
+  /// has closed by derivation alone — the due day passed, so no
+  /// stored fact could bring either back (the day-window shape the
+  /// AC pair demands). A process death after dismissing, inside the
+  /// due day, re-offers once — the exact shape the check-in's marker
+  /// already accepts.
+  Day? _quarantineFollowUpDismissMarker;
+
   /// The report dismissal's opening scope (Story 2.6, FR-4, SM-2):
   /// shell state, never a row — the tap's own domestic day beside that
   /// day's `app_opened` census at the dismissal. A read hides the
@@ -407,14 +423,17 @@ class DispenserController {
     final poolFacts = poolFactsOf(await store.readPoolFacts());
     final facts = walkLog(log, catalogue: catalogue, poolFacts: poolFacts);
     final pocket = facts.openSessionPocketMinutes;
-    // The strip's fact (Stories 2.5–2.6, 5.12, 5.13): the resident
-    // derivation over the same queue-consistent log. Check-in and
-    // report dismissals and the curation offer's consumption are
-    // composed as read-scoped exclusions — the check-in's
-    // skip-for-TODAY day marker, the report's skip-for-THIS-OPENING
-    // (day, opens) marker, the offer's process-lifetime bool. The
-    // suggestion's ✕ is a persisted `suggestion_dismissed` row the
-    // derivation reads. The walk falls through an excluded or
+    // The strip's fact (Stories 2.5–2.6, 5.12, 5.13, 6.6): the
+    // resident derivation over the same queue-consistent log.
+    // Check-in and report dismissals and the curation offer's
+    // consumption are composed as read-scoped exclusions — the
+    // check-in's skip-for-TODAY day marker, the report's
+    // skip-for-THIS-OPENING (day, opens) marker, the offer's
+    // process-lifetime bool, and the quarantine follow-up's own
+    // skip-for-TODAY day marker (Story 6.6, whose day-window
+    // eligibility closes itself on any later day with no marker at
+    // all). The suggestion's ✕ is a persisted `suggestion_dismissed`
+    // row the derivation reads. The walk falls through an excluded or
     // suppressed resident to the next eligible one, which is what
     // makes the handoff deterministic; no later app_opened of the
     // same day can resurrect a dismissed check-in (the day marker),
@@ -422,6 +441,8 @@ class DispenserController {
     final today = _dayOf(now);
     final excludeResidents = <StripResident>{
       if (_checkInDismissMarker == today) StripResident.energyCheckIn,
+      if (_quarantineFollowUpDismissMarker == today)
+        StripResident.quarantineFollowUp,
       if (_curationOfferConsumed) StripResident.firstRunCuration,
     };
     final reportMarker = _reportDismissMarker;
@@ -1106,6 +1127,24 @@ class DispenserController {
     // read exists on this path, because nothing about the dismissal
     // depends on the log.
     _checkInDismissMarker = _dayOf(tapTime ?? nowOf());
+    return read();
+  }
+
+  /// Dismisses the quarantine follow-up (Story 6.6, FR-21, UX-DR22):
+  /// skip-for-the-due-day, and deliberately NOT a write — FR-21's
+  /// dismissal has no side effects, AD-21's vocabulary has no
+  /// dismissal kind, and no tombstone exists under AD-25. The act is
+  /// [dismissCheckIn]'s body verbatim — the day minted at entry from
+  /// the tap's own instant, no log read, no write, and the read's
+  /// `excludeResidents` seam hides the resident for the rest of that
+  /// day — because "never returns for that box" is the derivation's
+  /// own: every later day fails the due-day fold on its own rows, so
+  /// the marker's whole job is today's silence and nothing beyond it.
+  /// No accept path exists anywhere near this resident — the copy's
+  /// donation suggestion is the sentence's whole job, and acting on
+  /// the physical box is the user's.
+  Future<DispenserView> dismissQuarantineFollowUp({DateTime? tapTime}) {
+    _quarantineFollowUpDismissMarker = _dayOf(tapTime ?? nowOf());
     return read();
   }
 

@@ -343,6 +343,14 @@ class AppStringsEs extends AppStrings {
   String get ambientStripDismiss => 'Cerrar';
 
   @override
+  String get quarantineFollowUpCopy =>
+      'Hace seis meses fechaste una caja. Hoy es un buen día para donarla.';
+
+  @override
+  String get dispenserRefreshFailed =>
+      'No se ha podido actualizar ahora mismo.';
+
+  @override
   String get selfReportScaleLow => 'Nada';
 
   @override

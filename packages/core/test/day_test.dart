@@ -472,4 +472,76 @@ void main() {
       }
     });
   });
+
+  group('plusMonths — the period authority\'s only month math (6.6, '
+      'FR-21, AD-4)', () {
+    test('a same-day month lands on the same day-of-month, a full Day '
+        'in the inherited frame', () {
+      final day = calendar.dayOf(utcMicros(2026, 3, 15, 10), 7200);
+      final due = calendar.plusMonths(day, 6);
+      expect(due.label, '2026-09-15');
+      // A full Day, not a label: weekday, frame and the 04:00-local
+      // bounds all derive exactly as dayOf would mint them.
+      expect(due.weekday, DateTime.utc(2026, 9, 15).weekday);
+      expect(due.offsetSeconds, 7200);
+      expect(due.startUtcMicros, utcMicros(2026, 9, 15, 2));
+      expect(due.endUtcMicros, utcMicros(2026, 9, 16, 2));
+    });
+
+    test('a month-end day clamps to the target month\'s last day — '
+        'Aug 31 + 6 is Feb 28, never Mar 3', () {
+      final day = calendar.dayOf(utcMicros(2026, 8, 31, 10), 0);
+      expect(calendar.plusMonths(day, 6).label, '2027-02-28');
+      // The clamp itself: 29, 30 and 31 of a month all land on the
+      // shorter target\'s last day, so every 31st boxes the same due
+      // day six months on.
+      final thirtieth = calendar.dayOf(utcMicros(2026, 8, 30, 10), 0);
+      expect(calendar.plusMonths(thirtieth, 6).label, '2027-02-28');
+    });
+
+    test('a leap February holds the 29th — Aug 31 + 6 is Feb 29 when '
+        'the target year leaps', () {
+      final day = calendar.dayOf(utcMicros(2027, 8, 31, 10), 0);
+      expect(calendar.plusMonths(day, 6).label, '2028-02-29');
+    });
+
+    test('the addition crosses the year boundary in both directions', () {
+      final november = calendar.dayOf(utcMicros(2026, 11, 15, 10), 0);
+      expect(calendar.plusMonths(november, 6).label, '2027-05-15');
+      final january = calendar.dayOf(utcMicros(2027, 1, 15, 10), 0);
+      expect(calendar.plusMonths(january, 6).label, '2027-07-15');
+      expect(calendar.plusMonths(january, -6).label, '2026-07-15');
+    });
+
+    test('negative month arithmetic clamps reverse traversal too', () {
+      final august = calendar.dayOf(utcMicros(2027, 8, 31, 10), 7200);
+      final prior = calendar.plusMonths(august, -6);
+      expect(prior.label, '2027-02-28');
+      expect(prior.offsetSeconds, 7200);
+    });
+
+    test('negative month arithmetic crosses through year zero correctly', () {
+      final january = calendar.dayOf(utcMicros(0, 1, 1, 10), 0);
+      final prior = calendar.plusMonths(january, -1);
+      expect(prior.year, -1);
+      expect(prior.month, 12);
+      expect(prior.day, 1);
+    });
+
+    test('a June-sealed box lands in December — the clamp asks for '
+        'day zero of month 13, the normalization\'s other out-of-range '
+        'branch (6.6\'s own matrix row)', () {
+      // June + 6 is the one consumer\'s second half: the target month
+      // is December, so `DateTime.utc(year, month + 1, 0)` sees
+      // month 13 and must normalize to December 31 before the clamp
+      // reads it — the branch the May and July pins never execute.
+      final june = calendar.dayOf(utcMicros(2026, 6, 30, 10), 0);
+      expect(calendar.plusMonths(june, 6).label, '2026-12-30');
+    });
+
+    test('zero months is the identity', () {
+      final day = calendar.dayOf(utcMicros(2026, 8, 29, 2, 59), 0);
+      expect(calendar.plusMonths(day, 0), day);
+    });
+  });
 }

@@ -912,6 +912,7 @@ class _DispenserScreenState extends State<DispenserScreen>
       onDismissCuration: _onDismissCurationOffer,
       onAcceptSuggestion: _onAcceptSeasonalSuggestion,
       onDismissSuggestion: _onDismissSeasonalSuggestion,
+      onDismissQuarantineFollowUp: _onDismissQuarantineFollowUp,
       child: CompletionAck(
         visible: _completionAckVisible,
         child: switch (view) {
@@ -936,60 +937,105 @@ class _DispenserScreenState extends State<DispenserScreen>
     return WarmReturnGreeting(visible: view.warmReturnDue, child: content);
   }
 
-  /// One tap on a battery mark (Story 2.5, FR-4): `_onDeclarePocket`'s
-  /// mechanics over the controller's setEnergy path — exactly one
-  /// `energy_set` row, never a bundled deal — and the committed view
-  /// *is* the answer: on baja the next deal narrows to instant-tier
-  /// while a card in progress stays finishable; on media and llena the
-  /// pool is unchanged; either way the strip is gone for the day. No
-  /// haptic, no feedback of any kind — the quieter day is the answer.
-  /// The same in-flight guard keeps the answer from interleaving with
-  /// a `Hecho`, a skip, a declaration, a stop or a continuation at the
-  /// surface; a failed write landed nothing, so the strip still stands
-  /// (the frozen I/O matrix's row): the failure path runs a recovery
-  /// read — the derivation re-resolves the unanswered day and the
-  /// standing surface returns — blanking only if that read fails too.
-  Future<void> _onSetEnergy(EnergyLevel level) async {
+  /// One tap on a battery mark (Story 2.5, FR-4): the strip-act seam
+  /// over the controller's setEnergy path — exactly one `energy_set`
+  /// row, never a bundled deal — and the committed view *is* the
+  /// answer: on baja the next deal narrows to instant-tier while a
+  /// card in progress stays finishable; on media and llena the pool
+  /// is unchanged; either way the strip is gone for the day. No
+  /// haptic, no feedback of any kind — the quieter day is the answer
+  /// — and a failed write lands nothing, so the seam's recovery read
+  /// returns the standing surface with the strip still on it (the
+  /// frozen I/O matrix's row).
+  Future<void> _onSetEnergy(EnergyLevel level) => _stripAct(
+    (tappedAt) => widget.controller.setEnergy(level, tappedAt: tappedAt),
+    recoverOnFailure: true,
+  );
+
+  /// The strip's write-then-read act family's one shared seam (the
+  /// epic-5 F-D2 extraction, landed with Story 6.6): the synchronous
+  /// in-flight guard, the tap's own instant minted before anything
+  /// awaits, the generation bump a stale launch/foreground read
+  /// cannot overwrite the act with, the lifecycle settle, the
+  /// controller call, the commit, and the guard's release after the
+  /// refreshed frame — mechanics every strip resident's tap owed its
+  /// own verbatim copy of since 2.5, now one path. [act] receives the
+  /// minted tap instant (the boundary-crossing guard: the act records
+  /// the tap, never the settle). The one policy the residents differ
+  /// on is the write's failure arm: [recoverOnFailure] — the answer
+  /// paths and the suggestion's two paths, whose writes land rows —
+  /// run a recovery read so the standing surface (strip included)
+  /// returns instead of a blank, blanking only if that read fails
+  /// too; the dismissal paths, which write nothing, take the
+  /// family's original quiet empty frame. The finally clause holds
+  /// either way: the guard survives exactly one refresh frame past
+  /// its commit so the retired surface's stale callbacks cannot act,
+  /// and releases immediately otherwise.
+  Future<void> _stripAct(
+    Future<DispenserView> Function(DateTime tappedAt) act, {
+    bool recoverOnFailure = false,
+    bool keepViewAndNotifyOnFailure = false,
+  }) async {
     if (_writeInFlight) {
       return;
     }
     _writeInFlight = true;
     final tappedAt = widget.controller.nowOf();
-    // A launch or foreground refresh may still be reading the old log. Its
-    // result must not overwrite this answer after it lands.
+    // A launch or foreground refresh may still be reading the old log.
+    // Its result must not overwrite this act after it lands.
     final generation = ++_readGeneration;
     var releaseAfterRefresh = false;
     try {
       await widget.sessionSettled?.call();
-      final view = await widget.controller.setEnergy(level, tappedAt: tappedAt);
-      if (!mounted) {
+      final view = await act(tappedAt);
+      if (!mounted || generation != _readGeneration) {
         return;
       }
       _commitView(view);
-      // The old surface remains in the render tree until this refresh's
-      // frame. Keep the shared guard through it so its stale callbacks
-      // cannot act.
+      // The old surface remains in the render tree until this
+      // refresh's frame. Keep the shared guard through it so its
+      // stale callbacks cannot act.
       releaseAfterRefresh = true;
       _releaseWriteAfterRefreshFrame();
     } catch (_) {
-      // The write failed and landed nothing: the strip stands and the
-      // day is still unanswered — recover with a fresh read rather
-      // than the family's empty frame, so the standing surface (card,
-      // close or offer, strip included) returns instead of a blank.
-      try {
-        final view = await widget.controller.read();
-        // A concurrent refresh superseded this recovery read; its
-        // commit must not overwrite.
-        if (mounted && generation == _readGeneration) {
-          _commitView(view);
+      if (recoverOnFailure) {
+        // The write failed and landed nothing: recover with a fresh
+        // read rather than the family's empty frame, so the standing
+        // surface (card, close or offer, strip included) returns
+        // instead of a blank.
+        try {
+          final view = await widget.controller.read();
+          // A concurrent refresh superseded this recovery read; its
+          // commit must not overwrite.
+          if (mounted && generation == _readGeneration) {
+            _commitView(view);
+          }
+        } catch (_) {
+          // The recovery read failed too: the empty frame is the
+          // remaining quiet story, and a real return to the
+          // foreground re-reads — but only while no concurrent
+          // refresh has committed a newer view: a stale act's
+          // failure must not blank it.
+          if (mounted && generation == _readGeneration) {
+            setState(() => _view = null);
+          }
         }
-      } catch (_) {
-        // The recovery read failed too: the empty frame is the
-        // remaining quiet story, and a real return to the foreground
-        // re-reads.
-        if (mounted) {
-          setState(() => _view = null);
-        }
+      } else if (keepViewAndNotifyOnFailure &&
+          mounted &&
+          generation == _readGeneration) {
+        // A shell-only dismissal did take effect, but its confirming read
+        // failed. Keep the last honest surface instead of making a quiet
+        // blank look like success, and say that the refresh did not finish.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppStrings.of(context).dispenserRefreshFailed),
+          ),
+        );
+      } else if (mounted && generation == _readGeneration) {
+        // A failed read is absorbed by the empty frame, quietly —
+        // unless a concurrent refresh already committed a newer
+        // view, which a stale failed act must not blank.
+        setState(() => _view = null);
       }
     } finally {
       if (!releaseAfterRefresh) {
@@ -1005,99 +1051,23 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// action waits for lifecycle settlement, the stale alternative cannot
   /// turn a dismissal into an answer. A failed read is absorbed by the
   /// empty frame, quietly.
-  Future<void> _onDismissCheckIn() async {
-    if (_writeInFlight) {
-      return;
-    }
-    _writeInFlight = true;
-    final tapTime = widget.controller.nowOf();
-    // A launch or foreground refresh may still be reading the old log.
-    // Its result must not resurrect the strip after this dismissal
-    // commits.
-    _readGeneration++;
-    var releaseAfterRefresh = false;
-    try {
-      await widget.sessionSettled?.call();
-      final view = await widget.controller.dismissCheckIn(tapTime: tapTime);
-      if (mounted) {
-        _commitView(view);
-        releaseAfterRefresh = true;
-        _releaseWriteAfterRefreshFrame();
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _view = null);
-      }
-    } finally {
-      if (!releaseAfterRefresh) {
-        _writeInFlight = false;
-      }
-    }
-  }
+  Future<void> _onDismissCheckIn() => _stripAct(
+    (tapTime) => widget.controller.dismissCheckIn(tapTime: tapTime),
+  );
 
-  /// One tap on a numeral (Story 2.6, SM-2, FR-4): `_onSetEnergy`'s
-  /// mechanics verbatim over the controller's answerReport path —
-  /// exactly one `report_answered` row carrying the asked week, never
-  /// a bundled deal — and the committed view *is* the answer: the
-  /// report is gone for the week and, when the day still owes it, the
-  /// check-in takes the slot in this same opening. No haptic, no
-  /// feedback of any kind. The same in-flight guard keeps the answer
-  /// from interleaving with any other write at the surface; a failed
-  /// write landed nothing, so the report still stands (the frozen I/O
-  /// matrix's row): the failure path runs a recovery read — the
-  /// derivation re-resolves the unanswered week and the standing
-  /// surface returns — blanking only if that read fails too.
-  Future<void> _onAnswerReport(int value) async {
-    if (_writeInFlight) {
-      return;
-    }
-    _writeInFlight = true;
-    final tappedAt = widget.controller.nowOf();
-    // A launch or foreground refresh may still be reading the old log.
-    // Its result must not overwrite this answer after it lands.
-    final generation = ++_readGeneration;
-    var releaseAfterRefresh = false;
-    try {
-      await widget.sessionSettled?.call();
-      final view = await widget.controller.answerReport(
-        value,
-        tappedAt: tappedAt,
-      );
-      if (!mounted) {
-        return;
-      }
-      _commitView(view);
-      // The old surface remains in the render tree until this
-      // refresh's frame. Keep the shared guard through it so its
-      // stale callbacks cannot act.
-      releaseAfterRefresh = true;
-      _releaseWriteAfterRefreshFrame();
-    } catch (_) {
-      // The write failed and landed nothing: the week is still
-      // unanswered — recover with a fresh read rather than the
-      // family's empty frame, so the standing surface (card, close or
-      // offer, report included) returns instead of a blank.
-      try {
-        final view = await widget.controller.read();
-        // A concurrent refresh superseded this recovery read; its
-        // commit must not overwrite.
-        if (mounted && generation == _readGeneration) {
-          _commitView(view);
-        }
-      } catch (_) {
-        // The recovery read failed too: the empty frame is the
-        // remaining quiet story, and a real return to the foreground
-        // re-reads.
-        if (mounted) {
-          setState(() => _view = null);
-        }
-      }
-    } finally {
-      if (!releaseAfterRefresh) {
-        _writeInFlight = false;
-      }
-    }
-  }
+  /// One tap on a numeral (Story 2.6, SM-2, FR-4): the strip-act seam
+  /// over the controller's answerReport path — exactly one
+  /// `report_answered` row carrying the asked week, never a bundled
+  /// deal — and the committed view *is* the answer: the report is
+  /// gone for the week and, when the day still owes it, the check-in
+  /// takes the slot in this same opening. No haptic, no feedback of
+  /// any kind. A failed write landed nothing, so the seam's recovery
+  /// read re-resolves the unanswered week and returns the standing
+  /// surface — report included.
+  Future<void> _onAnswerReport(int value) => _stripAct(
+    (tappedAt) => widget.controller.answerReport(value, tappedAt: tappedAt),
+    recoverOnFailure: true,
+  );
 
   /// The report's ✕ tap (Story 2.6, FR-4, SM-2, UX-DR22):
   /// skip-for-this-opening, and deliberately no write — the dismissal
@@ -1107,122 +1077,52 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// opening the derivation judges first, never styled as anything
   /// owed. It shares the in-flight guard with the numeral answers; a
   /// failed read is absorbed by the empty frame, quietly.
-  Future<void> _onDismissReport() async {
-    if (_writeInFlight) {
-      return;
-    }
-    _writeInFlight = true;
-    final tapTime = widget.controller.nowOf();
-    // A launch or foreground refresh may still be reading the old log.
-    // Its result must not resurrect the report after this dismissal
-    // commits.
-    _readGeneration++;
-    var releaseAfterRefresh = false;
-    try {
-      await widget.sessionSettled?.call();
-      final view = await widget.controller.dismissReport(tapTime: tapTime);
-      if (mounted) {
-        _commitView(view);
-        releaseAfterRefresh = true;
-        _releaseWriteAfterRefreshFrame();
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _view = null);
-      }
-    } finally {
-      if (!releaseAfterRefresh) {
-        _writeInFlight = false;
-      }
-    }
-  }
+  Future<void> _onDismissReport() =>
+      _stripAct((tapTime) => widget.controller.dismissReport(tapTime: tapTime));
 
   /// The suggestion's ✕ tap (Story 5.13, FR-15, UX-DR22): one
   /// `suggestion_dismissed` row naming the project the user was shown
-  /// — the controller's own write path, `_onAnswerReport`'s mechanics
-  /// verbatim (the in-flight guard, the tap's own instant, the
-  /// generation bump a stale refresh read cannot overwrite, the
-  /// recovery read on a failed write) — and the committed view is the
-  /// same read with the displaced instruments holding the freed slot
-  /// (FR-4's deterministic handoff). The project is silent for the
-  /// rest of the season; nothing is styled as anything owed, and no
-  /// other surface, metric or derivation changes on the decline.
-  Future<void> _onDismissSeasonalSuggestion() => _seasonalSuggestionWrite(
+  /// — the controller's own write path, the strip-act seam with its
+  /// recovery arm (nothing landed, the resident stands, the retry is
+  /// the same tap) — and the committed view is the same read with the
+  /// displaced instruments holding the freed slot (FR-4's
+  /// deterministic handoff). The project is silent for the rest of
+  /// the season; nothing is styled as anything owed, and no other
+  /// surface, metric or derivation changes on the decline.
+  Future<void> _onDismissSeasonalSuggestion() => _stripAct(
     (tappedAt) =>
         widget.controller.dismissSeasonalSuggestion(tapTime: tappedAt),
+    recoverOnFailure: true,
   );
 
   /// The suggestion's tap (Story 5.13, FR-15, AD-21): the accept DOES
   /// the thing the sentence proposes — the FR-23 snowball precedent.
   /// One `epic_activated` row through the landing paths' own minter
-  /// (the controller's new pinned call site), the same mechanics, and
-  /// the committed view is the fresh read: the resident is gone by
+  /// (the controller's new pinned call site), the same seam, and the
+  /// committed view is the fresh read: the resident is gone by
   /// derivation (the Epic is no longer dormant) and its head competes
   /// in the weave like any active Epic's. No plan is configured,
   /// shown or stored — the buffered pace 5.10 already derives is the
   /// plan. No push, no confirmation, no feedback of any kind: the
   /// quieter strip is the answer.
-  Future<void> _onAcceptSeasonalSuggestion() => _seasonalSuggestionWrite(
+  Future<void> _onAcceptSeasonalSuggestion() => _stripAct(
     (tappedAt) =>
         widget.controller.acceptSeasonalSuggestion(tappedAt: tappedAt),
+    recoverOnFailure: true,
   );
 
-  /// The suggestion's two one-tap paths' shared mechanics (Story
-  /// 5.13): one write-then-read over the controller's path — the
-  /// in-flight guard, the tap's own instant, the generation bump a
-  /// stale refresh read cannot overwrite, and the recovery read on a
-  /// failed write (nothing landed, the resident stands, the retry is
-  /// the same tap).
-  Future<void> _seasonalSuggestionWrite(
-    Future<DispenserView> Function(DateTime tappedAt) path,
-  ) async {
-    if (_writeInFlight) {
-      return;
-    }
-    _writeInFlight = true;
-    final tappedAt = widget.controller.nowOf();
-    // A launch or foreground refresh may still be reading the old log.
-    // Its result must not overwrite this act after it lands.
-    final generation = ++_readGeneration;
-    var releaseAfterRefresh = false;
-    try {
-      await widget.sessionSettled?.call();
-      final view = await path(tappedAt);
-      if (!mounted) {
-        return;
-      }
-      _commitView(view);
-      // The old surface remains in the render tree until this
-      // refresh's frame. Keep the shared guard through it so its
-      // stale callbacks cannot act.
-      releaseAfterRefresh = true;
-      _releaseWriteAfterRefreshFrame();
-    } catch (_) {
-      // The write failed and landed nothing: the suggestion still
-      // stands — recover with a fresh read rather than the family's
-      // empty frame, so the standing surface (strip included) returns
-      // instead of a blank; blanking only if that read fails too.
-      try {
-        final view = await widget.controller.read();
-        // A concurrent refresh superseded this recovery read; its
-        // commit must not overwrite.
-        if (mounted && generation == _readGeneration) {
-          _commitView(view);
-        }
-      } catch (_) {
-        // The recovery read failed too: the empty frame is the
-        // remaining quiet story, and a real return to the foreground
-        // re-reads.
-        if (mounted) {
-          setState(() => _view = null);
-        }
-      }
-    } finally {
-      if (!releaseAfterRefresh) {
-        _writeInFlight = false;
-      }
-    }
-  }
+  /// The follow-up's ✕ tap (Story 6.6, FR-21, UX-DR22): skip-for-the-
+  /// due-day, and deliberately no write — the dismissal is shell state
+  /// keyed by the day (the check-in's own scope grammar), so the
+  /// committed view is the same read minus the resident, and no later
+  /// day can make it eligible again for that box: the day-window
+  /// derivation closes it on its own rows, nothing stored (AD-21,
+  /// AD-25). It shares the in-flight guard with the strip's other
+  /// paths; a failed read is absorbed by the empty frame, quietly.
+  Future<void> _onDismissQuarantineFollowUp() => _stripAct(
+    (tapTime) => widget.controller.dismissQuarantineFollowUp(tapTime: tapTime),
+    keepViewAndNotifyOnFailure: true,
+  );
 
   /// The offer's ✕ tap (Story 5.12, FR-31, UX-DR22): terminal for the
   /// process, and deliberately no write — the consumption is the

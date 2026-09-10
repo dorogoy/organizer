@@ -5,9 +5,9 @@
 /// `item_triaged` row whose destination is `quarantine` and whose
 /// box link names an already-minted box is that box's content. No
 /// quarantine table exists, no membership column anywhere else, no
-/// stored follow-up date (AD-1): the six-month follow-up (6.6) is a
-/// derivation over these boxes' own instants, and
-/// `StripResident.quarantineFollowUp` stays reserved for it.
+/// stored follow-up date (AD-1): the six-month follow-up (6.6, live)
+/// is a derivation over these boxes' own instants, computed in
+/// `derive/strip.dart` from `instantUtcMicros` and this fold alone.
 ///
 /// The fold is one pass in replay order (AD-3: recorded instant, then
 /// append sequence — the store's own snapshot order), which is the

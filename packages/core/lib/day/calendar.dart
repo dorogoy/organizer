@@ -283,6 +283,31 @@ final class Calendar {
     );
   }
 
+  /// The day holding [day] shifted [months] whole months later, in
+  /// [day]'s inherited frame — the period authority's only month
+  /// arithmetic (AD-4): the six-month quarantine follow-up (6.6, FR-21)
+  /// is its one consumer, and no other code may grow a second. Pure
+  /// label arithmetic on `DateTime.utc`: the same day-of-month when
+  /// the target month holds it, otherwise the target month's last day
+  /// (Aug 31 + 6 → Feb 28, Feb 29 in a leap year) — a clamp, never a
+  /// roll-over into the next month. [months] may be positive, zero, or
+  /// negative: the public period operation supports reverse traversal with
+  /// the same clamp and inherited frame.
+  Day plusMonths(Day day, int months) {
+    final total = day.year * 12 + (day.month - 1) + months;
+    // Dart's `~/` truncates toward zero. Calendar labels also admit
+    // non-positive years, so use floor division and derive the remainder
+    // from it: year 0 January minus one month is year -1 December.
+    final year = total >= 0 ? total ~/ 12 : (total - 11) ~/ 12;
+    final month = total - year * 12 + 1;
+    // Day zero of the following month is the target month's last day
+    // — `DateTime.utc` normalizes out-of-range parts, so month 13 and
+    // day 0 both land correctly without a second branch.
+    final lastDay = DateTime.utc(year, month + 1, 0).day;
+    final dayOfMonth = day.day < lastDay ? day.day : lastDay;
+    return _dayOfLabel(year, month, dayOfMonth, day.offsetSeconds);
+  }
+
   Day _dayOfLabel(int year, int month, int day, int offsetSeconds) {
     final civil = DateTime.utc(year, month, day);
     final start = _fourAmLocal(civil, offsetSeconds);

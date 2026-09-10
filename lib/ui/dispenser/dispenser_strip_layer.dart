@@ -24,11 +24,17 @@
 // writes one `suggestion_dismissed` row naming the shown project
 // (the season's whole rate limit — per-project, and every other
 // derivation unchanged on a decline). Either of its resolutions
-// hands the slot the same way. The strip inherits the
-// short-surface floor —
-// it grows and scrolls at 200%, nothing truncated, every target at or
-// above 48dp — and after it leaves, nothing on this surface displays
-// the level: the narrower deal is the display (AD-4, UX-DR41).
+// hands the slot the same way. The blind six-month quarantine
+// follow-up (Story 6.6, FR-21): `quarantineFollowUpCopy` as one
+// static date-anchored sentence plus the ✕, hairlined chrome (it
+// persists across openings within its due day); there is no accept
+// path — acting on the physical box is the user's — and the ✕ writes
+// nothing at all, the day-window derivation never re-offering it on
+// any later day. The strip inherits the
+// short-surface floor — it grows and scrolls at 200%, nothing
+// truncated, every target at or above 48dp — and after it leaves,
+// nothing on this surface displays the level: the narrower deal is
+// the display (AD-4, UX-DR41).
 //
 import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
@@ -57,6 +63,7 @@ class StripLayer extends StatelessWidget {
     this.onDismissCuration,
     required this.onAcceptSuggestion,
     this.onDismissSuggestion,
+    this.onDismissQuarantineFollowUp,
     required this.child,
   });
 
@@ -104,6 +111,12 @@ class StripLayer extends StatelessWidget {
   /// dismissal handler — one `suggestion_dismissed` row per tap.
   final VoidCallback? onDismissSuggestion;
 
+  /// The quarantine follow-up's ✕ path (Story 6.6, FR-21): the
+  /// screen's dismissal handler, never a write — shell state for the
+  /// due day, and the day-window derivation closes the resident on
+  /// its own tomorrow.
+  final VoidCallback? onDismissQuarantineFollowUp;
+
   final Widget child;
 
   @override
@@ -135,10 +148,16 @@ class StripLayer extends StatelessWidget {
             onAccept: onAcceptSuggestion,
             onDismiss: onDismissSuggestion,
           ),
-          // The two later residents are never eligible in this build —
-          // their stories' data does not exist yet — so the read can
+          // The blind six-month follow-up (Story 6.6, FR-21): the
+          // one static date-anchored sentence plus the ✕ — no accept
+          // path, and the ✕ writes nothing at all.
+          StripResident.quarantineFollowUp => QuarantineFollowUpStrip(
+            onDismiss: onDismissQuarantineFollowUp,
+          ),
+          // The snowball resident is never eligible in this build —
+          // its story's data does not exist yet — so the read can
           // never hand this switch one.
-          StripResident.quarantineFollowUp || StripResident.snowball => child,
+          StripResident.snowball => child,
         },
       ],
     );

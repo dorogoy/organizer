@@ -22,6 +22,7 @@ import 'package:core/pool/pool_fact.dart';
 import 'package:core/weave/weave.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -162,6 +163,18 @@ class _FakeBundle implements AssetBundle {
 
 DateTime _fixedClock() => DateTime.utc(2026, 8, 29, 12);
 
+/// Whether [ancestor] is [node] itself or one of its ancestors —
+/// the bound for a semantics walk that stops at the least ancestor
+/// two nodes share.
+bool _encloses(SemanticsNode ancestor, SemanticsNode node) {
+  for (SemanticsNode? walk = node; walk != null; walk = walk.parent) {
+    if (identical(walk, ancestor)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// An install-day `app_opened` — a row from the day before the fixed
 /// Saturday clock, seeding an ESTABLISHED install (the 5.12
 /// translation the 2.5/2.6 groups take): with an opening on any
@@ -251,6 +264,19 @@ class _QueuedAnswerReportController extends _QueuedReadController {
   @override
   Future<DispenserView> answerReport(int value, {DateTime? tappedAt}) =>
       answer.future;
+}
+
+/// The queued-read shape with a controllable quarantine-follow-up
+/// dismissal: the follow-up ✕'s own path resolves when the test says
+/// so.
+class _QueuedDismissQuarantineFollowUpController extends _QueuedReadController {
+  _QueuedDismissQuarantineFollowUpController(super._reads);
+
+  final dismissal = Completer<DispenserView>();
+
+  @override
+  Future<DispenserView> dismissQuarantineFollowUp({DateTime? tapTime}) =>
+      dismissal.future;
 }
 
 /// A report surface that records the instants the screen hands to its two
@@ -1884,6 +1910,461 @@ void main() {
         findsNothing,
       );
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('the blind six-month quarantine follow-up (Story 6.6, FR-21, '
+      'UX-DR22)', () {
+    DateTime dueDayClock() => DateTime.utc(2026, 9, 1, 12);
+
+    /// The due week a Tuesday 2026-09-01 read judges due (the week
+    /// anchored Monday 2026-08-24), answered — so the freed slot
+    /// reads as null and the follow-up alone owes the strip.
+    LogEntryRecord answeredDueWeek() => (
+      id: 'seed-week-answered',
+      kind: 'report_answered',
+      instantUtcMicros: DateTime.utc(2026, 8, 23, 12).microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: 3,
+      reportWeek: 1390,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
+      triageBoxId: null,
+    );
+
+    /// A `box_created` row — the core suite's `_box` pattern, one
+    /// local shape for the whole group.
+    LogEntryRecord boxRow(String id, DateTime at) => (
+      id: id,
+      kind: 'box_created',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
+      triageBoxId: null,
+    );
+
+    /// The box's linked `item_triaged(quarantine)` row — the same
+    /// pattern with the two triage fields carried.
+    LogEntryRecord intoBoxRow(String id, DateTime at, String boxId) => (
+      id: id,
+      kind: 'item_triaged',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: 'quarantine',
+      triageVolumeTag: null,
+      triageBoxId: boxId,
+    );
+
+    /// One non-empty box dated 2026-03-01 — due exactly the due-day
+    /// clock — as the act's own row pair.
+    List<LogEntryRecord> sealedBoxPair(String id) => [
+      boxRow('box-$id', DateTime.utc(2026, 3, 1, 10)),
+      intoBoxRow('into-$id', DateTime.utc(2026, 3, 1, 10, 0, 1), 'box-$id'),
+    ];
+
+    /// The due-day launch over a caller-owned store — the curation
+    /// group's `launchFreshOver` shape, for the failing-read pin.
+    Future<DispenserController> launchDueDayOver(
+      WidgetTester tester,
+      StorePort store,
+    ) async {
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: dueDayClock,
+      );
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: dueDayClock,
+      );
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    /// The due-day launch: the established install's first opening of
+    /// 2026-09-01 over a box sealed 2026-03-01, the due week answered
+    /// beside it.
+    Future<DispenserController> launchDueDayAndCommit(
+      WidgetTester tester,
+    ) async {
+      final store = _RecordingStore()
+        ..entries.add(_installOpen())
+        ..entries.add(answeredDueWeek())
+        ..entries.addAll(sealedBoxPair('seed'));
+      return launchDueDayOver(tester, store);
+    }
+
+    testWidgets('the due day holds the hairlined follow-up below the '
+        'card: the copy verbatim, no accept path anywhere, the ✕ — and '
+        'reading wrote nothing (FR-21, UX-DR22)', (tester) async {
+      final controller = await launchDueDayAndCommit(tester);
+      final strings = AppStringsEs();
+
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(QuarantineFollowUpStrip), findsOneWidget);
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
+      // Below the card, geometrically.
+      expect(
+        tester.getTopLeft(find.byType(QuarantineFollowUpStrip)).dy,
+        greaterThan(tester.getTopLeft(find.byType(TaskCard)).dy),
+      );
+
+      // The sentence is no button: in the merged semantics tree, no
+      // node from the sentence up to — excluding — the least ancestor
+      // it shares with the ✕ is flagged button or tappable (no accept
+      // path exists — acting on the physical box is the user's), and
+      // tapping it lands nothing. The plain `Text` in Center/
+      // ConstrainedBox owns no explicit `Semantics` widget, so only
+      // this tree-level probe can see an accept path appear.
+      final semanticsHandle = tester.ensureSemantics();
+      final sentence = find.text(strings.quarantineFollowUpCopy);
+      final sentenceNode = tester.getSemantics(sentence);
+      final dismissNode = tester.getSemantics(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      SemanticsNode? shared = sentenceNode;
+      while (shared != null && !_encloses(shared, dismissNode)) {
+        shared = shared.parent;
+      }
+      for (
+        SemanticsNode? node = sentenceNode;
+        node != null && !identical(node, shared);
+        node = node.parent
+      ) {
+        expect(
+          node.getSemanticsData().flagsCollection.isButton,
+          isFalse,
+          reason: 'the copy carries no accept path — only the ✕ acts',
+        );
+        expect(
+          node.getSemanticsData().hasAction(SemanticsAction.tap),
+          isFalse,
+          reason: 'the copy carries no accept path — only the ✕ acts',
+        );
+      }
+      semanticsHandle.dispose();
+      final kindsBefore = storeOf(controller).entries
+          .map((entry) => entry.kind)
+          .toList();
+      await tester.ensureVisible(sentence);
+      await tester.pumpAndSettle();
+      await tester.tap(sentence);
+      await tester.pumpAndSettle();
+      expect(
+        storeOf(controller).entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'tapping the sentence is not an act',
+      );
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
+
+      // The ✕ carries its own label, shared with every resident.
+      expect(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+        findsOneWidget,
+      );
+
+      // The hairline: the resident's own wrapper carries the 1px
+      // outline edge with the default radius — the persistent
+      // resident's rule, the task card's exact precedent.
+      final theme = OrganizerTheme.light();
+      final wrapper = find.descendant(
+        of: find.byType(QuarantineFollowUpStrip),
+        matching: find.byType(Container),
+      );
+      final decoration =
+          tester.widget<Container>(wrapper).decoration! as BoxDecoration;
+      expect(decoration.border!.top.width, 1);
+      expect(decoration.border!.top.color, theme.colorScheme.outline);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(Radii.radiusDefault),
+      );
+
+      // The sentence row holds the 48dp floor, and the ✕ keeps its
+      // 48dp opaque target.
+      final sentenceTarget = find
+          .ancestor(of: sentence, matching: find.byType(ConstrainedBox))
+          .first;
+      final sentenceBox = tester.renderObject<RenderBox>(sentenceTarget);
+      expect(sentenceBox.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.ambientStripDismiss),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('the ✕ writes nothing and the follow-up is gone for the '
+        'rest of the day — the ordinary card standing, nothing owed '
+        '(matrix: dismissal)', (tester) async {
+      final controller = await launchDueDayAndCommit(tester);
+      final store = storeOf(controller);
+      final strings = AppStringsEs();
+
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+      await tester.ensureVisible(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason:
+            'the ✕ appends nothing at all — zero store writes, zero log '
+            'rows (FR-21\'s no-side-effects clause)',
+      );
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+      expect(
+        find.byType(TaskCard),
+        findsOneWidget,
+        reason: 'the ordinary card stands — the day is owed nothing',
+      );
+      // The strip never holds the follow-up again through a
+      // same-process re-read: the marker is skip-for-the-day shell
+      // state, no row exists to resurrect the resident from, and the
+      // displaced check-in takes the freed slot (FR-4's handoff).
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.energyCheckIn,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+    });
+
+    testWidgets('a stale read in flight when the follow-up\'s ✕ lands '
+        'cannot resurrect it — the dismissal\'s generation bump holds', (
+      tester,
+    ) async {
+      final first = Completer<DispenserView>();
+      final second = Completer<DispenserView>();
+      final controller = _QueuedDismissQuarantineFollowUpController([
+        first,
+        second,
+      ]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      // A foreground return queues a second read (the newer
+      // generation); the launch read stays hanging as the stale one.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      second.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
+
+      // The ✕: its handler bumps the generation and resolves through
+      // the controllable dismissal.
+      await tester.ensureVisible(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pump();
+      controller.dismissal.complete(const DispenserDealt(_testCard));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+
+      // The stale launch read completes last, carrying the follow-up —
+      // its generation no longer matches, so it must not commit.
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(strings.quarantineFollowUpCopy),
+        findsNothing,
+        reason:
+            'a read from before the dismissal cannot resurrect the '
+            'follow-up — the generation bump refuses its commit',
+      );
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a newer refresh wins when the follow-up dismissal '
+        'succeeds later', (tester) async {
+      final first = Completer<DispenserView>();
+      final newerRefresh = Completer<DispenserView>();
+      final controller = _QueuedDismissQuarantineFollowUpController([
+        first,
+        newerRefresh,
+      ]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pump();
+
+      // The foreground refresh starts after the tap generation and wins
+      // before the held dismissal resolves.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      newerRefresh.complete(const DispenserClosed());
+      await tester.pumpAndSettle();
+      expect(find.text(strings.poolExhaustedClose), findsOneWidget);
+
+      controller.dismissal.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.poolExhaustedClose), findsOneWidget);
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+    });
+
+    testWidgets('200% font scale: the follow-up sentence and ✕ keep '
+        'their floors without overflow (UX-DR45, NFR6)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await launchDueDayAndCommit(tester);
+      final strings = AppStringsEs();
+      final sentence = find.text(strings.quarantineFollowUpCopy);
+      expect(sentence, findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      final sentenceTarget = find
+          .ancestor(of: sentence, matching: find.byType(ConstrainedBox))
+          .first;
+      final sentenceBox = tester.renderObject<RenderBox>(sentenceTarget);
+      expect(sentenceBox.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.ambientStripDismiss),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failing read under the ✕ keeps the standing surface '
+        'and reports the failed refresh, nothing written — '
+        'and the healed foreground re-read shows the dismissal held '
+        '(matrix: read failure under the dismissal)', (tester) async {
+      final inner = _RecordingStore()
+        ..entries.add(_installOpen())
+        ..entries.add(answeredDueWeek())
+        ..entries.addAll(sealedBoxPair('seed'));
+      final failing = _FailReadWhileArmedStore(inner);
+      await launchDueDayOver(tester, failing);
+      final strings = AppStringsEs();
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
+      final kindsBefore = inner.entries.map((entry) => entry.kind).toList();
+
+      failing.failReads = true;
+      await tester.ensureVisible(
+        find.bySemanticsLabel(strings.ambientStripDismiss),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      // The failed confirmation is visible, not a quiet blank mistaken
+      // for success; the standing surface remains available to recover.
+      expect(find.byType(ErrorWidget), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.dispenserRefreshFailed), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
+      expect(
+        inner.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason: 'the failed dismissal appended nothing at all',
+      );
+
+      // The read heals and a foreground return re-reads: the
+      // dismissal held — the follow-up is gone for the day, the
+      // displaced check-in holds the freed slot, the card stands.
+      failing.failReads = false;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+      expect(find.text(strings.energyCheckInQuestion), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
     });
   });
 }
