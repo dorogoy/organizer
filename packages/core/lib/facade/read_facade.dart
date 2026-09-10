@@ -44,6 +44,7 @@ Future<Card?> nextCard(
   required int instantUtcMicros,
   required int offsetSeconds,
   int? bagMinutes,
+  String? purgeStepText,
 }) async {
   final entries = logEntriesOf(await store.readLogEntries());
   final poolFacts = poolFactsOf(await store.readPoolFacts());
@@ -55,6 +56,7 @@ Future<Card?> nextCard(
       itemId: unanswered.itemId,
       origin: unanswered.itemOrigin,
       poolFacts: poolFacts,
+      purgeStepText: purgeStepText,
     );
   }
   return nextDeal(
@@ -65,5 +67,6 @@ Future<Card?> nextCard(
     bagMinutes: bagMinutes ?? deriveTimeBagMinutes(entries),
     energy: deriveLivePoolEnergy(entries, instantUtcMicros, offsetSeconds),
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
 }

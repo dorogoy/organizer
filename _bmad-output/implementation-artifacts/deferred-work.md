@@ -322,3 +322,15 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 ## Deferred from: code review of 5-13-the-gentle-seasonal-suggestion (2026-09-09)
 
 - `ItemActEntry`'s class documentation still names only `card_dealt` / `card_done` / `card_skipped` / `capture_created` (`packages/core/lib/log/log_entry.dart:229`). Pre-existing: Story 5.9 already rides this shape with `epic_activated` and did not update the list; 5.13's `suggestion_dismissed` is the same omission, not a new contract hole.
+
+## Deferred from: code review of 6-1-purge-comes-first (2026-09-10)
+
+- source_spec: `_bmad-output/implementation-artifacts/6-1-purge-comes-first.md`
+  summary: Make the nullable `purgeStepText` seam `required String?` across the core surface (nextDeal/composeDay/dealExistsIgnoringPocket/cardForItem and the command layer) so a future call site cannot silently disable FR-19's injection by omitting the argument.
+  evidence: Story 6-1 review (blind-hunter + verification-gap): the seam is nullable-with-null-means-disabled on ~11 entry points; the verification-gap reviewer demonstrated that dropping the argument at the shell's declarePocket site would deal an organization step before its purge with `make gate` green. The five shell deal-resolving paths are now pinned by controller tests (including declarePocket and the sub-10-min pocket), which covers today's callers; the `required` sweep is deferred because it mechanically touches every direct core-test call site (~hundreds) for no behavior change.
+- source_spec: `_bmad-output/implementation-artifacts/6-1-purge-comes-first.md`
+  summary: Accessibility and semantics pass on `DeclutteringProtocolScreen` (screen title, heading, semantics labels).
+  evidence: Blind-hunter review for 6.1: `DeclutteringProtocolScreen` uses raw Material+InkWell without route semantics; joins the app-wide semantics/accessibility pass already deferred at `deferred-work.md:300` and the subsequent protocol body stories (6.2–6.4).
+- source_spec: `_bmad-output/implementation-artifacts/6-1-purge-comes-first.md`
+  summary: Stale deal completion handling when a session elapses/closes while a modal surface (such as `DeclutteringProtocolScreen`) stands in the foreground.
+  evidence: Blind-hunter review for 6.1: if a session ends while in the background on a modal route, tapping `Hecho` upon return executes `cardDone`, which returns an empty list while `_onDone` sets `_completionAckWaiting = true`. Pre-existing architecture property shared by all modal surfaces.

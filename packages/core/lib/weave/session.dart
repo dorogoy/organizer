@@ -31,6 +31,47 @@ const int focusEstimateSeconds = 15 * 60;
 const int maintenanceEstimateSeconds = 3 * 60;
 const int instantEstimateSeconds = 30;
 
+/// A 🔴 day admits only work this short (FR-4, Story 2.5): while the
+/// derived energy is low, a candidate is dealt — or composed — only
+/// when its duration estimate stays within this ceiling. The rule is
+/// estimate-based, not size-based, on purpose: today's catalogue makes
+/// it ≡ Instant Habits, but FR-5's rescue steps and Epic 6's purge
+/// steps (each ≤ 60 s) stay eligible on a 🔴 day by construction —
+/// the epic's cross-dependency line — and no second filter needs to
+/// know about them. The ceiling applies to the next deal and the
+/// composed day alike, never to a card in progress (work in progress
+/// is never withdrawn, FR-10's grammar). Lives here since Story 6.1 —
+/// beside the walk — because the purge's own estimate (below) aliases
+/// it and `session.dart` may not import its parent `core/weave`;
+/// re-exported there, this file's seam for every constant the fold
+/// itself charges.
+const int lowEnergyMaxEstimateSeconds = 60;
+
+/// A purge step's duration estimate, in seconds (Story 6.1, FR-19):
+/// authored, never negotiated — [lowEnergyMaxEstimateSeconds] exactly,
+/// and by the const alias below, not by a restated `60`: the
+/// by-construction claim (the purge passes the 🔴 day's admission and
+/// any declarable pocket, and no second filter needs a purge
+/// carve-out) is enforced by the compiler, never only by the prose.
+/// The taxonomy size the candidate carries is the one fixed banding's
+/// own output for it (`Size.instant`, `sizeOfEstimateSeconds`'
+/// jurisdiction — shape counting alone; the duration-consuming rules
+/// — this walk's answered-seconds charge first among them — read this
+/// estimate).
+const int purgeStepEstimateSeconds = lowEnergyMaxEstimateSeconds;
+
+/// The synthetic purge candidate's id prefix (Story 6.1, FR-19):
+/// `purge:{groupStableId}` — one purge per activated organizing
+/// group, its id names the group's stable id exactly as the
+/// `epic_activated` row does, and a terminal `card_done` or
+/// `card_skipped` on that id closes it. No pool fact and no
+/// catalogue entry ever carries the prefix, so `cardForItem` and the
+/// shell's discriminator may read it as the one signal it is. Lives
+/// here beside the walk since Story 6.1: the fold itself reads the
+/// prefix when it charges a dealt or answered purge (no stored state
+/// exists to read instead, AD-1).
+const String purgeItemIdPrefix = 'purge:';
+
 /// The duration estimate of one taxonomy size, in seconds.
 int estimateSecondsOf(Size size) => switch (size) {
   Size.focus => focusEstimateSeconds,
@@ -151,6 +192,17 @@ final class LogFacts {
   /// dormant, invisible to every candidate source by construction —
   /// never by a guard.
   final Map<String, int> epicActivatedInstantByStableId;
+
+  /// Whether a terminal act names [itemId] all-time (Story 6.1,
+  /// FR-19): a `card_done` in [answeredItemIds] or a `card_skipped`
+  /// in [skippedDaysByItemId] — the two folds the walk already keeps,
+  /// read as one lookup so the purge derivation's closure cannot drift
+  /// from either. Candidacy's own retirement folds stay
+  /// kind-specific (answered all-time, skipped per-day); this is the
+  /// one place "either answer closes the purge" is stated.
+  bool terminalActNames(String itemId) =>
+      answeredItemIds.contains(itemId) ||
+      skippedDaysByItemId.containsKey(itemId);
 }
 
 /// The domestic day an act at [instantUtcMicros] / [offsetSeconds] is
@@ -284,6 +336,33 @@ LogFacts walkLog(
     bySize[size] = (bySize[size] ?? 0) + 1;
   }
 
+  // The purge-aware sizing resolver (Story 6.1, AD-1): every dealt
+  // card charges, synthetic or not — `sizeByItemId` is built from the
+  // catalogue and the pool facts alone, so it holds no entry for a
+  // `purge:` id, and without this resolver a dealt purge would charge
+  // nothing to its day. The prefix the shell's discriminator reads is
+  // the same one signal here: it resolves to the fixed estimate's own
+  // banding (`Size.instant` — one instant draw slot of its day,
+  // exactly as any dealt card of that size), while every other id
+  // keeps reading the raw map. The focus-slot checks below stay on
+  // the raw map — a purge is never focus-sized, same outcome either
+  // way — so only the two charge sites become purge-aware.
+  Size? dealSizeOf(String itemId) => itemId.startsWith(purgeItemIdPrefix)
+      ? sizeOfEstimateSeconds(purgeStepEstimateSeconds)
+      : sizeByItemId[itemId];
+
+  // The answered-seconds charge of a `card_done` (Story 2.2, FR-8):
+  // a rescue step's own estimate verbatim, anything else its size's
+  // default (Story 4.6) — and, since Story 6.1, a purge its fixed
+  // [purgeStepEstimateSeconds] (60), never the size default the
+  // resolver above would imply (`estimateSecondsOf(Size.instant)` is
+  // 30 and would be wrong): the duration-consuming rules read the
+  // estimate, and the purge's estimate is authored at 60 exactly.
+  int answeredSecondsOf(String itemId, Size size) =>
+      itemId.startsWith(purgeItemIdPrefix)
+      ? purgeStepEstimateSeconds
+      : estimateByItemId[itemId] ?? estimateSecondsOf(size);
+
   Day dayOfOpenOrOwnSession(LogEntry act) => _chargedDayOf(
     calendar,
     openSessionStart,
@@ -364,7 +443,9 @@ LogFacts walkLog(
         } else if (kind == LogKind.cardDealt) {
           lastDealtInstantByItemId[itemId] = entry.instantUtcMicros;
           final chargedDay = dayOfOpenOrOwnSession(entry);
-          chargeDealToDay(chargedDay, sizeByItemId[itemId]);
+          // Purge-aware (Story 6.1): a `purge:` id charges one instant
+          // draw slot of its day through the resolver — never nothing.
+          chargeDealToDay(chargedDay, dealSizeOf(itemId));
           dealtDaysByItemId.putIfAbsent(itemId, () => {}).add(chargedDay);
           if (openSessionStart != null) {
             dealtUnanswered = (itemId: itemId, itemOrigin: itemOrigin);
@@ -399,12 +480,12 @@ LogFacts walkLog(
               }
             }
             if (openSessionStart != null) {
-              final size = sizeByItemId[itemId];
+              // Purge-aware (Story 6.1): a done purge charges its own
+              // 60 s — every dealt card charges to the sitting,
+              // synthetic or not, and through the estimate it carries.
+              final size = dealSizeOf(itemId);
               if (size != null) {
-                // A step's own estimate charges, verbatim; anything
-                // else its size's default (Story 4.6).
-                openSessionAnsweredSeconds +=
-                    estimateByItemId[itemId] ?? estimateSecondsOf(size);
+                openSessionAnsweredSeconds += answeredSecondsOf(itemId, size);
               }
             }
           }

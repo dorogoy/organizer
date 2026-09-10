@@ -124,6 +124,7 @@ final class DispenserDealt extends DispenserView {
     this.pocketMinutes,
     this.rescueStep = false,
     this.autoRescueDue = false,
+    this.purgeStep = false,
     super.stripResident,
     super.reportWeekOrdinal,
     super.seasonalSuggestion,
@@ -148,6 +149,17 @@ final class DispenserDealt extends DispenserView {
   /// never reads it; the auto path fires once per warranted deal and
   /// the activation itself resets the counter.
   final bool autoRescueDue;
+
+  /// Whether the dealt card is a purge step (Story 6.1, FR-19,
+  /// UX-DR31): the derived pre-clean Micro-task of an activated
+  /// organizing group — the shell's ONLY signal for routing. A purge
+  /// card is an ordinary card in every other respect (FR-1): same
+  /// furniture, same styling, no distinct frame or announcement.
+  /// The two control resolutions it carries: its `Hecho` opens the
+  /// Decluttering Protocol — the surface's one and only entry — and
+  /// its secondary tap skips (a synthetic id has nothing to re-slice,
+  /// and a skip closes the purge for good, FR-19's no-nagging rule).
+  final bool purgeStep;
 }
 
 /// `nextCard` returned nothing: the warm close surface, quiet, never an
@@ -455,6 +467,12 @@ class DispenserController {
         strip?.resident == StripResident.seasonalSuggestion;
     _shownSuggestion = suggestionShowing ? strip!.suggestion : null;
     final unanswered = facts.dealtUnanswered;
+    // The purge step's authored text (Story 6.1, FR-19, AD-15): the
+    // ARB table's own copy handed to the core as inert data — the
+    // catalogue names' grammar — on every deal-resolving path this
+    // read owns, so the purge candidate and any standing purge card
+    // render the same authored line.
+    final purgeText = strings.purgeStepText;
     final card = unanswered == null
         ? nextDeal(
             catalogue: catalogue,
@@ -468,12 +486,14 @@ class DispenserController {
               now.timeZoneOffset.inSeconds,
             ),
             poolFacts: poolFacts,
+            purgeStepText: purgeText,
           )
         : cardForItem(
             catalogue: catalogue,
             itemId: unanswered.itemId,
             origin: unanswered.itemOrigin,
             poolFacts: poolFacts,
+            purgeStepText: purgeText,
           );
     if (card == null) {
       // The standing close always wins (UJ-1): a due offer never
@@ -502,6 +522,7 @@ class DispenserController {
                 now.timeZoneOffset.inSeconds,
               ),
               poolFacts: poolFacts,
+              purgeStepText: purgeText,
             ),
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
@@ -533,16 +554,23 @@ class DispenserController {
     // the auto-heuristic's fact — derived here in the same
     // queue-consistent read, never held in memory as truth. A read
     // that proposes a fresh deal (no unanswered card standing) carries
-    // neither: no card stands to convert.
+    // neither: no card stands to convert. A purge step (Story 6.1)
+    // carries no auto-heuristic either — its synthetic id is never a
+    // re-slice candidate, and its refusal counter can never reach the
+    // warrant (its skip is terminal) — while its own discriminator
+    // ([DispenserDealt.purgeStep]) reads the card's id prefix, the
+    // same signal standing and freshly proposed.
     final rescueStep =
         unanswered != null &&
         poolFacts.any(
           (fact) => fact.id == unanswered.itemId && fact.rescueOf != null,
         );
+    final purgeStep = card.id.startsWith(purgeItemIdPrefix);
     final autoRescueDue =
         slicer != null &&
         unanswered != null &&
         !rescueStep &&
+        !purgeStep &&
         rescueWarranted(
           entries: log,
           poolFacts: poolFacts,
@@ -555,6 +583,7 @@ class DispenserController {
       pocketMinutes: pocket,
       rescueStep: rescueStep,
       autoRescueDue: autoRescueDue,
+      purgeStep: purgeStep,
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
       seasonalSuggestion: strip?.suggestion,
@@ -589,6 +618,7 @@ class DispenserController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
         poolFacts: poolFacts,
+        purgeStepText: strings.purgeStepText,
       );
       for (final content in contents) {
         await _appendContent(content, now);
@@ -625,6 +655,7 @@ class DispenserController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
         poolFacts: poolFacts,
+        purgeStepText: strings.purgeStepText,
       );
       for (final content in contents) {
         await _appendContent(content, now);
@@ -731,6 +762,7 @@ class DispenserController {
             offsetSeconds: landingNow.timeZoneOffset.inSeconds,
             bagMinutes: deriveTimeBagMinutes(log),
             poolFacts: poolFacts,
+            purgeStepText: strings.purgeStepText,
           );
           for (var i = 0; i < returned.facts.length; i++) {
             final fact = returned.facts[i];
@@ -831,6 +863,7 @@ class DispenserController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
         poolFacts: poolFacts,
+        purgeStepText: strings.purgeStepText,
       );
       for (final content in contents) {
         await _appendContent(content, now);
@@ -895,6 +928,7 @@ class DispenserController {
         offsetSeconds: now.timeZoneOffset.inSeconds,
         bagMinutes: deriveTimeBagMinutes(log),
         poolFacts: poolFacts,
+        purgeStepText: strings.purgeStepText,
       );
       for (final content in contents) {
         await _appendContent(content, now);
