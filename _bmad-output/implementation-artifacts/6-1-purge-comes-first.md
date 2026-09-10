@@ -108,6 +108,14 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 **Manual checks (if no CLI):**
 - On the emulator: activate a project (genesis or seeded), confirm the dealt card is the purge card with ordinary furniture; `Hecho` opens the protocol frame; completing returns to the dispenser with the project's first step dealt next.
 
+**Manual Verification (emulator pass, 2026-09-10, Android 36 `organizer36`, seeded `man-epic-6-1-a` world):**
+
+- [x] The seeded walk **found a real defect**: `cardDone` accepted `purgeStepText` and dropped it at its `_answered` delegation — a `Hecho` on any card bundled a shipped maintenance draw instead of the pending purge (FR-19 broken on the completion path; skip/declare/extend were threaded). Fixed (one-line forward) + pinned by two `session_commands_test` cases (complete and skip both bundle the purge). The controller tests had missed it because they completed the purge itself, never a non-purge card with a purge pending.
+- [x] After the fix: `Hecho` on the standing shipped card deals `card_dealt(purge:man-epic-6-1-a)` — the card renders ordinary (authored text verbatim, `1 min` chip, unsplit secondary).
+- [x] The purge card's `Hecho` opens the Decluttering Protocol frame: full-screen surfaceBase, no copy of its own, one `Hecho` — the only entry.
+- [x] The frame's `Hecho` appends exactly one `card_done` naming the purge id and returns to the dispenser; the next deal is a maintenance draw (the day's focus slot was already consumed) — no organization step of the group dealt before the purge.
+- [x] Final census: `app_opened, session_started, card_dealt(shipped), epic_activated, app_opened, card_done(shipped), card_dealt(purge:…), card_done(purge:…), card_dealt(shipped)` — no spurious rows.
+
 ## Suggested Review Order
 
 **Purge injection as a candidate source (the core design)**

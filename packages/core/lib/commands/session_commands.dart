@@ -244,6 +244,7 @@ List<LogEntryContent> cardDone({
     offsetSeconds: offsetSeconds,
     bagMinutes: bagMinutes,
     poolFacts: poolFacts,
+    purgeStepText: purgeStepText,
   );
 }
 

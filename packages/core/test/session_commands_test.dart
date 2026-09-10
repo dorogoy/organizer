@@ -970,4 +970,80 @@ void main() {
       expect(walked.openSessionAnsweredSeconds, focusEstimateSeconds);
     });
   });
+
+  group('bundled deals see the purge (Story 6.1, FR-19)', () {
+    PoolFact step(String id, String text, int micros) => PoolFact(
+      id: id,
+      origin: Origin.local,
+      size: Size.maintenance,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      originContext: 'El trastero del fondo',
+      estimateSeconds: 180,
+      stepText: text,
+    );
+
+    ItemActEntry localAct(LogKind kind, int micros, String itemId) =>
+        ItemActEntry(
+          id: 'local-$micros-$itemId',
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          kind: kind,
+          itemId: itemId,
+          itemOrigin: Origin.local,
+        );
+
+    // The world the emulator walk seeded: a session holding a shipped
+    // card, an activated two-step group whose purge stands. Found by
+    // the 6.1 emulator pass: cardDone once accepted purgeStepText and
+    // dropped it at the delegation, so a Hecho bundled organization
+    // material — this group pins both answer kinds against that hole.
+    List<LogEntry> purgeWorld(int start) => [
+      _started(start),
+      _dealt(start + 1000, 'zona-a'),
+      localAct(LogKind.epicActivated, start + 2000, 's1'),
+    ];
+
+    List<PoolFact> purgeFacts(int start) => [
+      step('s1', 'Recoger las cajas del trastero', start - 1000),
+      step('s2', 'Ordenar las cajas del trastero', start - 1000),
+    ];
+
+    test('answering a shipped card bundles the pending purge as the '
+        'next deal — never an organization step of the group', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = cardDone(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: purgeWorld(start),
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+        poolFacts: purgeFacts(start),
+        purgeStepText: 'Elegir un objeto del espacio y decidir sobre él',
+      );
+      expect(contents, hasLength(2));
+      expect(contents[1].kind, LogKind.cardDealt);
+      expect(contents[1].itemId, 'purge:s1');
+      expect(contents[1].itemOrigin, Origin.local);
+    });
+
+    test('skipping a shipped card bundles the pending purge the same '
+        'way — both answer kinds carry the seam', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final contents = cardSkipped(
+        itemId: 'zona-a',
+        origin: Origin.shipped,
+        catalogue: _catalogue,
+        log: purgeWorld(start),
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+        poolFacts: purgeFacts(start),
+        purgeStepText: 'Elegir un objeto del espacio y decidir sobre él',
+      );
+      expect(contents, hasLength(2));
+      expect(contents[1].kind, LogKind.cardDealt);
+      expect(contents[1].itemId, 'purge:s1');
+    });
+  });
 }
