@@ -61,6 +61,10 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 - Given the protocol is left before the handoff, when the purge card is opened again, then no prior answer is restored and the card remains eligible.
 - Given system text is scaled to 200%, when the question surface is rendered, then all copy remains readable by wrapping/scrolling and every answer target is at least 48dp.
 
+### Review Findings
+
+- [x] [Review][Defer] AD-15 runtime string concatenation check bypassed for files with named constant allowances [tool/check_no_literal_strings.dart:605] — deferred, pre-existing
+
 ## Design Notes
 
 The callback is the seam between this story and the later destination flow. The question screen must not fake a destination, silently finish the purge, or persist answers merely to make the current route appear complete. The synthetic purge card has no physical-object payload, so the question copy refers to “este objeto” without attempting to render an object name.
