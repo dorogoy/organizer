@@ -856,6 +856,17 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _triageBoxIdMeta = const VerificationMeta(
+    'triageBoxId',
+  );
+  late final GeneratedColumn<String> triageBoxId = GeneratedColumn<String>(
+    'triage_box_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -878,6 +889,7 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     enabled,
     triageDestination,
     triageVolumeTag,
+    triageBoxId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1040,6 +1052,15 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         ),
       );
     }
+    if (data.containsKey('triage_box_id')) {
+      context.handle(
+        _triageBoxIdMeta,
+        triageBoxId.isAcceptableOrUnknown(
+          data['triage_box_id']!,
+          _triageBoxIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1129,6 +1150,10 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.string,
         data['${effectivePrefix}triage_volume_tag'],
       ),
+      triageBoxId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}triage_box_id'],
+      ),
     );
   }
 
@@ -1162,6 +1187,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final bool? enabled;
   final String? triageDestination;
   final String? triageVolumeTag;
+  final String? triageBoxId;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -1183,6 +1209,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.enabled,
     this.triageDestination,
     this.triageVolumeTag,
+    this.triageBoxId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1238,6 +1265,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || triageVolumeTag != null) {
       map['triage_volume_tag'] = Variable<String>(triageVolumeTag);
+    }
+    if (!nullToAbsent || triageBoxId != null) {
+      map['triage_box_id'] = Variable<String>(triageBoxId);
     }
     return map;
   }
@@ -1296,6 +1326,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       triageVolumeTag: triageVolumeTag == null && nullToAbsent
           ? const Value.absent()
           : Value(triageVolumeTag),
+      triageBoxId: triageBoxId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(triageBoxId),
     );
   }
 
@@ -1327,6 +1360,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
         json['triage_destination'],
       ),
       triageVolumeTag: serializer.fromJson<String?>(json['triage_volume_tag']),
+      triageBoxId: serializer.fromJson<String?>(json['triage_box_id']),
     );
   }
   @override
@@ -1353,6 +1387,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'enabled': serializer.toJson<bool?>(enabled),
       'triage_destination': serializer.toJson<String?>(triageDestination),
       'triage_volume_tag': serializer.toJson<String?>(triageVolumeTag),
+      'triage_box_id': serializer.toJson<String?>(triageBoxId),
     };
   }
 
@@ -1377,6 +1412,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<bool?> enabled = const Value.absent(),
     Value<String?> triageDestination = const Value.absent(),
     Value<String?> triageVolumeTag = const Value.absent(),
+    Value<String?> triageBoxId = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -1404,6 +1440,7 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     triageVolumeTag: triageVolumeTag.present
         ? triageVolumeTag.value
         : this.triageVolumeTag,
+    triageBoxId: triageBoxId.present ? triageBoxId.value : this.triageBoxId,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -1453,6 +1490,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       triageVolumeTag: data.triageVolumeTag.present
           ? data.triageVolumeTag.value
           : this.triageVolumeTag,
+      triageBoxId: data.triageBoxId.present
+          ? data.triageBoxId.value
+          : this.triageBoxId,
     );
   }
 
@@ -1478,13 +1518,14 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('cluster: $cluster, ')
           ..write('enabled: $enabled, ')
           ..write('triageDestination: $triageDestination, ')
-          ..write('triageVolumeTag: $triageVolumeTag')
+          ..write('triageVolumeTag: $triageVolumeTag, ')
+          ..write('triageBoxId: $triageBoxId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     kind,
     instantUtcMicros,
@@ -1505,7 +1546,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     enabled,
     triageDestination,
     triageVolumeTag,
-  );
+    triageBoxId,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1529,7 +1571,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.cluster == this.cluster &&
           other.enabled == this.enabled &&
           other.triageDestination == this.triageDestination &&
-          other.triageVolumeTag == this.triageVolumeTag);
+          other.triageVolumeTag == this.triageVolumeTag &&
+          other.triageBoxId == this.triageBoxId);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1553,6 +1596,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<bool?> enabled;
   final Value<String?> triageDestination;
   final Value<String?> triageVolumeTag;
+  final Value<String?> triageBoxId;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1575,6 +1619,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.enabled = const Value.absent(),
     this.triageDestination = const Value.absent(),
     this.triageVolumeTag = const Value.absent(),
+    this.triageBoxId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1598,6 +1643,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.enabled = const Value.absent(),
     this.triageDestination = const Value.absent(),
     this.triageVolumeTag = const Value.absent(),
+    this.triageBoxId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1624,6 +1670,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<bool>? enabled,
     Expression<String>? triageDestination,
     Expression<String>? triageVolumeTag,
+    Expression<String>? triageBoxId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1647,6 +1694,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (enabled != null) 'enabled': enabled,
       if (triageDestination != null) 'triage_destination': triageDestination,
       if (triageVolumeTag != null) 'triage_volume_tag': triageVolumeTag,
+      if (triageBoxId != null) 'triage_box_id': triageBoxId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1672,6 +1720,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<bool?>? enabled,
     Value<String?>? triageDestination,
     Value<String?>? triageVolumeTag,
+    Value<String?>? triageBoxId,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1695,6 +1744,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       enabled: enabled ?? this.enabled,
       triageDestination: triageDestination ?? this.triageDestination,
       triageVolumeTag: triageVolumeTag ?? this.triageVolumeTag,
+      triageBoxId: triageBoxId ?? this.triageBoxId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1762,6 +1812,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (triageVolumeTag.present) {
       map['triage_volume_tag'] = Variable<String>(triageVolumeTag.value);
     }
+    if (triageBoxId.present) {
+      map['triage_box_id'] = Variable<String>(triageBoxId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1791,6 +1844,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('enabled: $enabled, ')
           ..write('triageDestination: $triageDestination, ')
           ..write('triageVolumeTag: $triageVolumeTag, ')
+          ..write('triageBoxId: $triageBoxId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2179,6 +2233,7 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<bool?> enabled,
   Value<String?> triageDestination,
   Value<String?> triageVolumeTag,
+  Value<String?> triageBoxId,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -2202,6 +2257,7 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<bool?> enabled,
   Value<String?> triageDestination,
   Value<String?> triageVolumeTag,
+  Value<String?> triageBoxId,
   Value<int> rowid,
 });
 
@@ -2311,6 +2367,11 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<String> get triageVolumeTag => $composableBuilder(
     column: $table.triageVolumeTag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get triageBoxId => $composableBuilder(
+    column: $table.triageBoxId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2423,6 +2484,11 @@ class $LogEntriesOrderingComposer
     column: $table.triageVolumeTag,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get triageBoxId => $composableBuilder(
+    column: $table.triageBoxId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -2519,6 +2585,11 @@ class $LogEntriesAnnotationComposer
     column: $table.triageVolumeTag,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get triageBoxId => $composableBuilder(
+    column: $table.triageBoxId,
+    builder: (column) => column,
+  );
 }
 
 class $LogEntriesTableManager
@@ -2569,6 +2640,7 @@ class $LogEntriesTableManager
                 Value<bool?> enabled = const Value.absent(),
                 Value<String?> triageDestination = const Value.absent(),
                 Value<String?> triageVolumeTag = const Value.absent(),
+                Value<String?> triageBoxId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -2591,6 +2663,7 @@ class $LogEntriesTableManager
                 enabled: enabled,
                 triageDestination: triageDestination,
                 triageVolumeTag: triageVolumeTag,
+                triageBoxId: triageBoxId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2615,6 +2688,7 @@ class $LogEntriesTableManager
                 Value<bool?> enabled = const Value.absent(),
                 Value<String?> triageDestination = const Value.absent(),
                 Value<String?> triageVolumeTag = const Value.absent(),
+                Value<String?> triageBoxId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -2637,6 +2711,7 @@ class $LogEntriesTableManager
                 enabled: enabled,
                 triageDestination: triageDestination,
                 triageVolumeTag: triageVolumeTag,
+                triageBoxId: triageBoxId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -14,13 +14,19 @@ import 'package:organizer/ui/glyphs/seed_glyph.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
 
+Future<bool> _landQuarantine() async => true;
+
 void main() {
   const keepLabel = 'Quedármelo';
   const donateLabel = 'Donar o vender';
   const releaseLabel = 'Tirar o soltar';
+  const quarantineLabel = 'Todavía no lo decido';
   const keepRowKey = ValueKey<String>('destination-flow-keep');
   const donateRowKey = ValueKey<String>('destination-flow-donate');
   const releaseRowKey = ValueKey<String>('destination-flow-release');
+  const quarantineAffordanceKey = ValueKey<String>(
+    'destination-flow-quarantine',
+  );
 
   /// Pumps the flow pushed over a host page, the route shape the
   /// dispenser's sink owns — so the flow's own pop lands somewhere
@@ -28,6 +34,7 @@ void main() {
   Future<void> pumpFlow(
     WidgetTester tester, {
     required DestinationTapCallback onDestination,
+    QuarantineTapCallback onQuarantine = _landQuarantine,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -40,8 +47,10 @@ void main() {
               child: TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) =>
-                        DestinationFlowScreen(onDestination: onDestination),
+                    builder: (context) => DestinationFlowScreen(
+                      onDestination: onDestination,
+                      onQuarantine: onQuarantine,
+                    ),
                   ),
                 ),
                 child: const Text('open'),
@@ -61,13 +70,15 @@ void main() {
       '(FR-20, UX-DR27)', (tester) async {
     await pumpFlow(tester, onDestination: (_) async => true);
 
-    // Exactly the three authored labels render — no question, no
-    // object line, no count (AD-26, AD-15: the register holds only
-    // these three strings for this flow).
-    expect(find.byType(Text), findsNWidgets(3));
+    // Exactly the three authored labels plus the one hesitation
+    // affordance render — no question, no object line, no count
+    // (AD-26, AD-15: the register holds only these four strings for
+    // this flow).
+    expect(find.byType(Text), findsNWidgets(4));
     expect(find.text(keepLabel), findsOneWidget);
     expect(find.text(donateLabel), findsOneWidget);
     expect(find.text(releaseLabel), findsOneWidget);
+    expect(find.text(quarantineLabel), findsOneWidget);
 
     // The fixed order: keep, donate, release — top to bottom.
     final keepTop = tester.getTopLeft(find.text(keepLabel)).dy;
@@ -161,6 +172,153 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('the hesitation affordance is distinct from the trio — text '
+      'alone below the rows, no glyph, no destination-label role, its own '
+      'key and a button semantics, not readable as a fourth equal choice '
+      '(Story 6.5, FR-20/21, UX-DR27)', (tester) async {
+    final semanticsHandle = tester.ensureSemantics();
+    await pumpFlow(tester, onDestination: (_) async => true);
+
+    // No glyph rides the affordance: the flow's three glyphs are the
+    // trio's own, one per row, and nothing new exists below them.
+    expect(find.byType(BoxGlyph), findsOneWidget);
+    expect(find.byType(BagGlyph), findsOneWidget);
+    expect(find.byType(SeedGlyph), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(quarantineAffordanceKey),
+        matching: find.byType(BoxGlyph),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(quarantineAffordanceKey),
+        matching: find.byType(BagGlyph),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(quarantineAffordanceKey),
+        matching: find.byType(SeedGlyph),
+      ),
+      findsNothing,
+    );
+
+    // The support role, never the destination-label role: the label
+    // renders in bodySmall, not the trio's titleLarge.
+    final affordance = tester.renderObject<RenderParagraph>(
+      find.text(quarantineLabel),
+    );
+    final row = tester.renderObject<RenderParagraph>(find.text(keepLabel));
+    expect(
+      affordance.text.style?.fontSize,
+      lessThan(row.text.style!.fontSize!),
+    );
+    expect(affordance.text.style?.color, isNot(row.text.style?.color));
+
+    // A plain button like the rows — and no selection state exists on
+    // it either.
+    final semantics = tester.widget<Semantics>(
+      find.byKey(quarantineAffordanceKey),
+    );
+    expect(semantics.properties.button, isTrue);
+    expect(semantics.properties.selected, isNull);
+
+    // Not constructionally a row of the trio: it carries no glyph and
+    // sits below the three at more than the row gap — its own thing.
+    final affordanceTop = tester.getTopLeft(find.text(quarantineLabel)).dy;
+    final releaseTop = tester.getTopLeft(find.text(releaseLabel)).dy;
+    final keepTop = tester.getTopLeft(find.text(keepLabel)).dy;
+    final donateTop = tester.getTopLeft(find.text(donateLabel)).dy;
+    final rowPitch = donateTop - keepTop;
+    expect(affordanceTop, greaterThan(releaseTop + rowPitch));
+    semanticsHandle.dispose();
+  });
+
+  testWidgets('the affordance\'s tap fires its own seam once and pops the '
+      'route on success — the hesitation is a valid outcome, not a fourth '
+      'destination (Story 6.5, FR-21)', (tester) async {
+    var quarantineCalls = 0;
+    var destinationCalls = 0;
+    await pumpFlow(
+      tester,
+      onDestination: (_) async {
+        destinationCalls++;
+        return true;
+      },
+      onQuarantine: () async {
+        quarantineCalls++;
+        return true;
+      },
+    );
+
+    await tester.tap(find.byKey(quarantineAffordanceKey));
+    await tester.pumpAndSettle();
+
+    expect(quarantineCalls, 1);
+    expect(destinationCalls, 0, reason: 'no destination was chosen');
+    // The act landed: the flow pops and hands the surface back.
+    expect(find.byType(DestinationFlowScreen), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('the affordance shares the rows\' one-shot guard — a rapid '
+      'second tap inside one visit is ignored whichever half fired first '
+      '(matrix: tap during write)', (tester) async {
+    var quarantineCalls = 0;
+    var destinationCalls = 0;
+    await pumpFlow(
+      tester,
+      onDestination: (_) async {
+        destinationCalls++;
+        return true;
+      },
+      onQuarantine: () async {
+        quarantineCalls++;
+        return true;
+      },
+    );
+
+    await tester.tap(find.byKey(quarantineAffordanceKey));
+    await tester.pump();
+    await tester.tap(find.byKey(keepRowKey));
+    await tester.pumpAndSettle();
+
+    expect(quarantineCalls, 1);
+    expect(destinationCalls, 0);
+  });
+
+  testWidgets('a failed quarantine write leaves the flow standing, quiet, '
+      'and re-arms the act for an in-place retry (matrix: write failure)', (
+    tester,
+  ) async {
+    var calls = 0;
+    await pumpFlow(
+      tester,
+      onDestination: (_) async => true,
+      onQuarantine: () async {
+        calls++;
+        return false;
+      },
+    );
+
+    await tester.tap(find.byKey(quarantineAffordanceKey));
+    await tester.pumpAndSettle();
+
+    expect(calls, 1);
+    expect(find.byType(DestinationFlowScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Failure keeps the flow standing and re-arms its one act, so a
+    // retry needs neither a back gesture nor another protocol visit.
+    await tester.tap(find.byKey(quarantineAffordanceKey));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.byType(DestinationFlowScreen), findsOneWidget);
   });
 
   testWidgets('each row reads as a plain button — no selection state, no '
@@ -328,8 +486,10 @@ void main() {
               child: TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) =>
-                        DestinationFlowScreen(onDestination: (_) async => true),
+                    builder: (context) => DestinationFlowScreen(
+                      onDestination: (_) async => true,
+                      onQuarantine: _landQuarantine,
+                    ),
                   ),
                 ),
                 child: const Text('open'),
@@ -372,11 +532,20 @@ void main() {
     await pumpFlow(tester, onDestination: (_) async => true);
 
     expect(tester.takeException(), isNull);
-    // The middle label wraps — growing, never truncating.
+    // The middle label wraps — growing, never truncating: its glyphs
+    // occupy more than one distinct line top (`didExceedMaxLines` is
+    // vacuous here — the Text sets no maxLines, so the flag can never
+    // be true).
     final wrapped = find.text(donateLabel);
     expect(
-      tester.renderObject<RenderParagraph>(wrapped).didExceedMaxLines,
-      isFalse,
+      tester
+          .renderObject<RenderParagraph>(wrapped)
+          .getBoxesForSelection(
+            TextSelection(baseOffset: 0, extentOffset: donateLabel.length),
+          )
+          .map((box) => box.top)
+          .toSet(),
+      hasLength(greaterThan(1)),
     );
     expect(tester.getSize(wrapped).height, greaterThan(48));
     // The screen scrolls so the third row stays reachable.
@@ -390,6 +559,25 @@ void main() {
       expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
       expect(tester.getSize(row).width, greaterThanOrEqualTo(48));
     }
+    // The affordance keeps its 48dp floor at 200% too, and its label
+    // wraps — growing, never truncating (the same real wrap pin:
+    // distinct line tops, not the always-false maxLines flag).
+    await tester.ensureVisible(find.byKey(quarantineAffordanceKey));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(quarantineAffordanceKey)).height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text(quarantineLabel))
+          .getBoxesForSelection(
+            TextSelection(baseOffset: 0, extentOffset: quarantineLabel.length),
+          )
+          .map((box) => box.top)
+          .toSet(),
+      hasLength(greaterThan(1)),
+    );
     expect(tester.takeException(), isNull);
   });
 

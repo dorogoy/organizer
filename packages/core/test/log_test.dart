@@ -24,6 +24,7 @@ LogEntryRecord _record(
   bool? enabled,
   String? triageDestination,
   String? triageVolumeTag,
+  String? triageBoxId,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -45,12 +46,13 @@ LogEntryRecord _record(
   enabled: enabled,
   triageDestination: triageDestination,
   triageVolumeTag: triageVolumeTag,
+  triageBoxId: triageBoxId,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-four kinds (24 since Story '
-        '6.3 added item_triaged)', () {
+    test('holds exactly the build\'s twenty-five kinds (24 since Story '
+        '6.3 added item_triaged; 25 since Story 6.5 added box_created)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -76,9 +78,11 @@ void main() {
         LogKind.clusterCurationChanged,
         LogKind.suggestionDismissed,
         LogKind.itemTriaged,
+        LogKind.boxCreated,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
+        'box_created',
         'capture_created',
         'card_dealt',
         'card_done',
@@ -103,7 +107,7 @@ void main() {
         'slice_returned',
         'suggestion_dismissed',
       ]);
-      expect(LogKind.knownByName, hasLength(24));
+      expect(LogKind.knownByName, hasLength(25));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1883,6 +1887,7 @@ void main() {
           triageDestination: 'keep',
           cluster: 'z1',
         ),
+        'box_created': _record('box_created', cluster: 'z1'),
       };
       // Every known kind but the curation kind itself is in the map.
       final expectedKinds =
@@ -2022,18 +2027,22 @@ void main() {
   });
 
   group('the triage payload path (Story 6.3, FR-22, AD-21, AD-23)', () {
-    test('the destination vocabulary holds exactly the three members as '
-        'data — no quarantine member, forward-only (FR-22, 6.5 seam)', () {
+    test('the destination vocabulary holds exactly the four members as '
+        'data — quarantine arrived additively in 6.5 (FR-21, FR-22)', () {
       expect(triageDestinationByName, {
         'keep': TriageDestination.keep,
         'donate_sell': TriageDestination.donate_sell,
         'trash_recycle': TriageDestination.trash_recycle,
+        'quarantine': TriageDestination.quarantine,
       });
-      expect(TriageDestination.values, hasLength(3));
+      expect(TriageDestination.values, hasLength(4));
       expect(
         TriageDestination.values.map((destination) => destination.name),
-        isNot(contains('quarantine')),
-        reason: 'quarantine arrives additively in 6.5, never in this story',
+        contains('quarantine'),
+        reason:
+            'quarantine is 6.5\'s additive member — the hesitation '
+            'outcome the box act records (AD-23: the closed map grew '
+            'forward, never a coercion)',
       );
     });
 
@@ -2121,7 +2130,7 @@ void main() {
 
     test('a row without a readable destination is excluded — absent, empty '
         'or unknown, the permission column\'s own discipline', () {
-      for (final destination in [null, '', 'garage', 'quarantine']) {
+      for (final destination in [null, '', 'garage', 'box_created']) {
         final conversion = convertLogEntryRecord(
           _record(
             'item_triaged',
@@ -2135,8 +2144,8 @@ void main() {
           LogRecordFlaw.triageDestinationAbsent,
           reason:
               'a destination this build does not know is excluded, never '
-              'coerced — quarantine is 6.5\'s additive member, not this '
-              'build\'s (AD-23)',
+              'coerced — the unknown-name list keeps a still-unknown '
+              'name, pinning AD-23\'s tolerance (6.5\'s flip)',
         );
       }
     });
@@ -2271,6 +2280,7 @@ void main() {
           itemOrigin: Origin.cloud,
           triageDestination: 'keep',
         ),
+        'box_created': _record('box_created', triageDestination: 'keep'),
       };
       final expectedKinds =
           LogKind.knownByName.keys
@@ -2365,6 +2375,128 @@ void main() {
           convertLogEntryRecord(row).flaw,
           flaw,
           reason: 'a triage row carries its own payload and no other',
+        );
+      }
+    });
+
+    test('a quarantine row converts with its box link intact — the '
+        'destination this build now knows, and the link read verbatim '
+        '(Story 6.5, FR-21)', () {
+      final conversion = convertLogEntryRecord(
+        _record(
+          'item_triaged',
+          triageDestination: 'quarantine',
+          triageBoxId: 'box-1',
+        ),
+      );
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<TriageEntry>());
+      expect((entry as TriageEntry).destination, TriageDestination.quarantine);
+      expect(entry.boxId, 'box-1');
+      expect(entry.volumeTag, isNull);
+    });
+
+    test('a quarantine row without a link converts as an orphan — absent '
+        'or empty reads as null, the derivation\'s own skip (AD-23)', () {
+      for (final boxId in [null, '']) {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'item_triaged',
+            triageDestination: 'quarantine',
+            triageBoxId: boxId,
+          ),
+        );
+        expect(conversion.flaw, isNull, reason: 'boxId=$boxId');
+        final entry = conversion.entry as TriageEntry;
+        expect(entry.destination, TriageDestination.quarantine);
+        expect(entry.boxId, isNull, reason: 'an empty string is not a value');
+      }
+    });
+
+    test('a box link on any other destination converts too — the link '
+        'rides the kind\'s column, and the derivation alone judges '
+        'whether a linked row counts (only quarantine rows ever carry '
+        'one by the minter\'s shape)', () {
+      final conversion = convertLogEntryRecord(
+        _record(
+          'item_triaged',
+          triageDestination: 'keep',
+          triageBoxId: 'box-1',
+        ),
+      );
+      expect(conversion.flaw, isNull);
+      expect((conversion.entry as TriageEntry).boxId, 'box-1');
+    });
+
+    test('a box_created row converts as its own payload-less entry — the '
+        'id and instant ARE the row (Story 6.5, FR-21, AD-4)', () {
+      final conversion = convertLogEntryRecord(_record('box_created'));
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<BoxCreatedEntry>());
+      expect((entry as BoxCreatedEntry).kind, LogKind.boxCreated);
+      expect(entry.instantUtcMicros, 7000);
+      expect(entry.offsetSeconds, 3600);
+      // The type offers no payload field: a box link riding the box
+      // row itself is the triage column on a foreign kind.
+      expect(
+        convertLogEntryRecord(_record('box_created', triageBoxId: 'box-1'))
+            .flaw,
+        LogRecordFlaw.triageOnNonTriageKind,
+      );
+    });
+
+    test('a box_created row carrying any other payload family is '
+        'excluded, never coerced — the moment register\'s own '
+        'discipline (Story 6.5)', () {
+      final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+        (
+          _record('box_created', itemId: 'man-a', itemOrigin: Origin.shipped),
+          LogRecordFlaw.itemOnNonItemKind,
+        ),
+        (
+          _record('box_created', stack: 'a-stack'),
+          LogRecordFlaw.stackOffCrashKind,
+        ),
+        (
+          _record('box_created', settingKey: 'time_bag'),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record('box_created', settingTextValue: 'openai'),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record('box_created', pocketMinutes: 15),
+          LogRecordFlaw.pocketOnNonPocketKind,
+        ),
+        (
+          _record('box_created', energyLevel: 1),
+          LogRecordFlaw.energyOnNonEnergyKind,
+        ),
+        (
+          _record('box_created', reportValue: 3),
+          LogRecordFlaw.reportOnNonReportKind,
+        ),
+        (
+          _record('box_created', permission: 'camera'),
+          LogRecordFlaw.permissionOnNonPermissionKind,
+        ),
+        (
+          _record('box_created', sliceCause: 'invalidKey'),
+          LogRecordFlaw.causeOnNonFailedKind,
+        ),
+        (
+          _record('box_created', cluster: 'z1', enabled: true),
+          LogRecordFlaw.curationOnNonCurationKind,
+        ),
+      ];
+      for (final (row, flaw) in payloaded) {
+        expect(
+          convertLogEntryRecord(row).flaw,
+          flaw,
+          reason: 'a box row carries no payload at all',
         );
       }
     });

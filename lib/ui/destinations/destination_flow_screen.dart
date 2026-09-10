@@ -13,6 +13,17 @@
 // ink-primary, both through the wired theme. The system back gesture
 // is the OS pop — nothing is written, and the purge card stands on
 // the dispenser below.
+//
+// Since Story 6.5 the flow carries one quiet text affordance below
+// the trio (FR-21): `Todavía no lo decido`, the hesitation in the
+// user's own voice. It is deliberately NOT a fourth destination row
+// — no glyph (silhouette differentiation is load-bearing among the
+// trio, and the Caja silhouette already means keep), no
+// destination-label role (the support role instead), and its own
+// construction — so the trio's equality stands untouched (FR-20,
+// UX-DR27). The tap performs the quarantine act through the flow's
+// second callback seam and shares the rows' one-shot guard and
+// pop-only-on-success path exactly.
 import 'package:core/log/log_entry.dart';
 import 'package:flutter/material.dart';
 
@@ -30,10 +41,12 @@ const double _flowMaxWidth = 480;
 const String _keepRowKeyId = 'destination-flow-keep';
 const String _donateRowKeyId = 'destination-flow-donate';
 const String _releaseRowKeyId = 'destination-flow-release';
+const String _quarantineAffordanceKeyId = 'destination-flow-quarantine';
 
 const _keepRowKey = ValueKey<String>(_keepRowKeyId);
 const _donateRowKey = ValueKey<String>(_donateRowKeyId);
 const _releaseRowKey = ValueKey<String>(_releaseRowKeyId);
+const _quarantineAffordanceKey = ValueKey<String>(_quarantineAffordanceKeyId);
 
 /// The flow's one act seam: the tapped row's destination. The
 /// callback performs the whole act — the `item_triaged` row plus the
@@ -44,6 +57,14 @@ typedef DestinationTapCallback = Future<bool> Function(
   TriageDestination destination,
 );
 
+/// The flow's second act seam (Story 6.5, FR-21): the hesitation
+/// affordance's tap. The callback performs the whole act — the
+/// `box_created` row, the `item_triaged(quarantine)` row linking it
+/// and the purge card's completion, one queued write — and answers
+/// whether it landed: the flow pops only on success, exactly as a
+/// destination's tap does.
+typedef QuarantineTapCallback = Future<bool> Function();
+
 /// The three destinations at equal weight (FR-20, UX-DR27): one
 /// full-screen decision whose whole content is the three rows below.
 /// The rows are constructionally identical — glyph at
@@ -52,9 +73,17 @@ typedef DestinationTapCallback = Future<bool> Function(
 /// `Quedármelo` · `Donar o vender` · `Tirar o soltar` — and a tap
 /// fires [onDestination] exactly once: the act, not a selection.
 class DestinationFlowScreen extends StatefulWidget {
-  const DestinationFlowScreen({super.key, required this.onDestination});
+  const DestinationFlowScreen({
+    super.key,
+    required this.onDestination,
+    required this.onQuarantine,
+  });
 
   final DestinationTapCallback onDestination;
+
+  /// The hesitation affordance's act seam (Story 6.5, FR-21) — the
+  /// one tap below the trio, sharing the rows' guard and pop path.
+  final QuarantineTapCallback onQuarantine;
 
   @override
   State<DestinationFlowScreen> createState() => _DestinationFlowScreenState();
@@ -63,18 +92,19 @@ class DestinationFlowScreen extends StatefulWidget {
 class _DestinationFlowScreenState extends State<DestinationFlowScreen> {
   bool _handedOff = false;
 
-  /// The flow's one act (Story 6.4): the tap hands the destination to
-  /// the sink's callback once — the guard holds the double tap inside
-  /// one visit and every later tap of THIS route — and the route pops
-  /// only when the act landed. A failed write leaves the flow
-  /// standing, quiet (the sink's catch owns the quiet); re-entry —
-  /// back, then the protocol again — is the retry.
-  Future<void> _handOff(TriageDestination destination) async {
+  /// The flow's one act (Stories 6.4/6.5): a tap hands its act to the
+  /// sink's callback once — the guard holds the double tap inside one
+  /// visit and every later tap of THIS route, destination and
+  /// hesitation alike — and the route pops only when the act landed.
+  /// A failed write leaves the flow standing, quiet (the sink's catch
+  /// owns the quiet), and re-arms the guard in place: the next tap of
+  /// this route is the retry, no back-and-protocol needed.
+  Future<void> _handOff(Future<bool> Function() act) async {
     if (_handedOff) {
       return;
     }
     _handedOff = true;
-    final landed = await widget.onDestination(destination);
+    final landed = await act();
     if (!mounted) {
       return;
     }
@@ -104,7 +134,7 @@ class _DestinationFlowScreenState extends State<DestinationFlowScreen> {
       key: key,
       button: true,
       child: InkWell(
-        onTap: () => _handOff(destination),
+        onTap: () => _handOff(() => widget.onDestination(destination)),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: Spacing.spacingBase),
           child: Row(
@@ -124,6 +154,40 @@ class _DestinationFlowScreenState extends State<DestinationFlowScreen> {
                 child: Text(label, style: theme.textTheme.titleLarge),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The hesitation affordance (Story 6.5, FR-21): text alone, in
+  /// the support role, centered below the trio — no glyph, no
+  /// destination-label role, and its own construction, so it cannot
+  /// read as a fourth equal choice (FR-20's equality is the trio's
+  /// own). The target keeps the 48dp floor and the label wraps at
+  /// 200% (UX-DR45 — no maxLines, no ellipsis), and the tap shares
+  /// the rows' one act: the same guard, the same pop-only-on-success.
+  Widget _quarantineAffordance({
+    required Key key,
+    required ThemeData theme,
+    required AppStrings strings,
+  }) {
+    return Semantics(
+      key: key,
+      button: true,
+      child: InkWell(
+        onTap: () => _handOff(widget.onQuarantine),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: Spacing.touchTargetMin),
+          child: Center(
+            child: Text(
+              strings.destinationQuarantine,
+              // bodySmall is the wired support role (theme.dart) —
+              // the Settings quiet-text register, never the
+              // destination-label role the trio carries.
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),
@@ -185,6 +249,17 @@ class _DestinationFlowScreenState extends State<DestinationFlowScreen> {
                           label: strings.destinationRelease,
                           destination: TriageDestination.trash_recycle,
                           theme: theme,
+                        ),
+                        // More air than a row gap (the scale's own next
+                        // step): the affordance sits below the TRIO as
+                        // its own quiet thing, never as a fourth row of
+                        // the trio's rhythm (FR-20, UX-DR27) — its own
+                        // named gap, not the tappable-box floor.
+                        const SizedBox(height: Spacing.destinationAsideGap),
+                        _quarantineAffordance(
+                          key: _quarantineAffordanceKey,
+                          theme: theme,
+                          strings: strings,
                         ),
                       ],
                     ),

@@ -108,6 +108,9 @@ class AppStringsEs extends AppStrings {
   String get destinationRelease => 'Tirar o soltar';
 
   @override
+  String get destinationQuarantine => 'Todavía no lo decido';
+
+  @override
   String get liberatedVolume => '≈ 3 cajas liberadas';
 
   @override

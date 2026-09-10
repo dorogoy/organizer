@@ -64,8 +64,15 @@
 /// and referencing no pool item — the object triaged is physical, so
 /// AD-14 does not apply; the substrate the Quarantine Box (6.5) and
 /// the declutter metric (6.7, Epic 7) derive from, minted by this
-/// story through the core command alone and consumed by no shell
-/// writer yet). A new kind is a new kind, never a flag
+/// story through the core command alone), and since Story 6.5 the
+/// twenty-fifth kind `box_created` (FR-21, AD-4, AD-21 — the
+/// Quarantine Box's own row: a payload-less user act whose **id** is
+/// the box's identity and whose instant is the box's date, so the row
+/// needs no payload column of its own; the box's contents live only as
+/// the link on the `item_triaged` rows that name it, and the box
+/// itself reconstructs from this row alone — no quarantine table, no
+/// stored follow-up date, AD-1). A new kind is a new kind, never a
+/// flag
 /// on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
@@ -79,8 +86,10 @@
 /// `energy_set` carries its level, `report_answered` carries its answer
 /// and the week it answers, `cluster_curation_changed` carries its
 /// cluster's wire name and enabled bit (Story 5.11, on its own v11
-/// columns), `item_triaged` carries its destination and optional
-/// coarse volume tag (Story 6.3, on its own v12 columns), and a known
+/// columns), `item_triaged` carries its destination, optional coarse
+/// volume tag and optional box link (Stories 6.3/6.5, on their own
+/// v12/v13 columns), `box_created` carries nothing at all (Story 6.5
+/// — its id and instant are the whole row), and a known
 /// kind's payload must match
 /// the kind.
 
@@ -124,13 +133,14 @@ const Map<String, Permission> permissionByName = {
 };
 
 /// The triage act's destination vocabulary (Story 6.3, FR-22, AD-21):
-/// where a let-go object went — one of exactly three members this
-/// story, carried as forward-only data. `quarantine` arrives
-/// additively in Story 6.5 and is deliberately NOT a member here; a
-/// row naming a destination this build does not know is excluded at
-/// the read boundary, never coerced (AD-23). A core enum, stored as
-/// wire text on the `item_triaged` row's own column — no free-form
-/// strings, no numeric code.
+/// where a let-go object went — the three equal members of the
+/// destination flow plus, additively since Story 6.5, `quarantine`
+/// (FR-21): the hesitation outcome, recorded as its own dated box
+/// through the act that mints a `box_created` row beside it. A core
+/// enum, stored as wire text on the `item_triaged` row's own column
+/// — no free-form strings, no numeric code — and a row naming a
+/// destination this build does not know is excluded at the read
+/// boundary, never coerced (AD-23).
 enum TriageDestination {
   /// `keep` — the object stayed (Quedármelo's wire name; the
   /// destination flow itself is Story 6.4's, this build only records).
@@ -143,16 +153,26 @@ enum TriageDestination {
   /// `trash_recycle` — the object left as waste or recycling.
   // ignore: constant_identifier_names
   trash_recycle,
+
+  /// `quarantine` — the object went into a dated Quarantine Box
+  /// (Story 6.5, FR-21): the hesitation outcome, not a fourth equal
+  /// destination of the flow — the row links the `box_created` row
+  /// the same act mints through [TriageEntry.boxId]. A quarantined
+  /// object liberates nothing, so no volume tag ever rides the row
+  /// (FR-22/AD-26 honesty).
+  quarantine,
 }
 
 /// Every [TriageDestination] this build knows, keyed by wire name —
 /// the `permissionByName` closed-map precedent: the census holds
-/// exactly keep, donate_sell and trash_recycle as data, and a stored
-/// name outside it is a read-boundary flaw, never a coercion (AD-23).
+/// exactly keep, donate_sell, trash_recycle and — additively since
+/// Story 6.5 — quarantine as data, and a stored name outside it is a
+/// read-boundary flaw, never a coercion (AD-23).
 const Map<String, TriageDestination> triageDestinationByName = {
   'keep': TriageDestination.keep,
   'donate_sell': TriageDestination.donate_sell,
   'trash_recycle': TriageDestination.trash_recycle,
+  'quarantine': TriageDestination.quarantine,
 };
 
 /// The triage act's coarse volume tag (Story 6.3, FR-22): the
@@ -241,6 +261,7 @@ final class LogKind {
     known: true,
   );
   static const itemTriaged = LogKind._('item_triaged', known: true);
+  static const boxCreated = LogKind._('box_created', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -268,6 +289,7 @@ final class LogKind {
     'cluster_curation_changed': clusterCurationChanged,
     'suggestion_dismissed': suggestionDismissed,
     'item_triaged': itemTriaged,
+    'box_created': boxCreated,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -679,21 +701,28 @@ final class ClusterCurationChangedEntry extends LogEntry {
 
 /// An `item_triaged` user act (Story 6.3, FR-22, AD-21): one triage
 /// decision — the destination the let-go object left through, plus an
-/// optional coarse volume tag — and nothing else. One row per act
+/// optional coarse volume tag and, additively since Story 6.5, an
+/// optional box link (FR-21) — and nothing else. One row per act
 /// through the single sanctioned minter
 /// (`core/commands/triage_commands.dart`), so no second triage writer
-/// can appear silently. The payload rides its own schema columns (v12)
-/// — the destination's wire name and the tag's — never a
-/// `setting_changed` key and never a numeric volume: the tag enum IS
-/// the value space, so no field of this entry can hold a number. The
-/// type references no pool item: the object triaged is physical, so
-/// AD-14 does not apply, and no item pair rides the row. The type
-/// offers no other field, so no photograph reference (FR-22's figures
-/// come only from taps), no box linkage (6.5's additive columns) and
-/// no completion fact can ride along — a purge card's `card_done` is
-/// 6.4's act, never this row's. An unknown destination or tag wire
-/// name excludes the row at the read boundary — quiet tolerance,
-/// never a repair write (AD-23).
+/// can appear silently. The payload rides its own schema columns (v12,
+/// v13) — the destination's wire name, the tag's and the linked box
+/// id — never a `setting_changed` key and never a numeric volume: the
+/// tag enum IS the value space, so no field of this entry can hold a
+/// number. The type references no pool item: the object triaged is
+/// physical, so AD-14 does not apply, and no item pair rides the row.
+/// The type offers no other field, so no photograph reference (FR-22's
+/// figures come only from taps) and no completion fact can ride along
+/// — a purge card's `card_done` is 6.4's act, never this row's. The
+/// box link rides only a quarantine row (the minter's own shape — a
+/// hesitated object enters the dated box the same act's
+/// `box_created` row names, and no other destination opens a box),
+/// and the handed-off volume tag never rides one: a quarantined
+/// object liberates nothing (FR-22/AD-26 honesty). An unknown
+/// destination or tag wire name excludes the row at the read boundary
+/// — quiet tolerance, never a repair write (AD-23); a box link that
+/// matches no `box_created` row stands and is skipped by the
+/// derivation — an orphan, never invented into a box.
 final class TriageEntry extends LogEntry {
   const TriageEntry({
     required super.id,
@@ -701,23 +730,59 @@ final class TriageEntry extends LogEntry {
     required super.offsetSeconds,
     required this.destination,
     this.volumeTag,
+    this.boxId,
   });
 
   @override
   final LogKind kind = LogKind.itemTriaged;
 
-  /// The destination the triaged object left through — one of exactly
-  /// the three the [TriageDestination] enum names this story, as the
-  /// core enum the derivations (6.5's quarantine, 6.7's metric) will
-  /// read, never a free-form string. `quarantine` arrives additively
-  /// in 6.5; unknown future values are read-boundary flaws (AD-23).
+  /// The destination the triaged object left through — one of the
+  /// four the [TriageDestination] enum names, as the core enum the
+  /// derivations (6.5's quarantine, 6.7's metric) read, never a
+  /// free-form string. Unknown future values are read-boundary flaws
+  /// (AD-23).
   final TriageDestination destination;
 
   /// The coarse volume tag, when one was offered — one of exactly the
   /// four the [CoarseVolumeTag] enum names, or null when the user
   /// declined to tag (FR-22: declining writes nothing, so an absent
-  /// tag simply does not contribute).
+  /// tag simply does not contribute). Never set beside [boxId]: a
+  /// quarantined object liberates nothing.
   final CoarseVolumeTag? volumeTag;
+
+  /// The linked Quarantine Box's id — the `box_created` row's own id
+  /// (the pre-minted v7 the act threaded through both rows, Story
+  /// 6.5, FR-21), non-null exactly on quarantine rows the act minted.
+  /// The box's date is that row's own instant (AD-4); membership
+  /// exists only as this link, and a link matching no `box_created`
+  /// row is an orphan the derivation skips, never a box it invents
+  /// (AD-1).
+  final String? boxId;
+}
+
+/// A `box_created` user act (Story 6.5, FR-21, AD-4, AD-21): one
+/// dated Quarantine Box exists because this row exists — the box's
+/// identity IS the row's shell-minted UUIDv7 [LogEntry.id] and its
+/// date IS the row's own instant plus offset, so the type offers no
+/// payload field at all: no name, no capacity, no follow-up date
+/// (AD-1 — the six-month derivation is 6.6's, computed from this
+/// row's instant, never stored). One row per quarantine act through
+/// the single sanctioned minter (`core/commands/triage_commands.dart`),
+/// so no second box writer can appear silently. The box's contents
+/// are nothing of this row's: they live only as the link on the
+/// `item_triaged` rows that name it, so a box whose act's triage
+/// append failed reconstructs as an honest, coarse empty box — and
+/// any date-collapse of same-date boxes is 6.6's derivation concern,
+/// never this row's.
+final class BoxCreatedEntry extends LogEntry {
+  const BoxCreatedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+  });
+
+  @override
+  final LogKind kind = LogKind.boxCreated;
 }
 
 /// An entry whose kind this build does not know. Carried verbatim and
@@ -887,8 +952,8 @@ enum LogRecordFlaw {
   /// excluded, never coerced and never silently dropped (AD-23).
   triageVolumeTagAbsent,
 
-  /// A destination or tag payload on a kind that is not
-  /// `item_triaged` (Story 6.3) — mirroring the setting, pocket,
+  /// A destination, tag or box-link payload on a kind that is not
+  /// `item_triaged` (Stories 6.3/6.5) — mirroring the setting, pocket,
   /// energy, report, permission, cause and curation rules: every
   /// payload column rides its own kind and no other.
   triageOnNonTriageKind,
@@ -956,11 +1021,14 @@ bool _isSliceKind(LogKind kind) =>
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
 /// empty stack as no stack, an empty setting key as no key. An
-/// `item_triaged` row (Story 6.3) carries its destination wire name —
-/// one of the three the [TriageDestination] map knows — and its
+/// `item_triaged` row (Stories 6.3/6.5) carries its destination wire
+/// name — one of the four the [TriageDestination] map knows — its
 /// optional coarse volume tag — one of the four the
 /// [CoarseVolumeTag] map knows, absent when the tag was declined —
-/// and nothing else. A known kind this boundary does not classify is
+/// and its optional box link (6.5), absent or empty when the row
+/// names no box — and nothing else. A `box_created` row (Story 6.5)
+/// carries nothing at all: its id and instant are the whole row. A
+/// known kind this boundary does not classify is
 /// excluded with
 /// [LogRecordFlaw.unclassifiedKind] — never coerced.
 LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
@@ -1004,9 +1072,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   // The triage columns read by the same raw presence rule (Story
   // 6.3): presence is what a foreign kind violates, and the kind's
   // own branch below judges the values — an empty string is not a
-  // value there, exactly as everywhere below.
+  // value there, exactly as everywhere below. The box link (6.5)
+  // joins the same rule on its own v13 column.
   final carriesTriage =
-      record.triageDestination != null || record.triageVolumeTag != null;
+      record.triageDestination != null ||
+      record.triageVolumeTag != null ||
+      record.triageBoxId != null;
   // The cause column reads by the same house rule: an empty string is
   // not a value, so it counts as absent everywhere below (Story 4.6).
   final sliceCauseIsAbsent =
@@ -1508,9 +1579,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     // empty or unknown excludes the row, the `permission` column's
     // own rule — while the tag is optional: an absent or empty column
     // is the declined tag (FR-22: declining writes nothing), and only
-    // a value that stands and cannot be read is a flaw. A destination
-    // or tag payload on any other kind is the foreign-column flaw
-    // every branch above returns.
+    // a value that stands and cannot be read is a flaw. The box link
+    // (Story 6.5) reads by the same empty-is-not-a-value rule: absent
+    // or empty is simply an unlinked row, and the derivation skips
+    // it as an orphan — the link's own target judges it, never this
+    // boundary. A destination, tag or box payload on any other kind
+    // is the foreign-column flaw every branch above returns.
     final destinationWire = record.triageDestination;
     final destination = destinationWire == null || destinationWire.isEmpty
         ? null
@@ -1525,6 +1599,8 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (volumeTag == null && tagWire != null && tagWire.isNotEmpty) {
       return (entry: null, flaw: LogRecordFlaw.triageVolumeTagAbsent);
     }
+    final boxWire = record.triageBoxId;
+    final boxId = (boxWire == null || boxWire.isEmpty) ? null : boxWire;
     if (record.itemId != null || record.itemOrigin != null) {
       return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
     }
@@ -1559,6 +1635,52 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         offsetSeconds: record.offsetSeconds,
         destination: destination,
         volumeTag: volumeTag,
+        boxId: boxId,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.boxCreated) {
+    // The box row's own discipline (Story 6.5): payload-less by
+    // construction — the row's id is the box's identity and its
+    // instant is the box's date, so every payload family is foreign
+    // here, the whole foreign-column set every branch above guards.
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    return (
+      entry: BoxCreatedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
       ),
       flaw: null,
     );

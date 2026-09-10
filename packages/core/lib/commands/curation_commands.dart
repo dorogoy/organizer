@@ -51,6 +51,7 @@ List<LogEntryContent> clusterCurationChanged({
       enabled: enabled,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ),
   ];
 }

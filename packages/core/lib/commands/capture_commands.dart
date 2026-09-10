@@ -103,6 +103,7 @@ CaptureContent? captureCreate({
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ),
   );
 }

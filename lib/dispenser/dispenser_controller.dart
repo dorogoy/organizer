@@ -640,21 +640,64 @@ class DispenserController {
     );
   }
 
+  /// The quarantine tap's act (Story 6.5, FR-21, AD-3/AD-21): the
+  /// hesitation outcome, closing the flow's decision exactly as
+  /// [triageAndComplete] closes a destination's — one queued
+  /// controller write that appends `box_created`, then the
+  /// `item_triaged` row carrying `quarantine` and the box's id, then
+  /// the existing completion (`card_done` plus the bundled next
+  /// `card_dealt`), the whole act stamped from one instant minted at
+  /// entry, before any await, so the rows describe the tap. The box
+  /// id is PRE-MINTED at entry (the rescue-seeds precedent) and
+  /// threaded into both rows: the box row's own id and the triage
+  /// row's link, so the derivation reconstructs the dated box from
+  /// the pair alone — the box's date IS the row's instant (AD-4),
+  /// and no quarantine table and no follow-up date exist anywhere
+  /// (AD-1). The handed-off volume tag does NOT ride the act: a
+  /// quarantined object liberates nothing, so the row carries no tag
+  /// whatever the visit handed off (FR-22/AD-26 honesty) — the
+  /// method takes no tag at all. Each act mints its own box
+  /// (AC-literal); same-date boxes stay distinct rows. A stale act —
+  /// the card already answered — appends nothing at all, box row
+  /// included: the staleness guard is decided before any append. A
+  /// mid-batch failure after the box row leaves it standing (the
+  /// tolerated partial-act class — it reconstructs as an honest
+  /// empty box), and a re-entry retry appends a fresh box beside it.
+  /// A failing append rethrows to the caller while the chain
+  /// recovers.
+  Future<void> quarantineAndComplete(DispenserDealt dealt) {
+    final now = nowOf();
+    // Minted at entry, beside the instant: the box's identity travels
+    // with the tap, immune to any read the queue interleaves.
+    final boxId = idMinter.v7();
+    return _enqueueCompleteWrite(dealt, now, quarantineBoxId: boxId);
+  }
+
   /// The completion write both answer entries share — the one core
   /// `cardDone` invocation (the LogEntryContent path, single by the
   /// no-lateness census): the answered-guard reads the log first, and a
   /// stale card appends nothing at all — the destination act's triage
-  /// row with it, decided before any append. A live card appends the
-  /// optional triage prelude, then the `card_done` row and the bundled
-  /// next `card_dealt`, all from the caller's one minted instant and a
-  /// v7 id per row. The appends are sequential, not transactional: a
-  /// failure mid-batch leaves the earlier rows standing (the tolerated
-  /// partial-act exposure above).
+  /// row and the quarantine act's box row with it, decided before any
+  /// append. A live card appends the optional triage prelude — or, on
+  /// the quarantine path, the box row then its linked
+  /// `item_triaged(quarantine)` row — then the `card_done` row and
+  /// the bundled next `card_dealt`, all from the caller's one minted
+  /// instant and a v7 id per row. The act has exactly one prelude by
+  /// construction — a triage pair or a quarantine box pair, never
+  /// both — pinned by the assert below. The appends are sequential,
+  /// not transactional: a failure mid-batch leaves the earlier rows
+  /// standing (the tolerated partial-act exposure above).
   Future<void> _enqueueCompleteWrite(
     DispenserDealt dealt,
     DateTime now, {
     ({TriageDestination destination, CoarseVolumeTag? volumeTag})? triage,
+    String? quarantineBoxId,
   }) {
+    assert(
+      // Message-less by necessity: AD-15 forbids string literals in
+      // lib/, and the condition alone pins the one-prelude shape.
+      triage == null || quarantineBoxId == null,
+    );
     return _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
@@ -674,6 +717,21 @@ class DispenserController {
       );
       if (contents.isEmpty) {
         return;
+      }
+      if (quarantineBoxId != null) {
+        // The act's order (FR-21): the dated box first, then its one
+        // content row linking it — never a tag — then the completion
+        // below. The box row carries the caller's pre-minted id, the
+        // triage row's link target.
+        for (final content in boxCreated()) {
+          await _appendContent(content, now, id: quarantineBoxId);
+        }
+        for (final content in triageItem(
+          destination: TriageDestination.quarantine,
+          boxId: quarantineBoxId,
+        )) {
+          await _appendContent(content, now);
+        }
       }
       if (triage != null) {
         for (final content in triageItem(
@@ -877,10 +935,17 @@ class DispenserController {
 
   /// Appends one minted content row — the write paths' shared copier,
   /// the `_appendAll` idiom: one minted instant per batch (the caller's
-  /// [now]), a v7 id per row, the offset in force at the mint.
-  Future<void> _appendContent(LogEntryContent content, DateTime now) async {
+  /// [now]), a v7 id per row — or the caller's pre-minted [id] (the
+  /// rescue-seeds precedent, the quarantine act's box row threading
+  /// its identity so the act's triage row can link it) — and the
+  /// offset in force at the mint.
+  Future<void> _appendContent(
+    LogEntryContent content,
+    DateTime now, {
+    String? id,
+  }) async {
     await store.appendLogEntry((
-      id: idMinter.v7(),
+      id: id ?? idMinter.v7(),
       kind: content.kind.name,
       instantUtcMicros: now.microsecondsSinceEpoch,
       offsetSeconds: now.timeZoneOffset.inSeconds,
@@ -900,6 +965,7 @@ class DispenserController {
       enabled: content.enabled,
       triageDestination: content.triageDestination?.name,
       triageVolumeTag: content.triageVolumeTag?.name,
+      triageBoxId: content.triageBoxId,
     ));
   }
 

@@ -257,6 +257,12 @@ abstract class AppStrings {
   /// **'Tirar o soltar'**
   String get destinationRelease;
 
+  /// 3-Destination Flow, the quiet text affordance below the trio (Story 6.5, FR-21) — the hesitation in the user's own voice, a valid dated outcome and never a fourth destination. No glyph (silhouette differentiation stays the trio's own), rendered in the support role.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no lo decido'**
+  String get destinationQuarantine;
+
   /// Cumulative impact dashboard — the volume figure. It carries no glyph (the glyph-adjacency rule) and no denominator.
   ///
   /// In es, this message translates to:

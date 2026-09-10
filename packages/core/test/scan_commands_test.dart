@@ -53,6 +53,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -121,6 +122,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -189,6 +191,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -273,6 +276,7 @@ void main() {
         enabled: enabled,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -405,6 +409,7 @@ void main() {
         enabled: enabled,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
