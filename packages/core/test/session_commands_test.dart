@@ -1020,7 +1020,8 @@ void main() {
         instantUtcMicros: start + 3000,
         offsetSeconds: 0,
         poolFacts: purgeFacts(start),
-        purgeStepText: 'Elegir un objeto del espacio y decidir sobre él',
+        purgeStepText:
+            'Elegir un objeto de la estancia y decidir qué hacer con él',
       );
       expect(contents, hasLength(2));
       expect(contents[1].kind, LogKind.cardDealt);
@@ -1039,11 +1040,44 @@ void main() {
         instantUtcMicros: start + 3000,
         offsetSeconds: 0,
         poolFacts: purgeFacts(start),
-        purgeStepText: 'Elegir un objeto del espacio y decidir sobre él',
+        purgeStepText:
+            'Elegir un objeto de la estancia y decidir qué hacer con él',
       );
       expect(contents, hasLength(2));
       expect(contents[1].kind, LogKind.cardDealt);
       expect(contents[1].itemId, 'purge:s1');
+    });
+
+    test('sessionExtend bundles the pending purge as the next deal '
+        'when no card stands unanswered (Story 6.1 review)', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final log = [
+        _started(start),
+        _dealt(start + 1000, 'zona-a'),
+        ItemActEntry(
+          id: 'done-1',
+          instantUtcMicros: start + 2000,
+          offsetSeconds: 0,
+          kind: LogKind.cardDone,
+          itemId: 'zona-a',
+          itemOrigin: Origin.shipped,
+        ),
+        localAct(LogKind.epicActivated, start + 2500, 's1'),
+      ];
+      final contents = sessionExtend(
+        catalogue: _catalogue,
+        log: log,
+        instantUtcMicros: start + 3000,
+        offsetSeconds: 0,
+        poolFacts: purgeFacts(start),
+        purgeStepText:
+            'Elegir un objeto de la estancia y decidir qué hacer con él',
+      );
+      expect(contents, hasLength(2));
+      expect(contents[0].kind, LogKind.sessionExtended);
+      expect(contents[1].kind, LogKind.cardDealt);
+      expect(contents[1].itemId, 'purge:s1');
+      expect(contents[1].itemOrigin, Origin.local);
     });
   });
 }

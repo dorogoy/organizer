@@ -896,4 +896,112 @@ void main() {
       expect(facts.dealtUnanswered, isNull);
     });
   });
+
+  group('purge card charging and terminal acts (Story 6.1, FR-19)', () {
+    test('a card_dealt on a purge id charges one instant draw to the day', () {
+      final start = utcMicros(2026, 8, 28, 10);
+      final facts = walkLog([
+        _started(start),
+        ItemActEntry(
+          id: 'deal-purge',
+          instantUtcMicros: start + 1000,
+          offsetSeconds: 0,
+          kind: LogKind.cardDealt,
+          itemId: '${purgeItemIdPrefix}s1',
+          itemOrigin: Origin.cloud,
+        ),
+      ], catalogue: _catalogue);
+
+      final day = const Calendar().dayOf(start, 0);
+      expect(facts.dealtCountsByDay[day]?[Size.instant], 1);
+      expect(facts.dealtCountsByDay[day]?[Size.maintenance], isNull);
+      expect(facts.dealtCountsByDay[day]?[Size.focus], isNull);
+    });
+
+    test(
+      'a card_done on a purge id charges 60 seconds (purgeStepEstimateSeconds) '
+      'to openSessionAnsweredSeconds, never the 30 s instant default',
+      () {
+        final start = utcMicros(2026, 8, 28, 10);
+        final facts = walkLog([
+          _started(start),
+          ItemActEntry(
+            id: 'deal-purge',
+            instantUtcMicros: start + 1000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDealt,
+            itemId: '${purgeItemIdPrefix}s1',
+            itemOrigin: Origin.cloud,
+          ),
+          ItemActEntry(
+            id: 'done-purge',
+            instantUtcMicros: start + 2000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDone,
+            itemId: '${purgeItemIdPrefix}s1',
+            itemOrigin: Origin.cloud,
+          ),
+        ], catalogue: _catalogue);
+
+        expect(facts.openSessionAnsweredSeconds, purgeStepEstimateSeconds);
+        expect(facts.openSessionAnsweredSeconds, 60);
+      },
+    );
+
+    test(
+      'LogFacts.terminalActNames returns true for card_done and card_skipped '
+      'and false for un-answered items',
+      () {
+        final start = utcMicros(2026, 8, 28, 10);
+        final facts = walkLog([
+          _started(start),
+          ItemActEntry(
+            id: 'deal-1',
+            instantUtcMicros: start + 1000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDealt,
+            itemId: 'purge:p1',
+            itemOrigin: Origin.cloud,
+          ),
+          ItemActEntry(
+            id: 'done-1',
+            instantUtcMicros: start + 2000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDone,
+            itemId: 'purge:p1',
+            itemOrigin: Origin.cloud,
+          ),
+          ItemActEntry(
+            id: 'deal-2',
+            instantUtcMicros: start + 3000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDealt,
+            itemId: 'purge:p2',
+            itemOrigin: Origin.cloud,
+          ),
+          ItemActEntry(
+            id: 'skip-2',
+            instantUtcMicros: start + 4000,
+            offsetSeconds: 0,
+            kind: LogKind.cardSkipped,
+            itemId: 'purge:p2',
+            itemOrigin: Origin.cloud,
+          ),
+          ItemActEntry(
+            id: 'deal-3',
+            instantUtcMicros: start + 5000,
+            offsetSeconds: 0,
+            kind: LogKind.cardDealt,
+            itemId: 'purge:p3',
+            itemOrigin: Origin.cloud,
+          ),
+        ], catalogue: _catalogue);
+
+        expect(facts.terminalActNames('purge:p1'), isTrue);
+        expect(facts.terminalActNames('purge:p2'), isTrue);
+        expect(facts.terminalActNames('purge:p3'), isFalse);
+        expect(facts.terminalActNames('purge:unknown'), isFalse);
+      },
+    );
+  });
 }

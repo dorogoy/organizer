@@ -377,6 +377,27 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   enabled: null,
 );
 
+LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
+  id: 'pocket-${at.microsecondsSinceEpoch}',
+  kind: 'session_started',
+  instantUtcMicros: at.microsecondsSinceEpoch,
+  offsetSeconds: 0,
+  itemId: null,
+  itemOrigin: null,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  settingTextValue: null,
+  pocketMinutes: minutes,
+  energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
+  permission: null,
+  sliceCause: null,
+  cluster: null,
+  enabled: null,
+);
+
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
 
 /// A store that records what the rescue path mints (Story 4.6): the
@@ -3884,26 +3905,8 @@ void main() {
     });
 
     /// A seeded pocketed sitting row — the extend path's shape.
-    LogEntryRecord pocketedStart(DateTime at, int minutes) => (
-      id: 'pocket-${at.microsecondsSinceEpoch}',
-      kind: 'session_started',
-      instantUtcMicros: at.microsecondsSinceEpoch,
-      offsetSeconds: 0,
-      itemId: null,
-      itemOrigin: null,
-      stack: null,
-      settingKey: null,
-      settingValue: null,
-      settingTextValue: null,
-      pocketMinutes: minutes,
-      energyLevel: null,
-      reportValue: null,
-      reportWeek: null,
-      permission: null,
-      sliceCause: null,
-      cluster: null,
-      enabled: null,
-    );
+    LogEntryRecord pocketedStart(DateTime at, int minutes) =>
+        _pocketedStart(at, minutes);
 
     test('declarePocket mints the capture as the fresh sitting\'s '
         'first card — the controller-level facts threading', () async {
@@ -4707,5 +4710,24 @@ void main() {
       expect((view as DispenserDealt).card.id, '${purgeItemIdPrefix}s1');
       expect(view.pocketMinutes, 1);
     });
+
+    test(
+      'controller.extend() with no unanswered card deals the pending '
+      'purge — extending bundles the pre-clean step (Story 6.1 review)',
+      () async {
+        final store = activatedStore();
+        store.entries.add(
+          _pocketedStart(DateTime.utc(2026, 8, 29, 11, 55), 20),
+        );
+        final controller = buildFor(store, nowOf: _fixedClock);
+
+        final view = await controller.extend();
+
+        expect(store.entries.last.kind, 'card_dealt');
+        expect(store.entries.last.itemId, '${purgeItemIdPrefix}s1');
+        expect(view, isA<DispenserDealt>());
+        expect((view as DispenserDealt).card.id, '${purgeItemIdPrefix}s1');
+      },
+    );
   });
 }

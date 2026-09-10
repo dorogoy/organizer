@@ -4658,7 +4658,8 @@ void main() {
     // group's own fixture clock — the purge derives from the same
     // groups, over the same day.
     final now = utcMicros(2026, 8, 28, 12);
-    const purgeText = 'Elegir un objeto del espacio y decidir sobre él';
+    const purgeText =
+        'Elegir un objeto de la estancia y decidir qué hacer con él';
 
     Card? deal(
       List<LogEntry> log,
@@ -4760,6 +4761,21 @@ void main() {
         card!.id.startsWith(purgeItemIdPrefix),
         isFalse,
         reason: 'no epic_activated row, no project, nothing to purge',
+      );
+    });
+
+    test('a completed group derives no purge — all steps answered, nothing '
+        'left to prepend before (Story 6.1 review)', () {
+      final log = [
+        ...activatedLog(),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 1), 's1'),
+        _epicDone(utcMicros(2026, 8, 28, 10, 0, 2), 's2'),
+      ];
+      final card = deal(log, slice());
+      expect(
+        card?.id.startsWith(purgeItemIdPrefix) ?? false,
+        isFalse,
+        reason: 'all steps of the group were answered all-time; no purge deals',
       );
     });
 

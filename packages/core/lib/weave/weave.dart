@@ -559,6 +559,9 @@ List<Candidate> purgeCandidates(
     if (facts.terminalActNames(itemId)) {
       continue; // Answered or skipped once: closed, never re-offered.
     }
+    if (steps.every((step) => facts.answeredItemIds.contains(step.id))) {
+      continue; // Completed: all organization steps already answered (Story 6.1 review).
+    }
     groups.add((
       stableId: stableId,
       itemId: itemId,
@@ -813,8 +816,8 @@ Card _cardOf(Candidate candidate) => Card(
   name: candidate.name,
   origin: candidate.origin,
   zone: candidate.zone,
-  // A rescue step's own verbatim estimate; every other source's
-  // taxonomy size default (Story 4.6 — the estimate is the estimate).
+  // A rescue step's or purge candidate's own verbatim estimate; every
+  // other source's taxonomy size default (Story 4.6, Story 6.1).
   estimateSeconds:
       candidate.estimateSeconds ?? estimateSecondsOf(candidate.size),
 );

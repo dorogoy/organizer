@@ -798,4 +798,91 @@ void main() {
       expect(card.name, 'Línea vieja');
     });
   });
+
+  group('the purge injection through the facade (Story 6.1, FR-19)', () {
+    final now = utcMicros(2026, 8, 28, 12);
+    const purgeText =
+        'Elegir un objeto de la estancia y decidir qué hacer con él';
+
+    PoolFactRecord epicStepFact(String id, String text, int micros) => (
+      id: id,
+      origin: Origin.cloud,
+      size: Size.maintenance,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      originContext: 'El trastero',
+      dictated: null,
+      rescueOf: null,
+      estimateSeconds: 180,
+      stepText: text,
+    );
+
+    test('nextCard deals the synthetic purge card when an organizing project '
+        'is active and purgeStepText is provided', () async {
+      final start = utcMicros(2026, 8, 28, 10);
+      final store = _FakeStore(
+        [
+          _record(LogKind.sessionStarted.name, start, id: 'open'),
+          _record(
+            LogKind.epicActivated.name,
+            start + 1000,
+            id: 'act',
+            itemId: 's1',
+            itemOrigin: Origin.cloud,
+          ),
+        ],
+        [
+          epicStepFact('s1', 'Paso uno', start - 1000),
+          epicStepFact('s2', 'Paso dos', start - 1000),
+        ],
+      );
+
+      final card = await nextCard(
+        store,
+        catalogue: _catalogue,
+        instantUtcMicros: now,
+        offsetSeconds: 0,
+        purgeStepText: purgeText,
+      );
+
+      expect(card, isNotNull);
+      expect(card!.id, '${purgeItemIdPrefix}s1');
+      expect(card.name, purgeText);
+      expect(card.estimateSeconds, purgeStepEstimateSeconds);
+      expect(card.size, Size.instant);
+    });
+
+    test(
+      'nextCard rematerializes a standing purge deal via cardForItem',
+      () async {
+        final start = utcMicros(2026, 8, 28, 10);
+        final store = _FakeStore(
+          [
+            _record(LogKind.sessionStarted.name, start, id: 'open'),
+            _record(
+              LogKind.cardDealt.name,
+              start + 1000,
+              id: 'deal-purge',
+              itemId: '${purgeItemIdPrefix}s1',
+              itemOrigin: Origin.cloud,
+            ),
+          ],
+          [epicStepFact('s1', 'Paso uno', start - 1000)],
+        );
+
+        final card = await nextCard(
+          store,
+          catalogue: _catalogue,
+          instantUtcMicros: now,
+          offsetSeconds: 0,
+          purgeStepText: purgeText,
+        );
+
+        expect(card, isNotNull);
+        expect(card!.id, '${purgeItemIdPrefix}s1');
+        expect(card.name, purgeText);
+        expect(card.estimateSeconds, purgeStepEstimateSeconds);
+      },
+    );
+  });
 }

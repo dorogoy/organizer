@@ -463,6 +463,18 @@ class _QueuedAnswerController extends _QueuedReadController {
   Future<void> skip(DispenserDealt dealt) async {}
 }
 
+class _HeldSkipAnswerController extends _QueuedReadController {
+  _HeldSkipAnswerController(super.reads);
+
+  final Completer<void> skipCompleter = Completer<void>();
+
+  @override
+  Future<void> complete(DispenserDealt dealt) async {}
+
+  @override
+  Future<void> skip(DispenserDealt dealt) => skipCompleter.future;
+}
+
 /// A queued reader whose pause resolves from a held completer: it
 /// isolates the screen's generation guard from the controller's
 /// persistence mechanics — the ack-generation pattern, on the stop.
@@ -6776,6 +6788,47 @@ void main() {
         isEmpty,
       );
     });
+
+    testWidgets(
+      'Hecho on a purge card cannot open the protocol while a '
+      'skip write is in-flight (the _writeInFlight guard, Story 6.1 review)',
+      (tester) async {
+        final first = Completer<DispenserView>();
+        final second = Completer<DispenserView>();
+        final controller = _HeldSkipAnswerController([first, second]);
+
+        await tester.pumpWidget(_harness(controller));
+        await tester.pump();
+        first.complete(
+          const DispenserDealt(
+            Card(
+              id: 'purge:s1',
+              size: Size.instant,
+              name: 'Elegir un objeto de la estancia',
+              origin: Origin.cloud,
+              zone: null,
+              estimateSeconds: 60,
+            ),
+            purgeStep: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(TaskCard), findsOneWidget);
+
+        await tester.tap(cardSecondaryFinder);
+        await tester.pump();
+
+        await tester.tap(cardHecho());
+        await tester.pump();
+
+        expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+
+        controller.skipCompleter.complete();
+        second.complete(const DispenserClosed());
+        await tester.pumpAndSettle();
+        expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      },
+    );
 
     testWidgets('the back gesture closes the frame uncompleted — zero '
         'new log rows beyond the seeded deal, and the purge card still '

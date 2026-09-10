@@ -85,6 +85,19 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 - Given the dealt purge card, when `Hecho` is tapped, then the Decluttering Protocol surface opens — and no menu, list or other route to it exists.
 - Given the protocol frame, when its `Hecho` completes, then one `card_done` names the purge id and the dispenser returns to the next deal.
 
+### Review Findings
+
+- [x] [Review][Patch] Reword purgeStepText to concrete domestic copy: "Elegir un objeto de la estancia y decidir qué hacer con él" [lib/l10n/app_es.arb:34]
+- [x] [Review][Patch] Exclude completed Epic Projects from purgeCandidates [packages/core/lib/weave/weave.dart:543]
+- [x] [Review][Patch] Add missing tests for session extension bundling pending purge [test/dispenser/dispenser_controller_test.dart:4481, packages/core/test/session_commands_test.dart:1047]
+- [x] [Review][Patch] Add missing tests for nextCard dealing and rematerializing purge cards [packages/core/test/facade_test.dart:1]
+- [x] [Review][Patch] Add missing widget test for _writeInFlight guard in _openDeclutteringProtocol [test/ui/dispenser/dispenser_screen_test.dart:6770]
+- [x] [Review][Patch] Add unit tests in session_test.dart for purge charging in walkLog and terminalActNames [packages/core/test/session_test.dart:887]
+- [x] [Review][Patch] Update doc comment in _cardOf to document purge candidate verbatim estimate [packages/core/lib/weave/weave.dart:816]
+- [x] [Review][Defer] Accessibility / semantics pass for DeclutteringProtocolScreen [lib/ui/destinations/decluttering_protocol_screen.dart:58] — deferred, pre-existing
+- [x] [Review][Defer] Replace optional nullable purgeStepText with required String? across core APIs [packages/core/lib/weave/weave.dart:1200] — deferred, pre-existing
+- [x] [Review][Defer] Stale deal completion handling when session closes while on modal screen [lib/ui/dispenser/dispenser_screen.dart:282] — deferred, pre-existing
+
 ## Spec Change Log
 
 ## Design Notes

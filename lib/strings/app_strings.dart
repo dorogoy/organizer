@@ -128,7 +128,7 @@ abstract class AppStrings {
   /// The purge step's authored task text (Story 6.1, FR-19, UJ-2) — the one Micro-task prepended before any organization step of a newly activated organizing project; a concrete household action in the shipped catalogue's own register ({typography.task}), rendered on an ordinary dispenser card. The wording is SM-C2 human-owned copy — reword at review, the key stays.
   ///
   /// In es, this message translates to:
-  /// **'Elegir un objeto del espacio y decidir sobre él'**
+  /// **'Elegir un objeto de la estancia y decidir qué hacer con él'**
   String get purgeStepText;
 
   /// Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents.
