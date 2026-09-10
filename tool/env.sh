@@ -53,6 +53,17 @@ if [ -n "$JAVA_BIN" ]; then
 fi
 unset _JAVA_HOME JAVA_BIN
 
+# JDK 24+ (JEP 472): Gradle's unnamed native-platform module calls
+# System::load. Without this the client JVM prints four restricted-method
+# warnings on every flutter/gradle invocation. org.gradle.jvmargs covers
+# the daemon; GRADLE_OPTS covers the wrapper/client that prints first.
+# Harmless today; a future JDK will block the call unless native access
+# is enabled. Idempotent on re-source.
+case "${GRADLE_OPTS:-}" in
+  *--enable-native-access=ALL-UNNAMED*) ;;
+  *) GRADLE_OPTS="${GRADLE_OPTS:+$GRADLE_OPTS }--enable-native-access=ALL-UNNAMED" && export GRADLE_OPTS ;;
+esac
+
 # libsqlite3 for drift's host-side tests (Story 1.3): NativeDatabase loads
 # libsqlite3.so through the dynamic loader, whose default search does not
 # include the nix profile's package directories. The devbox sqlite package
