@@ -5,6 +5,7 @@ import 'package:core/commands/rescue_commands.dart';
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/commands/session_commands.dart';
 import 'package:core/commands/suggestion_commands.dart';
+import 'package:core/commands/triage_commands.dart';
 import 'package:core/day/calendar.dart';
 import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/checkpoint.dart';
@@ -603,6 +604,57 @@ class DispenserController {
   /// rethrows to the caller while the chain recovers.
   Future<void> complete(DispenserDealt dealt) {
     final now = nowOf();
+    return _enqueueCompleteWrite(dealt, now);
+  }
+
+  /// The destination tap's act (Story 6.4, FR-20/22, AD-3/AD-21):
+  /// [complete]'s one write with the triage row prepended — one queued
+  /// controller write that appends the `item_triaged` row through the
+  /// kind's single sanctioned minter and then the existing completion
+  /// (`card_done` plus the bundled next `card_dealt`), the whole act
+  /// stamped from one instant minted at entry, before any await, so the
+  /// rows describe the tap. The log order is the act's order: triage
+  /// first, then the answer, then the bundled deal. The tag is the one
+  /// the visit handed off, null when declined (FR-22: declining writes
+  /// nothing — the row simply carries no tag). A stale act — the card
+  /// already answered — appends nothing at all: the `cardDone` contents'
+  /// emptiness is the guard, decided before any append, so no orphan
+  /// triage row can come from a stale double act. A mid-batch failure —
+  /// the triage row lands, a completion append then throws — does leave
+  /// that triage row standing without its completion, and a re-entry
+  /// retry appends a second triage row beside it: the same partial-act
+  /// exposure every multi-row act already has (`complete`'s answer+deal
+  /// pair is sequential too), tolerated under FR-22's approximate
+  /// cumulative counts. A failing append rethrows to the caller while
+  /// the chain recovers.
+  Future<void> triageAndComplete(
+    DispenserDealt dealt, {
+    required TriageDestination destination,
+    CoarseVolumeTag? volumeTag,
+  }) {
+    final now = nowOf();
+    return _enqueueCompleteWrite(
+      dealt,
+      now,
+      triage: (destination: destination, volumeTag: volumeTag),
+    );
+  }
+
+  /// The completion write both answer entries share — the one core
+  /// `cardDone` invocation (the LogEntryContent path, single by the
+  /// no-lateness census): the answered-guard reads the log first, and a
+  /// stale card appends nothing at all — the destination act's triage
+  /// row with it, decided before any append. A live card appends the
+  /// optional triage prelude, then the `card_done` row and the bundled
+  /// next `card_dealt`, all from the caller's one minted instant and a
+  /// v7 id per row. The appends are sequential, not transactional: a
+  /// failure mid-batch leaves the earlier rows standing (the tolerated
+  /// partial-act exposure above).
+  Future<void> _enqueueCompleteWrite(
+    DispenserDealt dealt,
+    DateTime now, {
+    ({TriageDestination destination, CoarseVolumeTag? volumeTag})? triage,
+  }) {
     return _enqueueWrite(() async {
       final catalogue = await _loadCatalogue();
       final log = logEntriesOf(await store.readLogEntries());
@@ -620,6 +672,17 @@ class DispenserController {
         poolFacts: poolFacts,
         purgeStepText: strings.purgeStepText,
       );
+      if (contents.isEmpty) {
+        return;
+      }
+      if (triage != null) {
+        for (final content in triageItem(
+          destination: triage.destination,
+          volumeTag: triage.volumeTag,
+        )) {
+          await _appendContent(content, now);
+        }
+      }
       for (final content in contents) {
         await _appendContent(content, now);
       }
