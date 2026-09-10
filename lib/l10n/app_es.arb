@@ -36,6 +36,26 @@
     "description": "The purge step's authored task text (Story 6.1, FR-19, UJ-2) — the one Micro-task prepended before any organization step of a newly activated organizing project; a concrete household action in the shipped catalogue's own register ({typography.task}), rendered on an ordinary dispenser card. The wording is SM-C2 human-owned copy — reword at review, the key stays."
   },
 
+  "detachmentUseQuestion": "¿Has utilizado este objeto en los últimos 12 meses?",
+  "@detachmentUseQuestion": {
+    "description": "Decluttering Protocol, first mandatory detachment question (Story 6.2, FR-20) — factual 12-month use copy, pressure-free and shown before destination selection."
+  },
+
+  "detachmentSpaceQuestion": "¿Merece este objeto tu espacio físico y mental?",
+  "@detachmentSpaceQuestion": {
+    "description": "Decluttering Protocol, second mandatory detachment question (Story 6.2, FR-20) — pressure-free physical and mental space copy, shown before destination selection."
+  },
+
+  "answerYes": "Sí",
+  "@answerYes": {
+    "description": "Decluttering Protocol answer label (Story 6.2, FR-20) — shared by both mandatory questions."
+  },
+
+  "answerNo": "No",
+  "@answerNo": {
+    "description": "Decluttering Protocol answer label (Story 6.2, FR-20) — shared by both mandatory questions."
+  },
+
   "zoneZ1": "Cocina y despensa",
   "@zoneZ1": {
     "description": "Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents."

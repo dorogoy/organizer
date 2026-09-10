@@ -98,7 +98,8 @@ eval-judge: ## Judge the two human limbs per photo: CANDIDATE=<id> (re-ask via d
 eval-report: ## Write eval/results/report.md + scores.json (selection proposal + OQ-1 draft)
 	. ./tool/env.sh && cd eval && dart run bin/harness.dart report
 
-gate: ## NFR17 story completion gate: flutter test, format check, analyze
+gate: ## NFR17 story completion gate: make check, flutter test, format check, analyze
+	$(MAKE) --no-print-directory check
 	. ./tool/env.sh && flutter test
 	. ./tool/env.sh && dart format --set-exit-if-changed .
 	. ./tool/env.sh && flutter analyze

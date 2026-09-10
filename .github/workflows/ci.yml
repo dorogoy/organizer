@@ -20,7 +20,7 @@ jobs:
         run: devbox run -- make deps
 
       - name: Gradle caches (egress seals' resolved graph + pinned distribution)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -33,9 +33,6 @@ jobs:
 
       - name: Story completion gate (NFR17)
         run: devbox run -- make gate
-
-      - name: Build-time checks
-        run: devbox run -- make check
         env:
           CATALOGUE_EVOLUTION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
 
