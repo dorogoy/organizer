@@ -151,6 +151,11 @@
     "description": "3-Destination Flow, third choice — the seed glyph's meaning. A confirmed, intentional change from the PRD's original Tirar o reciclar: soltar dodges both the deletion vocabulary and the compliance vocabulary."
   },
 
+  "destinationQuarantine": "Todavía no lo decido",
+  "@destinationQuarantine": {
+    "description": "3-Destination Flow, the quiet text affordance below the trio (Story 6.5, FR-21) — the hesitation in the user's own voice, a valid dated outcome and never a fourth destination. No glyph (silhouette differentiation stays the trio's own), rendered in the support role."
+  },
+
   "liberatedVolume": "≈ 3 cajas liberadas",
   "@liberatedVolume": {
     "description": "Cumulative impact dashboard — the volume figure. It carries no glyph (the glyph-adjacency rule) and no denominator."

@@ -78,6 +78,7 @@ TriageEntry _triaged(
   int micros, {
   TriageDestination destination = TriageDestination.keep,
   CoarseVolumeTag? volumeTag,
+  String? boxId,
   String id = 'triage',
 }) => TriageEntry(
   id: id,
@@ -85,7 +86,11 @@ TriageEntry _triaged(
   offsetSeconds: 0,
   destination: destination,
   volumeTag: volumeTag,
+  boxId: boxId,
 );
+
+BoxCreatedEntry _boxCreated(int micros, {String id = 'box'}) =>
+    BoxCreatedEntry(id: id, instantUtcMicros: micros, offsetSeconds: 0);
 
 SessionExtendEntry _extended(int micros, {String id = 'extend'}) =>
     SessionExtendEntry(
@@ -322,6 +327,19 @@ void main() {
           before(const Duration(hours: 47)),
           volumeTag: CoarseVolumeTag.caja,
         ),
+        // Story 6.5's rows: the quarantine act's `item_triaged` row
+        // and its `box_created` sibling are both the user's own tap —
+        // contact exactly as every other act is. Each act in this
+        // loop stands ALONE as the newest act, so the box row's own
+        // iteration is also the standalone partial-act shape: a
+        // quarantine act whose triage append failed leaves the lone
+        // box row as the last contact, and it still moves the anchor.
+        _triaged(
+          before(const Duration(hours: 47)),
+          destination: TriageDestination.quarantine,
+          boxId: 'box-1',
+        ),
+        _boxCreated(before(const Duration(hours: 47))),
       ];
       for (final act in acts) {
         expect(

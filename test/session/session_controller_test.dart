@@ -204,6 +204,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -227,6 +228,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -641,6 +643,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
         _act(
           'card_dealt',
@@ -708,6 +711,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
       ]);
     await buildController(within).handleAppOpen();

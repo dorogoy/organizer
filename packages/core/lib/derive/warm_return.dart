@@ -120,6 +120,12 @@ bool _isUserAct(LogEntry entry) {
       // object's fate — the user using the app, the
       // `capture_created` precedent's own register.
       return true;
+    case BoxCreatedEntry():
+      // The box row (Story 6.5, FR-21): a user tap's own act, but the
+      // tap is the quarantine decision — contact for the warm return
+      // exactly as its `item_triaged` sibling is (the user using the
+      // app).
+      return true;
     case UnknownEntry():
       return false;
   }

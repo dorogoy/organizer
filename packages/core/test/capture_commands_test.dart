@@ -156,6 +156,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ItemActEntry;

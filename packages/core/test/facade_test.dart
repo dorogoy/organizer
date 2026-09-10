@@ -72,6 +72,7 @@ LogEntryRecord _record(
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,

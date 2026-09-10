@@ -239,6 +239,12 @@ abstract final class Spacing {
   /// Between the three rows of the 3-Destination Flow.
   static const double destinationRowGap = 32;
 
+  /// The hesitation affordance's separation below the 3-Destination
+  /// Flow's trio — more air than a row gap, so the quiet text sits as
+  /// its own thing, never a fourth row of the trio's rhythm (a layout
+  /// gap, not the tappable-box floor `touchTargetMin` names).
+  static const double destinationAsideGap = 48;
+
   /// The floor for every tappable box; a platform constant.
   static const double touchTargetMin = 48;
 

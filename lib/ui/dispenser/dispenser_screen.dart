@@ -600,9 +600,9 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// sink-pops-then-pushes). The answers themselves are the visit's
   /// transient state — the log's vocabulary has no kind for them, so
   /// nothing writes them; the flow's tap is the one act, through
-  /// [_onDestinationTap] below. System back from the flow (before any
-  /// tap) discards the pair and leaves the purge card standing — the
-  /// refresh below simply re-reads the same card.
+  /// [_onDestinationTap] or [_onQuarantineTap] below. System back from
+  /// the flow (before any tap) discards the pair and leaves the purge
+  /// card standing — the refresh below simply re-reads the same card.
   Future<void> _onDetachmentAnswers(
     DispenserDealt dealt,
     DetachmentAnswers answers,
@@ -618,6 +618,7 @@ class _DispenserScreenState extends State<DispenserScreen>
           builder: (context) => DestinationFlowScreen(
             onDestination: (destination) =>
                 _onDestinationTap(dealt, destination, volumeTag),
+            onQuarantine: () => _onQuarantineTap(dealt),
           ),
         ),
       );
@@ -627,28 +628,23 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// The destination tap's act (Story 6.4, FR-20, AD-3/21): the one
-  /// completion path a purge card has — `_onDone`'s mechanics with the
-  /// write triggered from the flow's route. The light haptic
-  /// acknowledges the act, then the one queued write is awaited
-  /// (the `item_triaged` row plus the completion and its bundled next
-  /// `card_dealt`, one act instant), the rescue markers end with the
-  /// deal exactly as an ordinary completion's do, and the completion
-  /// ack arms for the view the refresh commits — the sink's refresh,
-  /// after the flow pops on this future's `true`. The surface refresh
-  /// is deliberately not started here: the flow still covers it. A
+  /// The completion act's shared mechanics (Stories 6.4/6.5) —
+  /// the guard, the haptic, the awaited write and both landings
+  /// every flow tap, destination and hesitation alike, runs through.
+  /// The light haptic acknowledges the act, then the one queued write is
+  /// awaited, the rescue markers end with the deal exactly as an
+  /// ordinary completion's do, and the completion ack arms for the
+  /// view the refresh commits — the sink's refresh, after the flow
+  /// pops on this future's `true`. The surface refresh is
+  /// deliberately not started here: the flow still covers it. A
   /// failed write is the quiet catch, `_onDone`'s own — nothing
   /// surfaced, the ack-flag class cleared, the empty frame beneath —
-  /// and this future answers `false` so the flow stays standing with
-  /// the card still eligible; re-entry (back, then the protocol
-  /// again) retries. The same shared in-flight guard serializes the
-  /// act against everything below the route; the flow's own one-shot
+  /// and the future answers `false` so the flow stays standing with
+  /// the card still eligible (its re-armed guard makes the next tap
+  /// the retry). The shared in-flight guard serializes the act
+  /// against everything below the route; the flow's own one-shot
   /// holds its second tap.
-  Future<bool> _onDestinationTap(
-    DispenserDealt dealt,
-    TriageDestination destination,
-    CoarseVolumeTag? volumeTag,
-  ) async {
+  Future<bool> _runCompletionAct(Future<void> Function() act) async {
     if (_writeInFlight) {
       return false;
     }
@@ -656,11 +652,7 @@ class _DispenserScreenState extends State<DispenserScreen>
     var releaseAfterRefresh = false;
     HapticFeedback.lightImpact();
     try {
-      await widget.controller.triageAndComplete(
-        dealt,
-        destination: destination,
-        volumeTag: volumeTag,
-      );
+      await act();
       if (!mounted) {
         return false;
       }
@@ -677,9 +669,10 @@ class _DispenserScreenState extends State<DispenserScreen>
       return true;
     } catch (_) {
       // The write failed: quiet and deliberate — the flow stays
-      // standing (it pops only on success), nothing surfaced, the card
-      // remains eligible and a re-entry retries. The whole ack-flag
-      // class clears with it, exactly as `_onDone`'s catch does.
+      // standing (it pops only on success), nothing surfaced, the
+      // card remains eligible and a re-entry retries. The whole
+      // ack-flag class clears with it, exactly as `_onDone`'s catch
+      // does.
       _completionAckWaiting = false;
       _completionAckTimer?.cancel();
       _completionAckTimer = null;
@@ -695,6 +688,40 @@ class _DispenserScreenState extends State<DispenserScreen>
         _writeInFlight = false;
       }
     }
+  }
+
+  /// The destination tap's act (Story 6.4, FR-20, AD-3/21): the one
+  /// completion path a purge card has — `_runCompletionAct` over the
+  /// controller's destination write, triggered from the flow's route
+  /// (the `item_triaged` row plus the completion and its bundled next
+  /// `card_dealt`, one act instant). The tag is the one the visit
+  /// handed off, null when declined (FR-22: declining writes nothing
+  /// — the row simply carries no tag).
+  Future<bool> _onDestinationTap(
+    DispenserDealt dealt,
+    TriageDestination destination,
+    CoarseVolumeTag? volumeTag,
+  ) {
+    return _runCompletionAct(
+      () => widget.controller.triageAndComplete(
+        dealt,
+        destination: destination,
+        volumeTag: volumeTag,
+      ),
+    );
+  }
+
+  /// The hesitation affordance's act (Story 6.5, FR-21, AD-3/21):
+  /// `_runCompletionAct` over the controller's quarantine path — the
+  /// one queued write (`box_created`, then `item_triaged(quarantine)`
+  /// linking it, then the completion and its bundled next
+  /// `card_dealt`, one act instant). The visit's handed-off volume
+  /// tag deliberately does not travel: the method takes none, and a
+  /// quarantined object liberates nothing (FR-22/AD-26).
+  Future<bool> _onQuarantineTap(DispenserDealt dealt) {
+    return _runCompletionAct(
+      () => widget.controller.quarantineAndComplete(dealt),
+    );
   }
 
   Future<void> _readAfterSessionSettles(int generation) async {

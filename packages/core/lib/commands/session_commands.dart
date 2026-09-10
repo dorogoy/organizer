@@ -92,6 +92,7 @@ typedef LogEntryContent = ({
   bool? enabled,
   TriageDestination? triageDestination,
   CoarseVolumeTag? triageVolumeTag,
+  String? triageBoxId,
 });
 
 LogEntryContent _moment(LogKind kind) => (
@@ -112,6 +113,7 @@ LogEntryContent _moment(LogKind kind) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryContent _start({int? pocketMinutes}) => (
@@ -132,6 +134,7 @@ LogEntryContent _start({int? pocketMinutes}) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryContent _deal(Card card) => (
@@ -152,6 +155,7 @@ LogEntryContent _deal(Card card) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryContent _extend() => (
@@ -172,6 +176,7 @@ LogEntryContent _extend() => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 /// `app_opened` — one fact per open (AD-19's lifecycle; AD-24's reader
@@ -533,6 +538,7 @@ List<LogEntryContent> _answered({
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ),
     if (deal != null) _deal(deal),
   ];

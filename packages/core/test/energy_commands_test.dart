@@ -63,6 +63,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
         expect(conversion.flaw, isNull);
         expect((conversion.entry as EnergySetEntry).level, level);

@@ -16,6 +16,7 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/derive/checkpoint.dart';
+import 'package:core/derive/quarantine.dart';
 import 'package:core/derive/strip.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
@@ -162,6 +163,42 @@ class _FailAfterTriageStore implements StorePort {
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async {
     if (!_thrown && entry.kind == 'card_done') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose first `item_triaged` append throws once, after letting
+/// a `box_created` append through — the quarantine act's mid-batch
+/// failure row BETWEEN the box and its triage row (Story 6.5): the box
+/// row lands, the triage append throws, and the orphan box
+/// reconstructs as an honest empty box (the tolerated partial-act
+/// exposure's other half).
+class _FailAfterBoxStore implements StorePort {
+  _FailAfterBoxStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _seenBox = false;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (entry.kind == 'box_created') {
+      _seenBox = true;
+    }
+    if (_seenBox && !_thrown && entry.kind == 'item_triaged') {
       _thrown = true;
       throw StateError('append failed');
     }
@@ -355,6 +392,7 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 /// An install-day `app_opened` — a row from the day before the fixed
@@ -389,6 +427,7 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -412,6 +451,7 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
@@ -435,6 +475,7 @@ LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -1164,6 +1205,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1301,6 +1343,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1751,6 +1794,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
     }
 
@@ -1799,6 +1843,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1832,6 +1877,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1861,6 +1907,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1883,6 +1930,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       }
 
@@ -1934,6 +1982,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       final view = await buildFor(
         store,
@@ -2521,6 +2570,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2546,6 +2596,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2746,6 +2797,7 @@ void main() {
             enabled: null,
             triageDestination: null,
             triageVolumeTag: null,
+            triageBoxId: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3838,6 +3890,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -4597,6 +4650,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     _RecordingStore activatedStore() => _RecordingStore(epicFacts())
@@ -4855,6 +4909,280 @@ void main() {
             'the orphan plus the retry\'s own row — approximate '
             'cumulative counts absorb the double',
       );
+    });
+
+    test(
+      'triageAndComplete throws AssertionError if destination is quarantine — '
+      'quarantine completions must go through quarantineAndComplete',
+      () async {
+        final store = activatedStore();
+        final dealt = await openSessionAndReadFirstDeal(store);
+        final controller = DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        );
+        expect(
+          () => controller.triageAndComplete(
+            dealt,
+            destination: TriageDestination.quarantine,
+          ),
+          throwsA(isA<AssertionError>()),
+        );
+      },
+    );
+
+    test('quarantineAndComplete appends the ordered act — box_created, then '
+        'item_triaged carrying quarantine and the box\'s own pre-minted id, '
+        'then card_done on the purge id, then the bundled next card_dealt, '
+        'all stamped from the one act instant and carrying no tag whatever '
+        'the visit handed off (Story 6.5, FR-21/22, AD-3/21)', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+
+      await controller.quarantineAndComplete(dealt);
+
+      // The act's four rows, in the act's order, after the launch deal.
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      final boxAt = kinds.lastIndexOf('box_created');
+      expect(boxAt, 6);
+      expect(kinds.sublist(boxAt), [
+        'box_created',
+        'item_triaged',
+        'card_done',
+        'card_dealt',
+      ]);
+      final box = store.entries[boxAt];
+      final triage = store.entries[boxAt + 1];
+      final done = store.entries[boxAt + 2];
+      final nextDeal = store.entries[boxAt + 3];
+      // The box row is payload-less: its id and instant ARE the box.
+      expect(box.itemId, isNull);
+      expect(box.triageDestination, isNull);
+      expect(box.triageVolumeTag, isNull);
+      expect(box.triageBoxId, isNull);
+      expect(box.id, matches(v7));
+      // The triage row links the box by its own id and carries no tag.
+      expect(triage.triageDestination, 'quarantine');
+      expect(triage.triageBoxId, box.id);
+      expect(
+        triage.triageVolumeTag,
+        isNull,
+        reason:
+            'a quarantined object liberates nothing — the tag the '
+            'visit handed off writes nothing on this act',
+      );
+      expect(triage.itemId, isNull);
+      expect(done.itemId, '${purgeItemIdPrefix}s1');
+      expect(nextDeal.itemId, 's1');
+      // One act instant serves the whole quartet — the entry mint.
+      expect(box.instantUtcMicros, triage.instantUtcMicros);
+      expect(triage.instantUtcMicros, done.instantUtcMicros);
+      expect(done.instantUtcMicros, nextDeal.instantUtcMicros);
+      expect(box.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+      // A distinct v7 id per row, the box row's id being the one
+      // the triage row names — the pre-minted link, threaded once.
+      expect(triage.id, matches(v7));
+      expect(done.id, matches(v7));
+      expect(nextDeal.id, matches(v7));
+      expect(box.id, isNot(triage.id));
+      expect(triage.id, isNot(done.id));
+
+      // The next read deals the step — the purge is retired, and the
+      // derivation reconstructs exactly one dated box holding one row.
+      final view = await controller.read();
+      expect(view, isA<DispenserDealt>());
+      final boxes = deriveQuarantine(
+        logEntriesOf(await store.readLogEntries()),
+      );
+      expect(boxes, hasLength(1));
+      expect(boxes.single.id, box.id);
+      expect(boxes.single.instantUtcMicros, box.instantUtcMicros);
+      expect(boxes.single.contents, hasLength(1));
+      expect(boxes.single.contents.single.id, triage.id);
+    });
+
+    test('a stale double quarantine act is a no-op — the second call on '
+        'the answered card appends nothing at all, no orphan box row '
+        'either (the guard is decided before any append)', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.quarantineAndComplete(dealt);
+      final afterAct = List.of(store.entries);
+
+      await controller.quarantineAndComplete(dealt);
+
+      expect(store.entries, orderedEquals(afterAct));
+      expect(
+        store.entries.where((entry) => entry.kind == 'box_created'),
+        hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(1),
+      );
+    });
+
+    test('a mid-batch failure after the box row leaves the pair standing '
+        'and the re-entry retry appends a fresh box beside them — the '
+        'same partial-act exposure every multi-row act has, and the '
+        'orphan box reconstructs as an honest empty box', () async {
+      final inner = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(inner);
+      final store = _FailAfterTriageStore(inner);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+
+      // The box and triage appends land; the completion append throws.
+      await expectLater(
+        controller.quarantineAndComplete(dealt),
+        throwsStateError,
+      );
+
+      // The orphan pair stands: one box, one quarantine row linking
+      // it, no card_done — the partial-act class, tolerated.
+      expect(
+        inner.entries.where((entry) => entry.kind == 'box_created'),
+        hasLength(1),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(1),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      final orphanBoxId = inner.entries
+          .firstWhere((entry) => entry.kind == 'box_created')
+          .id;
+      expect(
+        inner.entries
+            .firstWhere((entry) => entry.kind == 'item_triaged')
+            .triageBoxId,
+        orphanBoxId,
+      );
+
+      // The re-entry retry on the still-live card appends its own
+      // full act — a FRESH box beside the orphan pair, never a
+      // second content row on the orphaned box.
+      await controller.quarantineAndComplete(dealt);
+      final kinds = inner.entries.map((entry) => entry.kind).toList();
+      final retryBoxAt = kinds.lastIndexOf('box_created');
+      expect(kinds.sublist(retryBoxAt), [
+        'box_created',
+        'item_triaged',
+        'card_done',
+        'card_dealt',
+      ]);
+      final retryBoxId = inner.entries[retryBoxAt].id;
+      expect(retryBoxId, isNot(orphanBoxId));
+      expect(
+        inner.entries
+            .lastWhere((entry) => entry.kind == 'item_triaged')
+            .triageBoxId,
+        retryBoxId,
+      );
+      // And the derivation reads both boxes: the orphan holding its
+      // linked row, the retry's holding its own — distinct, honest,
+      // coarse (any date-collapse is 6.6's concern, never a write).
+      final boxes = deriveQuarantine(
+        logEntriesOf(await inner.readLogEntries()),
+      );
+      expect(boxes, hasLength(2));
+      expect(
+        boxes.map((box) => box.id),
+        containsAll([orphanBoxId, retryBoxId]),
+      );
+      expect(boxes.every((box) => box.contents.length == 1), isTrue);
+    });
+
+    test('a mid-batch failure between the box row and its triage row '
+        'leaves the lone box standing — the orphan reconstructs as an '
+        'honest empty box and the re-entry retry appends a fresh one '
+        'beside it (the tolerated partial-act class\'s other half)', () async {
+      final inner = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(inner);
+      final store = _FailAfterBoxStore(inner);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+
+      // The box append lands; the triage append throws.
+      await expectLater(
+        controller.quarantineAndComplete(dealt),
+        throwsStateError,
+      );
+
+      // The orphan stands ALONE: one box_created, no quarantine row,
+      // no completion — and the derivation reads it back as the
+      // honest, coarse empty box it is.
+      final orphanBoxId = inner.entries
+          .firstWhere((entry) => entry.kind == 'box_created')
+          .id;
+      expect(
+        inner.entries.where((entry) => entry.kind == 'box_created'),
+        hasLength(1),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        isEmpty,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      final orphanBoxes = deriveQuarantine(
+        logEntriesOf(await inner.readLogEntries()),
+      );
+      expect(orphanBoxes, hasLength(1));
+      expect(orphanBoxes.single.id, orphanBoxId);
+      expect(orphanBoxes.single.contents, isEmpty);
+
+      // The re-entry retry on the still-live card appends its own
+      // fresh box and the whole act behind it — never a content row
+      // on the orphaned box.
+      await controller.quarantineAndComplete(dealt);
+      final kinds = inner.entries.map((entry) => entry.kind).toList();
+      final retryBoxAt = kinds.lastIndexOf('box_created');
+      expect(kinds.sublist(retryBoxAt), [
+        'box_created',
+        'item_triaged',
+        'card_done',
+        'card_dealt',
+      ]);
+      final retryBoxId = inner.entries[retryBoxAt].id;
+      expect(retryBoxId, isNot(orphanBoxId));
+      // Two boxes after the retry: the orphan honestly empty, the
+      // retry's holding its own row — distinct, never collapsed.
+      final boxes = deriveQuarantine(
+        logEntriesOf(await inner.readLogEntries()),
+      );
+      expect(boxes, hasLength(2));
+      expect(boxes.first.id, orphanBoxId);
+      expect(boxes.first.contents, isEmpty);
+      expect(boxes.last.id, retryBoxId);
+      expect(boxes.last.contents, hasLength(1));
     });
 
     test('skip appends exactly one card_skipped on the purge id — the '

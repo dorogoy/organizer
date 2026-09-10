@@ -468,6 +468,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
     await launch(tester, store);
 
@@ -509,6 +510,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
         (
           id: 'seed-invalid',
@@ -536,6 +538,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
       ]);
     await launch(tester, store);
@@ -656,6 +659,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       await launch(tester, store);
       await openSettings(tester);
@@ -919,6 +923,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
 
       // The IA y voz label now names the group header (Story 4-4), so
@@ -1068,6 +1073,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
 
       // The row stands: refused and not granted — the label renders
@@ -1125,6 +1131,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     testWidgets('the toggle writes exactly one setting_changed '
@@ -1313,6 +1320,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       final disabledCensus = await nuevoProyectoCensus(disabled);
       expect(disabledCensus, enabledCensus);

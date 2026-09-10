@@ -98,6 +98,7 @@ class CaptureController {
         enabled: content.enabled,
         triageDestination: content.triageDestination?.name,
         triageVolumeTag: content.triageVolumeTag?.name,
+        triageBoxId: content.triageBoxId,
       ));
     });
   }
