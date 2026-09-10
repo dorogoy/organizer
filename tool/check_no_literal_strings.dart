@@ -117,6 +117,11 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'tableInfoPragmaSlot',
     'tableInfoNameField',
   },
+  'lib/crash.dart': {
+    '_redactedText',
+    '_sensitivePatternString',
+    '_apiKeyTokenPatternString',
+  },
   'lib/store/connection.dart': {'substrateFileName'},
   'lib/store/drift_store.dart': {'rowIdColumnName'},
   'lib/platform/dictate/dictate_recognizer.dart': {

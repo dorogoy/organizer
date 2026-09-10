@@ -29,13 +29,42 @@ void installCrashGuard(StorePort store) {
 /// (AD-12). The entry type offers no other field, so no task text, image
 /// path, prompt or URL can ride along. The shell may read the clock; the
 /// core never does (AD-3).
+/// Redacted placeholder for sensitive credential patterns in stack traces.
+const String _redactedText = '[REDACTED]';
+
+/// Pattern matching authorization headers or URL query parameters with keys.
+const String _sensitivePatternString =
+    r'(Bearer\s+|x-api-key[:=]\s*|x-goog-api-key[:=]\s*|(?:api[_-]?key|key|token)=)([^\s\n\r,;&]+)';
+
+/// Pattern matching known standalone API key token formats (e.g. OpenAI, Gemini).
+const String _apiKeyTokenPatternString =
+    r'\b(?:sk-[a-zA-Z0-9_\-]{20,}|AIzaSy[a-zA-Z0-9_\-]{33})\b';
+
+final RegExp _sensitivePattern = RegExp(
+  _sensitivePatternString,
+  caseSensitive: false,
+);
+
+final RegExp _apiKeyTokenPattern = RegExp(_apiKeyTokenPatternString);
+
+/// Sanitizes stack traces or error messages by redacting credential patterns.
+String sanitizeStackTrace(String input) {
+  final match1 = _sensitivePattern;
+  final sanitizedHeader = input.replaceAllMapped(
+    match1,
+    (match) => [match.group(1), _redactedText].join(),
+  );
+  return sanitizedHeader.replaceAll(_apiKeyTokenPattern, _redactedText);
+}
+
 Future<void> appendCrashEntry(
   StorePort store,
   String? stack, {
   Uuid idMinter = const Uuid(),
 }) async {
   final now = DateTime.now();
-  final resolvedStack = stack ?? StackTrace.current.toString();
+  final rawStack = stack ?? StackTrace.current.toString();
+  final resolvedStack = sanitizeStackTrace(rawStack);
   final LogEntryRecord entry = (
     id: idMinter.v7(),
     kind: LogKind.crashRecorded.name,

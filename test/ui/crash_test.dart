@@ -68,6 +68,27 @@ void main() {
     },
   );
 
+  test('sanitizeStackTrace redacts API keys and sensitive auth headers', () {
+    expect(
+      sanitizeStackTrace('Exception: Bearer sk-12345678901234567890abc'),
+      'Exception: Bearer [REDACTED]',
+    );
+    expect(
+      sanitizeStackTrace(
+        'Error at https://api.openai.com/v1?api_key=sk-proj-12345678901234567890123',
+      ),
+      'Error at https://api.openai.com/v1?api_key=[REDACTED]',
+    );
+    expect(
+      sanitizeStackTrace('Header x-api-key: secret12345678901234567890'),
+      'Header x-api-key: [REDACTED]',
+    );
+    expect(
+      sanitizeStackTrace('Gemini key AIzaSyABC123456789012345678901234567890'),
+      'Gemini key [REDACTED]',
+    );
+  });
+
   test(
     'a failing store write is swallowed — the guard never re-throws',
     () async {
