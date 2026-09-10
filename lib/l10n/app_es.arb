@@ -56,6 +56,36 @@
     "description": "Decluttering Protocol answer label (Story 6.2, FR-20) — shared by both mandatory questions."
   },
 
+  "volumeTagQuestion": "¿Cuánto era?",
+  "@volumeTagQuestion": {
+    "description": "Decluttering Protocol, the optional coarse volume block's question (Story 6.3, FR-22) — shown only after both detachment answers stand; implies no obligation, and declining carries no guilt (UX-DR31 anti-shaming register)."
+  },
+
+  "volumeTagBolsa": "Bolsa",
+  "@volumeTagBolsa": {
+    "description": "Coarse volume tag choice (Story 6.3, FR-22) — a bag's worth; one-tap equal-weight outcome, no preselection."
+  },
+
+  "volumeTagCaja": "Caja",
+  "@volumeTagCaja": {
+    "description": "Coarse volume tag choice (Story 6.3, FR-22) — a box's worth; one-tap equal-weight outcome, no preselection."
+  },
+
+  "volumeTagCajaGrande": "Caja grande",
+  "@volumeTagCajaGrande": {
+    "description": "Coarse volume tag choice (Story 6.3, FR-22) — a big box's worth; one-tap equal-weight outcome, no preselection."
+  },
+
+  "volumeTagMueble": "Mueble",
+  "@volumeTagMueble": {
+    "description": "Coarse volume tag choice (Story 6.3, FR-22) — a piece of furniture's worth; one-tap equal-weight outcome, no preselection."
+  },
+
+  "volumeTagSkip": "Sin etiqueta",
+  "@volumeTagSkip": {
+    "description": "The volume block's decline action (Story 6.3, FR-22) — a first-class one-tap outcome equal in weight to every tag, never a dismiss gesture; declining writes nothing."
+  },
+
   "zoneZ1": "Cocina y despensa",
   "@zoneZ1": {
     "description": "Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents."

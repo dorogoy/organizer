@@ -22,6 +22,8 @@ LogEntryRecord _record(
   String? sliceCause,
   String? cluster,
   bool? enabled,
+  String? triageDestination,
+  String? triageVolumeTag,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -41,12 +43,14 @@ LogEntryRecord _record(
   sliceCause: sliceCause,
   cluster: cluster,
   enabled: enabled,
+  triageDestination: triageDestination,
+  triageVolumeTag: triageVolumeTag,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-three kinds (23 since Story '
-        '5.13 added suggestion_dismissed)', () {
+    test('holds exactly the build\'s twenty-four kinds (24 since Story '
+        '6.3 added item_triaged)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -71,6 +75,7 @@ void main() {
         LogKind.epicActivated,
         LogKind.clusterCurationChanged,
         LogKind.suggestionDismissed,
+        LogKind.itemTriaged,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'app_opened',
@@ -85,6 +90,7 @@ void main() {
         'energy_set',
         'epic_activated',
         'face_refused',
+        'item_triaged',
         'permission_refused',
         'report_answered',
         'scan_abandoned',
@@ -97,7 +103,7 @@ void main() {
         'slice_returned',
         'suggestion_dismissed',
       ]);
-      expect(LogKind.knownByName, hasLength(23));
+      expect(LogKind.knownByName, hasLength(24));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1425,6 +1431,8 @@ void main() {
           sliceCause: 'quotaExhausted',
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       );
       expect(conversion.flaw, isNull);
@@ -1443,6 +1451,8 @@ void main() {
             sliceCause: cause.name,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         );
         expect(conversion.flaw, isNull, reason: cause.name);
@@ -1462,6 +1472,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         );
         expect(conversion.entry, isNull);
@@ -1484,6 +1496,8 @@ void main() {
           sliceCause: 'invalidKey',
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
         _record(
           'slice_returned',
@@ -1492,6 +1506,8 @@ void main() {
           sliceCause: 'invalidKey',
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
         _record(
           'card_dealt',
@@ -1500,6 +1516,8 @@ void main() {
           sliceCause: 'invalidKey',
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       ]) {
         final conversion = convertLogEntryRecord(record);
@@ -1525,6 +1543,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             stack: '#0      build',
           ),
           LogRecordFlaw.settingOnNonSettingKind: _record(
@@ -1534,6 +1554,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             settingKey: 'time_bag',
           ),
           LogRecordFlaw.pocketOnNonPocketKind: _record(
@@ -1543,6 +1565,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             pocketMinutes: 15,
           ),
           LogRecordFlaw.energyOnNonEnergyKind: _record(
@@ -1552,6 +1576,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             energyLevel: 2,
           ),
           LogRecordFlaw.reportOnNonReportKind: _record(
@@ -1561,6 +1587,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             reportValue: 3,
           ),
           LogRecordFlaw.permissionOnNonPermissionKind: _record(
@@ -1570,6 +1598,8 @@ void main() {
             sliceCause: cause,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
             permission: 'microphone',
           ),
         };
@@ -1620,6 +1650,8 @@ void main() {
             sliceCause: 'invalidKey',
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         ).flaw,
         LogRecordFlaw.halfItemPair,
@@ -1632,6 +1664,8 @@ void main() {
             sliceCause: 'invalidKey',
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         ).flaw,
         LogRecordFlaw.halfItemPair,
@@ -1645,6 +1679,8 @@ void main() {
           sliceCause: 'invalidKey',
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ),
       );
       expect(rescue.flaw, isNull);
@@ -1693,6 +1729,8 @@ void main() {
                     'cluster_curation_changed',
                     cluster: cluster.name,
                     enabled: true,
+                    triageDestination: null,
+                    triageVolumeTag: null,
                   ),
                 ).entry
                 as ClusterCurationChangedEntry;
@@ -1722,6 +1760,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'plantas',
             enabled: false,
+            triageDestination: null,
+            triageVolumeTag: null,
           ),
         ).flaw,
         LogRecordFlaw.curationClusterAbsent,
@@ -1838,6 +1878,11 @@ void main() {
           itemOrigin: Origin.cloud,
           cluster: 'z1',
         ),
+        'item_triaged': _record(
+          'item_triaged',
+          triageDestination: 'keep',
+          cluster: 'z1',
+        ),
       };
       // Every known kind but the curation kind itself is in the map.
       final expectedKinds =
@@ -1870,6 +1915,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             itemId: 'man-a',
             itemOrigin: Origin.shipped,
           ),
@@ -1880,6 +1927,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             stack: 'a-stack',
           ),
           LogRecordFlaw.stackOffCrashKind,
@@ -1889,6 +1938,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             settingKey: 'time_bag',
           ),
           LogRecordFlaw.settingOnNonSettingKind,
@@ -1898,6 +1949,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             settingTextValue: 'openai',
           ),
           LogRecordFlaw.settingOnNonSettingKind,
@@ -1907,6 +1960,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             pocketMinutes: 15,
           ),
           LogRecordFlaw.pocketOnNonPocketKind,
@@ -1916,6 +1971,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             energyLevel: 1,
           ),
           LogRecordFlaw.energyOnNonEnergyKind,
@@ -1925,6 +1982,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             reportValue: 3,
           ),
           LogRecordFlaw.reportOnNonReportKind,
@@ -1934,6 +1993,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             permission: 'camera',
           ),
           LogRecordFlaw.permissionOnNonPermissionKind,
@@ -1943,6 +2004,8 @@ void main() {
             'cluster_curation_changed',
             cluster: 'z1',
             enabled: true,
+            triageDestination: null,
+            triageVolumeTag: null,
             sliceCause: 'invalidKey',
           ),
           LogRecordFlaw.causeOnNonFailedKind,
@@ -1953,6 +2016,355 @@ void main() {
           convertLogEntryRecord(row).flaw,
           flaw,
           reason: 'a curation row carries its own payload and no other',
+        );
+      }
+    });
+  });
+
+  group('the triage payload path (Story 6.3, FR-22, AD-21, AD-23)', () {
+    test('the destination vocabulary holds exactly the three members as '
+        'data — no quarantine member, forward-only (FR-22, 6.5 seam)', () {
+      expect(triageDestinationByName, {
+        'keep': TriageDestination.keep,
+        'donate_sell': TriageDestination.donate_sell,
+        'trash_recycle': TriageDestination.trash_recycle,
+      });
+      expect(TriageDestination.values, hasLength(3));
+      expect(
+        TriageDestination.values.map((destination) => destination.name),
+        isNot(contains('quarantine')),
+        reason: 'quarantine arrives additively in 6.5, never in this story',
+      );
+    });
+
+    test('the coarse volume vocabulary holds exactly the four tags — no '
+        'numeric member can exist (FR-22)', () {
+      expect(coarseVolumeTagByName, {
+        'bolsa': CoarseVolumeTag.bolsa,
+        'caja': CoarseVolumeTag.caja,
+        'caja_grande': CoarseVolumeTag.caja_grande,
+        'mueble': CoarseVolumeTag.mueble,
+      });
+      expect(CoarseVolumeTag.values, hasLength(4));
+      // The wire names themselves are words, never numerals.
+      for (final wire in coarseVolumeTagByName.keys) {
+        expect(double.tryParse(wire), isNull, reason: wire);
+      }
+    });
+
+    test('a well-shaped row converts with its destination and tag intact — '
+        'no item pair rides the physical object (AD-14 does not apply)', () {
+      final conversion = convertLogEntryRecord(
+        _record(
+          'item_triaged',
+          triageDestination: 'donate_sell',
+          triageVolumeTag: 'caja_grande',
+        ),
+      );
+      final entry = conversion.entry;
+      expect(conversion.flaw, isNull);
+      expect(entry, isA<TriageEntry>());
+      expect(entry!.kind, LogKind.itemTriaged);
+      expect((entry as TriageEntry).destination, TriageDestination.donate_sell);
+      expect(entry.volumeTag, CoarseVolumeTag.caja_grande);
+      expect(entry.instantUtcMicros, 7000);
+      expect(entry.offsetSeconds, 3600);
+    });
+
+    test('a tagless row converts with a null tag — declining to tag '
+        'writes nothing (FR-22)', () {
+      for (final tag in [null, '']) {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            triageVolumeTag: tag,
+          ),
+        );
+        expect(conversion.flaw, isNull, reason: 'tag=$tag');
+        final entry = conversion.entry as TriageEntry;
+        expect(entry.destination, TriageDestination.keep);
+        expect(
+          entry.volumeTag,
+          isNull,
+          reason: 'an empty string is not a value',
+        );
+      }
+    });
+
+    test('every destination and tag wire name round-trips', () {
+      for (final destination in TriageDestination.values) {
+        final entry =
+            convertLogEntryRecord(
+                  _record(
+                    'item_triaged',
+                    triageDestination: destination.name,
+                    triageVolumeTag: 'bolsa',
+                  ),
+                ).entry
+                as TriageEntry;
+        expect(entry.destination, destination);
+      }
+      for (final tag in CoarseVolumeTag.values) {
+        final entry =
+            convertLogEntryRecord(
+                  _record(
+                    'item_triaged',
+                    triageDestination: 'trash_recycle',
+                    triageVolumeTag: tag.name,
+                  ),
+                ).entry
+                as TriageEntry;
+        expect(entry.volumeTag, tag);
+      }
+    });
+
+    test('a row without a readable destination is excluded — absent, empty '
+        'or unknown, the permission column\'s own discipline', () {
+      for (final destination in [null, '', 'garage', 'quarantine']) {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'item_triaged',
+            triageDestination: destination,
+            triageVolumeTag: 'bolsa',
+          ),
+        );
+        expect(conversion.entry, isNull, reason: 'destination=$destination');
+        expect(
+          conversion.flaw,
+          LogRecordFlaw.triageDestinationAbsent,
+          reason:
+              'a destination this build does not know is excluded, never '
+              'coerced — quarantine is 6.5\'s additive member, not this '
+              'build\'s (AD-23)',
+        );
+      }
+    });
+
+    test('a tag value this build cannot read is excluded — present and '
+        'load-bearing, never silently dropped', () {
+      expect(
+        convertLogEntryRecord(
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            triageVolumeTag: 'bidon',
+          ),
+        ).flaw,
+        LogRecordFlaw.triageVolumeTagAbsent,
+      );
+    });
+
+    test('a destination or tag payload on any other kind is excluded — '
+        'every payload column rides its own kind and no other', () {
+      // Each kind carries its own required payload, so the conversion
+      // reaches the triage guard rather than its own absent-payload
+      // flaw — the guard is what this test isolates. The map is
+      // exhaustive over the census minus the triage kind itself.
+      final rows = <String, LogEntryRecord>{
+        'card_done': _record(
+          'card_done',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          triageDestination: 'keep',
+        ),
+        'card_dealt': _record(
+          'card_dealt',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          triageDestination: 'keep',
+        ),
+        'card_skipped': _record(
+          'card_skipped',
+          itemId: 'man-a',
+          itemOrigin: Origin.shipped,
+          triageDestination: 'keep',
+        ),
+        'session_started': _record(
+          'session_started',
+          triageDestination: 'keep',
+        ),
+        'session_ended': _record('session_ended', triageDestination: 'keep'),
+        'session_extended': _record(
+          'session_extended',
+          pocketMinutes: 5,
+          triageDestination: 'keep',
+        ),
+        'app_opened': _record('app_opened', triageDestination: 'keep'),
+        'crash_recorded': _record(
+          'crash_recorded',
+          stack: '#0      build',
+          triageDestination: 'keep',
+        ),
+        'setting_changed': _record(
+          'setting_changed',
+          settingKey: 'time_bag',
+          settingValue: 15,
+          triageDestination: 'keep',
+        ),
+        'energy_set': _record(
+          'energy_set',
+          energyLevel: 1,
+          triageDestination: 'keep',
+        ),
+        'report_answered': _record(
+          'report_answered',
+          reportValue: 3,
+          reportWeek: 32,
+          triageDestination: 'keep',
+        ),
+        'capture_created': _record(
+          'capture_created',
+          itemId: 'cap-1',
+          itemOrigin: Origin.manual,
+          triageDestination: 'keep',
+        ),
+        'permission_refused': _record(
+          'permission_refused',
+          permission: 'camera',
+          triageDestination: 'keep',
+        ),
+        'slice_requested': _record(
+          'slice_requested',
+          itemId: 'scan-1',
+          itemOrigin: Origin.cloud,
+          triageDestination: 'keep',
+        ),
+        'slice_returned': _record(
+          'slice_returned',
+          itemId: 'scan-1',
+          itemOrigin: Origin.cloud,
+          triageDestination: 'keep',
+        ),
+        'slice_failed': _record(
+          'slice_failed',
+          itemId: 'scan-1',
+          itemOrigin: Origin.cloud,
+          sliceCause: 'invalidKey',
+          triageDestination: 'keep',
+        ),
+        'face_refused': _record('face_refused', triageDestination: 'keep'),
+        'consent_granted': _record(
+          'consent_granted',
+          triageDestination: 'keep',
+        ),
+        'consent_declined': _record(
+          'consent_declined',
+          triageDestination: 'keep',
+        ),
+        'scan_abandoned': _record('scan_abandoned', triageDestination: 'keep'),
+        'epic_activated': _record(
+          'epic_activated',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          triageDestination: 'keep',
+        ),
+        'cluster_curation_changed': _record(
+          'cluster_curation_changed',
+          cluster: 'z1',
+          enabled: true,
+          triageDestination: 'keep',
+        ),
+        'suggestion_dismissed': _record(
+          'suggestion_dismissed',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          triageDestination: 'keep',
+        ),
+      };
+      final expectedKinds =
+          LogKind.knownByName.keys
+              .where((name) => name != LogKind.itemTriaged.name)
+              .toList()
+            ..sort();
+      expect(rows.keys.toList()..sort(), expectedKinds);
+      rows.forEach((kind, row) {
+        final conversion = convertLogEntryRecord(row);
+        expect(conversion.entry, isNull, reason: kind);
+        expect(
+          conversion.flaw,
+          LogRecordFlaw.triageOnNonTriageKind,
+          reason: kind,
+        );
+      });
+      // The tag column alone violates a foreign kind the same way.
+      final onTag = convertLogEntryRecord(
+        _record('app_opened', triageVolumeTag: 'bolsa'),
+      );
+      expect(onTag.entry, isNull);
+      expect(onTag.flaw, LogRecordFlaw.triageOnNonTriageKind);
+    });
+
+    test('a triage row carrying any other payload family is excluded, '
+        'never coerced', () {
+      final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            itemId: 'man-a',
+            itemOrigin: Origin.shipped,
+          ),
+          LogRecordFlaw.itemOnNonItemKind,
+        ),
+        (
+          _record('item_triaged', triageDestination: 'keep', stack: 'a-stack'),
+          LogRecordFlaw.stackOffCrashKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            settingKey: 'time_bag',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            settingTextValue: 'openai',
+          ),
+          LogRecordFlaw.settingOnNonSettingKind,
+        ),
+        (
+          _record('item_triaged', triageDestination: 'keep', pocketMinutes: 15),
+          LogRecordFlaw.pocketOnNonPocketKind,
+        ),
+        (
+          _record('item_triaged', triageDestination: 'keep', energyLevel: 1),
+          LogRecordFlaw.energyOnNonEnergyKind,
+        ),
+        (
+          _record('item_triaged', triageDestination: 'keep', reportValue: 3),
+          LogRecordFlaw.reportOnNonReportKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            permission: 'camera',
+          ),
+          LogRecordFlaw.permissionOnNonPermissionKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            sliceCause: 'invalidKey',
+          ),
+          LogRecordFlaw.causeOnNonFailedKind,
+        ),
+        (
+          _record('item_triaged', triageDestination: 'keep', cluster: 'z1'),
+          LogRecordFlaw.curationOnNonCurationKind,
+        ),
+      ];
+      for (final (row, flaw) in payloaded) {
+        expect(
+          convertLogEntryRecord(row).flaw,
+          flaw,
+          reason: 'a triage row carries its own payload and no other',
         );
       }
     });

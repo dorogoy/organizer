@@ -154,6 +154,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as ItemActEntry;

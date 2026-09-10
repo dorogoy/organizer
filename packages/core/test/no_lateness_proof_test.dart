@@ -1009,7 +1009,9 @@ final class KitchenSink {
       // nullable permission column is schema v7's (3.4); the nullable
       // setting text column is schema v8's (4.3); the nullable slice
       // cause column is schema v9's (4.6); the nullable cluster and
-      // enabled columns are schema v11's additive pair (5.11).
+      // enabled columns are schema v11's additive pair (5.11); the
+      // nullable triage destination and tag columns are schema v12's
+      // additive pair (6.3).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -1031,6 +1033,8 @@ final class KitchenSink {
           'sliceCause',
           'cluster',
           'enabled',
+          'triageDestination',
+          'triageVolumeTag',
         ]),
       );
     });
@@ -1043,7 +1047,8 @@ final class KitchenSink {
       // two report fields grow it a last time (2.6); the permission
       // field grows it once (3.4); the setting text field grows it
       // once more (4.3); the slice cause field grows it once (4.6);
-      // the cluster and enabled fields grow it once each (5.11).
+      // the cluster and enabled fields grow it once each (5.11); the
+      // triage destination and tag fields grow it once each (6.3).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -1062,6 +1067,8 @@ final class KitchenSink {
           'sliceCause',
           'cluster',
           'enabled',
+          'triageDestination',
+          'triageVolumeTag',
         ]),
       );
     });
@@ -1258,6 +1265,7 @@ final class KitchenSink {
       'log/log_entry.dart:PermissionRefusedEntry',
       'log/log_entry.dart:SliceEntry',
       'log/log_entry.dart:ClusterCurationChangedEntry',
+      'log/log_entry.dart:TriageEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1324,6 +1332,12 @@ final class KitchenSink {
       // enum with members and no fields, on the value-vocabularies'
       // own terms.
       'log/log_entry.dart:Permission',
+      // The triage act's value vocabularies (Story 6.3, FR-22) — the
+      // destination and coarse volume tag enums, members and no
+      // fields, on the value-vocabularies' own terms (a numeric
+      // volume has no member to ride).
+      'log/log_entry.dart:TriageDestination',
+      'log/log_entry.dart:CoarseVolumeTag',
       // The read boundary's result record — conversion output, not a
       // persisted or derived read model.
       'log/log_entry.dart:LogEntryConversion',
@@ -2495,6 +2509,95 @@ final class KitchenSink {
       RegExp(r'\bClusterCurationChangedEntry\b').allMatches(fold),
       hasLength(1),
       reason: 'the fold is the kind\'s one derivation-side reader',
+    );
+  });
+
+  test('item_triaged is minted in exactly one file and read nowhere in '
+      'core — no derivation consumes the substrate yet, 6.5\'s '
+      'Quarantine Box and 6.7\'s metric will read the entry type, never '
+      'the kind constant (Story 6.3, FR-22, AD-21, AD-3)', () {
+    // The two homes the vocabulary allows: the definition (which also
+    // classifies the payload at the read boundary, on its own
+    // subtype) and the one command file that mints the kind. The
+    // derivations that will read triage read the TriageEntry *type*,
+    // so a LogKind.itemTriaged reference anywhere else in core lib is
+    // a finding: vocabulary growing past its story.
+    const allowed = {'log/log_entry.dart', 'commands/triage_commands.dart'};
+    final files = _coreLibFiles();
+    final identifierOffenders = [
+      for (final path in files)
+        if (!allowed.contains(path) &&
+            RegExp(r'\bitemTriaged\b')
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      identifierOffenders,
+      isEmpty,
+      reason:
+          'the itemTriaged identifier outside the definition and the '
+          'one minter',
+    );
+
+    // The wire-name string literal is the definition's and the
+    // registry's alone — a quoted 'item_triaged' anywhere else in
+    // core lib is a minter that does not even use the constant.
+    final wireOffenders = [
+      for (final path in files)
+        if (path != 'log/log_entry.dart' &&
+            RegExp("['\"]item_triaged['\"]")
+                .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      wireOffenders,
+      isEmpty,
+      reason:
+          "the wire-name literal 'item_triaged' outside the definition "
+          'home',
+    );
+
+    // The definition home: exactly the definition, the registry entry,
+    // the read-boundary classifier and the TriageEntry override — the
+    // setting kind's own count (a subtype of its own exists).
+    final definitionHome = _withoutComments(_source('log/log_entry.dart'));
+    expect(
+      RegExp("['\"]item_triaged['\"]").allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the definition and registry are the only item_triaged wire '
+          'uses',
+    );
+    expect(
+      RegExp(r'\bitemTriaged\b').allMatches(definitionHome),
+      hasLength(4),
+      reason:
+          'the definition, registry, classifier and subtype override are '
+          'the only itemTriaged identifier uses in this file',
+    );
+    expect(
+      RegExp(r'LogKind\.itemTriaged\b').allMatches(definitionHome),
+      hasLength(2),
+      reason:
+          'the classifier and the subtype override are the only '
+          'qualified itemTriaged readers in the definition home',
+    );
+
+    // The one mint site: every reference in the command file names a
+    // row being written — never a comparison.
+    final commands = _withoutComments(_source('commands/triage_commands.dart'));
+    final commandRefs = RegExp(r'LogKind\.itemTriaged\b')
+        .allMatches(commands)
+        .length;
+    final commandMints = RegExp(r'kind:\s*LogKind\.itemTriaged\b')
+        .allMatches(commands)
+        .length;
+    expect(commandMints, 1);
+    expect(commandMints, commandRefs);
+    expect(
+      RegExp(r'==\s*LogKind\.itemTriaged\b').allMatches(commands),
+      isEmpty,
+      reason: 'the command file mints rows, it never reads them',
     );
   });
 

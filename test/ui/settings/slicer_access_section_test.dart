@@ -174,6 +174,8 @@ LogEntryRecord seededProvider(String id, {int at = 100}) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 /// The harness record: everything one test needs over one store.

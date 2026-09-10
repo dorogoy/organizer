@@ -189,6 +189,8 @@ LogEntryRecord _installOpen() => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 /// A dealt card for the queued-read fakes (the screen suite's own
@@ -325,6 +327,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     final session = SessionController(
       store: store,
@@ -603,6 +607,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ))
       ..entries.add((
         id: 'seed-offer',
@@ -629,6 +635,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
     final controller = DispenserController(
       store: store,
@@ -1601,6 +1609,8 @@ void main() {
           sliceCause: null,
           cluster: null,
           enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
         ));
       }
       final session = SessionController(

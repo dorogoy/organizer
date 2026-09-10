@@ -145,6 +145,26 @@ const String logEntriesClusterUpgrade =
 const String logEntriesEnabledUpgrade =
     'ALTER TABLE log_entries ADD COLUMN enabled BOOL NULL';
 
+/// Schema v12's additive upgrade of `log_entries` (Story 6.3,
+/// AD-23): the one nullable `item_triaged` payload column — the
+/// triage act's destination wire name — added by ALTER TABLE only,
+/// on the v2→v11 pattern: no table rebuild, no data migration,
+/// refusal triggers untouched. A named infrastructure identifier on
+/// the store module's terms (AD-15's ban is on literals reaching a
+/// widget).
+const String logEntriesTriageDestinationUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN triage_destination TEXT NULL';
+
+/// Schema v12's additive upgrade of `log_entries` (Story 6.3,
+/// AD-23): the one nullable `item_triaged` payload column — the
+/// triage act's optional coarse volume tag wire name, absent when
+/// the tag was declined — added by ALTER TABLE only, on the same
+/// pattern: no table rebuild, no data migration, refusal triggers
+/// untouched. A named infrastructure identifier on the store
+/// module's terms (AD-15).
+const String logEntriesTriageVolumeTagUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN triage_volume_tag TEXT NULL';
+
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
 /// statement itself, so no second copy of either name exists to drift.
@@ -166,8 +186,8 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 11 (Story 5.11): the only change
-/// from 10 is the nullable cluster and enabled columns above, and
+/// migration (AD-2). schemaVersion 12 (Story 6.3): the only change
+/// from 11 is the nullable triage destination and tag columns above, and
 /// every later change is additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -181,7 +201,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -243,6 +263,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// a v10 install upgrades with its rows unchanged too — old rows
   /// with a null cluster and a null enabled bit, deriving exactly as
   /// before (no curation row stands, the all-active default governs).
+  /// The v11→v12 step adds the log's triage destination and tag
+  /// columns the same way, so a v11 install upgrades with its rows
+  /// unchanged too — old rows with null triage fields, deriving
+  /// exactly as before (no triage row stands).
   /// Every
   /// step runs inside the one transaction and adds only an absent
   /// column, and the mechanism is
@@ -288,6 +312,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       if (from < 11) {
         await _addColumnIfAbsent(logEntriesClusterUpgrade);
         await _addColumnIfAbsent(logEntriesEnabledUpgrade);
+      }
+      if (from < 12) {
+        await _addColumnIfAbsent(logEntriesTriageDestinationUpgrade);
+        await _addColumnIfAbsent(logEntriesTriageVolumeTagUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

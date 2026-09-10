@@ -26,6 +26,8 @@ LogEntryRecord _refusal(Permission permission, int micros) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 void main() {
@@ -73,6 +75,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as PermissionRefusedEntry;
@@ -146,6 +150,8 @@ void main() {
             sliceCause: null,
             cluster: null,
             enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
           );
         }(),
       ]);

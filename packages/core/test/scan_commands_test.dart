@@ -51,6 +51,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -117,6 +119,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -183,6 +187,8 @@ void main() {
         sliceCause: null,
         cluster: null,
         enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -265,6 +271,8 @@ void main() {
         sliceCause: sliceCause,
         cluster: cluster,
         enabled: enabled,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);
@@ -395,6 +403,8 @@ void main() {
         sliceCause: sliceCause,
         cluster: cluster,
         enabled: enabled,
+        triageDestination: null,
+        triageVolumeTag: null,
       );
       final conversion = convertLogEntryRecord(record());
       expect(conversion.flaw, isNull);

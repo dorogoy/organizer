@@ -86,6 +86,8 @@ LogEntryContent _slice(
   sliceCause: sliceCause,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 LogEntryContent _dealContent(Card card) => (
@@ -104,6 +106,8 @@ LogEntryContent _dealContent(Card card) => (
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 /// `slice_requested` — the rescue's activation, refused on a rescue

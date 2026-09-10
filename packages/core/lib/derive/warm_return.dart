@@ -115,6 +115,11 @@ bool _isUserAct(LogEntry entry) {
       return false;
     case PermissionRefusedEntry():
       return false;
+    case TriageEntry():
+      // The triage act (Story 6.3, FR-22): a user tap on the physical
+      // object's fate — the user using the app, the
+      // `capture_created` precedent's own register.
+      return true;
     case UnknownEntry():
       return false;
   }
