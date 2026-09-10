@@ -131,6 +131,30 @@ abstract class AppStrings {
   /// **'Elegir un objeto de la estancia y decidir qué hacer con él'**
   String get purgeStepText;
 
+  /// Decluttering Protocol, first mandatory detachment question (Story 6.2, FR-20) — factual 12-month use copy, pressure-free and shown before destination selection.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Has utilizado este objeto en los últimos 12 meses?'**
+  String get detachmentUseQuestion;
+
+  /// Decluttering Protocol, second mandatory detachment question (Story 6.2, FR-20) — pressure-free physical and mental space copy, shown before destination selection.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Merece este objeto tu espacio físico y mental?'**
+  String get detachmentSpaceQuestion;
+
+  /// Decluttering Protocol answer label (Story 6.2, FR-20) — shared by both mandatory questions.
+  ///
+  /// In es, this message translates to:
+  /// **'Sí'**
+  String get answerYes;
+
+  /// Decluttering Protocol answer label (Story 6.2, FR-20) — shared by both mandatory questions.
+  ///
+  /// In es, this message translates to:
+  /// **'No'**
+  String get answerNo;
+
   /// Dispenser zone-marker label (A12.4) — weekly zone Z1, the canonical cluster name, never a word the card invents.
   ///
   /// In es, this message translates to:

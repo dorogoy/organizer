@@ -562,14 +562,11 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// The dealt purge card's `Hecho` (Story 6.1, FR-19, UX-DR31): the
-  /// Decluttering Protocol's one and only entry — `_openScan`'s push
-  /// pattern, the same rapid-tap guard every push this surface owns.
-  /// No completion happens on this tap: the frame's own `Hecho`
-  /// funnels into the existing completion path ([_onDone]) once the
-  /// surface is open, and the purge card stands dealable behind the
-  /// route until then — the system back gesture is the OS pop, and
-  /// leaving uncompleted leaves the card exactly as it was.
+  /// The dealt purge card's `Hecho` (Stories 6.1–6.2, FR-19/20, UX-DR31):
+  /// the Decluttering Protocol's one and only entry — `_openScan`'s push
+  /// pattern, the same rapid-tap guard every push this surface owns. The
+  /// protocol hands its typed answer pair to the later destination flow;
+  /// this story deliberately does not complete the card or write anything.
   void _openDeclutteringProtocol(DispenserDealt dealt) {
     // The in-flight guard `_onDone` owns (Story 6.1's review round):
     // a stale purge card — its skip write still between tap and
@@ -583,12 +580,18 @@ class _DispenserScreenState extends State<DispenserScreen>
     if (ModalRoute.of(context)?.isCurrent ?? false) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) =>
-              DeclutteringProtocolScreen(onComplete: () => _onDone(dealt)),
+          builder: (context) => DeclutteringProtocolScreen(
+            onAnswers: (answers) => _onDetachmentAnswers(dealt, answers),
+          ),
         ),
       );
     }
   }
+
+  /// Story 6.2 stops at the typed seam. Destination selection and purge
+  /// completion arrive in later stories, so receiving the pair is
+  /// intentionally side-effect free for this visit.
+  void _onDetachmentAnswers(DispenserDealt dealt, DetachmentAnswers answers) {}
 
   Future<void> _readAfterSessionSettles(int generation) async {
     try {

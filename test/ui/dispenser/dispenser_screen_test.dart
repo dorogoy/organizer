@@ -6546,8 +6546,8 @@ void main() {
     });
   });
 
-  group('the purge card and the Decluttering Protocol (Story 6.1, '
-      'FR-19, UX-DR31)', () {
+  group('the purge card and the Decluttering Protocol (Stories 6.1–6.2, '
+      'FR-19/20, UX-DR31)', () {
     /// An activated organizing group's slice — the scan landing's own
     /// shape, one step so the post-purge deal is unambiguous.
     List<PoolFactRecord> epicFacts() => [
@@ -6659,6 +6659,16 @@ void main() {
       matching: find.byType(HechoButton),
     );
 
+    const usageYesKey = ValueKey<String>('decluttering-protocol-usage-yes');
+    const usageNoKey = ValueKey<String>('decluttering-protocol-usage-no');
+    const spaceYesKey = ValueKey<String>('decluttering-protocol-space-yes');
+    const spaceNoKey = ValueKey<String>('decluttering-protocol-space-no');
+
+    Finder protocolAnswer(Key key) => find.descendant(
+      of: find.byKey(key),
+      matching: find.byType(OutlinedButton),
+    );
+
     testWidgets('the purge card renders as an ordinary dispenser card — '
         'the same furniture, the authored task text, no distinct style '
         'or announcement anywhere (FR-1)', (tester) async {
@@ -6686,9 +6696,10 @@ void main() {
     });
 
     testWidgets('the card\'s Hecho opens the Decluttering Protocol — '
-        'and nothing completes yet: no answer row lands before the '
-        'frame\'s own Hecho (UX-DR31, the one entry)', (tester) async {
+        'and nothing completes yet: no answer row lands before a '
+        'question answer (UX-DR31, the one entry)', (tester) async {
       final store = purgeStore();
+      final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
       await tester.pumpAndSettle();
 
@@ -6702,40 +6713,34 @@ void main() {
         hasLength(1),
         reason: 'only the seeded deal exists — the push writes nothing',
       );
+      expect(store.entries, orderedEquals(seededEntries));
     });
 
-    testWidgets('the frame\'s Hecho completes through the existing path — '
-        'one card_done on the purge id, the route closes, and the '
-        'group\'s first organization step deals next', (tester) async {
+    testWidgets('both answers reach the typed seam without completing the '
+        'purge card or closing the protocol', (tester) async {
       final store = purgeStore();
+      final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
       await tester.pumpAndSettle();
 
       await tester.tap(cardHecho());
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DeclutteringProtocolScreen),
-          matching: find.byType(HechoButton),
-        ),
-      );
+      await tester.tap(protocolAnswer(usageYesKey));
+      await tester.pump();
+      await tester.tap(protocolAnswer(spaceNoKey));
       await tester.pumpAndSettle();
 
-      // The route closed back onto the dispenser.
-      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
-      final done = store.entries
-          .where((entry) => entry.kind == 'card_done')
-          .toList();
-      expect(done, hasLength(1));
-      expect(done.single.itemId, '${purgeItemIdPrefix}s1');
-      expect(store.entries.last.kind, 'card_dealt');
+      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
       expect(
-        store.entries.last.itemId,
-        's1',
-        reason: 'the purge closed; the first organization step deals',
+        store.entries.where((entry) => entry.kind.startsWith('card_')),
+        hasLength(1),
+        reason: 'the answer handoff writes no card or event row',
       );
-      expect(find.byType(TaskCard), findsOneWidget);
-      expect(find.text('Recoger las cajas'), findsOneWidget);
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      expect(store.entries, orderedEquals(seededEntries));
     });
 
     testWidgets('the secondary tap is the ordinary skip — one '
@@ -6772,7 +6777,7 @@ void main() {
 
       await tester.tap(cardHecho());
       await tester.pump();
-      await tester.tap(cardHecho());
+      tester.widget<HechoButton>(cardHecho()).onTap!();
       await tester.pumpAndSettle();
 
       // The second tap lands while the first push is still settling —
@@ -6835,6 +6840,7 @@ void main() {
         'standing on the dispenser (UX-DR31: nothing is queued, '
         'retried or persisted on departure)', (tester) async {
       final store = purgeStore();
+      final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
       await tester.pumpAndSettle();
 
@@ -6850,50 +6856,44 @@ void main() {
       expect(find.byType(DeclutteringProtocolScreen), findsNothing);
       // Zero new rows beyond the seeded deal — no answer, no skip, no
       // second deal; the departure writes nothing.
-      expect(
-        store.entries.where((entry) => entry.kind.startsWith('card_')),
-        hasLength(1),
-        reason: 'only the seeded deal exists — the pop writes nothing',
-      );
+      expect(store.entries, orderedEquals(seededEntries));
       // The purge card still standing, dealable and finishable.
       expect(find.byType(TaskCard), findsOneWidget);
       expect(find.text(AppStringsEs().purgeStepText), findsOneWidget);
       expect(find.byType(ErrorWidget), findsNothing);
+
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      expect(find.byKey(usageYesKey), findsOneWidget);
+      expect(find.byKey(usageNoKey), findsOneWidget);
+      expect(find.byKey(spaceYesKey), findsOneWidget);
+      expect(find.byKey(spaceNoKey), findsOneWidget);
+      expect(store.entries, orderedEquals(seededEntries));
     });
 
-    testWidgets('a second Hecho landing mid-pop-transition is refused — '
-        'the frame pops once, the dispenser route beneath stands (the '
-        'isCurrent guard, on the exit)', (tester) async {
+    testWidgets('answers remain revisable after the one-shot handoff and '
+        'still do not complete the purge card', (tester) async {
       final store = purgeStore();
       await tester.pumpWidget(_harness(buildController(store)));
       await tester.pumpAndSettle();
 
       await tester.tap(cardHecho());
       await tester.pumpAndSettle();
-      final frameHecho = find.descendant(
-        of: find.byType(DeclutteringProtocolScreen),
-        matching: find.byType(HechoButton),
-      );
-      // The first frame Hecho pops; the second lands while the pop is
-      // still animating (pump, never settle). Mid-transition the
-      // popped route is `IgnorePointer`-wrapped, so a synthetic tap
-      // would fall through to the dispenser beneath — the button's
-      // own callback is invoked directly instead, exactly the call a
-      // real second tap would deliver were the frame still hittable.
-      // Without the guard this pop would target the dispenser route
-      // beneath and strand the user off the dispenser.
-      await tester.tap(frameHecho);
+      await tester.tap(protocolAnswer(usageYesKey));
       await tester.pump();
-      (tester.widget<HechoButton>(frameHecho).onTap!)();
+      await tester.tap(protocolAnswer(spaceNoKey));
+      await tester.pump();
+      // The second question has a different answer now; the screen remains
+      // open so the ephemeral choices can be revised.
+      await tester.tap(protocolAnswer(spaceYesKey));
       await tester.pumpAndSettle();
 
-      // Exactly one completion, and the dispenser still mounted under
-      // the frame — the second pop never ran.
-      final done = store.entries
-          .where((entry) => entry.kind == 'card_done')
-          .toList();
-      expect(done, hasLength(1));
-      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
     });
   });
 }
