@@ -74,14 +74,16 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 - [x] [Review][Patch] Mid-batch failure semantics unpinned — `_FailAfterTriageStore` controller test pins the orphan triage row standing and the retry appending a second (FR-22 approximate counts absorb the double)
 - [x] [Review][Patch] Controller doc overclaimed "no orphan triage row can outlive the completion" — corrected: the stale guard covers the pre-append case only; mid-batch failure orphans, same partial-act class as every multi-row act
 - [x] [Review][Patch] Spec Code Map said "No other controller changes" — amended to the census-forced shared `_enqueueCompleteWrite` extraction
-- [ ] [Review][Human] A failed destination act leaves the flow's rows inert until back + full re-entry, while `Hecho`'s failure allows in-place retry — deliberate frozen-matrix choice ("re-entry retries"); the human may prefer in-place retry for symmetry
+- [x] [Review][Patch] Reset the destination flow's one-shot guard after a failed write so the user can retry in place, matching `Hecho`'s failure behavior [destination_flow_screen.dart:72]
+- [x] [Review][Patch] Design Notes overclaim that a queued write prevents partial state [6-4-three-destinations-of-equal-weight.md:84]
+- [x] [Review][Patch] System back while a destination write is pending can let the late success pop the dispenser route [destination_flow_screen.dart:80]
 - [Defer] Transactional/batched multi-row log acts (orphan exposure class, house-wide — `complete`'s answer+deal pair is sequential too) — deferred-work.md
 
 ## Spec Change Log
 
 ## Design Notes
 
-No question/object line is rendered: the authored fixed-string register (UX-DR49) holds only the three labels for this flow, and AD-15 forbids unaudited sentence assembly — the flow is three rows and nothing else, per its AC. Tap-is-handoff (no selection state) matches the volume-block grammar. The sink owns navigation because a push from the synchronous callback followed by the protocol's own `pop()` would pop the new route: deterministic shape is sink-pops-then-pushes, which is also what 6.3's "6.4 replaces the pop with the destination flow" names. The act is one queued controller write (triage + completion) so no partial state can persist; `cardDone`'s answered-guard already makes a double complete a no-op.
+No question/object line is rendered: the authored fixed-string register (UX-DR49) holds only the three labels for this flow, and AD-15 forbids unaudited sentence assembly — the flow is three rows and nothing else, per its AC. Tap-is-handoff (no selection state) matches the volume-block grammar. The sink owns navigation because a push from the synchronous callback followed by the protocol's own `pop()` would pop the new route: deterministic shape is sink-pops-then-pushes, which is also what 6.3's "6.4 replaces the pop with the destination flow" names. The act is one queued controller write (triage + completion), so concurrent shell acts cannot interleave; its multi-row appends remain non-transactional and can therefore leave partial state on a mid-batch failure. `cardDone`'s answered-guard already makes a stale double complete a no-op.
 
 ## Verification
 

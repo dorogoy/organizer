@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:core/log/log_entry.dart';
@@ -246,9 +247,8 @@ void main() {
     expect(calls, 1);
   });
 
-  testWidgets('a failed write leaves the flow standing, quiet — it pops '
-      'only on success, and later taps of the visit stay dead '
-      '(matrix: write failure; re-entry is the retry)', (tester) async {
+  testWidgets('a failed write leaves the flow standing, quiet, and re-arms '
+      'the act for an in-place retry (matrix: write failure)', (tester) async {
     var calls = 0;
     await pumpFlow(
       tester,
@@ -265,12 +265,30 @@ void main() {
     expect(find.byType(DestinationFlowScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    // The visit's one act is spent — nothing surfaces, nothing retries
-    // from this route; leaving and re-entering is the retry.
+    // Failure keeps the flow standing and re-arms its one act, so a retry
+    // needs neither a back gesture nor another protocol visit.
     await tester.tap(find.byKey(releaseRowKey));
     await tester.pumpAndSettle();
-    expect(calls, 1);
+    expect(calls, 2);
     expect(find.byType(DestinationFlowScreen), findsOneWidget);
+  });
+
+  testWidgets('back during a pending act never lets a late success pop the '
+      'host route', (tester) async {
+    final landing = Completer<bool>();
+    await pumpFlow(tester, onDestination: (_) => landing.future);
+
+    await tester.tap(find.byKey(keepRowKey));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(DestinationFlowScreen), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+
+    landing.complete(true);
+    await tester.pumpAndSettle();
+    expect(find.text('open'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('system back before any tap writes nothing — the callback '

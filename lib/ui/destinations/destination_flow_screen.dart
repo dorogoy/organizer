@@ -78,7 +78,17 @@ class _DestinationFlowScreenState extends State<DestinationFlowScreen> {
     if (!mounted) {
       return;
     }
-    if (landed) {
+    if (!landed) {
+      // The sink absorbed a failed write and the flow remains the current
+      // decision. Re-arm its one-shot guard so the user may retry the act
+      // here, as the dispenser's ordinary Hecho path does.
+      setState(() => _handedOff = false);
+      return;
+    }
+    // System back can remove this route while the write is still pending.
+    // A late success must never pop whichever route is now current beneath
+    // it (normally the dispenser).
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
       Navigator.of(context).pop();
     }
   }
