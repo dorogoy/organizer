@@ -347,6 +347,10 @@ class AppStringsEs extends AppStrings {
       'Hace seis meses fechaste una caja. Hoy es un buen día para donarla.';
 
   @override
+  String get dispenserRefreshFailed =>
+      'No se ha podido actualizar ahora mismo.';
+
+  @override
   String get selfReportScaleLow => 'Nada';
 
   @override

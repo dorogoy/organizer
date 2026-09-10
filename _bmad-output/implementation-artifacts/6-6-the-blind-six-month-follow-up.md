@@ -78,6 +78,14 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 
 ### Review Findings
 
+- [x] [Review][Patch] Comunicar o recuperar la lectura fallida al descartar [lib/ui/dispenser/dispenser_screen.dart:1012] — La ruta recupera la vista conservada y muestra el aviso localizado `dispenserRefreshFailed`.
+- [x] [Review][Patch] Filtrar contenido de cuarentena fechado después del instante de lectura [packages/core/lib/derive/strip.dart:283] — La derivación recibe sólo filas visibles al instante de lectura; un pin cubre el contenido futuro.
+- [x] [Review][Patch] No permitir que una acción lenta pise una lectura más reciente [lib/ui/dispenser/dispenser_screen.dart:991] — El commit exitoso también exige que su generación siga vigente; el interleave está cubierto.
+- [x] [Review][Patch] Hacer coherente el contrato público de `plusMonths` con meses negativos [packages/core/lib/day/calendar.dart:297] — La API soporta aritmética mensual con signo, incluida la frontera del año cero.
+- [x] [Review][Patch] Verificar cero invocaciones de escritura al descartar [test/dispenser/dispenser_controller_test.dart:3766] — El fake cuenta ambos puertos de escritura y el dismissal exige cero llamadas.
+- [x] [Review][Patch] Cubrir el seguimiento con texto al 200% [test/ui/dispenser/ambient_strip_test.dart:2044] — El pin verifica envoltura, desplazamiento y objetivos de 48dp.
+- [x] [Review][Patch] Cubrir el borde de las 04:00 con un offset no nulo [packages/core/test/strip_test.dart:1361] — Revisión de implementación: el pin existente usa +03:00 y cubre exactamente el borde requerido; no se duplicó.
+
 - [x] [Review][Patch] `_stripAct`'s two blanking catch sites lacked the success path's supersession guard — a stale failed act could blank a view a newer refresh committed; `mounted && generation == _readGeneration` added to both
 - [x] [Review][Patch] Stale double doc blocks on `_onSetEnergy`/`_onAnswerReport`/`_onDismissReport` left by the extraction (one still claiming "mechanics verbatim") — rewritten to single truthful blocks
 - [x] [Review][Patch] `plusMonths` doc claimed totality/symmetric negatives while `~/` truncates them — doc now states the real domain (non-negative months, real-instant `Day`s); no range guard added (out of domain)

@@ -2246,8 +2246,80 @@ void main() {
       expect(find.byType(TaskCard), findsOneWidget);
     });
 
-    testWidgets('a failing read under the ✕ is quiet — the seam\'s '
-        'empty-frame failure arm, no error surface, nothing written — '
+    testWidgets('a newer refresh wins when the follow-up dismissal '
+        'succeeds later', (tester) async {
+      final first = Completer<DispenserView>();
+      final newerRefresh = Completer<DispenserView>();
+      final controller = _QueuedDismissQuarantineFollowUpController([
+        first,
+        newerRefresh,
+      ]);
+      final strings = AppStringsEs();
+
+      await tester.pumpWidget(_harness(controller));
+      await tester.pump();
+      first.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pump();
+
+      // The foreground refresh starts after the tap generation and wins
+      // before the held dismissal resolves.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      newerRefresh.complete(const DispenserClosed());
+      await tester.pumpAndSettle();
+      expect(find.text(strings.poolExhaustedClose), findsOneWidget);
+
+      controller.dismissal.complete(
+        const DispenserDealt(
+          _testCard,
+          stripResident: StripResident.quarantineFollowUp,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.poolExhaustedClose), findsOneWidget);
+      expect(find.text(strings.quarantineFollowUpCopy), findsNothing);
+    });
+
+    testWidgets('200% font scale: the follow-up sentence and ✕ keep '
+        'their floors without overflow (UX-DR45, NFR6)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await launchDueDayAndCommit(tester);
+      final strings = AppStringsEs();
+      final sentence = find.text(strings.quarantineFollowUpCopy);
+      expect(sentence, findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      final sentenceTarget = find
+          .ancestor(of: sentence, matching: find.byType(ConstrainedBox))
+          .first;
+      final sentenceBox = tester.renderObject<RenderBox>(sentenceTarget);
+      expect(sentenceBox.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.ambientStripDismiss),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failing read under the ✕ keeps the standing surface '
+        'and reports the failed refresh, nothing written — '
         'and the healed foreground re-read shows the dismissal held '
         '(matrix: read failure under the dismissal)', (tester) async {
       final inner = _RecordingStore()
@@ -2268,12 +2340,13 @@ void main() {
       await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
       await tester.pumpAndSettle();
 
-      // The dismissal paths' quiet empty frame: no error widget, no
-      // exception, the frame simply empty — and the ✕ appended
-      // nothing at all.
+      // The failed confirmation is visible, not a quiet blank mistaken
+      // for success; the standing surface remains available to recover.
       expect(find.byType(ErrorWidget), findsNothing);
       expect(tester.takeException(), isNull);
-      expect(find.byType(TaskCard), findsNothing);
+      expect(find.text(strings.dispenserRefreshFailed), findsOneWidget);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(strings.quarantineFollowUpCopy), findsOneWidget);
       expect(
         inner.entries.map((entry) => entry.kind).toList(),
         kindsBefore,

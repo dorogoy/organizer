@@ -230,7 +230,12 @@ bool _residentEligible(
       // AD-25). Empty boxes never knock: an empty box is 6.5's honest
       // partial-write artifact (the failed-retry orphan), not a
       // decision the user made.
-      return _quarantineFollowUpDue(entries, calendar, today);
+      return _quarantineFollowUpDue(
+        entries,
+        calendar,
+        today,
+        instantUtcMicros: instantUtcMicros,
+      );
     case StripResident.seasonalSuggestion:
       // FR-15's once-per-season suggestion (Story 5.13): eligible at
       // the day's first opening while a dormant Epic stands whose
@@ -283,9 +288,16 @@ bool _residentEligible(
 bool _quarantineFollowUpDue(
   List<LogEntry> entries,
   Calendar calendar,
-  Day today,
-) {
-  for (final box in deriveQuarantine(entries)) {
+  Day today, {
+  required int instantUtcMicros,
+}) {
+  // A read can only judge facts that had happened when it began. In
+  // particular, a future quarantine row must not fill an older box early.
+  final visibleEntries = [
+    for (final entry in entries)
+      if (entry.instantUtcMicros <= instantUtcMicros) entry,
+  ];
+  for (final box in deriveQuarantine(visibleEntries)) {
     if (box.contents.isEmpty) {
       continue;
     }

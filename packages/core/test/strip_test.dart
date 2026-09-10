@@ -1262,6 +1262,19 @@ void main() {
       );
     });
 
+    test('a future quarantine row cannot make an old box non-empty at '
+        'this read instant', () {
+      final entries = [
+        _box(utcMicros(2026, 3, 1, 10), 'box-future'),
+        _intoBox(utcMicros(2026, 9, 1, 13), 'into-future', 'box-future'),
+      ];
+      expect(
+        resolve(entries, utcMicros(2026, 9, 1, 12))?.resident,
+        StripResident.weeklySelfReport,
+        reason: 'the later quarantine row is not a fact yet',
+      );
+    });
+
     test('after the due day — never eligible again, whatever the log '
         'grows: the window is derived-closed, nothing stored (matrix: '
         'day after due)', () {

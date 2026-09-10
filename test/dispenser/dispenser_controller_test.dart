@@ -43,12 +43,18 @@ class _RecordingStore implements StorePort {
 
   final List<LogEntryRecord> entries = [];
   final List<PoolFactRecord> facts;
+  var writeCalls = 0;
 
   @override
-  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+  Future<void> appendPoolFact(PoolFactRecord fact) async {
+    writeCalls++;
+  }
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    writeCalls++;
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async =>
@@ -3801,6 +3807,7 @@ void main() {
       final controller = buildFor(store, nowOf: dueDayClock);
       await controller.read();
 
+      final writesBefore = store.writeCalls;
       final kindsBefore = store.entries.map((entry) => entry.kind).toList();
       final dismissed = await controller.dismissQuarantineFollowUp();
 
@@ -3810,6 +3817,13 @@ void main() {
         reason:
             'a dismissal appends nothing at all — no row, no '
             'marker row, nothing (FR-21\'s no-side-effects clause)',
+      );
+      expect(
+        store.writeCalls,
+        writesBefore,
+        reason:
+            'the dismissal must make zero StorePort writes, not merely add '
+            'zero log rows',
       );
       expect(
         dismissed.stripResident,

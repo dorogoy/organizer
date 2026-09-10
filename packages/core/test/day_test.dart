@@ -513,6 +513,21 @@ void main() {
       expect(calendar.plusMonths(january, -6).label, '2026-07-15');
     });
 
+    test('negative month arithmetic clamps reverse traversal too', () {
+      final august = calendar.dayOf(utcMicros(2027, 8, 31, 10), 7200);
+      final prior = calendar.plusMonths(august, -6);
+      expect(prior.label, '2027-02-28');
+      expect(prior.offsetSeconds, 7200);
+    });
+
+    test('negative month arithmetic crosses through year zero correctly', () {
+      final january = calendar.dayOf(utcMicros(0, 1, 1, 10), 0);
+      final prior = calendar.plusMonths(january, -1);
+      expect(prior.year, -1);
+      expect(prior.month, 12);
+      expect(prior.day, 1);
+    });
+
     test('a June-sealed box lands in December — the clamp asks for '
         'day zero of month 13, the normalization\'s other out-of-range '
         'branch (6.6\'s own matrix row)', () {

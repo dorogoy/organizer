@@ -671,6 +671,12 @@ abstract class AppStrings {
   /// **'Hace seis meses fechaste una caja. Hoy es un buen día para donarla.'**
   String get quarantineFollowUpCopy;
 
+  /// Dispenser surface — honest notice when a shell-only strip dismissal cannot confirm its refreshed view; the current surface remains so the failure is never mistaken for success.
+  ///
+  /// In es, this message translates to:
+  /// **'No se ha podido actualizar ahora mismo.'**
+  String get dispenserRefreshFailed;
+
   /// End label of the Sunday self-report's 1–5 numeric scale — zero ambiguity.
   ///
   /// In es, this message translates to:

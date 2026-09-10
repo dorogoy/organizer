@@ -974,6 +974,7 @@ class _DispenserScreenState extends State<DispenserScreen>
   Future<void> _stripAct(
     Future<DispenserView> Function(DateTime tappedAt) act, {
     bool recoverOnFailure = false,
+    bool keepViewAndNotifyOnFailure = false,
   }) async {
     if (_writeInFlight) {
       return;
@@ -987,7 +988,7 @@ class _DispenserScreenState extends State<DispenserScreen>
     try {
       await widget.sessionSettled?.call();
       final view = await act(tappedAt);
-      if (!mounted) {
+      if (!mounted || generation != _readGeneration) {
         return;
       }
       _commitView(view);
@@ -1019,6 +1020,17 @@ class _DispenserScreenState extends State<DispenserScreen>
             setState(() => _view = null);
           }
         }
+      } else if (keepViewAndNotifyOnFailure &&
+          mounted &&
+          generation == _readGeneration) {
+        // A shell-only dismissal did take effect, but its confirming read
+        // failed. Keep the last honest surface instead of making a quiet
+        // blank look like success, and say that the refresh did not finish.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppStrings.of(context).dispenserRefreshFailed),
+          ),
+        );
       } else if (mounted && generation == _readGeneration) {
         // A failed read is absorbed by the empty frame, quietly —
         // unless a concurrent refresh already committed a newer
@@ -1109,6 +1121,7 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// paths; a failed read is absorbed by the empty frame, quietly.
   Future<void> _onDismissQuarantineFollowUp() => _stripAct(
     (tapTime) => widget.controller.dismissQuarantineFollowUp(tapTime: tapTime),
+    keepViewAndNotifyOnFailure: true,
   );
 
   /// The offer's ✕ tap (Story 5.12, FR-31, UX-DR22): terminal for the
