@@ -4,13 +4,17 @@
 // ink-secondary, tappable where an accept action exists and never a
 // primary action, ✕ dismissal at 48dp, at most one resident visible.
 //
-// This build holds four residents: the check-in (bare, ephemeral),
+// This build holds five residents: the check-in (bare, ephemeral),
 // the weekly self-report (hairlined, because it persists until
 // answered, SM-2), the once-ever first-run curation offer (since
-// Story 5.12 — bare: it is rarest, never persistent) and the
+// Story 5.12 — bare: it is rarest, never persistent), the
 // once-per-season suggestion (since Story 5.13 — bare: it is an
 // ephemeral resident, and its ✕ is the only dismissal that writes a
-// row, the season's whole rate limit). The check-in
+// row, the season's whole rate limit) and the blind six-month
+// quarantine follow-up (since Story 6.6 — hairlined: it persists
+// across openings within its due day; its ✕ writes nothing, and no
+// accept path exists at all — the copy's donation suggestion is the
+// sentence's whole job). The check-in
 // is bare: the question verbatim plus three battery marks as direct
 // targets, llena pre-marked as the standing default (the surface's own
 // state, never a written row), selected reading `icon-mass-blue` charge
@@ -377,6 +381,68 @@ class AmbientStrip extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The ambient strip holding the blind six-month quarantine
+/// follow-up (Story 6.6, FR-21, UX-DR22): `quarantineFollowUpCopy`
+/// verbatim — one static, date-anchored sentence in the support role
+/// in ink-secondary, NOT a button — and the ✕ dismissal, hairlined
+/// chrome (the `SelfReportStrip` wrapper minus the numerals: the
+/// follow-up persists across openings within its day, so the 1px
+/// `colorScheme.outline` edge with `radiusDefault` stands on the
+/// resident's own wrapper, never the container). No accept path
+/// exists by design (FR-21): the donation suggestion is the copy's
+/// whole job — acting on the physical box is the user's — so the
+/// sentence carries no tap and no semantics button. The ✕ dismisses
+/// through [onDismiss] with no write at all (shell state for the day;
+/// the day-window derivation never re-offers it on any later day).
+class QuarantineFollowUpStrip extends StatelessWidget {
+  const QuarantineFollowUpStrip({super.key, this.onDismiss});
+
+  /// The dismissal path: shell state only, never a write.
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        // surfaceContainerHighest is the wired raised tone; outline is
+        // the wired hairline (theme.dart) — the persistent resident's
+        // own 1px edge, the task card's exact precedent.
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(color: theme.colorScheme.outline, width: 1),
+        borderRadius: BorderRadius.circular(Radii.radiusDefault),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.chipPaddingHorizontal,
+        vertical: Spacing.chipToTask,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: Spacing.touchTargetMin,
+              ),
+              child: Center(
+                child: Text(
+                  strings.quarantineFollowUpCopy,
+                  // bodySmall is the wired support role (theme.dart) —
+                  // the strip's sentence register, ink-secondary.
+                  style: theme.textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+          _DismissMark(onTap: onDismiss),
+        ],
+      ),
     );
   }
 }

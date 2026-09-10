@@ -43,12 +43,18 @@ class _RecordingStore implements StorePort {
 
   final List<LogEntryRecord> entries = [];
   final List<PoolFactRecord> facts;
+  var writeCalls = 0;
 
   @override
-  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+  Future<void> appendPoolFact(PoolFactRecord fact) async {
+    writeCalls++;
+  }
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    writeCalls++;
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async =>
@@ -3714,6 +3720,221 @@ void main() {
             'moved no deal',
       );
       expect(dealt.card, isNotNull);
+    });
+  });
+
+  group('the blind six-month follow-up (Story 6.6, FR-21, UX-DR22)', () {
+    /// A `box_created` row — the core suite's `_box` pattern, one
+    /// local shape for the whole group.
+    LogEntryRecord boxRow(String id, DateTime at) =>
+        _moment('box_created', at, id);
+
+    /// The box's linked `item_triaged(quarantine)` row — the same
+    /// pattern with the two triage fields carried.
+    LogEntryRecord intoBoxRow(String id, DateTime at, String boxId) => (
+      id: id,
+      kind: 'item_triaged',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: null,
+      settingValue: null,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: 'quarantine',
+      triageVolumeTag: null,
+      triageBoxId: boxId,
+    );
+
+    /// One non-empty box dated 2026-03-01 — due 2026-09-01, the due
+    /// day every read of this group sits on (the act's own shape:
+    /// the box row first, then its linked `item_triaged(quarantine)`
+    /// row, one instant apart).
+    List<LogEntryRecord> seededBox(String id) => [
+      boxRow('box-$id', DateTime.utc(2026, 3, 1, 10)),
+      intoBoxRow('into-$id', DateTime.utc(2026, 3, 1, 10, 0, 1), 'box-$id'),
+    ];
+
+    /// The established install's due-day first opening: install open
+    /// the day before, the due day's open and session at 09:00 — the
+    /// 2.5 launch shape, one clock on.
+    List<LogEntryRecord> dueDayOpening() => [
+      _installOpen(),
+      _moment('app_opened', DateTime.utc(2026, 9, 1, 9), 'due-open'),
+      _moment(
+        'session_started',
+        DateTime.utc(2026, 9, 1, 9, 0, 1),
+        'due-start',
+      ),
+    ];
+
+    DateTime dueDayClock() => DateTime.utc(2026, 9, 1, 12);
+
+    test('the due day read holds the follow-up below the card — '
+        'precedence slot 2, the report and check-in displaced, and '
+        'reading wrote nothing (matrix: due day, app opened)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([...dueDayOpening(), ...seededBox('a')]);
+      final controller = buildFor(store, nowOf: dueDayClock);
+
+      final view = await controller.read();
+
+      // The knock rides every variant of the view (the strip layer
+      // composes below whatever the read commits); what this pin
+      // holds is the resident itself, precedence slot 2.
+      expect(view.stripResident, StripResident.quarantineFollowUp);
+      expect(
+        store.entries.where((entry) => entry.kind == 'report_answered'),
+        isEmpty,
+        reason: 'the displaced report is neither consumed nor answered',
+      );
+    });
+
+    test('the ✕ dismissal writes nothing, hides the resident for the '
+        'rest of the day, and hands the slot to the displaced report '
+        '(matrix: dismissal)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([...dueDayOpening(), ...seededBox('a')]);
+      final controller = buildFor(store, nowOf: dueDayClock);
+      await controller.read();
+
+      final writesBefore = store.writeCalls;
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+      final dismissed = await controller.dismissQuarantineFollowUp();
+
+      expect(
+        store.entries.map((entry) => entry.kind).toList(),
+        kindsBefore,
+        reason:
+            'a dismissal appends nothing at all — no row, no '
+            'marker row, nothing (FR-21\'s no-side-effects clause)',
+      );
+      expect(
+        store.writeCalls,
+        writesBefore,
+        reason:
+            'the dismissal must make zero StorePort writes, not merely add '
+            'zero log rows',
+      );
+      expect(
+        dismissed.stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the ✕ hands the freed slot to the displaced report in '
+            'the same read (FR-4\'s deterministic handoff)',
+      );
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+        reason: 'hidden for the rest of the day',
+      );
+    });
+
+    test('a later day never re-offers — the window is derived-closed, '
+        'marker or no marker (matrix: day after due)', () async {
+      var now = dueDayClock();
+      final store = _RecordingStore()
+        ..entries.addAll([...dueDayOpening(), ...seededBox('a')]);
+      final controller = buildFor(store, nowOf: () => now);
+
+      await controller.dismissQuarantineFollowUp();
+      // The day turns: the marker keys the old day alone, and the
+      // derivation has closed the window on its own — no stored fact
+      // could bring either back. The standing resident is pinned,
+      // not just the follow-up's absence: the later-day read still
+      // owes the walk's own resident (the core twin's convention),
+      // so a regression to nothing-eligible-at-all fails here.
+      now = DateTime.utc(2026, 9, 2, 12);
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the crossed-into day\'s first opening still owes the '
+            'running week\'s report — only the knock is gone',
+      );
+
+      // And the un-dismissed twin reads the same on that later day:
+      // the closure is the derivation's, never the marker's.
+      final untouched = _RecordingStore()
+        ..entries.addAll([...dueDayOpening(), ...seededBox('a')]);
+      expect(
+        (await buildFor(
+          untouched,
+          nowOf: () => DateTime.utc(2026, 9, 2, 12),
+        ).read()).stripResident,
+        StripResident.weeklySelfReport,
+        reason:
+            'the window closed by derivation — the ordinary walk '
+            'stands, not an empty strip',
+      );
+      expect(
+        untouched.entries.where(
+          (entry) =>
+              entry.kind != 'app_opened' &&
+              entry.kind != 'session_started' &&
+              entry.kind != 'box_created' &&
+              entry.kind != 'item_triaged',
+        ),
+        isEmpty,
+        reason:
+            'no path wrote a dismissal row — the window closed '
+            'itself (AD-21, AD-25)',
+      );
+    });
+
+    test('an empty box never knocks — the partial-write artifact stays '
+        'quiet (matrix: empty box due)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([
+          ...dueDayOpening(),
+          boxRow('box-empty', DateTime.utc(2026, 3, 1, 10)),
+        ]);
+      expect(
+        (await buildFor(store, nowOf: dueDayClock).read()).stripResident,
+        isNot(StripResident.quarantineFollowUp),
+        reason:
+            'the 6.5 failed-retry orphan reconstructs honestly '
+            'empty — knocking about it would be noise about a '
+            'non-decision',
+      );
+    });
+
+    test('a fresh process over the same log re-offers within the due '
+        'day only — the marker is shell state, never a row (matrix: '
+        'process death after dismiss)', () async {
+      final store = _RecordingStore()
+        ..entries.addAll([...dueDayOpening(), ...seededBox('a')]);
+      final first = buildFor(store, nowOf: dueDayClock);
+      await first.read();
+      await first.dismissQuarantineFollowUp();
+      expect(
+        (await first.read()).stripResident,
+        isNot(StripResident.quarantineFollowUp),
+      );
+
+      // Process death: a fresh controller holds no marker, and the
+      // log holds no fact — the same due day re-offers once, the
+      // `_checkInDismissMarker` family's accepted shape. Tomorrow
+      // stays closed either way (the pin above).
+      final revived = buildFor(store, nowOf: dueDayClock);
+      expect(
+        (await revived.read()).stripResident,
+        StripResident.quarantineFollowUp,
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'box_created'),
+        hasLength(1),
+        reason: 'the whole dismissal cycle wrote zero rows',
+      );
     });
   });
 

@@ -17,15 +17,26 @@
 /// quarantine follow-up, the once-per-season suggestion, the snowball,
 /// the weekly self-report, then the daily check-in — ties broken by
 /// earliest-eligible instant, then stable id (AD-3's discipline). This
-/// build implements four eligibilities (the first-run curation offer,
-/// the seasonal suggestion, the report and the check-in, below); the
-/// later stories add the others as data under the same order. A
+/// build implements five eligibilities (the first-run curation offer,
+/// the quarantine follow-up, the seasonal suggestion, the report and
+/// the check-in, below); the later stories add the snowball as data
+/// under the same order. A
 /// displaced resident is neither consumed nor dismissed — it re-offers
 /// at the next opening: only the surface's ✕ is a dismissal, and its
 /// scope belongs to the resident — the seasonal suggestion's ✕ alone
 /// persists a `suggestion_dismissed` row, while the other residents'
 /// dismissal scopes stay shell/read-scoped (within the opening, shell
 /// state hides it; nothing is written).
+///
+/// The quarantine follow-up's eligibility (Story 6.6, FR-21) is a pure
+/// day-window fold, the one resident with NO first-opening gate: due
+/// iff `Calendar.plusMonths` of some NON-EMPTY derived Quarantine
+/// Box's own day equals today — the knock's lifetime is the due day
+/// itself, an unopened day misses it silently ("at most once" allows
+/// zero), and no later day can make it eligible again for that box.
+/// Its ✕ writes nothing (FR-21's dismissal has no side effects); the
+/// shell hides it for the day and the derivation closes the window on
+/// its own tomorrow.
 ///
 /// The check-in's eligibility is pure over the log: due iff the
 /// current domestic day holds no `energy_set` row AND the day's first
@@ -51,6 +62,7 @@
 library;
 
 import 'package:core/day/calendar.dart';
+import 'package:core/derive/quarantine.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 
@@ -63,7 +75,12 @@ enum StripResident {
   /// derivation below, never a stored dismissal (AD-21).
   firstRunCuration,
 
-  /// The once-per-box quarantine follow-up (Epic 7's data).
+  /// The once-per-box quarantine follow-up (6.6, FR-21): eligible
+  /// exactly on the due day of some non-empty derived box —
+  /// `plusMonths(box day, 6) == today` — and never on any other day,
+  /// so the knock's whole lifetime is the due day itself: nothing is
+  /// stored, no dismissal row exists (AD-21), and "never returns for
+  /// that box" holds by derivation alone.
   quarantineFollowUp,
 
   /// The once-per-season suggestion (FR-15, Story 5.13): eligible
@@ -149,15 +166,15 @@ typedef StripSuggestion = ({
 });
 
 /// One resident's eligibility at the read instant. This build
-/// implements four — the offer, the suggestion, the report and the
-/// check-in, below; every other resident derives not-eligible until
-/// its own story lands its data, so the precedence walk falls through
-/// them to the implemented set (or to nothing). A new resident's
-/// eligibility arrives HERE, in the same pass as its data — never as
-/// a special case inside the walk. Since Story 5.13 four
-/// eligibilities stand: the once-ever first-run curation offer, the
-/// once-per-season suggestion, the weekly self-report and the daily
-/// check-in.
+/// implements five — the offer, the follow-up, the suggestion, the
+/// report and the check-in, below; every other resident derives
+/// not-eligible until its own story lands its data, so the precedence
+/// walk falls through them to the implemented set (or to nothing). A
+/// new resident's eligibility arrives HERE, in the same pass as its
+/// data — never as a special case inside the walk. Since Story 6.6
+/// five eligibilities stand: the once-ever first-run curation offer,
+/// the once-per-box quarantine follow-up, the once-per-season
+/// suggestion, the weekly self-report and the daily check-in.
 bool _residentEligible(
   StripResident resident,
   List<LogEntry> entries,
@@ -201,8 +218,24 @@ bool _residentEligible(
             instantUtcMicros: instantUtcMicros,
           );
     case StripResident.quarantineFollowUp:
-      // Epic 7's once-per-box follow-up — its story's data.
-      return false;
+      // 6.6's blind once-per-box follow-up (FR-21): due exactly when
+      // today is the due day of some NON-EMPTY derived box — the
+      // eligibility fold below. No first-opening gate stands here,
+      // unlike the residents below: the knock's window IS the day, so
+      // a displacement by the rarer curation offer re-offers at the
+      // next opening of the same day (UX-DR22's displacement, not a
+      // consumption), an unopened day silently misses it ("at most
+      // once" allows zero), and every later day closes the window by
+      // derivation alone — no stored dismissal, no tombstone (AD-21,
+      // AD-25). Empty boxes never knock: an empty box is 6.5's honest
+      // partial-write artifact (the failed-retry orphan), not a
+      // decision the user made.
+      return _quarantineFollowUpDue(
+        entries,
+        calendar,
+        today,
+        instantUtcMicros: instantUtcMicros,
+      );
     case StripResident.seasonalSuggestion:
       // FR-15's once-per-season suggestion (Story 5.13): eligible at
       // the day's first opening while a dormant Epic stands whose
@@ -237,6 +270,43 @@ bool _residentEligible(
             instantUtcMicros: instantUtcMicros,
           );
   }
+}
+
+/// Whether today is the due day of at least one NON-EMPTY derived
+/// Quarantine Box (Story 6.6, FR-21, AD-4): `plusMonths` of the box's
+/// own day — `dayOf` of the box row's own instant in its own stored
+/// offset, so a 02:00 box belongs to the previous civil day exactly
+/// as every other day judgement in the app — equals today. The fold
+/// reuses `deriveQuarantine` (same package, no weave cycle) and reads
+/// nothing else: two boxes due the same day are one eligibility
+/// (one resident, one knock — the surface carries no per-box
+/// targeting), and an empty box contributes nothing at all. The cost
+/// is deliberate: the full `deriveQuarantine` fold runs on every
+/// strip read (false ~179 of 180 days) because the spec chose honest
+/// reuse over a second contents-free existence check — fine at
+/// single-user scale.
+bool _quarantineFollowUpDue(
+  List<LogEntry> entries,
+  Calendar calendar,
+  Day today, {
+  required int instantUtcMicros,
+}) {
+  // A read can only judge facts that had happened when it began. In
+  // particular, a future quarantine row must not fill an older box early.
+  final visibleEntries = [
+    for (final entry in entries)
+      if (entry.instantUtcMicros <= instantUtcMicros) entry,
+  ];
+  for (final box in deriveQuarantine(visibleEntries)) {
+    if (box.contents.isEmpty) {
+      continue;
+    }
+    final boxDay = calendar.dayOf(box.instantUtcMicros, box.offsetSeconds);
+    if (calendar.plusMonths(boxDay, 6) == today) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /// Whether the day's first opening is underway at the read instant
@@ -401,10 +471,13 @@ StripSuggestion? _seasonalShown(
 /// FR-4): pure over the log, writing nothing (AD-3). The resolution
 /// walks [stripResidentPrecedence] in order and takes the first
 /// resident whose eligibility holds — the load-bearing total order
-/// UX-DR22 names. This build implements four eligibilities: the
+/// UX-DR22 names. This build implements five eligibilities: the
 /// once-ever first-run curation offer (due iff the first opening
 /// ever is underway — the day's first opening AND no `app_opened`
-/// row from any earlier day, Story 5.12, FR-31), the once-per-season
+/// row from any earlier day, Story 5.12, FR-31), the once-per-box
+/// quarantine follow-up (due iff `plusMonths` of some non-empty
+/// derived box's own day equals today — no first-opening gate, the
+/// day-window derivation of Story 6.6, FR-21), the once-per-season
 /// suggestion (due iff the day's first opening is underway and the
 /// dormant fold handed in an Epic no live same-season
 /// `suggestion_dismissed` row names, Story 5.13, FR-15), the weekly
@@ -415,8 +488,8 @@ StripSuggestion? _seasonalShown(
 /// first opening is underway, SM-2), and the daily check-in (due iff
 /// the current domestic day — each row scoped in its own stored
 /// offset, AD-4 — holds no `energy_set` row and the day's first
-/// opening is underway), so the walk falls through the two
-/// not-yet-eligible residents to them, or to nothing. A corrupt
+/// opening is underway), so the walk falls through the one
+/// not-yet-eligible resident to them, or to nothing. A corrupt
 /// `energy_set` or `report_answered` row never reaches this
 /// derivation — the read boundary excluded it, and the day (or week)
 /// derives as unanswered.
