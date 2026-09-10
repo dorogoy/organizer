@@ -61,8 +61,9 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// prompt pieces and schema, the Local stub's dart-define key, and
 /// the settings section's unreachable-empty render name —
 /// provider-facing protocol identifiers, never widget copy, on the
-/// same terms), plus the Decluttering Protocol's stable automation key ids
-/// (test and accessibility selectors, never rendered copy).
+/// same terms), plus the Decluttering Protocol's and the 3-Destination
+/// Flow's stable automation key ids (test and accessibility selectors,
+/// never rendered copy).
 const Map<String, Set<String>> namedConstantAllowance = {
   'lib/ui/tokens.dart': {'lora', 'lexend', 'shortDateFormat', 'durationFormat'},
   'lib/ui/destinations/decluttering_protocol_screen.dart': {
@@ -78,6 +79,11 @@ const Map<String, Set<String>> namedConstantAllowance = {
     '_volumeCajaGrandeKeyId',
     '_volumeMuebleKeyId',
     '_volumeSkipKeyId',
+  },
+  'lib/ui/destinations/destination_flow_screen.dart': {
+    '_keepRowKeyId',
+    '_donateRowKeyId',
+    '_releaseRowKeyId',
   },
   'lib/store/substrate.dart': {
     'substrateSchemaFile',

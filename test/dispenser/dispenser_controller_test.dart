@@ -145,6 +145,37 @@ class _FailFirstSkippedStore implements StorePort {
       _inner.readLogEntries();
 }
 
+/// A store whose first `card_done` append throws once, after letting
+/// the `item_triaged` append through — the destination act's mid-batch
+/// failure row (Story 6.4): the triage row lands, the completion
+/// throws, and the re-entry retry appends a second triage row beside
+/// the orphan (the tolerated partial-act exposure).
+class _FailAfterTriageStore implements StorePort {
+  _FailAfterTriageStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'card_done') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
 /// A store whose next append after [arm] throws once — the declare's
 /// write-failure row: failing the batch's FIRST row (the supersede
 /// pair's `session_ended`) pins that no half-supersede can exist, since
@@ -4649,6 +4680,180 @@ void main() {
         nextDealRow.itemId,
         's1',
         reason: 'the purge closed, the organization steps begin',
+      );
+    });
+
+    test(
+      'triageAndComplete appends the ordered act — item_triaged, then '
+      'card_done on the purge id, then the bundled next card_dealt, all '
+      'stamped from the one act instant (Story 6.4, FR-20/22, AD-3/21)',
+      () async {
+        final store = activatedStore();
+        final dealt = await openSessionAndReadFirstDeal(store);
+        final controller = DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        );
+
+        await controller.triageAndComplete(
+          dealt,
+          destination: TriageDestination.donate_sell,
+          volumeTag: CoarseVolumeTag.caja,
+        );
+
+        // The act's three rows, in the act's order, after the launch deal.
+        final kinds = store.entries.map((entry) => entry.kind).toList();
+        final actAt = kinds.lastIndexOf('item_triaged');
+        expect(actAt, 6);
+        expect(kinds.sublist(actAt), [
+          'item_triaged',
+          'card_done',
+          'card_dealt',
+        ]);
+        final triage = store.entries[actAt];
+        final done = store.entries[actAt + 1];
+        final nextDeal = store.entries[actAt + 2];
+        expect(triage.triageDestination, 'donate_sell');
+        expect(triage.triageVolumeTag, 'caja');
+        expect(triage.itemId, isNull, reason: 'the triaged object is physical');
+        expect(done.itemId, '${purgeItemIdPrefix}s1');
+        expect(done.itemOrigin, Origin.cloud);
+        expect(nextDeal.itemId, 's1');
+        // One act instant serves the whole trio — the entry mint.
+        expect(triage.instantUtcMicros, done.instantUtcMicros);
+        expect(done.instantUtcMicros, nextDeal.instantUtcMicros);
+        expect(triage.instantUtcMicros, _fixedClock().microsecondsSinceEpoch);
+        // A distinct v7 id per row.
+        expect(triage.id, matches(v7));
+        expect(done.id, matches(v7));
+        expect(nextDeal.id, matches(v7));
+        expect(triage.id, isNot(done.id));
+        expect(done.id, isNot(nextDeal.id));
+
+        // The next read deals the step — the purge is retired.
+        final view = await controller.read();
+        expect(view, isA<DispenserDealt>());
+        expect(
+          (view as DispenserDealt).card.id.startsWith(purgeItemIdPrefix),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a declined tag passes null through — the triage row carries no '
+      'tag, and the act still completes (FR-22: declining writes nothing)',
+      () async {
+        final store = activatedStore();
+        final dealt = await openSessionAndReadFirstDeal(store);
+        final controller = DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        );
+
+        await controller.triageAndComplete(
+          dealt,
+          destination: TriageDestination.keep,
+        );
+
+        final triage = store.entries.firstWhere(
+          (entry) => entry.kind == 'item_triaged',
+        );
+        expect(triage.triageDestination, 'keep');
+        expect(triage.triageVolumeTag, isNull);
+        expect(
+          store.entries.where((entry) => entry.kind == 'card_done'),
+          hasLength(1),
+        );
+      },
+    );
+
+    test('a stale double act is a no-op — the second call on the answered '
+        'card appends nothing at all, no orphan triage row either '
+        '(cardDone\'s answered-guard, decided before any append)', () async {
+      final store = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(store);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+      await controller.triageAndComplete(
+        dealt,
+        destination: TriageDestination.keep,
+      );
+      final afterAct = List.of(store.entries);
+
+      await controller.triageAndComplete(
+        dealt,
+        destination: TriageDestination.trash_recycle,
+      );
+
+      expect(store.entries, orderedEquals(afterAct));
+      expect(
+        store.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(1),
+      );
+    });
+
+    test('a mid-batch failure leaves the triage row standing and the '
+        're-entry retry appends a second one beside it — the same '
+        'partial-act exposure every multi-row act has, tolerated under '
+        'FR-22\'s approximate cumulative counts (the appends are '
+        'sequential, not transactional)', () async {
+      final inner = activatedStore();
+      final dealt = await openSessionAndReadFirstDeal(inner);
+      final store = _FailAfterTriageStore(inner);
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: _FakeBundle({catalogueAssetPath: shipped}),
+        nowOf: _fixedClock,
+      );
+
+      // The triage append lands; the completion append throws.
+      await expectLater(
+        controller.triageAndComplete(
+          dealt,
+          destination: TriageDestination.keep,
+        ),
+        throwsStateError,
+      );
+
+      // The orphan stands: one item_triaged, no card_done — and the
+      // orphan itself is the log's last row (it landed after the
+      // seeded deal, and nothing behind the thrown completion did).
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(1),
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      expect(inner.entries.last.kind, 'item_triaged');
+
+      // The re-entry retry on the still-live card appends its own full
+      // trio — a second triage row beside the orphan, tolerated under
+      // the approximate-counts rule.
+      await controller.triageAndComplete(
+        dealt,
+        destination: TriageDestination.keep,
+      );
+      final kinds = inner.entries.map((entry) => entry.kind).toList();
+      final actAt = kinds.lastIndexOf('item_triaged');
+      expect(kinds.sublist(actAt), ['item_triaged', 'card_done', 'card_dealt']);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(2),
+        reason:
+            'the orphan plus the retry\'s own row — approximate '
+            'cumulative counts absorb the double',
       );
     });
 

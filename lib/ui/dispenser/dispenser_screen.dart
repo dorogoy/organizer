@@ -61,6 +61,7 @@ import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
 import '../destinations/decluttering_protocol_screen.dart';
+import '../destinations/destination_flow_screen.dart';
 import '../no_slicer/no_slicer_surface.dart';
 import '../settings/curation_screen.dart';
 import '../settings/nuevo_proyecto_screen.dart';
@@ -591,16 +592,110 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
   }
 
-  /// Story 6.3 stops at the widened typed seam. The destination choice
-  /// that completes a triage act and the purge card's completion arrive
-  /// in 6.4, so receiving the pair and the optional tag is intentionally
-  /// side-effect free for this visit — the tag declined is null and
-  /// writes nothing (FR-22).
-  void _onDetachmentAnswers(
+  /// The detachment seam's fill (Story 6.4, FR-20, AD-3/21): the
+  /// handoff now goes somewhere. The sink owns navigation — pop the
+  /// protocol, push the 3-Destination Flow, await its pop, then
+  /// refresh from the answered log (a pop of this route from the
+  /// protocol's side would pop the flow instead, so the grammar is
+  /// sink-pops-then-pushes). The answers themselves are the visit's
+  /// transient state — the log's vocabulary has no kind for them, so
+  /// nothing writes them; the flow's tap is the one act, through
+  /// [_onDestinationTap] below. System back from the flow (before any
+  /// tap) discards the pair and leaves the purge card standing — the
+  /// refresh below simply re-reads the same card.
+  Future<void> _onDetachmentAnswers(
     DispenserDealt dealt,
     DetachmentAnswers answers,
     CoarseVolumeTag? volumeTag,
-  ) {}
+  ) async {
+    Navigator.of(context).pop();
+    if (!mounted) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DestinationFlowScreen(
+            onDestination: (destination) =>
+                _onDestinationTap(dealt, destination, volumeTag),
+          ),
+        ),
+      );
+      if (mounted) {
+        _refresh();
+      }
+    }
+  }
+
+  /// The destination tap's act (Story 6.4, FR-20, AD-3/21): the one
+  /// completion path a purge card has — `_onDone`'s mechanics with the
+  /// write triggered from the flow's route. The light haptic
+  /// acknowledges the act, then the one queued write is awaited
+  /// (the `item_triaged` row plus the completion and its bundled next
+  /// `card_dealt`, one act instant), the rescue markers end with the
+  /// deal exactly as an ordinary completion's do, and the completion
+  /// ack arms for the view the refresh commits — the sink's refresh,
+  /// after the flow pops on this future's `true`. The surface refresh
+  /// is deliberately not started here: the flow still covers it. A
+  /// failed write is the quiet catch, `_onDone`'s own — nothing
+  /// surfaced, the ack-flag class cleared, the empty frame beneath —
+  /// and this future answers `false` so the flow stays standing with
+  /// the card still eligible; re-entry (back, then the protocol
+  /// again) retries. The same shared in-flight guard serializes the
+  /// act against everything below the route; the flow's own one-shot
+  /// holds its second tap.
+  Future<bool> _onDestinationTap(
+    DispenserDealt dealt,
+    TriageDestination destination,
+    CoarseVolumeTag? volumeTag,
+  ) async {
+    if (_writeInFlight) {
+      return false;
+    }
+    _writeInFlight = true;
+    var releaseAfterRefresh = false;
+    HapticFeedback.lightImpact();
+    try {
+      await widget.controller.triageAndComplete(
+        dealt,
+        destination: destination,
+        volumeTag: volumeTag,
+      );
+      if (!mounted) {
+        return false;
+      }
+      // The answered deal is over — a completion through the flow ends
+      // it exactly as `_onDone`'s does.
+      _degradedRescueDealId = null;
+      _autoRescueFiredForDeal = null;
+      _completionAckWaiting = true;
+      // The retired purge card remains in the tree until the sink's
+      // post-pop refresh commits. Keep the shared guard through it so
+      // its stale callbacks cannot act.
+      releaseAfterRefresh = true;
+      _releaseWriteAfterRefreshFrame();
+      return true;
+    } catch (_) {
+      // The write failed: quiet and deliberate — the flow stays
+      // standing (it pops only on success), nothing surfaced, the card
+      // remains eligible and a re-entry retries. The whole ack-flag
+      // class clears with it, exactly as `_onDone`'s catch does.
+      _completionAckWaiting = false;
+      _completionAckTimer?.cancel();
+      _completionAckTimer = null;
+      if (mounted) {
+        setState(() {
+          _view = null;
+          _completionAckVisible = false;
+        });
+      }
+      return false;
+    } finally {
+      if (!releaseAfterRefresh) {
+        _writeInFlight = false;
+      }
+    }
+  }
 
   Future<void> _readAfterSessionSettles(int generation) async {
     try {
