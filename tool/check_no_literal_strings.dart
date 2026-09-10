@@ -84,6 +84,9 @@ const Map<String, Set<String>> namedConstantAllowance = {
     '_keepRowKeyId',
     '_donateRowKeyId',
     '_releaseRowKeyId',
+    // Story 6.5: the hesitation affordance's own key id — the trio's
+    // own register, a test key never widget copy.
+    '_quarantineAffordanceKeyId',
   },
   'lib/store/substrate.dart': {
     'substrateSchemaFile',
@@ -106,6 +109,9 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'logEntriesEnabledUpgrade',
     'logEntriesTriageDestinationUpgrade',
     'logEntriesTriageVolumeTagUpgrade',
+    // Story 6.5: the quarantine box link's own ALTER — the v13 step
+    // on the v12 pair's own terms.
+    'logEntriesTriageBoxIdUpgrade',
     'additiveAlterShape',
     'tableInfoPragmaTemplate',
     'tableInfoPragmaSlot',

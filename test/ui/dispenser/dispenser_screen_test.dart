@@ -243,6 +243,37 @@ class _FailFirstTriageStore implements StorePort {
       _inner.readLogEntries();
 }
 
+/// A store whose first `box_created` append throws — the quarantine
+/// act's write-failure row (Story 6.5): the controller rethrows, the
+/// screen absorbs it into the quiet catch, the flow stays standing,
+/// and the log stays consistent (nothing landed — no box row, no
+/// triage row, no completion).
+class _FailFirstBoxStore implements StorePort {
+  _FailFirstBoxStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'box_created') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
 /// A store whose log reads fail exactly once, and only once a
 /// `card_done` has landed — the post-write refresh's read fails while
 /// the write itself succeeded (the transient the foreground heal
@@ -612,6 +643,7 @@ LogEntryRecord _installOpen() => (
   enabled: null,
   triageDestination: null,
   triageVolumeTag: null,
+  triageBoxId: null,
 );
 
 Rect _rect(WidgetTester tester, Finder finder) {
@@ -1295,6 +1327,7 @@ void main() {
             enabled: null,
             triageDestination: null,
             triageVolumeTag: null,
+            triageBoxId: null,
           ),
           (
             id: 'seed-deal',
@@ -1324,6 +1357,7 @@ void main() {
             enabled: null,
             triageDestination: null,
             triageVolumeTag: null,
+            triageBoxId: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2909,6 +2943,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     // Three eligible days of declines, each its own closed sitting.
@@ -3018,6 +3053,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     // An eligible decline day: its own closed sitting around the item.
@@ -3138,6 +3174,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       );
 
       List<LogEntryRecord> decline(int day) => [
@@ -3237,6 +3274,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     // Three eligible days of declines, each its own closed sitting —
@@ -3369,6 +3407,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     List<LogEntryRecord> decline(int day) => [
@@ -3543,6 +3582,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     final gapStore = _RecordingStore()
@@ -3771,6 +3811,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         id: 'seed-epic-activated',
@@ -3793,6 +3834,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         id: 'seed-session-started',
@@ -3815,6 +3857,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         // Story 6.1's world: an activated group's purge closes only
@@ -3841,6 +3884,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         id: 'seed-card-dealt',
@@ -3863,6 +3907,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         id: 'seed-card-done',
@@ -3885,6 +3930,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
       (
         id: 'seed-session-ended',
@@ -3907,6 +3953,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ),
     ];
 
@@ -4083,6 +4130,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4164,6 +4212,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4198,6 +4247,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ),
       ]);
 
@@ -4390,6 +4440,7 @@ void main() {
             enabled: null,
             triageDestination: null,
             triageVolumeTag: null,
+            triageBoxId: null,
           ));
         }
         await SessionController(
@@ -4472,6 +4523,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
     }
 
@@ -4793,6 +4845,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       await SessionController(
         store: store,
@@ -4929,6 +4982,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
     }
 
@@ -5478,6 +5532,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -5501,6 +5556,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
     }
 
@@ -5651,6 +5707,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));
@@ -5955,6 +6012,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     /// A `setting_changed` {camera_enabled, [value]} row.
@@ -5979,6 +6037,7 @@ void main() {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     );
 
     Finder entryTarget(Finder glyph) =>
@@ -6126,6 +6185,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       offered.entries.add((
         id: 'seed-pocket',
@@ -6154,6 +6214,7 @@ void main() {
         enabled: null,
         triageDestination: null,
         triageVolumeTag: null,
+        triageBoxId: null,
       ));
       await tester.pumpWidget(_harness(buildController(offered)));
       await tester.pumpAndSettle();
@@ -6444,6 +6505,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       final session = SessionController(
         store: store,
@@ -6538,6 +6600,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       final failing = _FailNextAppendStore(inner);
       final session = SessionController(
@@ -6691,6 +6754,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ))
         ..entries.add((
           id: 'seed-session-started',
@@ -6722,6 +6786,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ))
         ..entries.add((
           id: 'seed-purge-dealt',
@@ -6751,6 +6816,7 @@ void main() {
           enabled: null,
           triageDestination: null,
           triageVolumeTag: null,
+          triageBoxId: null,
         ));
       return store;
     }
@@ -6772,6 +6838,9 @@ void main() {
     const keepRowKey = ValueKey<String>('destination-flow-keep');
     const donateRowKey = ValueKey<String>('destination-flow-donate');
     const releaseRowKey = ValueKey<String>('destination-flow-release');
+    const quarantineAffordanceKey = ValueKey<String>(
+      'destination-flow-quarantine',
+    );
 
     Finder protocolAnswer(Key key) => find.descendant(
       of: find.byKey(key),
@@ -6953,6 +7022,71 @@ void main() {
       ], reason: 'the organization step completed after the purge act');
     });
 
+    testWidgets('the hesitation affordance\'s tap is the quarantine act — '
+        'box_created, then item_triaged carrying quarantine and the box\'s '
+        'own id with no tag though the visit handed one, then card_done on '
+        'the purge id, then the bundled next card_dealt, all from one act '
+        'instant; the flow pops and the next card stands (Story 6.5, '
+        'FR-21/22, AD-3/21)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      // The visit handed off a tag (bolsa) — the quarantine row must
+      // not carry it: a quarantined object liberates nothing.
+      await openFlow(tester);
+
+      await tester.tap(find.byKey(quarantineAffordanceKey));
+      await tester.pumpAndSettle();
+
+      // The ordered quartet after the seeded deal, one act instant.
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      final boxAt = kinds.lastIndexOf('box_created');
+      expect(boxAt, 3);
+      expect(kinds.sublist(boxAt), [
+        'box_created',
+        'item_triaged',
+        'card_done',
+        'card_dealt',
+      ]);
+      final box = store.entries[boxAt];
+      final triage = store.entries[boxAt + 1];
+      final done = store.entries[boxAt + 2];
+      final nextDeal = store.entries[boxAt + 3];
+      expect(triage.triageDestination, 'quarantine');
+      expect(
+        triage.triageBoxId,
+        box.id,
+        reason: 'the triage row links the box\'s pre-minted id',
+      );
+      expect(
+        triage.triageVolumeTag,
+        isNull,
+        reason:
+            'the visit handed off a tag and the hesitation act still '
+            'writes none — FR-22/AD-26 honesty',
+      );
+      expect(done.itemId, '${purgeItemIdPrefix}s1');
+      expect(
+        nextDeal.itemId,
+        's1',
+        reason: 'the purge closed, the organization steps begin',
+      );
+      expect(box.instantUtcMicros, triage.instantUtcMicros);
+      expect(triage.instantUtcMicros, done.instantUtcMicros);
+      expect(done.instantUtcMicros, nextDeal.instantUtcMicros);
+
+      // The flow popped and the dispenser shows the next dealt card —
+      // the purge id retired, the completion ack above it.
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text('Recoger las cajas'), findsOneWidget);
+      expect(
+        find.text(AppStringsEs().completionAcknowledgement),
+        findsOneWidget,
+      );
+      expect(find.byType(ErrorWidget), findsNothing);
+    });
+
     testWidgets('back from the flow before any tap writes nothing — the '
         'protocol\'s answers are discarded and the purge card still stands '
         '(matrix: back from flow)', (tester) async {
@@ -7061,6 +7195,64 @@ void main() {
       expect(inner.entries[actAt].triageDestination, 'trash_recycle');
       expect(find.byType(DestinationFlowScreen), findsNothing);
       expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a failed quarantine act is quiet — nothing lands, the '
+        'flow stays standing with no error surface, and the guard\'s '
+        'release lets the retry land the fresh-box act (matrix: write '
+        'failure, Story 6.5)', (tester) async {
+      final inner = purgeStore();
+      final store = _FailFirstBoxStore(inner);
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      await openFlow(tester);
+
+      await tester.tap(find.byKey(quarantineAffordanceKey));
+      await tester.pumpAndSettle();
+
+      // Nothing landed — no box row, no quarantine row, no completion,
+      // no deal — and the decision still stands, quiet: no error
+      // surface anywhere.
+      expect(
+        inner.entries.where((entry) => entry.kind == 'box_created'),
+        isEmpty,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        isEmpty,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      expect(find.byType(DestinationFlowScreen), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+
+      // The guard was released in the failure's finally: an in-place
+      // re-tap of the re-armed affordance retries the act, and the
+      // store (which throws only on the first box append) lands the
+      // whole fresh-box quartet — box_created, its linked quarantine
+      // row, the completion, the bundled next deal.
+      await tester.tap(find.byKey(quarantineAffordanceKey));
+      await tester.pumpAndSettle();
+
+      final kinds = inner.entries.map((entry) => entry.kind).toList();
+      final boxAt = kinds.lastIndexOf('box_created');
+      expect(kinds.sublist(boxAt), [
+        'box_created',
+        'item_triaged',
+        'card_done',
+        'card_dealt',
+      ]);
+      expect(inner.entries[boxAt + 1].triageDestination, 'quarantine');
+      expect(
+        inner.entries[boxAt + 1].triageBoxId,
+        inner.entries[boxAt].id,
+        reason: 'the retry\'s triage row links the retry\'s fresh box',
+      );
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
     });
 
     testWidgets('a declined visit taps through with no tag — the row the '

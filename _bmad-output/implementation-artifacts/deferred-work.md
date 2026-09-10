@@ -348,3 +348,6 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/6-4-three-destinations-of-equal-weight.md`
   summary: Multi-row log acts append sequentially with no transaction, so a mid-batch failure can orphan earlier rows (6-4 pinned: a landed `item_triaged` whose `card_done` append throws stands orphaned and the retry doubles it).
   evidence: Story 6-4 review (three layers converged): `_enqueueCompleteWrite` appends triage→answer→deal as separate store writes; `complete()`'s answer+deal pair and every other multi-row act share the exposure. FR-22's approximate cumulative counts tolerate the double, and the semantics are now pinned in `dispenser_controller_test.dart` (`_FailAfterTriageStore`), but a store-level transaction (drift supports them) would remove the whole class house-wide if it ever matters.
+- source_spec: `_bmad-output/implementation-artifacts/6-5-the-quarantine-box-derived-from-the-log.md`
+  summary: Sprint-status tracker drift — 6-3 says `review` while its artifact is `done`
+  evidence: sprint-status.yaml:97 reads `6-3-the-triage-act-item-triaged-and-coarse-volume: review`; the spec frontmatter reads `status: 'done'`; pre-existing, surfaced incidentally by 6-5 review (blind-hunter)

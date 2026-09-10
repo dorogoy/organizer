@@ -165,6 +165,16 @@ const String logEntriesTriageDestinationUpgrade =
 const String logEntriesTriageVolumeTagUpgrade =
     'ALTER TABLE log_entries ADD COLUMN triage_volume_tag TEXT NULL';
 
+/// Schema v13's additive upgrade of `log_entries` (Story 6.5,
+/// AD-23): the one nullable quarantine `item_triaged` payload column
+/// — the linked box's id, the `box_created` row's own id (FR-21) —
+/// added by ALTER TABLE only, on the v2→v12 pattern: no table
+/// rebuild, no data migration, refusal triggers untouched. A named
+/// infrastructure identifier on the store module's terms (AD-15's
+/// ban is on literals reaching a widget).
+const String logEntriesTriageBoxIdUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN triage_box_id TEXT NULL';
+
 /// The additive ALTER's own shape (Story 3.4's idempotent upgrades): the
 /// table and column a re-check reads are derived from each named upgrade
 /// statement itself, so no second copy of either name exists to drift.
@@ -186,8 +196,8 @@ const String tableInfoNameField = 'name';
 
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 12 (Story 6.3): the only change
-/// from 11 is the nullable triage destination and tag columns above, and
+/// migration (AD-2). schemaVersion 13 (Story 6.5): the only change
+/// from 12 is the nullable triage box-id column above, and
 /// every later change is additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -201,7 +211,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -266,7 +276,11 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// The v11→v12 step adds the log's triage destination and tag
   /// columns the same way, so a v11 install upgrades with its rows
   /// unchanged too — old rows with null triage fields, deriving
-  /// exactly as before (no triage row stands).
+  /// exactly as before (no triage row stands). The v12→v13 step
+  /// adds the log's triage box-id column the same way, so a v12
+  /// install upgrades with its rows unchanged too — old rows with
+  /// a null box link, deriving exactly as before (no quarantine row
+  /// stands).
   /// Every
   /// step runs inside the one transaction and adds only an absent
   /// column, and the mechanism is
@@ -316,6 +330,9 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       if (from < 12) {
         await _addColumnIfAbsent(logEntriesTriageDestinationUpgrade);
         await _addColumnIfAbsent(logEntriesTriageVolumeTagUpgrade);
+      }
+      if (from < 13) {
+        await _addColumnIfAbsent(logEntriesTriageBoxIdUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

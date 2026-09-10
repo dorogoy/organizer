@@ -51,6 +51,7 @@ List<LogEntryContent> permissionRefuse(Permission permission) {
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ),
   ];
 }

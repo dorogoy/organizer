@@ -299,6 +299,7 @@ class GenesisController {
       enabled: content.enabled,
       triageDestination: content.triageDestination?.name,
       triageVolumeTag: content.triageVolumeTag?.name,
+      triageBoxId: content.triageBoxId,
     ));
   }
 
@@ -435,6 +436,7 @@ class GenesisController {
                 enabled: content.enabled,
                 triageDestination: content.triageDestination?.name,
                 triageVolumeTag: content.triageVolumeTag?.name,
+                triageBoxId: content.triageBoxId,
               ));
             }
           }

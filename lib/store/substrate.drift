@@ -76,6 +76,14 @@
 -- value space) — the same additive-only ALTER TABLE path, so a v11
 -- install upgrades in place with its rows unchanged.
 --
+-- Schema v13 (Story 6.5) adds the one nullable log-entry payload
+-- column `triage_box_id` — a quarantine `item_triaged` row's linked
+-- box id, the `box_created` row's own id (FR-21, AD-23) — the same
+-- additive-only ALTER TABLE path, so a v12 install upgrades in place
+-- with its rows unchanged. There is deliberately no quarantine table
+-- and no follow-up-date column anywhere: box membership exists only
+-- as this link, and the box itself only as its `box_created` row.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -116,7 +124,8 @@ CREATE TABLE log_entries (
   cluster TEXT NULL,
   enabled BOOL NULL,
   triage_destination TEXT NULL,
-  triage_volume_tag TEXT NULL
+  triage_volume_tag TEXT NULL,
+  triage_box_id TEXT NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

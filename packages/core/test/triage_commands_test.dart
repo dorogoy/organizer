@@ -1,3 +1,4 @@
+import 'package:core/commands/session_commands.dart';
 import 'package:core/commands/triage_commands.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/store_port.dart';
@@ -33,6 +34,7 @@ void main() {
     expect(content.sliceCause, isNull);
     expect(content.cluster, isNull);
     expect(content.enabled, isNull);
+    expect(content.triageBoxId, isNull);
   });
 
   test('the tag is optional — a declined act carries null and writes '
@@ -106,6 +108,7 @@ void main() {
           enabled: content.enabled,
           triageDestination: content.triageDestination?.name,
           triageVolumeTag: content.triageVolumeTag?.name,
+          triageBoxId: content.triageBoxId,
         );
         final converted = convertLogEntryRecord(record);
         expect(
@@ -122,5 +125,131 @@ void main() {
         expect(entry.volumeTag, tag, reason: '${destination.name}/${tag.name}');
       }
     }
+  });
+
+  test('the optional box link threads through the same single row — '
+      'the quarantine act\'s additive half (Story 6.5, FR-21)', () {
+    final content = triageItem(
+      destination: TriageDestination.quarantine,
+      boxId: 'box-1',
+    ).single;
+    expect(content.kind, LogKind.itemTriaged);
+    expect(content.triageDestination, TriageDestination.quarantine);
+    expect(content.triageBoxId, 'box-1');
+    // The quarantined object liberates nothing: the minter offers no
+    // way to set a tag beside a link, and the act passes none.
+    expect(content.triageVolumeTag, isNull);
+    // And a destination row mints unlinked, exactly as before 6.5.
+    expect(
+      triageItem(destination: TriageDestination.keep).single.triageBoxId,
+      isNull,
+    );
+  });
+
+  test('the box link is bounded by construction — a link on any other '
+      'destination, or beside a tag, trips the minter\'s assert before a '
+      'row exists (FR-21/22, AD-26)', () {
+    expect(
+      () => triageItem(
+        destination: TriageDestination.quarantine,
+        volumeTag: CoarseVolumeTag.caja,
+        boxId: 'box-1',
+      ),
+      throwsA(isA<AssertionError>()),
+      reason:
+          'a quarantined object liberates nothing — no tag beside '
+          'a box link',
+    );
+    expect(
+      () => triageItem(destination: TriageDestination.keep, boxId: 'box-1'),
+      throwsA(isA<AssertionError>()),
+      reason:
+          'a box link rides only a quarantine row — no other '
+          'destination opens a box',
+    );
+  });
+
+  test('boxCreated returns exactly one kind-only content row — the id '
+      'and instant are the whole row (Story 6.5, FR-21, AD-4)', () {
+    final contents = boxCreated();
+    expect(contents, hasLength(1));
+    final content = contents.single;
+    expect(content.kind, LogKind.boxCreated);
+    // Kind-only: every payload field the write shape offers stays
+    // null — no column of the row carries anything at all.
+    expect(content.itemId, isNull);
+    expect(content.itemOrigin, isNull);
+    expect(content.stack, isNull);
+    expect(content.settingKey, isNull);
+    expect(content.settingValue, isNull);
+    expect(content.settingTextValue, isNull);
+    expect(content.pocketMinutes, isNull);
+    expect(content.energyLevel, isNull);
+    expect(content.reportValue, isNull);
+    expect(content.reportWeek, isNull);
+    expect(content.permission, isNull);
+    expect(content.sliceCause, isNull);
+    expect(content.cluster, isNull);
+    expect(content.enabled, isNull);
+    expect(content.triageDestination, isNull);
+    expect(content.triageVolumeTag, isNull);
+    expect(content.triageBoxId, isNull);
+  });
+
+  test('the quarantine pair round-trips the read boundary end to end — '
+      'the minted box row and its linked triage row both convert whole '
+      '(Story 6.5)', () {
+    // The seam the hand-typed round-trips elsewhere skip: minters →
+    // `.name` wires (what every shell copier writes) → records → the
+    // read boundary — with the pre-minted box id threaded as the
+    // shell does.
+    const boxId = 'box-1';
+    LogEntryRecord boxRecord(
+      LogEntryContent content, {
+      String? id,
+      String? triageBoxId,
+      String? triageDestination,
+      String? triageVolumeTag,
+    }) => (
+      id: id ?? 'row-${content.kind.name}',
+      kind: content.kind.name,
+      instantUtcMicros: 1000,
+      offsetSeconds: 3600,
+      itemId: content.itemId,
+      itemOrigin: content.itemOrigin,
+      stack: content.stack,
+      settingKey: content.settingKey,
+      settingValue: content.settingValue,
+      settingTextValue: content.settingTextValue,
+      pocketMinutes: content.pocketMinutes,
+      energyLevel: content.energyLevel,
+      reportValue: content.reportValue,
+      reportWeek: content.reportWeek,
+      permission: content.permission?.name,
+      sliceCause: content.sliceCause,
+      cluster: content.cluster?.name,
+      enabled: content.enabled,
+      triageDestination: triageDestination,
+      triageVolumeTag: triageVolumeTag,
+      triageBoxId: triageBoxId,
+    );
+    final box = boxRecord(boxCreated().single, id: boxId);
+    final boxConversion = convertLogEntryRecord(box);
+    expect(boxConversion.flaw, isNull);
+    final boxEntry = boxConversion.entry as BoxCreatedEntry;
+    expect(boxEntry.id, boxId);
+    final triage = boxRecord(
+      triageItem(
+        destination: TriageDestination.quarantine,
+        boxId: boxId,
+      ).single,
+      triageDestination: TriageDestination.quarantine.name,
+      triageBoxId: boxId,
+    );
+    final triageConversion = convertLogEntryRecord(triage);
+    expect(triageConversion.flaw, isNull);
+    final triageEntry = triageConversion.entry as TriageEntry;
+    expect(triageEntry.boxId, boxId);
+    expect(triageEntry.destination, TriageDestination.quarantine);
   });
 }

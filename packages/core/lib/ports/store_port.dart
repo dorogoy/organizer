@@ -76,13 +76,17 @@ typedef PoolFactRecord = ({
 /// `cluster_curation_changed`, additively since schema v11
 /// (Story 5.11, FR-31, AD-16, AD-23 — the payload rides its own
 /// columns, never a `setting_changed` key). [triageDestination] is
-/// the triage act's destination wire name (one of the three the
+/// the triage act's destination wire name (one of the four the
 /// `TriageDestination` enum names) and [triageVolumeTag] its
 /// optional coarse volume tag wire name (one of the four the
 /// `CoarseVolumeTag` enum names), both set only on `item_triaged`,
 /// additively since schema v12 (Story 6.3, FR-22, AD-23 — a numeric
 /// volume is unrepresentable: the closed wire map is the value
-/// space).
+/// space). [triageBoxId] is the linked Quarantine Box's id — the
+/// `box_created` row's own id — set only on a quarantine
+/// `item_triaged` row, additively since schema v13 (Story 6.5,
+/// FR-21, AD-23 — membership exists only as this link; no table and
+/// no stored follow-up date anywhere).
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -104,6 +108,7 @@ typedef LogEntryRecord = ({
   bool? enabled,
   String? triageDestination,
   String? triageVolumeTag,
+  String? triageBoxId,
 });
 
 /// The pool-fact snapshot's domain objects, in snapshot order — the

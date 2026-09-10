@@ -1011,7 +1011,8 @@ final class KitchenSink {
       // cause column is schema v9's (4.6); the nullable cluster and
       // enabled columns are schema v11's additive pair (5.11); the
       // nullable triage destination and tag columns are schema v12's
-      // additive pair (6.3).
+      // additive pair (6.3); the nullable triage box-id column is
+      // schema v13's (6.5).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -1035,6 +1036,7 @@ final class KitchenSink {
           'enabled',
           'triageDestination',
           'triageVolumeTag',
+          'triageBoxId',
         ]),
       );
     });
@@ -1048,7 +1050,8 @@ final class KitchenSink {
       // field grows it once (3.4); the setting text field grows it
       // once more (4.3); the slice cause field grows it once (4.6);
       // the cluster and enabled fields grow it once each (5.11); the
-      // triage destination and tag fields grow it once each (6.3).
+      // triage destination and tag fields grow it once each (6.3);
+      // the triage box-id field grows it once (6.5).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -1069,6 +1072,7 @@ final class KitchenSink {
           'enabled',
           'triageDestination',
           'triageVolumeTag',
+          'triageBoxId',
         ]),
       );
     });
@@ -1246,11 +1250,13 @@ final class KitchenSink {
   test('every top-level class, enum, mixin, extension and record typedef '
       'under core lib is frozen or exempted — a shape cannot be born '
       'unfrozen', () {
-    // The frozen census, keyed by (path, name): the fifty-three
-    // declarations this map freezes — Story 4-4 adds the slicer port's
-    // sealed request union, its two outcomes and the three request
-    // kinds; Story 5.7 adds the scan parse's two records and the scan
-    // landing's fact seed; Story 5.11 adds the curation kind's entry.
+    // The frozen census, keyed by (path, name): the declarations this
+    // map freezes — Story 4-4 adds the slicer port's sealed request
+    // union, its two outcomes and the three request kinds; Story 5.7
+    // adds the scan parse's two records and the scan landing's fact
+    // seed; Story 5.11 adds the curation kind's entry; Story 6.5
+    // adds the box row's own payload-less entry and the quarantine
+    // derivation's box record.
     const frozen = {
       'pool/pool_fact.dart:PoolFact',
       'log/log_entry.dart:LogEntry',
@@ -1266,6 +1272,9 @@ final class KitchenSink {
       'log/log_entry.dart:SliceEntry',
       'log/log_entry.dart:ClusterCurationChangedEntry',
       'log/log_entry.dart:TriageEntry',
+      // Story 6.5: the Quarantine Box's own row — payload-less, its id
+      // and instant ARE the box (FR-21).
+      'log/log_entry.dart:BoxCreatedEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1299,6 +1308,9 @@ final class KitchenSink {
       // Story 5.13: the seasonal suggestion's shown record — a
       // structural record type shared with weave by shape alone.
       'derive/strip.dart:StripSuggestion',
+      // Story 6.5: the Quarantine Box derivation's own record — id,
+      // instant, offset and contents, never a follow-up date (AD-1).
+      'derive/quarantine.dart:QuarantineBox',
       'ports/slicer_port.dart:SlicerRequest',
       'ports/slicer_port.dart:ScanSliceRequest',
       'ports/slicer_port.dart:GenesisSliceRequest',

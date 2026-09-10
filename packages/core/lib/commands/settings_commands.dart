@@ -94,6 +94,7 @@ List<LogEntryContent> settingChanged({
       enabled: null,
       triageDestination: null,
       triageVolumeTag: null,
+      triageBoxId: null,
     ),
   ];
 }

@@ -297,6 +297,7 @@ bool _firstOpeningUnderway(
       case PermissionRefusedEntry():
       case ClusterCurationChangedEntry():
       case TriageEntry():
+      case BoxCreatedEntry():
       case UnknownEntry():
       case SliceEntry():
         break;

@@ -526,6 +526,7 @@ LogFacts walkLog(
       case PermissionRefusedEntry():
       case ClusterCurationChangedEntry():
       case TriageEntry():
+      case BoxCreatedEntry():
       case UnknownEntry():
         break;
     }

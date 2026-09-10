@@ -71,6 +71,7 @@ class DriftStore implements StorePort {
             enabled: Value(entry.enabled),
             triageDestination: Value(entry.triageDestination),
             triageVolumeTag: Value(entry.triageVolumeTag),
+            triageBoxId: Value(entry.triageBoxId),
           ),
         );
   }
@@ -143,6 +144,7 @@ class DriftStore implements StorePort {
           enabled: row.enabled,
           triageDestination: row.triageDestination,
           triageVolumeTag: row.triageVolumeTag,
+          triageBoxId: row.triageBoxId,
         ),
     ];
   }
