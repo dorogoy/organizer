@@ -101,6 +101,8 @@ CaptureContent? captureCreate({
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     ),
   );
 }

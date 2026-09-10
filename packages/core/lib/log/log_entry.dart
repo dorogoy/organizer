@@ -57,7 +57,15 @@
 /// shown in season S can be ✕-tapped after the turn: the row scopes
 /// to S+1, suppressing the season the tap landed in — benign and
 /// correct, because S is already historical and its suppression is
-/// moot the moment S ends). A new kind is a new kind, never a flag
+/// moot the moment S ends), and since Story 6.3 the twenty-fourth
+/// kind `item_triaged` (FR-22, AD-21 — the triage act's user row:
+/// one destination from the closed `TriageDestination` vocabulary and
+/// an optional `CoarseVolumeTag`, riding their own schema columns (v12)
+/// and referencing no pool item — the object triaged is physical, so
+/// AD-14 does not apply; the substrate the Quarantine Box (6.5) and
+/// the declutter metric (6.7, Epic 7) derive from, minted by this
+/// story through the core command alone and consumed by no shell
+/// writer yet). A new kind is a new kind, never a flag
 /// on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
@@ -71,10 +79,20 @@
 /// `energy_set` carries its level, `report_answered` carries its answer
 /// and the week it answers, `cluster_curation_changed` carries its
 /// cluster's wire name and enabled bit (Story 5.11, on its own v11
-/// columns), and a known kind's payload must match
+/// columns), `item_triaged` carries its destination and optional
+/// coarse volume tag (Story 6.3, on its own v12 columns), and a known
+/// kind's payload must match
 /// the kind.
 
 library;
+
+// The triage value vocabularies' multi-word members (`donate_sell`,
+// `trash_recycle`, `caja_grande`) are their wire names, fixed in
+// snake_case by Story 6.3's spec — the log's own kind-wire register
+// (`card_done`), unlike this file's single-word permission wires and
+// the camelCase cause column. Keeping `.name` as the wire keeps one
+// mint site; the members carry scoped lint ignores, not a file-wide
+// one.
 
 import 'package:core/curation/curation.dart';
 import 'package:core/energy/energy.dart';
@@ -103,6 +121,72 @@ const Map<String, Permission> permissionByName = {
   'microphone': Permission.microphone,
   'camera': Permission.camera,
   'notifications': Permission.notifications,
+};
+
+/// The triage act's destination vocabulary (Story 6.3, FR-22, AD-21):
+/// where a let-go object went — one of exactly three members this
+/// story, carried as forward-only data. `quarantine` arrives
+/// additively in Story 6.5 and is deliberately NOT a member here; a
+/// row naming a destination this build does not know is excluded at
+/// the read boundary, never coerced (AD-23). A core enum, stored as
+/// wire text on the `item_triaged` row's own column — no free-form
+/// strings, no numeric code.
+enum TriageDestination {
+  /// `keep` — the object stayed (Quedármelo's wire name; the
+  /// destination flow itself is Story 6.4's, this build only records).
+  keep,
+
+  /// `donate_sell` — the object left through donation or sale.
+  // ignore: constant_identifier_names
+  donate_sell,
+
+  /// `trash_recycle` — the object left as waste or recycling.
+  // ignore: constant_identifier_names
+  trash_recycle,
+}
+
+/// Every [TriageDestination] this build knows, keyed by wire name —
+/// the `permissionByName` closed-map precedent: the census holds
+/// exactly keep, donate_sell and trash_recycle as data, and a stored
+/// name outside it is a read-boundary flaw, never a coercion (AD-23).
+const Map<String, TriageDestination> triageDestinationByName = {
+  'keep': TriageDestination.keep,
+  'donate_sell': TriageDestination.donate_sell,
+  'trash_recycle': TriageDestination.trash_recycle,
+};
+
+/// The triage act's coarse volume tag (Story 6.3, FR-22): the
+/// optional, approximate size of the let-go batch — a bag, a box, a
+/// big box, a piece of furniture. Four members and no numeric member
+/// can ever exist: the vocabulary IS the value space, so a numeric
+/// volume is unrepresentable by construction (no int field, no int
+/// column, no wire name that parses as one). A row naming a tag this
+/// build does not know is excluded at the read boundary when the
+/// column is non-empty, never coerced (AD-23); an absent or empty
+/// column is the declined tag and converts cleanly — declining to tag
+/// writes nothing (FR-22).
+enum CoarseVolumeTag {
+  /// `bolsa` — a bag's worth.
+  bolsa,
+
+  /// `caja` — a box's worth.
+  caja,
+
+  /// `caja_grande` — a big box's worth.
+  // ignore: constant_identifier_names
+  caja_grande,
+
+  /// `mueble` — a piece of furniture's worth.
+  mueble,
+}
+
+/// Every [CoarseVolumeTag] this build knows, keyed by wire name —
+/// the same closed-map precedent, additively extendable forward.
+const Map<String, CoarseVolumeTag> coarseVolumeTagByName = {
+  'bolsa': CoarseVolumeTag.bolsa,
+  'caja': CoarseVolumeTag.caja,
+  'caja_grande': CoarseVolumeTag.caja_grande,
+  'mueble': CoarseVolumeTag.mueble,
 };
 
 /// Every [SlicerFailureCause] this build knows, keyed by wire name
@@ -156,6 +240,7 @@ final class LogKind {
     'suggestion_dismissed',
     known: true,
   );
+  static const itemTriaged = LogKind._('item_triaged', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -182,6 +267,7 @@ final class LogKind {
     'epic_activated': epicActivated,
     'cluster_curation_changed': clusterCurationChanged,
     'suggestion_dismissed': suggestionDismissed,
+    'item_triaged': itemTriaged,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -591,6 +677,49 @@ final class ClusterCurationChangedEntry extends LogEntry {
   final bool enabled;
 }
 
+/// An `item_triaged` user act (Story 6.3, FR-22, AD-21): one triage
+/// decision — the destination the let-go object left through, plus an
+/// optional coarse volume tag — and nothing else. One row per act
+/// through the single sanctioned minter
+/// (`core/commands/triage_commands.dart`), so no second triage writer
+/// can appear silently. The payload rides its own schema columns (v12)
+/// — the destination's wire name and the tag's — never a
+/// `setting_changed` key and never a numeric volume: the tag enum IS
+/// the value space, so no field of this entry can hold a number. The
+/// type references no pool item: the object triaged is physical, so
+/// AD-14 does not apply, and no item pair rides the row. The type
+/// offers no other field, so no photograph reference (FR-22's figures
+/// come only from taps), no box linkage (6.5's additive columns) and
+/// no completion fact can ride along — a purge card's `card_done` is
+/// 6.4's act, never this row's. An unknown destination or tag wire
+/// name excludes the row at the read boundary — quiet tolerance,
+/// never a repair write (AD-23).
+final class TriageEntry extends LogEntry {
+  const TriageEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.destination,
+    this.volumeTag,
+  });
+
+  @override
+  final LogKind kind = LogKind.itemTriaged;
+
+  /// The destination the triaged object left through — one of exactly
+  /// the three the [TriageDestination] enum names this story, as the
+  /// core enum the derivations (6.5's quarantine, 6.7's metric) will
+  /// read, never a free-form string. `quarantine` arrives additively
+  /// in 6.5; unknown future values are read-boundary flaws (AD-23).
+  final TriageDestination destination;
+
+  /// The coarse volume tag, when one was offered — one of exactly the
+  /// four the [CoarseVolumeTag] enum names, or null when the user
+  /// declined to tag (FR-22: declining writes nothing, so an absent
+  /// tag simply does not contribute).
+  final CoarseVolumeTag? volumeTag;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -740,6 +869,29 @@ enum LogRecordFlaw {
   /// pocket, energy, report, permission and cause rules: every
   /// payload column rides its own kind and no other.
   curationOnNonCurationKind,
+
+  /// An `item_triaged` row without a destination this build can read
+  /// (Story 6.3): the column is absent, empty, or names a destination
+  /// this build does not know — either way the row asserts nothing
+  /// about where anything went and the derivations (6.5, 6.7) read
+  /// the log as if it were not there. Quiet tolerance, never a repair
+  /// write (AD-23), the `permission` column's own discipline.
+  triageDestinationAbsent,
+
+  /// An `item_triaged` row whose tag column holds a value this build
+  /// cannot read (Story 6.3): a non-empty name naming no coarse tag
+  /// this build knows. The tag is optional — an absent or empty
+  /// column is the declined tag and converts cleanly (FR-22: declining
+  /// writes nothing) — but a value that stands and cannot be read is
+  /// load-bearing (the coarse volume the metric sums), so the row is
+  /// excluded, never coerced and never silently dropped (AD-23).
+  triageVolumeTagAbsent,
+
+  /// A destination or tag payload on a kind that is not
+  /// `item_triaged` (Story 6.3) — mirroring the setting, pocket,
+  /// energy, report, permission, cause and curation rules: every
+  /// payload column rides its own kind and no other.
+  triageOnNonTriageKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -803,8 +955,13 @@ bool _isSliceKind(LogKind kind) =>
 /// An
 /// empty string is not a
 /// value here: an itemId that is empty counts as an absent pair, an
-/// empty stack as no stack, an empty setting key as no key. A known
-/// kind this boundary does not classify is excluded with
+/// empty stack as no stack, an empty setting key as no key. An
+/// `item_triaged` row (Story 6.3) carries its destination wire name —
+/// one of the three the [TriageDestination] map knows — and its
+/// optional coarse volume tag — one of the four the
+/// [CoarseVolumeTag] map knows, absent when the tag was declined —
+/// and nothing else. A known kind this boundary does not classify is
+/// excluded with
 /// [LogRecordFlaw.unclassifiedKind] — never coerced.
 LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   final kind = LogKind.parse(record.kind);
@@ -844,6 +1001,12 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
   // violates, and the kind's own branch below judges the value
   // (Story 5.11).
   final carriesCuration = record.cluster != null || record.enabled != null;
+  // The triage columns read by the same raw presence rule (Story
+  // 6.3): presence is what a foreign kind violates, and the kind's
+  // own branch below judges the values — an empty string is not a
+  // value there, exactly as everywhere below.
+  final carriesTriage =
+      record.triageDestination != null || record.triageVolumeTag != null;
   // The cause column reads by the same house rule: an empty string is
   // not a value, so it counts as absent everywhere below (Story 4.6).
   final sliceCauseIsAbsent =
@@ -881,6 +1044,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
     return (
       entry: ItemActEntry(
@@ -922,6 +1088,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
     return (
       entry: CrashEntry(
@@ -973,6 +1142,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -1015,6 +1187,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: SessionStartEntry(
         id: record.id,
@@ -1055,6 +1230,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
@@ -1094,6 +1272,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
     return (
       entry: EnergySetEntry(
@@ -1139,6 +1320,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: ReportAnsweredEntry(
         id: record.id,
@@ -1178,6 +1362,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
     return (
       entry: PermissionRefusedEntry(
@@ -1245,6 +1432,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
       }
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: SliceEntry(
         id: record.id,
@@ -1297,6 +1487,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
     return (
       entry: ClusterCurationChangedEntry(
         id: record.id,
@@ -1304,6 +1497,68 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         offsetSeconds: record.offsetSeconds,
         cluster: cluster,
         enabled: record.enabled!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.itemTriaged) {
+    // The triage payload's own discipline (Story 6.3): the destination
+    // wire name must name a destination this build knows — absent,
+    // empty or unknown excludes the row, the `permission` column's
+    // own rule — while the tag is optional: an absent or empty column
+    // is the declined tag (FR-22: declining writes nothing), and only
+    // a value that stands and cannot be read is a flaw. A destination
+    // or tag payload on any other kind is the foreign-column flaw
+    // every branch above returns.
+    final destinationWire = record.triageDestination;
+    final destination = destinationWire == null || destinationWire.isEmpty
+        ? null
+        : triageDestinationByName[destinationWire];
+    if (destination == null) {
+      return (entry: null, flaw: LogRecordFlaw.triageDestinationAbsent);
+    }
+    final tagWire = record.triageVolumeTag;
+    final volumeTag = tagWire == null || tagWire.isEmpty
+        ? null
+        : coarseVolumeTagByName[tagWire];
+    if (volumeTag == null && tagWire != null && tagWire.isNotEmpty) {
+      return (entry: null, flaw: LogRecordFlaw.triageVolumeTagAbsent);
+    }
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    return (
+      entry: TriageEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        destination: destination,
+        volumeTag: volumeTag,
       ),
       flaw: null,
     );
@@ -1336,6 +1591,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
     return (
       entry: MomentEntry(

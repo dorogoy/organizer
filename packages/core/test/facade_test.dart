@@ -70,6 +70,8 @@ LogEntryRecord _record(
   sliceCause: null,
   cluster: null,
   enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 final Catalogue _catalogue = Catalogue(
   version: 1,

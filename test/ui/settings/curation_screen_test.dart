@@ -134,6 +134,8 @@ LogEntryRecord _seedRow(
   sliceCause: null,
   cluster: cluster.name,
   enabled: enabled,
+  triageDestination: null,
+  triageVolumeTag: null,
 );
 
 void main() {

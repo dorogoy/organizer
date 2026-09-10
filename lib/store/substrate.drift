@@ -68,6 +68,14 @@
 -- `setting_changed` key) — the same additive-only ALTER TABLE path,
 -- so a v10 install upgrades in place with its rows unchanged.
 --
+-- Schema v12 (Story 6.3) adds the two nullable log-entry payload
+-- columns `triage_destination` and `triage_volume_tag` — an
+-- `item_triaged` row's destination wire name and its optional coarse
+-- volume tag wire name, riding only that kind (FR-22, AD-23: a
+-- numeric volume is unrepresentable — the closed wire maps are the
+-- value space) — the same additive-only ALTER TABLE path, so a v11
+-- install upgrades in place with its rows unchanged.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -106,7 +114,9 @@ CREATE TABLE log_entries (
   permission TEXT NULL,
   slice_cause TEXT NULL,
   cluster TEXT NULL,
-  enabled BOOL NULL
+  enabled BOOL NULL,
+  triage_destination TEXT NULL,
+  triage_volume_tag TEXT NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

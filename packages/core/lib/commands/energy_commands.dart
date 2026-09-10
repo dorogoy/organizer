@@ -43,6 +43,8 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       sliceCause: null,
       cluster: null,
       enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
     ),
   ];
 }

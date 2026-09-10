@@ -53,6 +53,24 @@ class AppStringsEs extends AppStrings {
   String get answerNo => 'No';
 
   @override
+  String get volumeTagQuestion => '¿Cuánto era?';
+
+  @override
+  String get volumeTagBolsa => 'Bolsa';
+
+  @override
+  String get volumeTagCaja => 'Caja';
+
+  @override
+  String get volumeTagCajaGrande => 'Caja grande';
+
+  @override
+  String get volumeTagMueble => 'Mueble';
+
+  @override
+  String get volumeTagSkip => 'Sin etiqueta';
+
+  @override
   String get zoneZ1 => 'Cocina y despensa';
 
   @override

@@ -360,6 +360,8 @@ class DictationController extends ChangeNotifier with WidgetsBindingObserver {
               sliceCause: content.sliceCause,
               cluster: content.cluster?.name,
               enabled: content.enabled,
+              triageDestination: content.triageDestination?.name,
+              triageVolumeTag: content.triageVolumeTag?.name,
             ));
           }
         })
