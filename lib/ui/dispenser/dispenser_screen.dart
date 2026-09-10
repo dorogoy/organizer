@@ -600,9 +600,9 @@ class _DispenserScreenState extends State<DispenserScreen>
   /// sink-pops-then-pushes). The answers themselves are the visit's
   /// transient state — the log's vocabulary has no kind for them, so
   /// nothing writes them; the flow's tap is the one act, through
-  /// [_onDestinationTap] below. System back from the flow (before any
-  /// tap) discards the pair and leaves the purge card standing — the
-  /// refresh below simply re-reads the same card.
+  /// [_onDestinationTap] or [_onQuarantineTap] below. System back from
+  /// the flow (before any tap) discards the pair and leaves the purge
+  /// card standing — the refresh below simply re-reads the same card.
   Future<void> _onDetachmentAnswers(
     DispenserDealt dealt,
     DetachmentAnswers answers,

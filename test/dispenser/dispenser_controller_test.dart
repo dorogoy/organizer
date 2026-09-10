@@ -4911,6 +4911,28 @@ void main() {
       );
     });
 
+    test(
+      'triageAndComplete throws AssertionError if destination is quarantine — '
+      'quarantine completions must go through quarantineAndComplete',
+      () async {
+        final store = activatedStore();
+        final dealt = await openSessionAndReadFirstDeal(store);
+        final controller = DispenserController(
+          store: store,
+          strings: AppStringsEs(),
+          bundle: _FakeBundle({catalogueAssetPath: shipped}),
+          nowOf: _fixedClock,
+        );
+        expect(
+          () => controller.triageAndComplete(
+            dealt,
+            destination: TriageDestination.quarantine,
+          ),
+          throwsA(isA<AssertionError>()),
+        );
+      },
+    );
+
     test('quarantineAndComplete appends the ordered act — box_created, then '
         'item_triaged carrying quarantine and the box\'s own pre-minted id, '
         'then card_done on the purge id, then the bundled next card_dealt, '

@@ -48,7 +48,7 @@ const _donateRowKey = ValueKey<String>(_donateRowKeyId);
 const _releaseRowKey = ValueKey<String>(_releaseRowKeyId);
 const _quarantineAffordanceKey = ValueKey<String>(_quarantineAffordanceKeyId);
 
-/// The flow's one act seam: the tapped row's destination. The
+/// The flow's destination act seam: the tapped row's destination. The
 /// callback performs the whole act — the `item_triaged` row plus the
 /// purge card's completion, one queued write — and answers whether it
 /// landed: the flow pops only on success, so a failed write leaves
@@ -66,12 +66,14 @@ typedef DestinationTapCallback = Future<bool> Function(
 typedef QuarantineTapCallback = Future<bool> Function();
 
 /// The three destinations at equal weight (FR-20, UX-DR27): one
-/// full-screen decision whose whole content is the three rows below.
+/// full-screen decision whose trio content is the three rows below,
+/// with the quiet hesitation affordance below them (Story 6.5).
 /// The rows are constructionally identical — glyph at
 /// `Spacing.glyphDestination` beside its label in the destination
 /// role, `Spacing.destinationRowGap` between rows, the order fixed
 /// `Quedármelo` · `Donar o vender` · `Tirar o soltar` — and a tap
-/// fires [onDestination] exactly once: the act, not a selection.
+/// fires [onDestination] or [onQuarantine] exactly once: the act, not a
+/// selection.
 class DestinationFlowScreen extends StatefulWidget {
   const DestinationFlowScreen({
     super.key,

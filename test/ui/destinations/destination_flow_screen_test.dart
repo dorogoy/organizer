@@ -269,6 +269,7 @@ void main() {
   testWidgets('the affordance shares the rows\' one-shot guard — a rapid '
       'second tap inside one visit is ignored whichever half fired first '
       '(matrix: tap during write)', (tester) async {
+    // Quarantine fired first, destination ignored:
     var quarantineCalls = 0;
     var destinationCalls = 0;
     await pumpFlow(
@@ -290,6 +291,29 @@ void main() {
 
     expect(quarantineCalls, 1);
     expect(destinationCalls, 0);
+
+    // Destination fired first, quarantine ignored:
+    quarantineCalls = 0;
+    destinationCalls = 0;
+    await pumpFlow(
+      tester,
+      onDestination: (_) async {
+        destinationCalls++;
+        return true;
+      },
+      onQuarantine: () async {
+        quarantineCalls++;
+        return true;
+      },
+    );
+
+    await tester.tap(find.byKey(keepRowKey));
+    await tester.pump();
+    await tester.tap(find.byKey(quarantineAffordanceKey));
+    await tester.pumpAndSettle();
+
+    expect(destinationCalls, 1);
+    expect(quarantineCalls, 0);
   });
 
   testWidgets('a failed quarantine write leaves the flow standing, quiet, '

@@ -632,6 +632,7 @@ class DispenserController {
     required TriageDestination destination,
     CoarseVolumeTag? volumeTag,
   }) {
+    assert(destination != TriageDestination.quarantine);
     final now = nowOf();
     return _enqueueCompleteWrite(
       dealt,

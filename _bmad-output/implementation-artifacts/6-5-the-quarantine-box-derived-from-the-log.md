@@ -87,6 +87,9 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 - [x] [Review][Patch] The between-rows partial (fail after `box_created`, before `item_triaged`) was untested at controller level — `_FailAfterBoxStore` pin: orphan box read back as an honest empty box, retry appends a fresh one
 - [x] [Review][Patch] `QuarantineBox` record `==` is reference-equal on `contents` — identity semantic documented in the typedef (compare per-field or by id)
 - [x] [Review][Patch] `_handOff`'s doc said "re-entry is the retry" while the code re-arms in place — comment fixed to match the pinned behavior
+- [x] [Review][Patch] Guard against bypass: assert destination != TriageDestination.quarantine in triageAndComplete [lib/dispenser/dispenser_controller.dart:630]
+- [x] [Review][Patch] Update outdated doc comments referring to "one act seam" / onDestination [lib/ui/destinations/destination_flow_screen.dart:51, lib/ui/dispenser/dispenser_screen.dart:602]
+- [x] [Review][Patch] Complete test coverage for reverse tap order (keep then quarantine) on shared one-shot guard [test/ui/destinations/destination_flow_screen_test.dart:270]
 - [Defer] Sprint-status drift: 6-3 reads `review` in sprint-status while its artifact is `done` — deferred-work.md
 - [Reject] Verification-evidence recording (step-05 presentation is the mechanism); brittle-in-index test pins (local fixtures)
 
