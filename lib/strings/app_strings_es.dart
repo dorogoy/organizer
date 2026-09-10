@@ -39,6 +39,20 @@ class AppStringsEs extends AppStrings {
       'Elegir un objeto de la estancia y decidir qué hacer con él';
 
   @override
+  String get detachmentUseQuestion =>
+      '¿Has utilizado este objeto en los últimos 12 meses?';
+
+  @override
+  String get detachmentSpaceQuestion =>
+      '¿Merece este objeto tu espacio físico y mental?';
+
+  @override
+  String get answerYes => 'Sí';
+
+  @override
+  String get answerNo => 'No';
+
+  @override
   String get zoneZ1 => 'Cocina y despensa';
 
   @override

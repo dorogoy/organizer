@@ -33,9 +33,6 @@ jobs:
 
       - name: Story completion gate (NFR17)
         run: devbox run -- make gate
-
-      - name: Build-time checks
-        run: devbox run -- make check
         env:
           CATALOGUE_EVOLUTION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
 

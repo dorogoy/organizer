@@ -36,3 +36,7 @@ Reference run with full evidence: story 2-7's spec, `_bmad-output/implementation
 ## Subagent dispatch (BMAD builds)
 
 - Implementation handoffs in BMAD build workflows (bmad-build step-03 and patch dispatches) go to a dev subagent: `bmad-dev` (project override in `.pi/agents/` — no model pin, inherits the session's model, implements the handed spec directly) for stories and dense work; `bmad-flash-dev` (global, glm-5.3-flash) for lightweight mechanical tasks only — trivial fixes, doc/comment updates, small additive pins. The flash agent must escalate back if the task is not simple. Review layers still require session-model-capability subagents per the workflow's own rule.
+
+## Delegation rule
+
+- Use internal subagents for delegated work; do not use Orca to dispatch or coordinate subagents when internal subagents are available.

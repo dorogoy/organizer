@@ -4,7 +4,7 @@
 
 ## Goal
 
-Before the app asks the user to organize anything, it makes them clear things out: the first dealt Micro-task of a newly activated organizing project is always a purge step, carrying the two detachment questions that do the real work and the 3-Destination Flow — three choices of genuinely equal weight, none worded, styled or ordered as the bad one. Hesitation is a valid outcome, not a decision to re-open: undecided items go into a dated Quarantine Box whose blind six-month follow-up never claims to know what happened to its contents. Every letting-go decision leaves one honest, coarse trace that becomes the cumulative declutter metric — framed only as what letting go produced, never what it cost. This epic is the producer; Epic 7's dashboard renders the figures written here.
+Before the app asks the user to organize anything, it helps them let go without guilt: purge work is dealt first, two mandatory detachment questions replace justification, and three destinations remain genuinely equal. Hesitation becomes a valid dated Quarantine Box outcome rather than a decision to reopen. Every choice leaves an honest, coarse trace of what letting go produced; Epic 7 consumes those achievement figures without turning them into quotas.
 
 ## Stories
 
@@ -18,34 +18,25 @@ Before the app asks the user to organize anything, it makes them clear things ou
 
 ## Requirements & Constraints
 
-- **Purge injection:** when an organizing Epic Project activates, purge Micro-tasks are prepended before any organization step; the first dealt card is always a purge step. A purge step renders as an ordinary dispenser card — never styled, framed or announced as a different kind of work. The Decluttering Protocol is reached from the Dispenser when the dealt Micro-task is a decision about an object — never from a menu or list.
-- **Detachment questions:** two mandatory questions — the factual one (used in the past 12 months?) and the one that does the real work (does this deserve your physical and mental space?). Each offers only `Sí`/`No`; no skip affordance exists. After both answers, choosing one of the three destinations is required. Question copy carries no pressure framing and sits in the anti-shaming string audit.
-- **Destinations:** three of equal weight, internal concept names keep/donate-sell/trash-recycle, surfaced verbatim as `Quedármelo` / `Donar o vender` / `Tirar o soltar`. The third label is never `Tirar o reciclar`, never a bin word, never a recycling word.
-- **Quarantine Box:** hesitated items go to a dated box; follow-up exactly six months after the box's date, at most once per box, dismissible in one tap with zero side effects and no return. Copy is phrased on the date alone and claims no knowledge of the box's contents or use.
-- **Declutter metric:** per-destination item counts derived only from taps during purge steps — nothing inferred from photographs. Volume tags are optional, coarse, from exactly `bolsa` / `caja` / `caja grande` / `mueble` — never a number; absent tags simply do not contribute. Displayed as an approximation with its unit visible (shape: `≈ 3 cajas liberadas`), never precise, never a percentage; only as cumulative achievement — never a target, rate or deficit.
+- Activating an organizing Epic Project prepends purge candidates, and its first dealt Micro-task is always a purge step. Purge work is still an ordinary dispenser card; it is reached from the dealt card, never from a menu or list.
+- Each purge item presents the factual 12-month-use question and the physical/mental-space question. Both require `Sí` or `No`, use pressure-free copy, and are followed by one required destination choice.
+- The surfaced destinations are exactly `Quedármelo`, `Donar o vender`, and `Tirar o soltar`. They have equal weight: no default, pre-selection, ordering signal, or undesirable framing. Destination hues may appear only inside their glyphs; silhouette must carry differentiation without relying on colour.
+- A triage act appends `item_triaged` with one destination and an optional tag from `bolsa`, `caja`, `caja grande`, or `mueble`; no numeric volume is permitted. Batch tagging is optional, and declining to tag writes nothing.
+- Quarantine creates a dated box through `box_created` and records its contents as `item_triaged` with additive destination `quarantine`. Its follow-up is blind, one-time per box, six months from the box instant, and copy may refer only to the date—not the box's contents or use. Dismissal has no side effects.
+- Declutter figures come only from user taps during purge, never photographs. Counts and optional volume are approximate cumulative achievements only: no target, rate, deficit, percentage, or denominator. They cross to Epic 7's dashboard, not ordinary surfaces.
 
 ## Technical Decisions
 
-- **Candidate precedence, not a weave special case:** purge injection returns candidates with precedence to the single resolver in `core/weave`; `core/weave` stays the only code that emits a deal.
-- **Substrate is the log, no new tables:** a triage appends an `item_triaged` user act carrying the destination and optional coarse volume tag; quarantining appends a `box_created` act (the box's date) plus an `item_triaged` with destination `quarantine` linked to that `box_created` id. The Quarantine Box is reconstructed from these acts — no quarantine table, and its follow-up is derived from the box's instant, never a stored date.
-- **Destination vocabulary is data:** exactly the three surfaced destinations, with `quarantine` arriving as a later additive value; nothing else may ever be added (forward-only substrate evolution — unknown kinds tolerated, payloads additive).
-- **Log discipline:** entries are facts; no entry asserts an absence or obligation. Identifiers never contain the forbidden vocabulary (`overdue`, `late`, `missed`, `pending`, `debt`, `streak`, `skippedCount`, `dueDate`, `backlog`). Ids are UUIDv7 minted in the shell; entries carry a UTC instant plus local offset.
-- **Metric figures cross to the shell as achievement figures only** (rendered on the dashboard Epic 7 builds); internal signals never cross as numbers.
-- **Strings:** every string externalised in the single ARB table, no runtime sentence concatenation.
-- **Code homes:** the Decluttering Protocol lives in `core/pool`, `core/log` and `ui/destinations`.
+The functional core is pure Dart; the shell supplies facts and effects. Replayable domain state consists only of immutable pool facts and the insert-only event log. There is no stored plan, quarantine table, future date, tombstone, or synthetic completion; pool membership and quarantine are derived.
+
+`core/weave` is the sole deal emitter. Purge work is a candidate source with precedence under AD-20, so it does not create a special scheduling path. Log kinds use past-tense `snake_case`; `item_triaged` carries destination and optional coarse volume, while `box_created` carries the creation instant. Destination vocabulary evolves forward-only: `quarantine` is additive and unknown future kinds are tolerated. All instants include UTC time and local offset, and `Calendar` is the only period authority. Achievement figures are the only Epic 6 data allowed to cross to the shell; internal signals remain hidden. Strings are Spanish, externalised in the single ARB table, and never concatenated at runtime. Core checks use machine `dart test`; widget tests are limited to facade/command consumers, with no golden tests.
 
 ## UX & Interaction Patterns
 
-- **`destination-flow`:** a full-screen surface — a question, the object, three choices, nothing else. Three rows, each a 64px glyph beside its label (`destination-label`: Lexend 19sp/600, 1.25 line-height), 32dp row gap. No tile, no field, no default, no pre-selection, no ordering signal.
-- **Hue lives only inside each glyph:** a destination hue never appears as a field, tile, bar or band without its glyph inside it. Silhouette alone carries the three-way differentiation (including for reduced colour vision) — this is load-bearing and non-negotiable.
-- **Seed glyph (third destination):** exactly 8 filaments, axis at 45°, drawn at rest — motion dashes were dissolved outright and may not be reinstated on any surface.
-- **Dark mode:** the destinations keep their light form unchanged (two plates, global offset, mass under line) with the line in the dark ink and the mass in the dark destination hues.
-- **Six-month follow-up is an ambient-strip resident:** sentence in support typography, one-tap dismissible (48dp target), never a primary action, at most one resident visible; ephemeral residents render bare (no hairline).
-- **The volume line carries no glyph** (glyph-adjacency rule: a destination glyph appears only where the destination it names is the meaning being expressed — the system's only box glyph is `Quedármelo`).
+The 3-Destination Flow is one full-screen decision with nothing else on it: three 64px glyphs separated by 32dp, with no tiles or coloured fields. Labels use the specified Spanish copy and equal treatment. The seed glyph is at rest, has eight filaments and a 45° axis; the light form is retained in dark mode with dark ink and destination-specific dark masses. Tappable areas remain at least 48dp and text grows/scrolls rather than truncating.
+
+The six-month follow-up is an ambient-strip resident, one-tap dismissible and shown at most once per box. Copy stays factual and non-possessive. Any volume figure stands without a glyph because the box glyph denotes keeping, not released volume. All Epic 6 copy follows the anti-shaming register: no alarm styling, pressure, guilt, progress language, or continuation prompt.
 
 ## Cross-Story Dependencies
 
-- **Epic 5 precedes this epic:** there is nothing to purge until Epic Projects exist; purge injection fires on activation of an organizing Epic Project (genesis built in Epic 5).
-- **Story order:** 6.1 → 6.2 → 6.3 → 6.4 → 6.5 → 6.6; 6.7 depends on 6.3 (the metric derives from `item_triaged`) and must land before Epic 7 opens. (Epic re-partitioned 2026-09-09 from five stories into these seven; criteria redistributed, none lost.)
-- **Epic 7 consumes this epic's output:** the dashboard renders the per-destination counts and volume tags written here; nothing there recomputes them.
-- **Ambient strip is shared infrastructure** (built in Epic 2): 6.6 adds its resident through the shared resident write path extracted under Epic 5's retro finding F-D2 — reuse it; do not add another copy.
+Epic 5 must provide active organizing Epic Projects before purge injection can operate. Within Epic 6, purge precedence comes before the questions; the questions precede triage and the destination flow; triage supplies the log facts used to derive Quarantine and the metric; Quarantine supplies the six-month ambient resident. Epic 7 is the consumer of Epic 6's achievement figures. All stories extend the shared resolver, event log, ARB table, glyph system, and ambient strip without introducing alternate emitters or storage paths.

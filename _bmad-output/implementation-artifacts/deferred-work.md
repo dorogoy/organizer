@@ -334,3 +334,9 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/6-1-purge-comes-first.md`
   summary: Stale deal completion handling when a session elapses/closes while a modal surface (such as `DeclutteringProtocolScreen`) stands in the foreground.
   evidence: Blind-hunter review for 6.1: if a session ends while in the background on a modal route, tapping `Hecho` upon return executes `cardDone`, which returns an empty list while `_onDone` sets `_completionAckWaiting = true`. Pre-existing architecture property shared by all modal surfaces.
+
+## Deferred from: code review of spec-6-2-the-two-detachment-questions.md (2026-09-10)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-6-2-the-two-detachment-questions.md`
+  summary: AD-15 runtime string concatenation check bypassed for files with named constant allowances (`check_no_literal_strings.dart`).
+  evidence: Review round 1 (verification-gap): `tool/check_no_literal_strings.dart:509-543` (`_scanNamedConstantsFile`) only inspects string literal spans and omits the accessor concatenation regex check that `scanSource` runs (:493-504). Because `collect` (:606-609) invokes `_scanNamedConstantsFile` and immediately continues, files matching `namedConstantAllowance` are never scanned by `scanSource`. Pre-existing architecture dating to Story 1.3, amplified by adding `decluttering_protocol_screen.dart` (a UI widget file importing `AppStrings`) to `namedConstantAllowance`.
