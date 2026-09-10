@@ -227,7 +227,8 @@ void main() {
   });
 
   testWidgets('a tag tap fires the one-shot handoff with the answers and '
-      'the tag, then pops the route', (tester) async {
+      'the tag — the route stands for the sink to pop (6.4\'s seam: '
+      'navigation is no longer the protocol\'s act)', (tester) async {
     final received = <ReceivedVisit>[];
     await pumpProtocol(tester, onVisit: received.add);
     await tester.tap(answer(usageYesKey));
@@ -247,9 +248,18 @@ void main() {
         tag: CoarseVolumeTag.caja,
       ),
     ]);
-    // The honest 6.3 intermediate state: the visit ends here.
-    expect(find.byType(DeclutteringProtocolScreen), findsNothing);
-    expect(find.text('open'), findsOneWidget);
+    // Since 6.4 the seam's sink owns navigation: the visit ends with
+    // the handoff, and the route stays standing — the sink pops it and
+    // pushes the destination flow (a pop from here would pop the flow
+    // the sink just pushed).
+    expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+    expect(find.text('open'), findsNothing);
+
+    // The visit's one handoff is spent: a later tag tap on the same
+    // standing route fires nothing further.
+    await tester.tap(answer(volumeBolsaKey));
+    await tester.pumpAndSettle();
+    expect(received, hasLength(1));
   });
 
   testWidgets('the decline tap fires the same one-shot handoff with a null '
@@ -273,7 +283,9 @@ void main() {
         tag: null,
       ),
     ]);
-    expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+    // The decline is the same one-tap outcome: handed off, the route
+    // standing for the sink to pop.
+    expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
   });
 
   testWidgets('the answers stay revisable while the block is visible, and '
@@ -344,6 +356,11 @@ void main() {
           tag: CoarseVolumeTag.mueble,
         ),
       ]);
+
+      // The route stands after the handoff (the sink owns the pop), so
+      // the loop closes it itself before the next visit.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
     }
   });
 
@@ -371,6 +388,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(received.single.tag, tags[index].tag);
+
+      // The route stands after the handoff (the sink owns the pop), so
+      // the loop closes it itself before the next visit.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
     }
   });
 

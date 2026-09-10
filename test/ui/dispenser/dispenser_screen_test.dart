@@ -49,6 +49,7 @@ import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/capture/capture_screen.dart';
 import 'package:organizer/ui/destinations/decluttering_protocol_screen.dart';
+import 'package:organizer/ui/destinations/destination_flow_screen.dart';
 import 'package:organizer/ui/dispenser/ambient_strip.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
@@ -198,6 +199,36 @@ class _FailFirstSliceRequestedStore implements StorePort {
   @override
   Future<void> appendLogEntry(LogEntryRecord entry) async {
     if (!_thrown && entry.kind == 'slice_requested') {
+      _thrown = true;
+      throw StateError('append failed');
+    }
+    await _inner.appendLogEntry(entry);
+  }
+
+  @override
+  Future<List<PoolFactRecord>> readPoolFacts() async => _inner.readPoolFacts();
+
+  @override
+  Future<List<LogEntryRecord>> readLogEntries() async =>
+      _inner.readLogEntries();
+}
+
+/// A store whose first `item_triaged` append throws — the destination
+/// act's write-failure row (Story 6.4): the controller rethrows, the
+/// screen absorbs it into the quiet catch, the flow stays standing,
+/// and the log stays consistent (nothing landed).
+class _FailFirstTriageStore implements StorePort {
+  _FailFirstTriageStore(this._inner);
+
+  final _RecordingStore _inner;
+  var _thrown = false;
+
+  @override
+  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+
+  @override
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (!_thrown && entry.kind == 'item_triaged') {
       _thrown = true;
       throw StateError('append failed');
     }
@@ -6738,11 +6769,32 @@ void main() {
       'decluttering-protocol-volume-bolsa',
     );
     const volumeSkipKey = ValueKey<String>('decluttering-protocol-volume-skip');
+    const keepRowKey = ValueKey<String>('destination-flow-keep');
+    const donateRowKey = ValueKey<String>('destination-flow-donate');
+    const releaseRowKey = ValueKey<String>('destination-flow-release');
 
     Finder protocolAnswer(Key key) => find.descendant(
       of: find.byKey(key),
       matching: find.byType(OutlinedButton),
     );
+
+    /// Walks the whole protocol — both answers, then a tag tap (or the
+    /// decline) — to the flow, the 6.4 seam's end state: the protocol
+    /// popped, the destination flow standing, nothing written yet.
+    Future<void> openFlow(WidgetTester tester, {bool decline = false}) async {
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      await tester.tap(protocolAnswer(usageYesKey));
+      await tester.pump();
+      await tester.tap(protocolAnswer(spaceNoKey));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        protocolAnswer(decline ? volumeSkipKey : volumeBolsaKey),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.byType(DestinationFlowScreen), findsOneWidget);
+    }
 
     testWidgets('the purge card renders as an ordinary dispenser card — '
         'the same furniture, the authored task text, no distinct style '
@@ -6792,8 +6844,9 @@ void main() {
     });
 
     testWidgets('both answers reveal the volume block, and the tag tap '
-        'ends the visit — no card or event row lands anywhere (Story 6.3, '
-        'FR-22)', (tester) async {
+        'hands off into the destination flow — the protocol pops, the flow '
+        'stands, and nothing lands anywhere (Story 6.4 seam; 6.3\'s '
+        'no-write pin, moved)', (tester) async {
       final store = purgeStore();
       final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
@@ -6812,9 +6865,11 @@ void main() {
       await tester.tap(protocolAnswer(volumeBolsaKey));
       await tester.pumpAndSettle();
 
-      // The visit ends — the inert 6.3 seam wrote nothing, the purge
-      // card stands behind the popped route exactly as it stood.
+      // The visit hands off — the sink pops the protocol and pushes the
+      // flow — and the handoff itself writes nothing: no card or event
+      // row lands until a destination is tapped.
       expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.byType(DestinationFlowScreen), findsOneWidget);
       expect(
         store.entries.where((entry) => entry.kind.startsWith('card_')),
         hasLength(1),
@@ -6827,9 +6882,213 @@ void main() {
       expect(
         store.entries.where((entry) => entry.kind == 'item_triaged'),
         isEmpty,
-        reason: '6.3 mints no triage row from the shell — 6.4\'s act',
+        reason:
+            'the triage row is the destination tap\'s act, never the '
+            'handoff\'s',
       );
       expect(store.entries, orderedEquals(seededEntries));
+    });
+
+    testWidgets('a destination tap is the one act — item_triaged with the '
+        'tag handed off, then card_done on the purge id, then the bundled '
+        'next card_dealt, all from one act instant; the flow pops and the '
+        'next card stands (FR-20/22, AD-3/21)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      await openFlow(tester);
+
+      await tester.tap(find.byKey(donateRowKey));
+      await tester.pumpAndSettle();
+
+      // The ordered trio after the seeded deal, one act instant for all.
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      final actAt = kinds.lastIndexOf('item_triaged');
+      expect(actAt, 3);
+      expect(kinds.sublist(actAt), ['item_triaged', 'card_done', 'card_dealt']);
+      final triage = store.entries[actAt];
+      final done = store.entries[actAt + 1];
+      final nextDeal = store.entries[actAt + 2];
+      expect(triage.triageDestination, 'donate_sell');
+      expect(
+        triage.triageVolumeTag,
+        'bolsa',
+        reason: 'the tag the visit handed off rides the act',
+      );
+      expect(triage.itemId, isNull);
+      expect(done.itemId, '${purgeItemIdPrefix}s1');
+      expect(done.itemOrigin, Origin.cloud);
+      expect(
+        nextDeal.itemId,
+        's1',
+        reason: 'the purge closed, the organization steps begin',
+      );
+      expect(triage.instantUtcMicros, done.instantUtcMicros);
+      expect(done.instantUtcMicros, nextDeal.instantUtcMicros);
+
+      // The flow popped and the dispenser shows the next dealt card —
+      // the purge id retired, the completion ack above it.
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text('Recoger las cajas'), findsOneWidget);
+      expect(
+        find.text(AppStringsEs().completionAcknowledgement),
+        findsOneWidget,
+      );
+      expect(find.byType(ErrorWidget), findsNothing);
+
+      // The shared write guard was actually released through the
+      // post-pop refresh frame: the next card's own Hecho still lands
+      // its act — break the release and this is where it dies.
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      final doneIds = store.entries
+          .where((entry) => entry.kind == 'card_done')
+          .map((entry) => entry.itemId)
+          .toList();
+      expect(doneIds, [
+        '${purgeItemIdPrefix}s1',
+        's1',
+      ], reason: 'the organization step completed after the purge act');
+    });
+
+    testWidgets('back from the flow before any tap writes nothing — the '
+        'protocol\'s answers are discarded and the purge card still stands '
+        '(matrix: back from flow)', (tester) async {
+      final store = purgeStore();
+      final seededEntries = List<LogEntryRecord>.of(store.entries);
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      // The decline hands off too — an equal one-tap outcome — so the
+      // flow stands with no tag.
+      await openFlow(tester, decline: true);
+      expect(store.entries, orderedEquals(seededEntries));
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Nothing written on the way out — no triage, no completion, no
+      // second deal — and the purge card stands, dealable and
+      // finishable.
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(store.entries, orderedEquals(seededEntries));
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(AppStringsEs().purgeStepText), findsOneWidget);
+
+      // A fresh visit starts from nothing: Hecho reopens the protocol
+      // with both questions unanswered, still nothing written.
+      await tester.tap(cardHecho());
+      await tester.pumpAndSettle();
+      expect(find.byType(DeclutteringProtocolScreen), findsOneWidget);
+      expect(find.byKey(volumeBlockKey), findsNothing);
+      expect(store.entries, orderedEquals(seededEntries));
+    });
+
+    testWidgets('a rapid second destination tap while the act is in flight '
+        'is ignored — exactly one act lands, the flow pops once (matrix: '
+        'tap during write)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      await openFlow(tester);
+
+      await tester.tap(find.byKey(releaseRowKey));
+      await tester.pump();
+      await tester.tap(find.byKey(keepRowKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'item_triaged'),
+        hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_done'),
+        hasLength(1),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'card_dealt'),
+        hasLength(2),
+        reason: 'the seeded purge deal plus the act\'s one bundled deal',
+      );
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+    });
+
+    testWidgets('a failed act is quiet — nothing lands, the flow stays '
+        'standing, and the purge card remains eligible for a re-entry '
+        '(matrix: write failure)', (tester) async {
+      final inner = purgeStore();
+      final store = _FailFirstTriageStore(inner);
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      await openFlow(tester);
+
+      await tester.tap(find.byKey(keepRowKey));
+      await tester.pumpAndSettle();
+
+      // Nothing landed — no triage row, no completion, no deal — and
+      // the decision still stands, quiet: no error surface, no retry
+      // from this route.
+      expect(
+        inner.entries.where((entry) => entry.kind == 'item_triaged'),
+        isEmpty,
+      );
+      expect(
+        inner.entries.where((entry) => entry.kind == 'card_done'),
+        isEmpty,
+      );
+      expect(find.byType(DestinationFlowScreen), findsOneWidget);
+      expect(find.byType(ErrorWidget), findsNothing);
+
+      // Re-entry is the retry: back from the flow leaves the purge
+      // card standing, dealable and finishable through the protocol
+      // again.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.text(AppStringsEs().purgeStepText), findsOneWidget);
+
+      // And the retry itself is unpinned nowhere else: the guard was
+      // released in the failure's finally, so walking the protocol
+      // again and tapping lands the whole trio (the store throws only
+      // on the first triage append — this one goes through).
+      await openFlow(tester);
+      await tester.tap(find.byKey(releaseRowKey));
+      await tester.pumpAndSettle();
+      final kinds = inner.entries.map((entry) => entry.kind).toList();
+      final actAt = kinds.lastIndexOf('item_triaged');
+      expect(kinds.sublist(actAt), ['item_triaged', 'card_done', 'card_dealt']);
+      expect(inner.entries[actAt].triageDestination, 'trash_recycle');
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
+    });
+
+    testWidgets('a declined visit taps through with no tag — the row the '
+        'act mints carries a null volumeTag at the wiring level, the FR-22 '
+        'decline contract (a volumeTag ?? default regression must fail '
+        'here)', (tester) async {
+      final store = purgeStore();
+      await tester.pumpWidget(_harness(buildController(store)));
+      await tester.pumpAndSettle();
+      await openFlow(tester, decline: true);
+
+      await tester.tap(find.byKey(keepRowKey));
+      await tester.pumpAndSettle();
+
+      final kinds = store.entries.map((entry) => entry.kind).toList();
+      final actAt = kinds.lastIndexOf('item_triaged');
+      expect(kinds.sublist(actAt), ['item_triaged', 'card_done', 'card_dealt']);
+      final triage = store.entries[actAt];
+      expect(triage.triageDestination, 'keep');
+      expect(
+        triage.triageVolumeTag,
+        isNull,
+        reason:
+            'the decline handed off null, and null is what lands — '
+            'nothing substitutes a default the user did not choose',
+      );
+      expect(find.byType(DestinationFlowScreen), findsNothing);
+      expect(find.byType(TaskCard), findsOneWidget);
     });
 
     testWidgets('the secondary tap is the ordinary skip — one '
@@ -6962,10 +7221,8 @@ void main() {
     });
 
     testWidgets('answers remain revisable while the volume block is '
-        'visible, and the decline ends the visit writing nothing — the '
-        'purge card still does not complete (Story 6.3, FR-22)', (
-      tester,
-    ) async {
+        'visible, and the decline hands off like a tag — the flow stands, '
+        'and still nothing completes (Story 6.3, FR-22)', (tester) async {
       final store = purgeStore();
       final seededEntries = List<LogEntryRecord>.of(store.entries);
       await tester.pumpWidget(_harness(buildController(store)));
@@ -6986,11 +7243,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(volumeBlockKey), findsOneWidget);
 
-      // The decline: an equal one-tap outcome that writes nothing.
+      // The decline: an equal one-tap outcome — it hands off too, with
+      // a null tag, and writes nothing anywhere by itself.
       await tester.tap(protocolAnswer(volumeSkipKey));
       await tester.pumpAndSettle();
 
       expect(find.byType(DeclutteringProtocolScreen), findsNothing);
+      expect(find.byType(DestinationFlowScreen), findsOneWidget);
       expect(
         store.entries.where((entry) => entry.kind == 'card_done'),
         isEmpty,

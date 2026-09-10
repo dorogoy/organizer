@@ -83,9 +83,11 @@ typedef DetachmentAnswersCallback = void Function(
 /// The Decluttering Protocol's two-question surface with its optional
 /// coarse volume block (Stories 6.2–6.3, FR-20/22). [onAnswers] fires
 /// once, synchronously from the tap that ends the visit — a tag tap or
-/// the decline — and the route pops immediately after: the honest 6.3
-/// intermediate state, which Story 6.4's destination flow replaces. It
-/// does not complete the purge card or write a log row.
+/// the decline. Since 6.4 the seam's sink owns the navigation: it pops
+/// this route and pushes the destination flow, so this surface pops
+/// nothing itself — a pop here would pop the flow the sink just
+/// pushed. Neither the answers nor the tag are persisted by this
+/// surface; the flow's tap is the one act that writes.
 class DeclutteringProtocolScreen extends StatefulWidget {
   const DeclutteringProtocolScreen({super.key, required this.onAnswers});
 
@@ -122,10 +124,12 @@ class _DeclutteringProtocolScreenState
     });
   }
 
-  /// The visit's one exit (Story 6.3): a tag tap or the decline hands the
-  /// answers and the tag — null when declined — to the seam once, then
-  /// pops the route. The 6.2 behavior of firing on the second answer is
-  /// gone: the second answer now reveals the volume block instead.
+  /// The visit's one exit (Stories 6.3–6.4): a tag tap or the decline
+  /// hands the answers and the tag — null when declined — to the seam
+  /// once. The 6.2 behavior of firing on the second answer is gone:
+  /// the second answer now reveals the volume block instead. The route
+  /// itself stays — the sink pops it and pushes the destination flow
+  /// (6.4's seam contract: a pop from here would pop the flow).
   void _handOff(CoarseVolumeTag? volumeTag) {
     if (_handedOff) {
       return;
@@ -138,12 +142,6 @@ class _DeclutteringProtocolScreenState
       ),
       volumeTag,
     );
-    // The seam's sink may synchronously dispose or navigate (6.4 will
-    // push the destination flow); popping a deactivated context throws.
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop();
   }
 
   Widget _choiceButton({
