@@ -29,7 +29,7 @@ const String _redactedText = '[REDACTED]';
 
 /// Authorization headers and query keys whose values must not persist.
 const String _sensitivePatternString =
-    r'(Bearer[ \t]+|Authorization[:=][ \t]*(?:Bearer[ \t]+)?|x-api-key[:=][ \t]*|x-goog-api-key[:=][ \t]*|(?:api[_-]?key|key|token)=)([^\s\n\r,;&]+)';
+    r'(Bearer[ \t]+|Authorization[:=][ \t]*(?:Bearer[ \t]+)?|x-api-key[:=][ \t]*|x-goog-api-key[:=][ \t]*|(?:api[_-]?key|key|token|access[_-]?token)[:=][ \t]*)([^\s\n\r,;&]+)';
 
 /// Standalone `sk-…` (20+ after the prefix) and classic Gemini `AIzaSy`+33.
 const String _apiKeyTokenPatternString =

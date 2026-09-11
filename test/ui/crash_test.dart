@@ -203,6 +203,22 @@ void main() {
     expect(stored, isNot(contains(token)));
   });
 
+  test('Authorization header without Bearer and access_token query are redacted at persist', () async {
+    final store = _RecordingStore();
+    const token = 'custom-auth-token-67890';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:380)\n'
+        'Authorization: $token\n'
+        'https://example.invalid/v1?access_token=$token\n'
+        '#1      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('Authorization: [REDACTED]'));
+    expect(stored, contains('access_token=[REDACTED]'));
+    expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+  });
+
   test('query key values are redacted at persist', () async {
     final store = _RecordingStore();
     const token = 'vaultsecret_abcdefghijklmnopqrstuv';
