@@ -1311,6 +1311,11 @@ final class KitchenSink {
       // Story 6.5: the Quarantine Box derivation's own record — id,
       // instant, offset and contents, never a follow-up date (AD-1).
       'derive/quarantine.dart:QuarantineBox',
+      // Story 6.7: the cumulative declutter metric's own record — one
+      // int count per destination, the liberated subtotal and the
+      // per-tag tallies, every field an int so a percentage, rate,
+      // average or denominator is unrepresentable (FR-22, AD-26).
+      'derive/declutter_metric.dart:DeclutterMetric',
       'ports/slicer_port.dart:SlicerRequest',
       'ports/slicer_port.dart:ScanSliceRequest',
       'ports/slicer_port.dart:GenesisSliceRequest',
@@ -2524,10 +2529,10 @@ final class KitchenSink {
     );
   });
 
-  test('item_triaged is minted in exactly one file and read nowhere in '
-      'core — no derivation consumes the substrate yet, 6.5\'s '
-      'Quarantine Box and 6.7\'s metric will read the entry type, never '
-      'the kind constant (Story 6.3, FR-22, AD-21, AD-3)', () {
+  test('item_triaged is minted in exactly one file and its substrate '
+      'has exactly the two stated folds — 6.5\'s Quarantine Box and '
+      '6.7\'s metric read the entry type, never the kind constant '
+      '(Story 6.3/6.5/6.7, FR-22, AD-21, AD-3)', () {
     // The two homes the vocabulary allows: the definition (which also
     // classifies the payload at the read boundary, on its own
     // subtype) and the one command file that mints the kind. The
@@ -2610,6 +2615,37 @@ final class KitchenSink {
       RegExp(r'==\s*LogKind\.itemTriaged\b').allMatches(commands),
       isEmpty,
       reason: 'the command file mints rows, it never reads them',
+    );
+
+    // The stated readers: the destination/tag vocabulary is the
+    // substrate's whole meaning, so the files naming it are the
+    // substrate's whole audience — the definition home, the payload
+    // plumbing (session_commands' content record), the minter, and
+    // exactly the two folds. A sixth file referencing
+    // TriageDestination or CoarseVolumeTag is a third fold or a
+    // vocabulary leak, and fails here (the cluster_curation_changed
+    // stated-reader precedent, on the vocabulary this substrate
+    // reads by). ports/store_port.dart names the vocabulary in doc
+    // comments alone — comment-stripping removes them, correctly:
+    // prose is not a reader.
+    final vocabularyFiles = [
+      for (final path in files)
+        if (RegExp(r'\b(TriageDestination|CoarseVolumeTag)\b')
+            .hasMatch(_withoutComments(_source(path))))
+          path,
+    ];
+    expect(
+      vocabularyFiles,
+      unorderedEquals([
+        'log/log_entry.dart',
+        'commands/session_commands.dart',
+        'commands/triage_commands.dart',
+        'derive/quarantine.dart',
+        'derive/declutter_metric.dart',
+      ]),
+      reason:
+          'the destination/tag vocabulary outside its definition, '
+          'plumbing, minter and the two stated folds',
     );
   });
 
