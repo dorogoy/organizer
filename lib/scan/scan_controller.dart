@@ -97,7 +97,11 @@ sealed class ScanConsentOutcome {
 /// order, token, cap-in-binding, failure mapping — is permanent
 /// since 5.5.
 final class ScanConsentDelivered extends ScanConsentOutcome {
-  const ScanConsentDelivered({required this.groupId, required this.origin});
+  const ScanConsentDelivered({
+    required this.groupId,
+    required this.origin,
+    required this.beforeOfferEpoch,
+  });
 
   /// The landed group's stable id — its first landed fact's id, the
   /// same id the landing's `epic_activated` row names and the
@@ -107,6 +111,11 @@ final class ScanConsentDelivered extends ScanConsentOutcome {
   /// The landed group's own origin (`cloud`/`local`), the Before
   /// row's item origin (AD-14).
   final Origin origin;
+
+  /// The standing scan's epoch at delivery. The Before offer carries this
+  /// capability into its camera read and save so a lifecycle close cannot
+  /// later turn an invalidated scan into a new persisted album act.
+  final int beforeOfferEpoch;
 }
 
 /// The slice failed terminally with one of the closed eight causes:
@@ -757,6 +766,7 @@ class ScanController {
           return ScanConsentDelivered(
             groupId: landed.groupId,
             origin: landed.origin,
+            beforeOfferEpoch: epoch,
           );
         case SlicerFailed(:final cause):
           // A failed dispatch resolves on record (Story 5.7, FR-26
@@ -939,10 +949,13 @@ class ScanController {
   /// landing's rows have landed. Absent never greyed: the offer's
   /// shoot action simply does not render, and the space derives as a
   /// no-Before space exactly as a declined offer does.
-  Future<bool> beforeOfferCameraAllowed() async {
+  Future<bool> beforeOfferCameraAllowed({required int epoch}) async {
     try {
+      if (_epoch != epoch || _scanId == null) {
+        return false;
+      }
       final log = logEntriesOf(await store.readLogEntries());
-      return cameraEntryVisible(log);
+      return _epoch == epoch && _scanId != null && cameraEntryVisible(log);
     } on Object {
       // The read failed: the honest nothing - the shoot action stays
       // absent rather than rendering a dead button the rule refused.
@@ -968,11 +981,25 @@ class ScanController {
     List<int> bytes, {
     required String groupId,
     required Origin origin,
+    required int epoch,
   }) async {
+    final name = albumPhotoName(bytes);
+    var createdHere = false;
     try {
-      final name = await writeAlbumPhoto(files, bytes);
+      if (_epoch != epoch || _scanId == null) {
+        return null;
+      }
+      final existed = await files.read(albumFilesScope, name) != null;
+      await writeAlbumPhoto(files, bytes);
+      createdHere = !existed;
+      if (_epoch != epoch || _scanId == null) {
+        throw _BeforeOfferInvalidated();
+      }
       final now = nowOf();
-      await writeQueue.enqueue(() async {
+      final appended = await writeQueue.enqueue(() async {
+        if (_epoch != epoch || _scanId == null) {
+          return false;
+        }
         for (final content in beforeSaved(
           groupId: groupId,
           origin: origin,
@@ -980,15 +1007,29 @@ class ScanController {
         )) {
           await _appendContent(content, now);
         }
+        return true;
       });
+      if (!appended) {
+        throw _BeforeOfferInvalidated();
+      }
       return name;
     } on Object {
+      if (createdHere) {
+        try {
+          await files.delete(albumFilesScope, name);
+        } on Object {
+          // Store and Files do not share a transaction; the flow still folds
+          // to no-Before when a best-effort cleanup itself cannot complete.
+        }
+      }
       // Quiet by contract: the offer's whole exposure is one row and
       // one blob, and any failure leaves the honest nothing standing.
       return null;
     }
   }
 }
+
+final class _BeforeOfferInvalidated implements Exception {}
 
 /// The scan prompt (Story 5.5; the description clause Story 5.7):
 /// the Slicer's step contract for a photo scan — real actions on

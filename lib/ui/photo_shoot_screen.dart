@@ -79,6 +79,7 @@ class PhotoShootScreen extends StatefulWidget {
     required this.camera,
     required this.onDenied,
     required this.commit,
+    this.degradeOnSystemFailure = false,
   });
 
   final CameraShell camera;
@@ -90,6 +91,10 @@ class PhotoShootScreen extends StatefulWidget {
   /// The commit: blob write plus queued append, answering the blob's
   /// content-addressed name or null on any failure.
   final Future<String?> Function(List<int> bytes) commit;
+
+  /// Reward routes must fold a lost or unavailable camera into their
+  /// no-photo arm. The scan route keeps the existing explicit system notice.
+  final bool degradeOnSystemFailure;
 
   @override
   State<PhotoShootScreen> createState() => _PhotoShootScreenState();
@@ -188,14 +193,12 @@ class _PhotoShootScreenState extends State<PhotoShootScreen>
           _pop(const PhotoShootDenied());
         case CameraOpenOutcome.interrupted:
         case CameraOpenOutcome.unavailable:
-          setState(() => _openFailed = true);
+          await _handleSystemFailure();
       }
     } on Object {
       // A throwing seam is the functioning-problem domain: the honest
       // notice, never an eternal empty frame and never a row.
-      if (mounted && !_settled) {
-        setState(() => _openFailed = true);
-      }
+      await _handleSystemFailure();
     } finally {
       _openInFlight = false;
     }
@@ -245,10 +248,10 @@ class _PhotoShootScreenState extends State<PhotoShootScreen>
           setState(() {
             _shooting = false;
             _granted = false;
-            _openFailed = true;
           });
           await WidgetsBinding.instance.endOfFrame;
           await widget.camera.dispose();
+          await _handleSystemFailure(cameraAlreadyDisposed: true);
       }
     } on Object {
       // A throwing shutter seam is the malfunction domain: the notice,
@@ -257,11 +260,34 @@ class _PhotoShootScreenState extends State<PhotoShootScreen>
         setState(() {
           _shooting = false;
           _granted = false;
-          _openFailed = true;
         });
-        unawaited(widget.camera.dispose());
+        await _handleSystemFailure();
       }
     }
+  }
+
+  Future<void> _handleSystemFailure({
+    bool cameraAlreadyDisposed = false,
+  }) async {
+    if (!mounted || _settled) {
+      return;
+    }
+    if (!cameraAlreadyDisposed) {
+      try {
+        await widget.camera.dispose();
+      } on Object {
+        // A cleanup failure must not turn the route's intended terminal
+        // result into an unhandled async error.
+      }
+      if (!mounted || _settled) {
+        return;
+      }
+    }
+    if (widget.degradeOnSystemFailure) {
+      _pop(const PhotoShootFailed());
+      return;
+    }
+    setState(() => _openFailed = true);
   }
 
   /// The quiet exit (a real departure): the lens down, nothing

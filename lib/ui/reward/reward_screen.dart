@@ -113,6 +113,7 @@ class _RewardScreenState extends State<RewardScreen> {
         builder: (context) => PhotoShootScreen(
           camera: controller.camera,
           onDenied: controller.appendCameraRefusal,
+          degradeOnSystemFailure: true,
           commit: (bytes) => controller.saveAfterBlob(
             bytes,
             space: widget.space,

@@ -49,6 +49,13 @@ const String albumFilesScope = 'album';
 /// infrastructure identifier on the terms above.
 const String albumPhotoSuffix = '.jpg';
 
+/// The deterministic name of one album photo (AD-13). Kept beside the
+/// writer so a caller can first determine whether the content-addressed blob
+/// already stands before deciding whether a failed later log append may
+/// remove it.
+String albumPhotoName(List<int> bytes) =>
+    sha256.convert(bytes).toString() + albumPhotoSuffix;
+
 /// Writes one album photo, content-addressed (Story 7.1, FR-17,
 /// AD-13): the sha256 hex of [bytes] plus [albumPhotoSuffix] is the
 /// blob's name in the [albumFilesScope] partition, written through
@@ -62,7 +69,7 @@ const String albumPhotoSuffix = '.jpg';
 // ponytail: no cap on album growth — cap at write time here if
 // storage ever needs one, never in the core.
 Future<String> writeAlbumPhoto(FilesPort files, List<int> bytes) async {
-  final name = sha256.convert(bytes).toString() + albumPhotoSuffix;
+  final name = albumPhotoName(bytes);
   await files.write(albumFilesScope, name, bytes);
   return name;
 }

@@ -30,12 +30,18 @@ import 'package:organizer/ui/theme.dart';
 
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
+  bool throwOnAppend = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (throwOnAppend) {
+      throw StateError('append failed');
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async => const [];
@@ -59,7 +65,9 @@ class _RecordingFiles implements FilesPort {
   }
 
   @override
-  Future<void> delete(String scope, String name) async {}
+  Future<void> delete(String scope, String name) async {
+    blobsByName.remove(name);
+  }
 
   @override
   Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
@@ -332,6 +340,50 @@ void main() {
     expect(files.writtenBlobs, isEmpty);
     expect(camera.disposedCalls, isNotEmpty);
   });
+
+  testWidgets('an unavailable reward camera degrades to no-photo rather '
+      'than trapping the reward in the shared system-error surface', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()..blobsByName['hash-a.jpg'] = [1, 2, 3];
+    _seedBefore(store);
+    await pumpReward(
+      tester,
+      controllerWith(
+        store,
+        files,
+        _FakeCamera(openOutcome: CameraOpenOutcome.unavailable),
+      ),
+    );
+    await tester.ensureVisible(find.text(strings.rewardAfterShoot));
+    await tester.tap(find.text(strings.rewardAfterShoot));
+    await tester.pumpAndSettle();
+    expect(find.text(strings.rewardWithoutPhoto), findsOneWidget);
+    expect(find.text(strings.scanOpenFailed), findsNothing);
+    expect(files.writtenBlobs, isEmpty);
+  });
+
+  test(
+    'a failed album-entry append removes the newly written After blob',
+    () async {
+      final store = _RecordingStore()..throwOnAppend = true;
+      final files = _RecordingFiles();
+      final controller = controllerWith(store, files, _FakeCamera());
+      const bytes = [9, 8, 7];
+      final name = '${sha256.convert(bytes).toString()}.jpg';
+
+      final result = await controller.saveAfterBlob(
+        bytes,
+        space: (groupId: 'group-1', origin: Origin.cloud),
+        beforeName: 'before.jpg',
+      );
+
+      expect(result, isNull);
+      expect(files.blobsByName, isNot(contains(name)));
+      expect(store.entries, isEmpty);
+    },
+  );
 
   testWidgets('closing before the shot writes nothing — no act, no album '
       'entry, no blob for the After (zero side effects)', (tester) async {

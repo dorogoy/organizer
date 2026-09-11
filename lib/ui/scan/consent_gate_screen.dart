@@ -120,7 +120,7 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
   /// of it, camera in hand. The offer replaces the bare pop the
   /// delivery used to take (delivery → offer → pop). Set only beside
   /// a resolved [\_offerCameraAllowed] (below), never before it.
-  ({String groupId, Origin origin})? _offer;
+  ({String groupId, Origin origin, int epoch})? _offer;
 
   /// Whether the Cámara entry rule admits the offer's shoot action
   /// (Story 7.1, UX-DR24): resolved BEFORE the offer renders — the
@@ -154,6 +154,9 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
         // close itself, the departure being the resolution cause
         // (Story 5.6). Close is idempotent — a resolution that
         // already ended the scan makes this a quiet no-op.
+        if (_offer != null) {
+          setState(() => _offerCameraAllowed = false);
+        }
         unawaited(widget.controller?.close());
       case AppLifecycleState.resumed:
       case AppLifecycleState.inactive:
@@ -230,7 +233,11 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
       return;
     }
     switch (outcome) {
-      case ScanConsentDelivered(:final groupId, :final origin):
+      case ScanConsentDelivered(
+        :final groupId,
+        :final origin,
+        :final beforeOfferEpoch,
+      ):
         // The landed facts' Before-offer (Story 7.1, FR-17): the steps
         // are pool facts now — no surface shows them yet — and the one
         // quiet moment the space's Before can exist begins here, the
@@ -243,12 +250,14 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
         // and a quick `Cerrar` can never decline an offer whose shoot
         // action had not appeared yet (declining is never store
         // latency — the review's pop-in patch).
-        final allowed = await controller.beforeOfferCameraAllowed();
+        final allowed = await controller.beforeOfferCameraAllowed(
+          epoch: beforeOfferEpoch,
+        );
         if (!mounted) {
           return;
         }
         setState(() {
-          _offer = (groupId: groupId, origin: origin);
+          _offer = (groupId: groupId, origin: origin, epoch: beforeOfferEpoch);
           _offerCameraAllowed = allowed;
         });
       case ScanConsentFailed(:final cause):
@@ -294,6 +303,7 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
             bytes,
             groupId: offer.groupId,
             origin: offer.origin,
+            epoch: offer.epoch,
           ),
         ),
       ),

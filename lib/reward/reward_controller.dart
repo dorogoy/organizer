@@ -113,8 +113,16 @@ class RewardController {
     required NamedRewardSpace space,
     required String beforeName,
   }) async {
+    final afterName = albumPhotoName(bytes);
+    var createdHere = false;
     try {
-      final afterName = await writeAlbumPhoto(files, bytes);
+      // A content-addressed write may be reusing a photo already named by a
+      // prior act. Only a blob this attempt created is eligible for rollback
+      // if the following append fails; deleting an existing blob would break
+      // that earlier album entry.
+      final existed = await files.read(albumFilesScope, afterName) != null;
+      await writeAlbumPhoto(files, bytes);
+      createdHere = !existed;
       final now = nowOf();
       await writeQueue.enqueue(() async {
         for (final content in albumEntryAdded(
@@ -128,6 +136,17 @@ class RewardController {
       });
       return afterName;
     } on Object {
+      // The log is the album's authority. A failed append must not strand a
+      // newly written private image with no act that can ever surface it.
+      if (createdHere) {
+        try {
+          await files.delete(albumFilesScope, afterName);
+        } on Object {
+          // The original failure is already the user-visible outcome;
+          // cleanup is best effort because Files has no transaction with
+          // Store.
+        }
+      }
       // Quiet by contract: the pair's whole exposure is one blob and
       // one row, and any failure leaves the honest nothing standing.
       return null;

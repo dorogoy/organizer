@@ -97,6 +97,12 @@ context: []
 - Given any shoot action (Before-offer, After), when the camera entry rule blocks it, then the action is absent or the flow degrades to the no-photo presentation — never a dead button (FR-16/FR-29, UX-DR24).
 - Given the whole flow, when the egress seal and store seal run, then no new permission, socket, egress payload, or persistence outside Store/Files appears (AD-7/AD-21).
 
+### Review Findings
+
+- [x] [Review][Patch] Degrade system camera failures from the reward to the no-photo presentation [lib/ui/photo_shoot_screen.dart:189]
+- [x] [Review][Patch] Roll back a newly written album blob when its log act cannot be appended [lib/reward/reward_controller.dart:117; lib/scan/scan_controller.dart:973]
+- [x] [Review][Patch] Invalidate the Before offer when a real lifecycle departure closes its scan [lib/ui/scan/consent_gate_screen.dart:145; lib/scan/scan_controller.dart:967]
+
 ## Spec Change Log
 
 ## Design Notes

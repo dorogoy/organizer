@@ -36,12 +36,18 @@ import 'package:organizer/ui/theme.dart';
 class _RecordingStore implements StorePort {
   final List<PoolFactRecord> facts = [];
   final List<LogEntryRecord> entries = [];
+  bool throwOnAppend = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (throwOnAppend) {
+      throw StateError('append failed');
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async =>
@@ -55,17 +61,21 @@ class _RecordingStore implements StorePort {
 class _RecordingFiles implements FilesPort {
   final unlinkedScans = <String>[];
   final writtenBlobs = <(String, String, List<int>)>[];
+  final blobsByName = <String, List<int>>{};
 
   @override
-  Future<List<int>?> read(String scope, String name) async => null;
+  Future<List<int>?> read(String scope, String name) async => blobsByName[name];
 
   @override
   Future<void> write(String scope, String name, List<int> bytes) async {
     writtenBlobs.add((scope, name, bytes));
+    blobsByName[name] = bytes;
   }
 
   @override
-  Future<void> delete(String scope, String name) async {}
+  Future<void> delete(String scope, String name) async {
+    blobsByName.remove(name);
+  }
 
   @override
   Future<String> writeScanFrame(String scanId, List<int> bytes) async =>
@@ -1124,6 +1134,45 @@ void main() {
       expect(find.byType(ConsentGateScreen), findsNothing);
       expect(store.entries.map((e) => e.kind), kindsBefore);
       expect(files.writtenBlobs, isEmpty);
+    });
+
+    testWidgets('a real departure invalidates the delivered Before offer: '
+        'its action is no longer hittable and no Before can be saved', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      expect(find.text(strings.rewardBeforeShoot).hitTestable(), findsNothing);
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
+    });
+
+    testWidgets('a failed before_saved append removes the newly written '
+        'Before blob and closes as a no-Before space', (tester) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+      store.throwOnAppend = true;
+
+      await tester.tap(find.text(strings.rewardBeforeShoot));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.scanShutter));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
     });
 
     testWidgets('a denied open at the offer\'s shoot appends exactly one '
