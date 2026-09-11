@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-11-2026 11:47
+last_updated: 09-11-2026 12:57
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   6-5-the-quarantine-box-derived-from-the-log: done
   6-6-the-blind-six-month-follow-up: done
   6-7-the-cumulative-declutter-metric: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
   epic-7: backlog
   7-1-the-before-after-reward: backlog
@@ -148,9 +148,8 @@ action_items:
     epic: 4
     action: 'Epic 4 F4: add an Android debug-build step (make build) to ci.yml so
       Kotlin compiles in CI; follow up with an androidTest for CredentialKeystore/CredentialsChannel
-      round-trip and fold matrix — build step landed 2026-09-05
-      (commit 0b4bb85, spec-epic4-f4-ci-android-build.md); androidTest
-      tail split to deferred-work.md at routing, closed 2026-09-09'
+      round-trip and fold matrix — build step landed 2026-09-05 (commit 0b4bb85, spec-epic4-f4-ci-android-build.md);
+      androidTest tail split to deferred-work.md at routing, closed 2026-09-09'
     owner: dev-loop
     status: done
     ref: _bmad-output/implementation-artifacts/epic-4-retro-2026-09-05.md
@@ -198,26 +197,24 @@ action_items:
     action: "Epic 5 F-D1: scan landing epoch parity with genesis — in-queue _epoch
       guards on _appendScanLanded/_appendScanSliceFailed; do not return ScanConsentDelivered
       if landing catchError swallowed a store failure; pin the queued-landing close
-      on ScanController — landed in commit c70fe53
-      (spec-epic-5-scan-honesty-train.md), closed 2026-09-09"
+      on ScanController — landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md),
+      closed 2026-09-09"
     owner: "dev-loop"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
   - id: "epic-5-retro-item-10-epic-5-f-s3-abort-the-in-flight-wire-pos"
     epic: 5
     action: "Epic 5 F-S3: abort the in-flight wire POST when scan/genesis close()
-      runs so abandonment cancels transport, not only the local cache
-      — landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md),
-      closed 2026-09-09"
+      runs so abandonment cancels transport, not only the local cache — landed in
+      commit c70fe53 (spec-epic-5-scan-honesty-train.md), closed 2026-09-09"
     owner: "dev-loop"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
   - id: "epic-5-retro-item-11-epic-5-f-r1-backgrounding-during-an-in-f"
     epic: 5
     action: "Epic 5 F-R1: backgrounding during an in-flight shoot still closes (or
-      unlinks) the scan — scan_screen.dart currently skips close while _shooting
-      — landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md),
-      closed 2026-09-09"
+      unlinks) the scan — scan_screen.dart currently skips close while _shooting —
+      landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md), closed 2026-09-09"
     owner: "dev-loop"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
@@ -225,19 +222,18 @@ action_items:
     epic: 5
     action: "Epic 5 F-S1: face-gate composition ruling — stay face-only with accepted
       4 FN/12, or reopen (face/pose/object or AD-11 promotion) before the next payload-bearing
-      epic; update face_gate_port.dart and face-gate/BAR.md to the ruling
-      — ruled at the 2026-09-09 party: stay face-only, courtesy not
-      load-bearing, no reopen; docs updated by the pre-Epic-6 docs train
-      (spec-pre-epic6-docs-train.md), closed 2026-09-09"
+      epic; update face_gate_port.dart and face-gate/BAR.md to the ruling — ruled
+      at the 2026-09-09 party: stay face-only, courtesy not load-bearing, no reopen;
+      docs updated by the pre-Epic-6 docs train (spec-pre-epic6-docs-train.md), closed
+      2026-09-09"
     owner: "Sergio"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
   - id: "epic-5-retro-item-13-epic-5-f-s2-quiet-close-ruling-decide-wh"
     epic: 5
     action: "Epic 5 F-S2: quiet-close ruling — decide whether missed shot and detector-error-past-retry
-      stay fail-closed silent, or join scanOpenFailed — ruled at the
-      2026-09-09 party: both join scanOpenFailed (items 16-17, landed
-      commit c70fe53), closed 2026-09-09"
+      stay fail-closed silent, or join scanOpenFailed — ruled at the 2026-09-09 party:
+      both join scanOpenFailed (items 16-17, landed commit c70fe53), closed 2026-09-09"
     owner: "Sergio"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
@@ -245,9 +241,8 @@ action_items:
     epic: 5
     action: "Epic 5 F-A1/F-A3: reconcile AD-11 in the architecture spine (four decided
       channels; camera permission is ours, capture stays plugin-served) and delete
-      the stale reopens-before-5.5 sentence in face_gate_port.dart
-      — landed in the pre-Epic-6 docs train (spec-pre-epic6-docs-train.md),
-      closed 2026-09-09"
+      the stale reopens-before-5.5 sentence in face_gate_port.dart — landed in the
+      pre-Epic-6 docs train (spec-pre-epic6-docs-train.md), closed 2026-09-09"
     owner: "docs"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
@@ -263,9 +258,9 @@ action_items:
     epic: 5
     action: "Epic 5 F-S2 ruled: detector-error-past-retry joins scanOpenFailed (honest
       notice, no permission_refused, no quiet pop); widget pin in scan_screen_test;
-      before Epic 6. Missed shot not included until ruled (superseded:
-      item 17 ruled it into the same train). — landed in commit
-      c70fe53 (spec-epic-5-scan-honesty-train.md), closed 2026-09-09."
+      before Epic 6. Missed shot not included until ruled (superseded: item 17 ruled
+      it into the same train). — landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md),
+      closed 2026-09-09."
     owner: "dev-loop"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
@@ -273,8 +268,8 @@ action_items:
     epic: 5
     action: "Epic 5 F-S2 broadened: missed shot (CameraShotNone) also joins scanOpenFailed;
       functioning failures are communicated, anti-frustration is task-spirit only.
-      Same train as detector notice, before Epic 6. — landed in commit
-      c70fe53 (spec-epic-5-scan-honesty-train.md), closed 2026-09-09."
+      Same train as detector notice, before Epic 6. — landed in commit c70fe53 (spec-epic-5-scan-honesty-train.md),
+      closed 2026-09-09."
     owner: "dev-loop"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
@@ -287,3 +282,47 @@ action_items:
     owner: "docs"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-09.md"
+  - id: "epic-6-retro-item-19-epic-6-r1-fix-now-act-level-guard-for-fr"
+    epic: 6
+    action: "Epic 6 R1 (fix now): act-level guard for FR-22 — triageAndComplete/quarantineAndComplete
+      assert the dealt card is a purge card (id starts with purge:), plus one controller
+      pin handing an ordinary dealt card and expecting the throw. Source: epic-6 retro,
+      diff-scope finding 2."
+    owner: "next dev pass touching DispenserController (Epic 7 pre-work)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
+  - id: "epic-6-retro-item-20-epic-6-r2-product-ruling-the-hesitation"
+    epic: 6
+    action: "Epic 6 R2 (product ruling): the hesitation outcome silently voids the
+      volume tag collected in the same visit — accept (hesitation liberates nothing;
+      the log already says so) or renegotiate the flow (tag block after destination,
+      or suppressed when hesitation is offered). Source: epic-6 retro, diff-scope
+      finding 1."
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
+  - id: "epic-6-retro-item-21-epic-6-r3-spec-reconciliation-align-epic"
+    epic: 6
+    action: "Epic 6 R3 (spec reconciliation): align epics.md 6.6 AC wording (never
+      returns for that box) with the frozen 6.6 matrix operationalization (re-offer
+      within that day only; never from the next day on) — verified on device. Source:
+      epic-6 retro."
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
+  - id: "epic-6-retro-item-22-epic-6-r4-process-one-recorded-emulator"
+    epic: 6
+    action: "Epic 6 R4 (process): one recorded emulator walk at epic close, before
+      the retrospective, as standing policy (6.2-6.7 shipped without one; this retro
+      performed the walk clean). Owner decides the project-context line."
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
+  - id: "epic-6-retro-item-23-epic-6-r5-process-standing-re-partition"
+    epic: 6
+    action: "Epic 6 R5 (process, standing): re-partition each epic at its door under
+      the 24 KB story-diet gate — held for epic 6 (seven specs of 10.5-19.8 KB after
+      the 2026-09-09 re-partition); apply at the epic 7 door before its first story."
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
