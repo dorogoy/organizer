@@ -74,6 +74,9 @@ context: ['_bmad-output/implementation-artifacts/epic-6-context.md']
 - [Defer] No automated pin that the 26 authored fixed strings (UX-DR49, `liberatedVolume` among them) stay verbatim in the ARB table — recorded in `deferred-work.md`
 - [Reject] `_recordFields` freeze for `DeclutterMetric` — the 6.5 precedent (`QuarantineBox`) is census-only, and the tests' full-record const literals already fail compilation on any shape change; a second mechanism for the same invariant is redundancy
 - [Reject] Dedup-by-id guard in the fold — sanctioned writers mint UUIDv7 ids; a guard would silently repair (mask) a corrupted caller snapshot instead of counting it honestly
+- [x] [Review][Patch] Stale file count in Suggested Review Order — align 'six core files; a seventh fails' with five files / sixth fails proof test [_bmad-output/implementation-artifacts/6-7-the-cumulative-declutter-metric.md:111]
+- [x] [Review][Patch] Pin duplicate-id contract in test suite — verify deriveDeclutterMetric counts every row without deduplication [packages/core/test/derive/declutter_metric_test.dart:255]
+- [x] [Review][Patch] Add missing dated section heading in deferred-work.md before Story 6.7 deferred item [_bmad-output/implementation-artifacts/deferred-work.md:356]
 
 ## Spec Change Log
 
@@ -108,7 +111,7 @@ Why per-tag tallies and not one volume figure: FR-22 forbids numeric volume, and
 
 **The substrate's audience, pinned**
 
-- The stated-reader pin — the destination/tag vocabulary appears in exactly six core files; a seventh fails.
+- The stated-reader pin — the destination/tag vocabulary appears in exactly five core files; a sixth fails.
   [`no_lateness_proof_test.dart:2629`](../../packages/core/test/no_lateness_proof_test.dart#L2629)
 
 - The frozen-shapes census registration — the record joins the no-overdue proof's accounting.

@@ -253,6 +253,25 @@ void main() {
     );
   });
 
+  test('duplicate ids count every row handed to the fold — no id-dedup, '
+      'the snapshot is the unit of truth (AD-23, Story 6.7)', () {
+    final metric = deriveDeclutterMetric([
+      triage(
+        't-dup-1',
+        TriageDestination.donate_sell,
+        volumeTag: CoarseVolumeTag.caja,
+      ),
+      triage(
+        't-dup-1',
+        TriageDestination.donate_sell,
+        volumeTag: CoarseVolumeTag.caja,
+      ),
+    ]);
+    expect(metric.donateSellCount, 2);
+    expect(metric.liberatedItems, 2);
+    expect(metric.liberatedCaja, 2);
+  });
+
   test('a later read that sees more rows derives counts that only '
       'grow — cumulative, never reset (FR-22, AC)', () {
     final early = deriveDeclutterMetric([
