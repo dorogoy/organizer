@@ -10,6 +10,7 @@ import 'package:core/day/calendar.dart';
 import 'package:core/derive/camera_entry.dart';
 import 'package:core/derive/checkpoint.dart';
 import 'package:core/derive/rescue.dart';
+import 'package:core/derive/reward.dart';
 import 'package:core/derive/strip.dart';
 import 'package:core/derive/warm_return.dart';
 import 'package:core/energy/energy.dart';
@@ -380,6 +381,27 @@ class DispenserController {
   /// derivation's clause, so the offer never returns — nothing
   /// stored, nothing to re-arm.
   bool _curationOfferConsumed = false;
+
+  /// The milestone the shell has fired and no surface has claimed yet
+  /// (Story 7.1, FR-17): shell state, never a row — the milestone
+  /// derivations are the core's (`core/derive/reward.dart`), and the
+  /// push itself belongs to the Dispenser screen, the one live
+  /// navigator. Set at the retiring `card_done` (the project
+  /// milestone) and at the pause's session end (the session
+  /// milestone), spent once by the screen's drain — a reward closed
+  /// or degraded consumed it, and the milestone never re-offers
+  /// (zero side effects beyond the one push).
+  NamedRewardSpace? _unfiredReward;
+
+  /// Takes the unclaimed milestone, if one stands (Story 7.1): the
+  /// screen's drain — one call, one answer, the stash consumed
+  /// either way so a closed reward can never re-fire it. Not a read
+  /// of standing truth: a milestone is a moment, not a state.
+  NamedRewardSpace? takeUnfiredReward() {
+    final reward = _unfiredReward;
+    _unfiredReward = null;
+    return reward;
+  }
 
   /// Reads the card to display (AD-3: a pure computation, never a write).
   /// It runs in the shared log queue, so the pocket and card come from one
@@ -766,6 +788,26 @@ class DispenserController {
       for (final content in contents) {
         await _appendContent(content, now);
       }
+      // The project-milestone hook (Story 7.1, FR-17): the completion
+      // just landed names its own item, so the derivation answers for
+      // THAT answer — and when it retired its group's last step, the
+      // milestone fires and the stash holds it for the screen's
+      // drain. The derivation is
+      // the core's own, over the post-write log inside this same
+      // queued step — the same fold the weave reads, never a second
+      // definition of retirement; a failing read folds to no milestone
+      // (the reward is a moment, never an obligation).
+      try {
+        final postLog = logEntriesOf(await store.readLogEntries());
+        final postPool = poolFactsOf(await store.readPoolFacts());
+        _unfiredReward ??= retiringGroupId(
+          postPool,
+          postLog,
+          completedItemId: dealt.card.id,
+        );
+      } on Object {
+        // Quiet: nothing is owed.
+      }
     });
   }
 
@@ -988,6 +1030,8 @@ class DispenserController {
       triageDestination: content.triageDestination?.name,
       triageVolumeTag: content.triageVolumeTag?.name,
       triageBoxId: content.triageBoxId,
+      beforeName: content.beforeName,
+      afterName: content.afterName,
     ));
   }
 
@@ -1043,6 +1087,28 @@ class DispenserController {
       final contents = sessionEnd(log: log);
       for (final content in contents) {
         await _appendContent(content, now);
+      }
+      // The session-milestone hook (Story 7.1, FR-17): the session
+      // that just closed owns one reward at most — the core's own
+      // derivation over the pre-close log (its `card_done` rows are
+      // all landed; the close row itself adds nothing to count),
+      // seeded by the walk's own open-session fact. A quiet no-op (no
+      // session, no completion, or the one space already retired by
+      // its project milestone) stashes nothing, and a failing read
+      // folds the same way — the reward is a moment, never an
+      // obligation.
+      final openStart = walkLog(log).openSessionStart;
+      if (openStart != null && contents.isNotEmpty) {
+        try {
+          final poolFacts = poolFactsOf(await store.readPoolFacts());
+          _unfiredReward ??= sessionMilestoneGroupId(
+            poolFacts: poolFacts,
+            log: log,
+            sessionStartUtcMicros: openStart.instantUtcMicros,
+          );
+        } on Object {
+          // Quiet: nothing is owed.
+        }
       }
     });
     return write.then((_) => read());

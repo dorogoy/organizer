@@ -1012,7 +1012,8 @@ final class KitchenSink {
       // enabled columns are schema v11's additive pair (5.11); the
       // nullable triage destination and tag columns are schema v12's
       // additive pair (6.3); the nullable triage box-id column is
-      // schema v13's (6.5).
+      // schema v13's (6.5); the two nullable reward blob-name columns
+      // are schema v14's additive pair (7.1).
       expect(
         _recordFields('ports/store_port.dart', 'LogEntryRecord'),
         equals([
@@ -1037,6 +1038,8 @@ final class KitchenSink {
           'triageDestination',
           'triageVolumeTag',
           'triageBoxId',
+          'beforeName',
+          'afterName',
         ]),
       );
     });
@@ -1051,7 +1054,8 @@ final class KitchenSink {
       // once more (4.3); the slice cause field grows it once (4.6);
       // the cluster and enabled fields grow it once each (5.11); the
       // triage destination and tag fields grow it once each (6.3);
-      // the triage box-id field grows it once (6.5).
+      // the triage box-id field grows it once (6.5); the two reward
+      // blob-name fields grow it once each (7.1).
       expect(
         _recordFields('commands/session_commands.dart', 'LogEntryContent'),
         equals([
@@ -1073,6 +1077,8 @@ final class KitchenSink {
           'triageDestination',
           'triageVolumeTag',
           'triageBoxId',
+          'beforeName',
+          'afterName',
         ]),
       );
     });
@@ -1275,6 +1281,10 @@ final class KitchenSink {
       // Story 6.5: the Quarantine Box's own row — payload-less, its id
       // and instant ARE the box (FR-21).
       'log/log_entry.dart:BoxCreatedEntry',
+      // Story 7.1: the reward's two album-mutation rows — the Before
+      // shot and the saved pair (FR-17).
+      'log/log_entry.dart:BeforeSavedEntry',
+      'log/log_entry.dart:AlbumEntryAddedEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1334,6 +1344,9 @@ final class KitchenSink {
       // Story 5.4: the raw binding-violation subtype that keeps the
       // programmer error intact through the shell's broad Slicer boundary.
       'ports/scan_consent.dart:ScanConsentStateError',
+      // Story 7.1: the milestone derivations' named-space record —
+      // the group id and origin every reward row carries.
+      'derive/reward.dart:NamedRewardSpace',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
@@ -1504,6 +1517,10 @@ final class KitchenSink {
       'weave/session.dart',
       'commands/session_commands.dart',
       'commands/rescue_commands.dart',
+      // Story 7.1: the project-milestone derivation reads the answer
+      // kind to find the log's latest `card_done` — a read, never a
+      // mint (FR-17, AD-3).
+      'derive/reward.dart',
     };
     final files = _coreLibFiles();
     final identifierOffenders = [

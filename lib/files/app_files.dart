@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:core/ports/files_port.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// The Files scope the credential vault stores its envelopes under
@@ -32,6 +33,39 @@ const String scanFrameFileName = 'frame.jpg';
 /// name claims nothing a later re-encode could unmake. An
 /// infrastructure identifier on the terms above.
 const String scanCappedCopyName = 'capped';
+
+/// The Files scope holding the transformation reward's album bytes
+/// (Story 7.1, FR-17, AD-13): one flat partition inside the
+/// app-private root — the scope `FilesPort`'s own doc reserved —
+/// holding one content-addressed blob per photo. The bytes are
+/// stored verbatim (no re-encode, no EXIF strip): they never upload,
+/// and export is user-initiated (NFR4, Epic 9's seam). An
+/// infrastructure identifier on the terms above.
+const String albumFilesScope = 'album';
+
+/// The album blob name's fixed suffix (AD-13): the content hash names
+/// the blob — identity first, container claim second — and the
+/// suffix never asserts a sniff the bytes did not make. An
+/// infrastructure identifier on the terms above.
+const String albumPhotoSuffix = '.jpg';
+
+/// Writes one album photo, content-addressed (Story 7.1, FR-17,
+/// AD-13): the sha256 hex of [bytes] plus [albumPhotoSuffix] is the
+/// blob's name in the [albumFilesScope] partition, written through
+/// the port's flat atomic write — staging then one rename — and the
+/// name is the whole answer. Content addressing makes the write
+/// idempotent by construction: the same bytes always name the same
+/// blob, so a Before and an After that happen to be byte-identical
+/// share one blob and no duplicate ever grows the album. The hash
+/// lives in the shell — the core stays pure (AD-3) — and a throwing
+/// write is the caller's to fold, exactly the vault's own discipline.
+// ponytail: no cap on album growth — cap at write time here if
+// storage ever needs one, never in the core.
+Future<String> writeAlbumPhoto(FilesPort files, List<int> bytes) async {
+  final name = sha256.convert(bytes).toString() + albumPhotoSuffix;
+  await files.write(albumFilesScope, name, bytes);
+  return name;
+}
 
 /// The scan writes' answer when no file exists to hand back (Story
 /// 5.2's frame write and Story 5.4's capped-copy write alike): a

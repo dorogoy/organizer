@@ -72,6 +72,12 @@ class DriftStore implements StorePort {
             triageDestination: Value(entry.triageDestination),
             triageVolumeTag: Value(entry.triageVolumeTag),
             triageBoxId: Value(entry.triageBoxId),
+            // The generated columns' own names (before_blob/after_blob
+            // → beforeBlob/afterBlob) carry the v14 reward names; the
+            // record's fields are the port's names — this mapping is
+            // the adapter's whole job, the v8 text column's own idiom.
+            beforeBlob: Value(entry.beforeName),
+            afterBlob: Value(entry.afterName),
           ),
         );
   }
@@ -145,6 +151,8 @@ class DriftStore implements StorePort {
           triageDestination: row.triageDestination,
           triageVolumeTag: row.triageVolumeTag,
           triageBoxId: row.triageBoxId,
+          beforeName: row.beforeBlob,
+          afterName: row.afterBlob,
         ),
     ];
   }

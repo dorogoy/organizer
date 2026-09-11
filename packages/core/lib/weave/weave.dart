@@ -369,6 +369,21 @@ Map<String, List<PoolFact>> _epicStepsByGroupKey(List<PoolFact> poolFacts) {
   return stepsByGroupKey;
 }
 
+/// THE Epic grouping fold, projected by stable id (Story 7.1): the
+/// same groups [`_epicStepsByGroupKey`] builds, keyed by each
+/// group's STABLE id — its first fact's id in snapshot order — so
+/// `core/derive`'s reward derivations (`core/derive/reward.dart`)
+/// read the weave's own fold and no second definition of "a group"
+/// can drift. Slicer-origin spaces only, exactly as every Epic
+/// derivation reads them: a manual capture, a rescue step and a
+/// catalogue entry are never a group here. A degenerate duplicate
+/// fact id collapses two groups into one key — the log's own
+/// discipline (AD-23), never this projection's.
+Map<String, List<PoolFact>> epicGroupsByStableId(List<PoolFact> poolFacts) => {
+  for (final steps in _epicStepsByGroupKey(poolFacts).values)
+    steps.first.id: steps,
+};
+
 /// The active Epic Projects' head steps as a candidate source (Story
 /// 5.9, FR-11, AD-20): an Epic is a **derivation, not a stored
 /// entity** — the groups of [`_epicStepsByGroupKey`], each with its

@@ -60,19 +60,17 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/no_slicer_cause.dart';
 import 'package:flutter/material.dart';
 
 import '../../scan/scan_controller.dart';
 import '../../strings/app_strings.dart';
+import '../dispenser/task_card.dart';
 import '../no_slicer/no_slicer_surface.dart';
+import '../photo_shoot_screen.dart';
 import '../tokens.dart';
 import 'writing_pencil.dart';
-
-/// The surface's width bound on wide grounds — NoSlicerSurface's own
-/// layout bound (a layout bound, not a gap; the tokenized side rule
-/// `Spacing.screenMargin` stays in force below it).
-const double _consentGateMaxWidth = 480;
 
 /// The wait's pencil, at the illustration register's own scale
 /// (DESIGN.md {illustration register}: the mark stands alone on a
@@ -115,6 +113,27 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
   /// decline routes on with nothing standing in, so no copy ever
   /// claims task creation on a refusal.
   bool _accepted = false;
+
+  /// The delivered landing's group identity (Story 7.1, FR-17): once
+  /// set, the wait is gone and the Before-offer stands in — one quiet
+  /// ask to shoot the space's Before while the user is still in front
+  /// of it, camera in hand. The offer replaces the bare pop the
+  /// delivery used to take (delivery → offer → pop). Set only beside
+  /// a resolved [\_offerCameraAllowed] (below), never before it.
+  ({String groupId, Origin origin})? _offer;
+
+  /// Whether the Cámara entry rule admits the offer's shoot action
+  /// (Story 7.1, UX-DR24): resolved BEFORE the offer renders — the
+  /// wait keeps standing through the read, so the offer appears
+  /// whole (title, shoot action when admitted, `Cerrar`) and a quick
+  /// `Cerrar` can never decline an offer whose gate read had not
+  /// landed yet: declining is never store latency. Absent never
+  /// greyed, no dead button.
+  bool _offerCameraAllowed = false;
+
+  /// Whether the offer's shoot is between its tap and its settle: one
+  /// shoot owns the surface, so a rapid second tap is nothing at all.
+  bool _beforeInFlight = false;
 
   @override
   void initState() {
@@ -211,12 +230,27 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
       return;
     }
     switch (outcome) {
-      case ScanConsentDelivered():
-        // The landed facts' quiet pop (Story 5.7): the steps are pool
-        // facts now — no surface shows them yet (5.9 wires Epic
-        // material into the weave and owns the one-card landing), so
-        // the scan closes to the Dispenser with nothing dealt.
-        Navigator.of(context).pop();
+      case ScanConsentDelivered(:final groupId, :final origin):
+        // The landed facts' Before-offer (Story 7.1, FR-17): the steps
+        // are pool facts now — no surface shows them yet — and the one
+        // quiet moment the space's Before can exist begins here, the
+        // user still in front of it. The offer replaces the bare pop
+        // (delivery → offer → pop): one recommended shoot action when
+        // the Cámara entry rule admits it, `Cerrar` always — declining
+        // writes nothing and the offer never repeats for that space.
+        // The camera-gate read resolves BEFORE the offer renders: the
+        // wait keeps standing through it, so the offer lands whole
+        // and a quick `Cerrar` can never decline an offer whose shoot
+        // action had not appeared yet (declining is never store
+        // latency — the review's pop-in patch).
+        final allowed = await controller.beforeOfferCameraAllowed();
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _offer = (groupId: groupId, origin: origin);
+          _offerCameraAllowed = allowed;
+        });
       case ScanConsentFailed(:final cause):
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -230,6 +264,52 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
         // instead of stranding the answer on the untappable wait.
         Navigator.of(context).pop();
     }
+  }
+
+  /// The Before-offer's shoot tap (Story 7.1, FR-17, AD-8, AD-13):
+  /// the shared shoot pipeline's viewfinder (`PhotoShootScreen`)
+  /// mounts over the offer — the user frames the space before the
+  /// shutter fires, never a blind shot — with the commit half writing
+  /// the album blob plus `before_saved` row. The viewfinder's answer
+  /// routes: captured or denied pops the offer (the denial's own
+  /// `permission_refused` row already stands, and a failed write
+  // declines permanently — the space is a no-Before space, never a
+  // retry loop), while the quiet exit (the OS back, or a system
+  // problem noticed and backed out of) leaves the offer standing
+  // exactly as it was. The in-flight guard makes a rapid second tap
+  // nothing at all.
+  Future<void> _shootBefore() async {
+    final controller = widget.controller;
+    final offer = _offer;
+    if (_beforeInFlight || controller == null || offer == null) {
+      return;
+    }
+    _beforeInFlight = true;
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PhotoShootScreen(
+          camera: controller.camera,
+          onDenied: controller.appendCameraRefusal,
+          commit: (bytes) => controller.saveBeforeBlob(
+            bytes,
+            groupId: offer.groupId,
+            origin: offer.origin,
+          ),
+        ),
+      ),
+    );
+    _beforeInFlight = false;
+    if (!mounted) {
+      return;
+    }
+    if (result != null) {
+      // Captured, denied or failed: the offer's own pop either way —
+      // the scan closes to the Dispenser.
+      Navigator.of(context).pop();
+    }
+    // The quiet exit (null): nothing written, the offer still
+    // stands — the next tap may ask again (the scan surface's own
+    // re-ask rule for system problems).
   }
 
   @override
@@ -250,7 +330,7 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _consentGateMaxWidth),
+              constraints: const BoxConstraints(maxWidth: registerMaxWidth),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -268,7 +348,48 @@ class _ConsentGateScreenState extends State<ConsentGateScreen>
                   // The pause between reading and answering — the same
                   // largest interior gap the dispenser card holds.
                   const SizedBox(height: Spacing.taskToActions),
-                  if (_answered)
+                  if (_offer != null)
+                    // The Before-offer (Story 7.1, FR-17): the
+                    // delivery's own moment, standing alone — one
+                    // quiet ask, no mention of the consent that
+                    // preceded it and no copy about any result.
+                    // `Cerrar` is the offer's whole decline: zero
+                    // side effects, and the offer never repeats for
+                    // that space (`Ahora no` would promise a later
+                    // that never comes).
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          strings.rewardBeforeOfferTitle,
+                          // bodyMedium is the wired action-secondary
+                          // role (theme.dart) — the calm register the
+                          // ask renders in.
+                          style: theme.textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: Spacing.taskToActions),
+                        // The shoot action follows the Cámara entry
+                        // rule (UX-DR24): resolved before the offer
+                        // rendered, absent for good when the rule
+                        // blocks it — never greyed, never a dead
+                        // button, and the offer degrades to `Cerrar`
+                        // alone.
+                        if (_offerCameraAllowed)
+                          HechoButton(
+                            label: strings.rewardBeforeShoot,
+                            onTap: _shootBefore,
+                          ),
+                        if (_offerCameraAllowed)
+                          const SizedBox(height: Spacing.actionGap),
+                        SecondaryTextAction(
+                          label: strings.rewardClose,
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    )
+                  else if (_answered)
                     // The answer stands: no second answer exists. The
                     // wait (Story 5.6, UX-DR56) renders on the accept
                     // arm alone — `Creando tareas` beside the

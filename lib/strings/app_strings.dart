@@ -629,6 +629,30 @@ abstract class AppStrings {
   /// **'Después'**
   String get rewardLabelAfter;
 
+  /// The reward surfaces' secondary control (Story 7.1, FR-17, UX-DR39): the shared Cerrar, reward-scoped — closing has zero side effects, never a seguir variant.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar'**
+  String get rewardClose;
+
+  /// The Before-offer's one quiet ask at scan delivery (Story 7.1, FR-17): the user is still in front of the space, camera in hand. No adjective about the result, no re-offer promise — declining is Cerrar, and the offer never repeats for that space.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Guardar una foto del espacio antes de empezar?'**
+  String get rewardBeforeOfferTitle;
+
+  /// The Before-offer's one recommended shoot action (Story 7.1, FR-17): a deliberate separate shot, never the uploaded frame. Absent entirely when the camera entry rule blocks it — never a dead button.
+  ///
+  /// In es, this message translates to:
+  /// **'Hacer la foto'**
+  String get rewardBeforeShoot;
+
+  /// The reward's shoot-After action (Story 7.1, FR-17): the milestone's one recommended action while a Before exists. No adjective about the result; the pair itself is the answer.
+  ///
+  /// In es, this message translates to:
+  /// **'Hacer la foto'**
+  String get rewardAfterShoot;
+
   /// Snowball suggestion dismissal.
   ///
   /// In es, this message translates to:

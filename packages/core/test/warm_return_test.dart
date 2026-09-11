@@ -340,6 +340,27 @@ void main() {
           boxId: 'box-1',
         ),
         _boxCreated(before(const Duration(hours: 47))),
+        // Story 7.1's rows: the reward's two shots — the Before at
+        // delivery and the album's pair — are the user holding the
+        // camera and taking a photo, contact exactly as a capture is
+        // (the `capture_created` precedent).
+        BeforeSavedEntry(
+          id: 'before-act',
+          instantUtcMicros: before(const Duration(hours: 47)),
+          offsetSeconds: 0,
+          itemId: 'group-1',
+          itemOrigin: Origin.cloud,
+          blobName: 'a.jpg',
+        ),
+        AlbumEntryAddedEntry(
+          id: 'album-act',
+          instantUtcMicros: before(const Duration(hours: 47)),
+          offsetSeconds: 0,
+          itemId: 'group-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+        ),
       ];
       for (final act in acts) {
         expect(

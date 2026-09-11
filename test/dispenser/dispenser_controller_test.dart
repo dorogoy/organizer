@@ -399,6 +399,8 @@ LogEntryRecord _answeredWeek(int week, String id) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 /// An install-day `app_opened` — a row from the day before the fixed
@@ -434,6 +436,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -458,6 +462,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
@@ -482,6 +488,8 @@ LogEntryRecord _pocketedStart(DateTime at, int minutes) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -1212,6 +1220,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ));
     final dealt = await openSessionAndReadFirstDeal(store);
     // The open's own deal composed under the same derived bag: upkeep
@@ -1350,6 +1360,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       final writes = LogWriteQueue();
       final release = Completer<void>();
@@ -1558,6 +1570,88 @@ void main() {
       // closed.
       expect(await controller.read(), isA<DispenserClosed>());
       expect(dealt.card, isNotNull);
+    });
+
+    test('pausing an open session that completed a group step stashes the '
+        'session milestone — the space with the completion, spent once '
+        '(Story 7.1, FR-17)', () async {
+      final landing = DateTime.utc(2026, 8, 29, 9);
+      final store =
+          _RecordingStore([
+              (
+                id: 'step-1',
+                origin: Origin.cloud,
+                size: Size.maintenance,
+                instantUtcMicros: landing.microsecondsSinceEpoch,
+                offsetSeconds: 0,
+                originContext: 'Un rinc\u00f3n con cajas',
+                dictated: null,
+                rescueOf: null,
+                estimateSeconds: 240,
+                stepText: 'Recoger una caja',
+              ),
+              (
+                id: 'step-2',
+                origin: Origin.cloud,
+                size: Size.maintenance,
+                instantUtcMicros: landing.microsecondsSinceEpoch,
+                offsetSeconds: 0,
+                originContext: 'Un rinc\u00f3n con cajas',
+                dictated: null,
+                rescueOf: null,
+                estimateSeconds: 240,
+                stepText: 'Apilar las cajas',
+              ),
+            ])
+            ..entries.addAll([
+              _moment(
+                'session_started',
+                DateTime.utc(2026, 8, 29, 11),
+                's-open',
+              ),
+              _act(
+                'epic_activated',
+                DateTime.utc(2026, 8, 29, 11, 0, 1),
+                'e-1',
+                'step-1',
+              ),
+              _act(
+                'card_dealt',
+                DateTime.utc(2026, 8, 29, 11, 0, 2),
+                'd-1',
+                'step-1',
+              ),
+              _act(
+                'card_done',
+                DateTime.utc(2026, 8, 29, 11, 0, 3),
+                'done-1',
+                'step-1',
+              ),
+            ]);
+      final controller = buildFor(store);
+      await controller.pause();
+
+      final milestone = controller.takeUnfiredReward();
+      expect(milestone, isNotNull);
+      expect(milestone!.groupId, 'step-1');
+      expect(milestone.origin, Origin.cloud);
+      // Spent once: a second drain answers nothing, and the session's
+      // end landed exactly one close row.
+      expect(controller.takeUnfiredReward(), isNull);
+      expect(
+        store.entries.where((entry) => entry.kind == 'session_ended'),
+        hasLength(1),
+      );
+    });
+
+    test('pausing with no group completion stashes nothing — the session '
+        'milestone needs a completed step of a slicer-origin space '
+        '(Story 7.1)', () async {
+      final store = _RecordingStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.pause();
+      expect(controller.takeUnfiredReward(), isNull);
     });
 
     test('pausing with nothing open appends nothing at all — the accepted '
@@ -1801,6 +1895,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     }
 
@@ -1850,6 +1946,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect(await buildFor(store).read(), isA<DispenserDealt>());
 
@@ -1884,6 +1982,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect(await buildFor(store2).read(), isA<DispenserRestOffer>());
     });
@@ -1914,6 +2014,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
         store.entries.add((
           id: 'end-$id',
@@ -1937,6 +2039,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       }
 
@@ -1989,6 +2093,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final view = await buildFor(
         store,
@@ -2577,6 +2683,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // A 60-pocket sitting opened at 11:00: elapsed exactly at the
       // fixed 12:00 clock, while one +15 acceptance could still lift
@@ -2603,6 +2711,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // The day's whole instant tier spent inside the sitting: five
       // dealt-and-answered habits, as the launch lifecycle would have
@@ -2804,6 +2914,8 @@ void main() {
             triageDestination: null,
             triageVolumeTag: null,
             triageBoxId: null,
+            beforeName: null,
+            afterName: null,
           ),
         ]);
       final offer = await buildFor(offerStore, nowOf: sundayClock).read();
@@ -3753,6 +3865,8 @@ void main() {
       triageDestination: 'quarantine',
       triageVolumeTag: null,
       triageBoxId: boxId,
+      beforeName: null,
+      afterName: null,
     );
 
     /// One non-empty box dated 2026-03-01 — due 2026-09-01, the due
@@ -4112,6 +4226,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
       ]);
       final offer = await buildFor(offerStore).read();
@@ -4872,6 +4988,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     _RecordingStore activatedStore() => _RecordingStore(epicFacts())

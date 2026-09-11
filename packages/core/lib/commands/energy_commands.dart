@@ -46,6 +46,8 @@ List<LogEntryContent> energySet({required EnergyLevel level}) {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }

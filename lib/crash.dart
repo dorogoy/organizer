@@ -88,6 +88,8 @@ Future<void> appendCrashEntry(
     triageDestination: null,
     triageVolumeTag: null,
     triageBoxId: null,
+    beforeName: null,
+    afterName: null,
   );
   try {
     await store.appendLogEntry(entry);

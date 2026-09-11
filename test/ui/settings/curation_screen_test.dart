@@ -137,6 +137,8 @@ LogEntryRecord _seedRow(
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 void main() {

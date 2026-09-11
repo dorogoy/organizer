@@ -53,6 +53,8 @@ LogEntryRecord _entry({
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 Future<List<String>> _objects(SubstrateDatabase db, String type) async {
@@ -337,6 +339,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -371,6 +375,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     test(
@@ -455,6 +461,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // stack on a moment kind.
       await store.appendLogEntry((
@@ -479,6 +487,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // An unknown kind.
       await store.appendLogEntry((
@@ -503,6 +513,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -618,51 +630,59 @@ void main() {
       ]);
     });
 
-    test('log_entries holds exactly its twenty-one declared columns — the two '
-        'nullable setting columns are schema v2\'s additive pair (Story '
-        '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
-        'AD-23), the nullable energy level column is schema v4\'s '
-        '(Story 2.5), the two nullable report columns are schema '
-        'v5\'s additive pair (Story 2.6), the nullable permission '
-        'column is schema v7\'s (Story 3.4, AD-17), the nullable '
-        'setting text column is schema v8\'s (Story 4.3, AD-22) and '
-        'the nullable slice-cause column is schema v9\'s (Story 4.6, '
-        'FR-5, AD-23) and the nullable cluster and enabled columns '
-        'are schema v11\'s additive pair (Story 5.11, FR-31, AD-16, '
-        'AD-23 — the curation payload rides its own columns) and the '
-        'nullable triage destination and tag columns are schema v12\'s '
-        'additive pair (Story 6.3, FR-22, AD-23 — the triage payload '
-        'rides its own columns, never a numeric volume) and the '
-        'nullable triage box-id column is schema v13\'s (Story 6.5, '
-        'FR-21, AD-23 — the quarantine link; no quarantine table and '
-        'no follow-up-date column exist anywhere) — '
-        'asserted on a brand-new database, so a fresh '
-        'create that dropped it fails here', () async {
-      await store.appendLogEntry(_entry());
-      expect(await columns('log_entries'), [
-        'cluster',
-        'enabled',
-        'energy_level',
-        'id',
-        'instant_utc_micros',
-        'item_id',
-        'item_origin',
-        'kind',
-        'offset_seconds',
-        'permission',
-        'pocket_minutes',
-        'report_value',
-        'report_week',
-        'setting_key',
-        'setting_value',
-        'slice_cause',
-        'stack',
-        'text_value',
-        'triage_box_id',
-        'triage_destination',
-        'triage_volume_tag',
-      ]);
-    });
+    test(
+      'log_entries holds exactly its twenty-three declared columns — the two '
+      'nullable setting columns are schema v2\'s additive pair (Story '
+      '2.1), the nullable pocket column is schema v3\'s (Story 2.2, '
+      'AD-23), the nullable energy level column is schema v4\'s '
+      '(Story 2.5), the two nullable report columns are schema '
+      'v5\'s additive pair (Story 2.6), the nullable permission '
+      'column is schema v7\'s (Story 3.4, AD-17), the nullable '
+      'setting text column is schema v8\'s (Story 4.3, AD-22) and '
+      'the nullable slice-cause column is schema v9\'s (Story 4.6, '
+      'FR-5, AD-23) and the nullable cluster and enabled columns '
+      'are schema v11\'s additive pair (Story 5.11, FR-31, AD-16, '
+      'AD-23 — the curation payload rides its own columns) and the '
+      'nullable triage destination and tag columns are schema v12\'s '
+      'additive pair (Story 6.3, FR-22, AD-23 — the triage payload '
+      'rides its own columns, never a numeric volume) and the '
+      'nullable triage box-id column is schema v13\'s (Story 6.5, '
+      'FR-21, AD-23 — the quarantine link; no quarantine table and '
+      'no follow-up-date column exist anywhere) and the two nullable '
+      'reward blob-name columns are schema v14\'s additive pair '
+      '(Story 7.1, FR-17, AD-13, AD-23 — the album bytes live in '
+      'Files, only their content-addressed names ride the log) — '
+      'asserted on a brand-new database, so a fresh '
+      'create that dropped it fails here',
+      () async {
+        await store.appendLogEntry(_entry());
+        expect(await columns('log_entries'), [
+          'after_blob',
+          'before_blob',
+          'cluster',
+          'enabled',
+          'energy_level',
+          'id',
+          'instant_utc_micros',
+          'item_id',
+          'item_origin',
+          'kind',
+          'offset_seconds',
+          'permission',
+          'pocket_minutes',
+          'report_value',
+          'report_week',
+          'setting_key',
+          'setting_value',
+          'slice_cause',
+          'stack',
+          'text_value',
+          'triage_box_id',
+          'triage_destination',
+          'triage_volume_tag',
+        ]);
+      },
+    );
 
     test('a capture-shaped fact round-trips through the adapter '
         '(Story 3.2) — the Origin Context rides the fact verbatim, '
@@ -709,6 +729,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final row = await (db.select(
         db.logEntries,
@@ -749,6 +771,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // An out-of-range pocket stays stored verbatim too — the entry
       // stays in the log and the derivation reads it as absent, never
@@ -789,6 +813,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // An out-of-range level stays stored verbatim too — the entry
       // stays in the log and the core's read boundary excludes it,
@@ -839,6 +865,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -879,6 +907,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -926,6 +956,8 @@ void main() {
         triageDestination: 'donate_sell',
         triageVolumeTag: 'caja_grande',
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // And the declined one: no tag column written at all.
       await store.appendLogEntry((
@@ -950,6 +982,8 @@ void main() {
         triageDestination: 'keep',
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final snapshot = await store.readLogEntries();
@@ -1032,13 +1066,15 @@ void main() {
         'survive the migration', () async {
       await takeOverWithV1(seedV1);
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -1126,6 +1162,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await store.appendLogEntry((
         id: 'new-pocket',
@@ -1149,6 +1187,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await store.appendLogEntry((
         id: 'new-energy',
@@ -1172,6 +1212,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await store.appendLogEntry((
         id: 'new-report',
@@ -1195,6 +1237,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(5));
@@ -1208,7 +1252,7 @@ void main() {
     test('a fresh create carries the setting, pocket, energy and report '
         'columns from the start, and the pool\'s Origin Context column '
         'with them (Story 3.2)', () async {
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       final columns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
@@ -1290,13 +1334,15 @@ void main() {
       () async {
         await takeOverWithV2();
 
-        expect(db.schemaVersion, 13);
+        expect(db.schemaVersion, 14);
         expect(
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList()
             ..sort(),
           [
+            'after_blob',
+            'before_blob',
             'cluster',
             'enabled',
             'energy_level',
@@ -1374,6 +1420,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
         // ...and a v5 answer row lands beside them just the same.
         await store.appendLogEntry((
@@ -1398,6 +1446,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
         final after = await store.readLogEntries();
         expect(after, hasLength(4));
@@ -1470,13 +1520,15 @@ void main() {
         'beside them', () async {
       await takeOverWithV3();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -1559,6 +1611,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       // ...and a v5 answer row lands beside them just the same.
       await store.appendLogEntry((
@@ -1583,6 +1637,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(4));
@@ -1655,13 +1711,15 @@ void main() {
         'beside them', () async {
       await takeOverWithV4();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -1746,6 +1804,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await db.customInsert(
         'INSERT INTO log_entries '
@@ -1833,7 +1893,7 @@ void main() {
         'capture-shaped fact appends beside them', () async {
       await takeOverWithV5();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -1968,13 +2028,15 @@ void main() {
         'null boolean, and both new shapes append beside them', () async {
       await takeOverWithV6();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -2085,6 +2147,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final factsAfter = await store.readPoolFacts();
@@ -2220,13 +2284,15 @@ void main() {
         'text, and a selected_provider row appends beside them', () async {
       await takeOverWithV7();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -2306,6 +2372,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
 
       final logAfter = await store.readLogEntries();
@@ -2382,7 +2450,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 13);
+        expect(db.schemaVersion, 14);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingValue, 15);
@@ -2460,7 +2528,7 @@ void main() {
     test('an empty v8 database upgrades too — no rows, same three '
         'ALTERs, same version bump, appends work', () async {
       await takeOverWithV8(seedRows: false);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -2484,13 +2552,15 @@ void main() {
         'shapes append beside them', () async {
       await takeOverWithV8();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -2612,6 +2682,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final logAfter = await store.readLogEntries();
       expect(logAfter, hasLength(2));
@@ -2646,6 +2718,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
         (
           id: 'v9-returned',
@@ -2669,6 +2743,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
       ]) {
         await store.appendLogEntry(row);
@@ -2746,7 +2822,7 @@ void main() {
         );
         store = DriftStore(db);
 
-        expect(db.schemaVersion, 13);
+        expect(db.schemaVersion, 14);
         final log = await store.readLogEntries();
         expect(log, hasLength(1));
         expect(log.single.settingTextValue, 'openai');
@@ -2825,14 +2901,14 @@ void main() {
         '(slice_cause) re-opens idempotently — the pool\'s pair is '
         'still added, the already-added log column is not', () async {
       await takeOverWithV8Partial(sliceCause: true);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         await columnsOf('log_entries'),
         containsAll(['slice_cause', 'text_value']),
       );
       expect(
         await columnsOf('log_entries'),
-        hasLength(21),
+        hasLength(23),
         reason:
             'slice_cause once, never twice — beside v11\'s two and '
             'v13\'s one',
@@ -2862,8 +2938,8 @@ void main() {
         'estimate_seconds still missing — re-opens idempotently, the '
         'half-upgraded pool columns are not re-added', () async {
       await takeOverWithV8Partial(sliceCause: true, rescueOf: true);
-      expect(db.schemaVersion, 13);
-      expect(await columnsOf('log_entries'), hasLength(21));
+      expect(db.schemaVersion, 14);
+      expect(await columnsOf('log_entries'), hasLength(23));
       expect(await columnsOf('pool_facts'), hasLength(10));
       expect(
         await columnsOf('pool_facts'),
@@ -2976,7 +3052,7 @@ void main() {
     test('an empty v9 database upgrades too — no rows, one ALTER, the '
         'version bump, appends work', () async {
       await takeOverWithV9(seedRows: false);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendPoolFact((
@@ -3000,7 +3076,7 @@ void main() {
         '(FR-16, AD-23)', () async {
       await takeOverWithV9();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(pool_facts)').get())
             .map((row) => row.read<String>('name'))
@@ -3078,7 +3154,7 @@ void main() {
         'bump re-opens idempotently — a half-upgraded column is not '
         're-added', () async {
       await takeOverWithV9(stepText: true);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       final poolColumns =
           (await db.customSelect('PRAGMA table_info(pool_facts)').get())
               .map((row) => row.read<String>('name'))
@@ -3128,6 +3204,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ));
     final rows = await store.readLogEntries();
     expect(rows, hasLength(1));
@@ -3223,7 +3301,7 @@ void main() {
     test('an empty v10 database upgrades too — no rows, two ALTERs, the '
         'version bump, appends work', () async {
       await takeOverWithV10(seedRows: false);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(await store.readLogEntries(), isEmpty);
       expect(await store.readPoolFacts(), isEmpty);
       await store.appendLogEntry((
@@ -3248,6 +3326,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect((await store.readLogEntries()).single.cluster, 'anclas');
     });
@@ -3258,13 +3338,15 @@ void main() {
         'beside them (FR-31, AD-23)', () async {
       await takeOverWithV10();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
             .toList()
           ..sort(),
         [
+          'after_blob',
+          'before_blob',
           'cluster',
           'enabled',
           'energy_level',
@@ -3343,6 +3425,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final logAfter = await store.readLogEntries();
       expect(logAfter, hasLength(2));
@@ -3354,14 +3438,14 @@ void main() {
         'the second — cluster present, enabled absent — finishes the '
         'upgrade without re-adding cluster', () async {
       await takeOverWithV10(clusterColumnOnly: true);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       final logColumns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList();
       expect(
         logColumns,
-        hasLength(21),
+        hasLength(23),
         reason: 'cluster once from the crash, enabled added, never doubled',
       );
       expect(logColumns, containsAll(['cluster', 'enabled']));
@@ -3387,6 +3471,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect((await store.readLogEntries()).last.enabled, isFalse);
     });
@@ -3395,14 +3481,14 @@ void main() {
         'the version bump re-opens idempotently — a half-upgraded '
         'column is not re-added', () async {
       await takeOverWithV10(curationColumns: true);
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       final logColumns =
           (await db.customSelect('PRAGMA table_info(log_entries)').get())
               .map((row) => row.read<String>('name'))
               .toList();
       expect(
         logColumns,
-        hasLength(21),
+        hasLength(23),
         reason: 'cluster and enabled once, never twice',
       );
       expect(logColumns, containsAll(['cluster', 'enabled']));
@@ -3429,6 +3515,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect((await store.readLogEntries()).last.enabled, isTrue);
     });
@@ -3512,7 +3600,7 @@ void main() {
         'appends beside them', () async {
       await takeOverWithV11();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -3573,6 +3661,8 @@ void main() {
         triageDestination: 'trash_recycle',
         triageVolumeTag: 'bolsa',
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(2));
@@ -3589,7 +3679,7 @@ void main() {
         'each column once, the seeded row intact, appends work', () async {
       await takeOverWithV11(destinationColumnOnly: true);
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -3627,6 +3717,8 @@ void main() {
         triageDestination: 'keep',
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect(
         convertLogEntryRecord((await store.readLogEntries()).last).entry,
@@ -3640,7 +3732,7 @@ void main() {
         'version bump, a triage append works', () async {
       await takeOverWithV11(seedRows: false);
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(await store.readLogEntries(), isEmpty);
       await store.appendLogEntry((
         id: 'v12-first',
@@ -3664,6 +3756,8 @@ void main() {
         triageDestination: 'donate_sell',
         triageVolumeTag: 'caja_grande',
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final entry =
           convertLogEntryRecord((await store.readLogEntries()).single).entry
@@ -3753,7 +3847,7 @@ void main() {
         'appends beside them', () async {
       await takeOverWithV12();
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -3813,6 +3907,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await store.appendLogEntry((
         id: 'v13-quarantine',
@@ -3836,6 +3932,8 @@ void main() {
         triageDestination: 'quarantine',
         triageVolumeTag: null,
         triageBoxId: 'v13-box',
+        beforeName: null,
+        afterName: null,
       ));
       final after = await store.readLogEntries();
       expect(after, hasLength(3));
@@ -3853,7 +3951,7 @@ void main() {
         'once, the seeded row intact, appends work', () async {
       await takeOverWithV12(boxIdColumnOnly: true);
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(
         (await db.customSelect('PRAGMA table_info(log_entries)').get())
             .map((row) => row.read<String>('name'))
@@ -3888,6 +3986,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect(
         convertLogEntryRecord((await store.readLogEntries()).last).entry,
@@ -3899,7 +3999,7 @@ void main() {
         'version bump, a quarantine append works', () async {
       await takeOverWithV12(seedRows: false);
 
-      expect(db.schemaVersion, 13);
+      expect(db.schemaVersion, 14);
       expect(await store.readLogEntries(), isEmpty);
       await store.appendLogEntry((
         id: 'v13-first',
@@ -3923,12 +4023,254 @@ void main() {
         triageDestination: 'quarantine',
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final entry =
           convertLogEntryRecord((await store.readLogEntries()).single).entry
               as TriageEntry;
       expect(entry.destination, TriageDestination.quarantine);
       expect(entry.boxId, isNull);
+    });
+  });
+
+  group('the v13→v14 upgrade (Story 7.1, AD-23 — additive, ALTER-only)', () {
+    /// The v13 schema exactly as a v13 install presents it: the v12
+    /// shape plus the log's triage box-id column, `user_version` 13 —
+    /// seeded over a memory executor so drift's runner sees version 13
+    /// and upgrades.
+    Future<void> takeOverWithV13({
+      bool seedRows = true,
+      bool blobColumnsOnly = false,
+    }) async {
+      await db.close();
+      db = SubstrateDatabase(
+        NativeDatabase.memory(
+          setup: (rawDb) {
+            for (final statement in [
+              'CREATE TABLE pool_facts ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'origin TEXT NOT NULL, '
+                  'size TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'origin_context TEXT NULL, '
+                  'dictated BOOL NULL, '
+                  'rescue_of TEXT NULL, '
+                  'estimate_seconds INTEGER NULL, '
+                  'step_text TEXT NULL)',
+              'CREATE TABLE log_entries ('
+                  'id TEXT NOT NULL PRIMARY KEY, '
+                  'kind TEXT NOT NULL, '
+                  'instant_utc_micros INTEGER NOT NULL, '
+                  'offset_seconds INTEGER NOT NULL, '
+                  'item_id TEXT NULL, '
+                  'item_origin TEXT NULL, '
+                  'stack TEXT NULL, '
+                  'setting_key TEXT NULL, '
+                  'setting_value INTEGER NULL, '
+                  'text_value TEXT NULL, '
+                  'pocket_minutes INTEGER NULL, '
+                  'energy_level INTEGER NULL, '
+                  'report_value INTEGER NULL, '
+                  'report_week INTEGER NULL, '
+                  'permission TEXT NULL, '
+                  'slice_cause TEXT NULL, '
+                  'cluster TEXT NULL, '
+                  'enabled BOOL NULL, '
+                  'triage_destination TEXT NULL, '
+                  'triage_volume_tag TEXT NULL, '
+                  'triage_box_id TEXT NULL'
+                  '${blobColumnsOnly ? ', before_blob TEXT NULL, after_blob TEXT NULL' : ''})',
+              'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER pool_facts_refuse_delete BEFORE DELETE ON '
+                  "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_update BEFORE UPDATE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              'CREATE TRIGGER log_entries_refuse_delete BEFORE DELETE ON '
+                  "log_entries BEGIN SELECT RAISE(ABORT, 'log_entries is "
+                  "insert-only (AD-2)'); END",
+              if (seedRows)
+                "INSERT INTO log_entries (id, kind, instant_utc_micros, "
+                    "offset_seconds, item_id, item_origin, triage_box_id) "
+                    "VALUES ('v13-quarantine', 'item_triaged', 100, 3600, "
+                    "NULL, NULL, 'v13-box')",
+              'PRAGMA user_version = 13',
+            ]) {
+              rawDb.execute(statement);
+            }
+          },
+        ),
+      );
+      store = DriftStore(db);
+    }
+
+    test('a seeded v13 database upgrades in place: two ALTERs add the '
+        'reward blob-name columns, the v13 rows — box links intact, '
+        'blob names null — read back unchanged, and a saved pair '
+        'appends beside them', () async {
+      await takeOverWithV13();
+
+      expect(db.schemaVersion, 14);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .where((name) => name.endsWith('_blob'))
+            .toList()
+          ..sort(),
+        ['after_blob', 'before_blob'],
+        reason: 'the two reward columns once each',
+      );
+
+      // The v13 rows ride the migration untouched.
+      final before = await store.readLogEntries();
+      expect(before, hasLength(1));
+      expect(before.single.id, 'v13-quarantine');
+      expect(before.single.triageBoxId, 'v13-box');
+      expect(before.single.beforeName, isNull);
+      expect(before.single.afterName, isNull);
+
+      // Insert-only survives this migration too.
+      await expectLater(
+        db.customUpdate(
+          "UPDATE log_entries SET before_blob = 'x' "
+          "WHERE id = 'v13-quarantine'",
+        ),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            contains('insert-only (AD-2)'),
+          ),
+        ),
+      );
+
+      // The upgraded schema accepts the reward's own row beside the
+      // old ones — and it converts through the boundary whole.
+      await store.appendLogEntry((
+        id: 'v14-album',
+        kind: LogKind.albumEntryAdded.name,
+        instantUtcMicros: 300,
+        offsetSeconds: 3600,
+        itemId: 'group-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
+        triageBoxId: null,
+        beforeName: 'hash-a.jpg',
+        afterName: 'hash-b.jpg',
+      ));
+      final after = await store.readLogEntries();
+      expect(after, hasLength(2));
+      final album =
+          convertLogEntryRecord(after[1]).entry as AlbumEntryAddedEntry;
+      expect(album.itemId, 'group-1');
+      expect(album.beforeName, 'hash-a.jpg');
+      expect(album.afterName, 'hash-b.jpg');
+    });
+
+    test('a half-upgraded v13 database — the crash after the ALTERs but '
+        'before the version bump left the blob columns present, '
+        'user_version still 13 — re-upgrades idempotently: each column '
+        'once, the seeded row intact, appends work', () async {
+      await takeOverWithV13(blobColumnsOnly: true);
+
+      expect(db.schemaVersion, 14);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .where((name) => name.endsWith('_blob'))
+            .toList()
+          ..sort(),
+        ['after_blob', 'before_blob'],
+        reason: 'the pre-existing columns are not doubled',
+      );
+      final rows = await store.readLogEntries();
+      expect(rows, hasLength(1));
+      expect(rows.single.triageBoxId, 'v13-box');
+      await store.appendLogEntry((
+        id: 'v14-after-half',
+        kind: LogKind.beforeSaved.name,
+        instantUtcMicros: 400,
+        offsetSeconds: 3600,
+        itemId: 'group-1',
+        itemOrigin: Origin.cloud,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
+        triageBoxId: null,
+        beforeName: 'hash-a.jpg',
+        afterName: null,
+      ));
+      expect(
+        convertLogEntryRecord((await store.readLogEntries()).last).entry,
+        isA<BeforeSavedEntry>(),
+      );
+    });
+
+    test('an empty v13 database upgrades too — no rows, the ALTERs, the '
+        'version bump, a Before append works', () async {
+      await takeOverWithV13(seedRows: false);
+
+      expect(db.schemaVersion, 14);
+      expect(await store.readLogEntries(), isEmpty);
+      await store.appendLogEntry((
+        id: 'v14-first',
+        kind: LogKind.beforeSaved.name,
+        instantUtcMicros: 500,
+        offsetSeconds: 0,
+        itemId: 'group-1',
+        itemOrigin: Origin.local,
+        stack: null,
+        settingKey: null,
+        settingValue: null,
+        settingTextValue: null,
+        pocketMinutes: null,
+        energyLevel: null,
+        reportValue: null,
+        reportWeek: null,
+        permission: null,
+        sliceCause: null,
+        cluster: null,
+        enabled: null,
+        triageDestination: null,
+        triageVolumeTag: null,
+        triageBoxId: null,
+        beforeName: 'hash-a.jpg',
+        afterName: null,
+      ));
+      final entry =
+          convertLogEntryRecord((await store.readLogEntries()).single).entry
+              as BeforeSavedEntry;
+      expect(entry.itemId, 'group-1');
+      expect(entry.blobName, 'hash-a.jpg');
     });
   });
 }

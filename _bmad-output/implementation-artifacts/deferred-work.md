@@ -359,3 +359,6 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/6-7-the-cumulative-declutter-metric.md`
   summary: No automated pin that the 26 authored fixed strings (UX-DR49, `liberatedVolume` among them) stay verbatim in the ARB table.
   evidence: Story 6.7's ARB AC is inspection-only (git diff shows no change); nothing in tool/ or the proof file fails if an authored literal is re-worded in this or any later story, and UX-DR49's "verbatim, never re-worded" is a checkable flat-table property the house's census pattern already covers elsewhere.
+- source_spec: `_bmad-output/implementation-artifacts/7-1-the-before-after-reward.md`
+  summary: Every card_done completion re-reads the full log and pool inside the write queue to evaluate the reward milestone derivation.
+  evidence: Reviewer-measured (step-04, 2026-09-11): `_enqueueCompleteWrite` calls `readLogEntries()` + `readPoolFacts()` on every completion, then `retiringGroupId` walks the log and builds the full group map; the insert-only log grows unboundedly, so the per-completion cost is O(total history). Fine at validation scale; if it ever matters, the completion path already holds the just-answered item id (now passed explicitly) and could narrow the fold.

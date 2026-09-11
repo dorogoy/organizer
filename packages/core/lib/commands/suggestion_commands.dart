@@ -54,6 +54,8 @@ List<LogEntryContent> suggestionDismissed({
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }

@@ -71,8 +71,16 @@
 /// needs no payload column of its own; the box's contents live only as
 /// the link on the `item_triaged` rows that name it, and the box
 /// itself reconstructs from this row alone — no quarantine table, no
-/// stored follow-up date, AD-1). A new kind is a new kind, never a
-/// flag
+/// stored follow-up date, AD-1), and since Story 7.1 the
+/// twenty-sixth and twenty-seventh kinds `before_saved` and
+/// `album_entry_added` (FR-17, AD-13, AD-21 — the transformation
+/// reward's two album-mutation rows: the deliberate Before shot a
+/// delivered scan's offer took, naming the scan group's stable id
+/// and the content-addressed album blob; and the saved Before/After
+/// pair, naming the same group and BOTH blob names. Album mutation
+/// is log acts, never flags on old kinds — the `capture_created`
+/// register, each on its own two nullable schema columns (v14)). A
+/// new kind is a new kind, never a flag
 /// on an old one.
 ///
 /// It also holds the validated record→entry conversion every read passes
@@ -89,7 +97,11 @@
 /// columns), `item_triaged` carries its destination, optional coarse
 /// volume tag and optional box link (Stories 6.3/6.5, on their own
 /// v12/v13 columns), `box_created` carries nothing at all (Story 6.5
-/// — its id and instant are the whole row), and a known
+/// — its id and instant are the whole row), a `before_saved` row
+/// (Story 7.1) carries its full item pair — the scan group's stable
+/// id and origin — plus its Before blob name, an `album_entry_added`
+/// row (Story 7.1) carries the same pair plus BOTH blob names, and a
+/// known
 /// kind's payload must match
 /// the kind.
 
@@ -262,6 +274,8 @@ final class LogKind {
   );
   static const itemTriaged = LogKind._('item_triaged', known: true);
   static const boxCreated = LogKind._('box_created', known: true);
+  static const beforeSaved = LogKind._('before_saved', known: true);
+  static const albumEntryAdded = LogKind._('album_entry_added', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -290,6 +304,8 @@ final class LogKind {
     'suggestion_dismissed': suggestionDismissed,
     'item_triaged': itemTriaged,
     'box_created': boxCreated,
+    'before_saved': beforeSaved,
+    'album_entry_added': albumEntryAdded,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -785,6 +801,97 @@ final class BoxCreatedEntry extends LogEntry {
   final LogKind kind = LogKind.boxCreated;
 }
 
+/// A `before_saved` user act (Story 7.1, FR-17, FR-25, AD-13, AD-21):
+/// the deliberate Before shot a delivered scan's offer took — one
+/// quiet offer at scan delivery, the user still in front of the
+/// space with the camera in hand, answered through one shoot action
+/// or declined by leaving (`Cerrar`, zero side effects). The row
+/// names the scan group's STABLE id — the same id the group's
+/// `epic_activated` row names — and the group's own origin, on the
+/// existing item-pair shape (AD-14), plus the album blob's
+/// content-addressed name on the row's own schema column (v14): the
+/// bytes live in the Files `album` scope, never in the log, and the
+/// shot is a separate deliberate frame — never the uploaded scan
+/// frame, which FR-25/AD-8 unlink on every terminal path. One row
+/// per accepted offer through the single sanctioned minter
+/// (`core/commands/reward_commands.dart`), so no second Before
+/// writer can appear silently; a declined offer writes nothing, so
+/// the space derives as a no-Before space by absence (AD-21). The
+/// type offers no other field, so no caption, no share fact and no
+/// milestone state can ride along — the milestone derivations
+/// (`core/derive/reward.dart`) read the group folds, never this row's
+/// instants.
+final class BeforeSavedEntry extends LogEntry {
+  const BeforeSavedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.itemId,
+    required this.itemOrigin,
+    required this.blobName,
+  });
+
+  @override
+  final LogKind kind = LogKind.beforeSaved;
+
+  /// The scan group's stable id — the group's first landed fact's id,
+  /// the same id `epic_activated` and `album_entry_added` name.
+  final String itemId;
+
+  /// The group's own origin (`cloud` on the BYOK path, `local` on the
+  /// debug stub), which every item-referencing entry carries (AD-14).
+  final Origin itemOrigin;
+
+  /// The Before blob's content-addressed name (sha256 hex + `.jpg`),
+  /// AD-13's blob naming — the Files `album` scope's flat key.
+  final String blobName;
+}
+
+/// An `album_entry_added` user act (Story 7.1, FR-17, AD-13, AD-21):
+/// the saved Before/After pair — the transformation reward's own
+/// write, appended automatically the moment the After shot lands in
+/// the reward's pair flow (never a share button, never a manual
+/// save). The row names the same group id and origin the
+/// `before_saved` row named, plus BOTH blob names on the row's own
+/// schema columns (v14): the album's membership reconstructs from
+/// these rows alone — no album table, no ordering column, AD-1 —
+/// and Epic 9's export derives from them. One row per saved pair
+/// through the single sanctioned minter
+/// (`core/commands/reward_commands.dart`), so no second album writer
+/// can appear silently; a reward closed before the After shot writes
+/// nothing (zero side effects). The type offers no other field, so
+/// no caption, no adjective about the result and no share fact can
+/// ride along — UX-DR40's copy law stated at the type.
+final class AlbumEntryAddedEntry extends LogEntry {
+  const AlbumEntryAddedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.itemId,
+    required this.itemOrigin,
+    required this.beforeName,
+    required this.afterName,
+  });
+
+  @override
+  final LogKind kind = LogKind.albumEntryAdded;
+
+  /// The group's stable id — the same id the group's
+  /// `epic_activated` and `before_saved` rows name.
+  final String itemId;
+
+  /// The group's own origin (AD-14).
+  final Origin itemOrigin;
+
+  /// The Before blob's content-addressed name (AD-13) — the name the
+  /// group's `before_saved` row carried.
+  final String beforeName;
+
+  /// The After blob's content-addressed name (AD-13) — the shot the
+  /// reward's pair flow just took.
+  final String afterName;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -957,6 +1064,22 @@ enum LogRecordFlaw {
   /// energy, report, permission, cause and curation rules: every
   /// payload column rides its own kind and no other.
   triageOnNonTriageKind,
+
+  /// A `before_saved` row without its Before blob name, or an
+  /// `album_entry_added` row without either of its two blob names
+  /// (Story 7.1, AD-13): the name is the row's whole link to the
+  /// bytes — without it the row asserts a photo that cannot be read,
+  /// so it asserts nothing. Quiet tolerance, never a repair write
+  /// (AD-23).
+  rewardNameAbsent,
+
+  /// A Before or After blob name on a kind that is not
+  /// `before_saved`/`album_entry_added` — or an After name on a
+  /// `before_saved` row (Story 7.1) — mirroring the setting, pocket,
+  /// energy, report, permission, cause, curation and triage rules:
+  /// every payload column rides its own kind and no other, and the
+  /// After name rides the pair row alone.
+  photoNameOnNonPhotoKind,
 }
 
 /// One record's conversion at the read boundary: the domain entry when the
@@ -1078,6 +1201,11 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
       record.triageDestination != null ||
       record.triageVolumeTag != null ||
       record.triageBoxId != null;
+  // The reward-photo columns read by the same raw presence rule (Story
+  // 7.1): presence is what a foreign kind violates, and the photo
+  // kinds' own branches below judge the values — an empty string is
+  // not a value there, exactly as everywhere below.
+  final carriesPhoto = record.beforeName != null || record.afterName != null;
   // The cause column reads by the same house rule: an empty string is
   // not a value, so it counts as absent everywhere below (Story 4.6).
   final sliceCauseIsAbsent =
@@ -1118,6 +1246,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: ItemActEntry(
@@ -1162,6 +1293,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: CrashEntry(
@@ -1216,6 +1350,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: SettingEntry(
         id: record.id,
@@ -1261,6 +1398,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: SessionStartEntry(
         id: record.id,
@@ -1304,6 +1444,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: SessionExtendEntry(
         id: record.id,
@@ -1346,6 +1489,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: EnergySetEntry(
@@ -1394,6 +1540,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: ReportAnsweredEntry(
         id: record.id,
@@ -1436,6 +1585,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: PermissionRefusedEntry(
@@ -1506,6 +1658,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: SliceEntry(
         id: record.id,
@@ -1560,6 +1715,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: ClusterCurationChangedEntry(
@@ -1628,6 +1786,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesCause) {
       return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: TriageEntry(
         id: record.id,
@@ -1676,11 +1837,134 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
     }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
     return (
       entry: BoxCreatedEntry(
         id: record.id,
         instantUtcMicros: record.instantUtcMicros,
         offsetSeconds: record.offsetSeconds,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.beforeSaved) {
+    // The Before row's own discipline (Story 7.1): the full item pair
+    // — the scan group's stable id and origin, AD-14 — plus exactly
+    // its Before blob name, the row's whole link to the bytes. The
+    // house rule reads an empty name as absent, so an empty string
+    // cannot make a foreign kind "carry" a photo or a photo row
+    // "carry" its link. An After name here is the foreign-column
+    // flaw — it rides the pair row alone.
+    if (itemIdIsAbsent && record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+    }
+    if (itemIdIsAbsent || record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    }
+    if (record.beforeName?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.rewardNameAbsent);
+    }
+    if (record.afterName != null) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    return (
+      entry: BeforeSavedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        itemId: record.itemId!,
+        itemOrigin: record.itemOrigin!,
+        blobName: record.beforeName!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.albumEntryAdded) {
+    // The pair row's own discipline (Story 7.1): the full item pair
+    // plus BOTH blob names — the Before the group's `before_saved`
+    // row carried and the After the reward's flow just shot; without
+    // either the row asserts a pair that cannot be read, so it
+    // asserts nothing. The house rule reads an empty name as absent
+    // here exactly as everywhere above.
+    if (itemIdIsAbsent && record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+    }
+    if (itemIdIsAbsent || record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    }
+    if (record.beforeName?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.rewardNameAbsent);
+    }
+    if (record.afterName?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.rewardNameAbsent);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    return (
+      entry: AlbumEntryAddedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        itemId: record.itemId!,
+        itemOrigin: record.itemOrigin!,
+        beforeName: record.beforeName!,
+        afterName: record.afterName!,
       ),
       flaw: null,
     );
@@ -1716,6 +2000,9 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
     }
     if (carriesTriage) {
       return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
     }
     return (
       entry: MomentEntry(
