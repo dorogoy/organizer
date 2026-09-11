@@ -353,3 +353,9 @@ Story 2-6 was split into three sequential parts at planning (spec ~4.4k tokens o
 - source_spec: `_bmad-output/implementation-artifacts/6-5-the-quarantine-box-derived-from-the-log.md`
   summary: Sprint-status tracker drift — 6-3 says `review` while its artifact is `done`
   evidence: sprint-status.yaml:97 reads `6-3-the-triage-act-item-triaged-and-coarse-volume: review`; the spec frontmatter reads `status: 'done'`; pre-existing, surfaced incidentally by 6-5 review (blind-hunter)
+
+## Deferred from: code review of 6-7-the-cumulative-declutter-metric.md (2026-09-11)
+
+- source_spec: `_bmad-output/implementation-artifacts/6-7-the-cumulative-declutter-metric.md`
+  summary: No automated pin that the 26 authored fixed strings (UX-DR49, `liberatedVolume` among them) stay verbatim in the ARB table.
+  evidence: Story 6.7's ARB AC is inspection-only (git diff shows no change); nothing in tool/ or the proof file fails if an authored literal is re-worded in this or any later story, and UX-DR49's "verbatim, never re-worded" is a checkable flat-table property the house's census pattern already covers elsewhere.

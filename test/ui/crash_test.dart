@@ -71,7 +71,10 @@ void main() {
   test(
     'a failing store write is swallowed — the guard never re-throws',
     () async {
-      await appendCrashEntry(_FailingStore(), '#0      build');
+      await appendCrashEntry(
+        _FailingStore(),
+        'Bearer sk-proj-abcdefghijklmnopqrstuvwx',
+      );
     },
   );
 
@@ -79,6 +82,178 @@ void main() {
     final store = _RecordingStore();
     await appendCrashEntry(store, null);
     expect(store.entries.single.stack, isNotEmpty);
+    expect(store.entries.single.stack, isNot(contains('sk-')));
+  });
+
+  test('OpenAI/OpenRouter Bearer in a stack is redacted at persist', () async {
+    final store = _RecordingStore();
+    const token = 'sk-proj-abcdefghijklmnopqrstuvwx';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:396)\n'
+        'Bearer $token\n'
+        '#1      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('Bearer [REDACTED]'));
+    expect(
+      stored,
+      contains('#0      send (package:organizer/egress/byok_wire.dart:396)'),
+    );
+    expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+    expect(stored, isNot(contains('sk-')));
+  });
+
+  test(
+    'OpenAI/OpenRouter Authorization Bearer wire line is redacted at persist',
+    () async {
+      final store = _RecordingStore();
+      const token = 'org-live-abcdefghijklmnopqrstuvwx';
+      const stack =
+          '#0      send (package:organizer/egress/byok_wire.dart:396)\n'
+          'Authorization: Bearer $token\n'
+          '#1      build (package:organizer/x.dart:9)';
+      await appendCrashEntry(store, stack);
+      final stored = store.entries.single.stack!;
+      expect(stored, contains('Authorization: Bearer [REDACTED]'));
+      expect(
+        stored,
+        contains('#0      send (package:organizer/egress/byok_wire.dart:396)'),
+      );
+      expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+      expect(stored, isNot(contains(token)));
+    },
+  );
+
+  test(
+    'Anthropic header and standalone sk-ant token are both redacted',
+    () async {
+      final store = _RecordingStore();
+      const token = 'sk-ant-abcdefghijklmnopqrstuvwx';
+      const stack =
+          '#0      send (package:organizer/egress/byok_wire.dart:398)\n'
+          'x-api-key: $token\n'
+          '#1      slice (package:organizer/egress/byok_slicer.dart:110)\n'
+          '$token\n'
+          '#2      build (package:organizer/x.dart:9)';
+      await appendCrashEntry(store, stack);
+      final stored = store.entries.single.stack!;
+      expect(stored, contains('x-api-key: [REDACTED]'));
+      expect(
+        stored,
+        contains('#0      send (package:organizer/egress/byok_wire.dart:398)'),
+      );
+      expect(stored, contains('#2      build (package:organizer/x.dart:9)'));
+      expect(stored, isNot(contains(token)));
+      expect(stored, isNot(contains('sk-ant-')));
+    },
+  );
+
+  test('Gemini header and standalone AIzaSy token are both redacted', () async {
+    final store = _RecordingStore();
+    const token = 'AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:393)\n'
+        'x-goog-api-key: $token\n'
+        '#1      slice (package:organizer/egress/byok_slicer.dart:110)\n'
+        '$token\n'
+        '#2      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('x-goog-api-key: [REDACTED]'));
+    expect(
+      stored,
+      contains('#0      send (package:organizer/egress/byok_wire.dart:393)'),
+    );
+    expect(stored, contains('#2      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+    expect(stored, isNot(contains('AIzaSy')));
+  });
+
+  test(
+    'compact header values without a space after the delimiter are redacted',
+    () async {
+      final store = _RecordingStore();
+      const token = 'vaultsecret_compact_abcdefghij';
+      const stack =
+          '#0      send (package:organizer/egress/byok_wire.dart:398)\n'
+          'x-api-key:$token\n'
+          'x-goog-api-key=$token\n'
+          '#1      build (package:organizer/x.dart:9)';
+      await appendCrashEntry(store, stack);
+      final stored = store.entries.single.stack!;
+      expect(stored, contains('x-api-key:[REDACTED]'));
+      expect(stored, contains('x-goog-api-key=[REDACTED]'));
+      expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+      expect(stored, isNot(contains(token)));
+    },
+  );
+
+  test('query api_key values are redacted at persist', () async {
+    final store = _RecordingStore();
+    const token = 'sk-abcdefghijklmnopqrstuvwx';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:380)\n'
+        'https://example.invalid/v1?api_key=$token\n'
+        '#1      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('api_key=[REDACTED]'));
+    expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+  });
+
+  test('query key values are redacted at persist', () async {
+    final store = _RecordingStore();
+    const token = 'vaultsecret_abcdefghijklmnopqrstuv';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:380)\n'
+        'https://example.invalid/v1?key=$token\n'
+        '#1      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('key=[REDACTED]'));
+    expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+  });
+
+  test('query token values are redacted at persist', () async {
+    final store = _RecordingStore();
+    const token = 'opaque-credential-value-12345';
+    const stack =
+        '#0      send (package:organizer/egress/byok_wire.dart:380)\n'
+        'https://example.invalid/v1?token=$token\n'
+        '#1      build (package:organizer/x.dart:9)';
+    await appendCrashEntry(store, stack);
+    final stored = store.entries.single.stack!;
+    expect(stored, contains('token=[REDACTED]'));
+    expect(stored, contains('#1      build (package:organizer/x.dart:9)'));
+    expect(stored, isNot(contains(token)));
+  });
+
+  test('the guard records the stack only — exception credential text is not stored', () async {
+    final store = _RecordingStore();
+    final previous = FlutterError.onError;
+    addTearDown(() => FlutterError.onError = previous);
+    installCrashGuard(store);
+
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: StateError('Bearer sk-proj-abcdefghijklmnopqrstuvwx'),
+        stack: StackTrace.fromString(
+          '#0      build (package:organizer/x.dart:9)',
+        ),
+        library: 'organizer',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.entries, hasLength(1));
+    expect(store.entries.single.kind, LogKind.crashRecorded.name);
+    final stored = store.entries.single.stack!;
+    const frames = '#0      build (package:organizer/x.dart:9)';
+    expect(stored, anyOf(frames, '$frames\n'));
+    expect(stored, isNot(contains('StateError')));
   });
 
   test(

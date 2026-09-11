@@ -24,18 +24,48 @@ void installCrashGuard(StorePort store) {
   };
 }
 
+/// Replacement for a matched credential in a crash stack (AD-22).
+const String _redactedText = '[REDACTED]';
+
+/// Authorization headers and query keys whose values must not persist.
+const String _sensitivePatternString =
+    r'(Bearer[ \t]+|Authorization[:=][ \t]*(?:Bearer[ \t]+)?|x-api-key[:=][ \t]*|x-goog-api-key[:=][ \t]*|(?:api[_-]?key|key|token)=)([^\s\n\r,;&]+)';
+
+/// Standalone `sk-…` (20+ after the prefix) and classic Gemini `AIzaSy`+33.
+const String _apiKeyTokenPatternString =
+    r'\b(?:sk-[a-zA-Z0-9_\-]{20,}|AIzaSy[a-zA-Z0-9_\-]{33})\b';
+
+final RegExp _sensitivePattern = RegExp(
+  _sensitivePatternString,
+  caseSensitive: false,
+);
+
+final RegExp _apiKeyTokenPattern = RegExp(_apiKeyTokenPatternString);
+
+/// Redacts allowlisted credential shapes; surrounding frames stay.
+String sanitizeStackTrace(String input) {
+  final sanitizedHeader = input.replaceAllMapped(
+    _sensitivePattern,
+    (match) => match.group(1)! + _redactedText,
+  );
+  return sanitizedHeader.replaceAll(_apiKeyTokenPattern, _redactedText);
+}
+
 /// Appends exactly one `crash_recorded` entry: the stack and the timestamp
 /// (plus the shell-minted id and the offset in force) and nothing else
 /// (AD-12). The entry type offers no other field, so no task text, image
 /// path, prompt or URL can ride along. The shell may read the clock; the
-/// core never does (AD-3).
+/// core never does (AD-3). The resolved stack is sanitized immediately
+/// before the store write so provider plaintext cannot ride the event
+/// (AD-22).
 Future<void> appendCrashEntry(
   StorePort store,
   String? stack, {
   Uuid idMinter = const Uuid(),
 }) async {
   final now = DateTime.now();
-  final resolvedStack = stack ?? StackTrace.current.toString();
+  final rawStack = stack ?? StackTrace.current.toString();
+  final resolvedStack = sanitizeStackTrace(rawStack);
   final LogEntryRecord entry = (
     id: idMinter.v7(),
     kind: LogKind.crashRecorded.name,

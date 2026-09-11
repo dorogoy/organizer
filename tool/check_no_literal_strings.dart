@@ -55,6 +55,9 @@ const String generatedCodeHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 /// loader's two diagnostics
 /// templates (crash-path context naming the asset path and the
 /// stale-codegen remedy — a named decision on the store module's terms),
+/// the crash module's redaction patterns (header, query and standalone
+/// credential shapes replaced on the crash path — crash-path context,
+/// never widget copy),
 /// and the egress module's wire vocabulary (Story 4-4 — the frozen
 /// provider allowlist's ids and fixed model ids, the BYOK wires'
 /// endpoint/header/body/response identifiers, the rescue contract's
@@ -187,6 +190,11 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'catalogueAssetPathSlot',
     'catalogueCauseSlot',
     'catalogueIdSlot',
+  },
+  'lib/crash.dart': {
+    '_redactedText',
+    '_sensitivePatternString',
+    '_apiKeyTokenPatternString',
   },
   'lib/egress/provider_allowlist.dart': {
     'geminiProviderId',
