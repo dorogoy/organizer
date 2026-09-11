@@ -2617,15 +2617,17 @@ final class KitchenSink {
       reason: 'the command file mints rows, it never reads them',
     );
 
-    // The stated readers: the destination/tag vocabulary is the '
-    // substrate's whole meaning, so the files naming it are the '
-    // substrate's whole audience — the definition home, the payload '
-    // plumbing (session_commands' content record, the store port's '
-    // schema columns), the minter, and exactly the two folds. A '
-    // seventh file referencing TriageDestination or CoarseVolumeTag '
-    // is a third fold or a vocabulary leak, and fails here (the '
-    // cluster_curation_changed stated-reader precedent, on the '
-    // vocabulary this substrate reads by).
+    // The stated readers: the destination/tag vocabulary is the
+    // substrate's whole meaning, so the files naming it are the
+    // substrate's whole audience — the definition home, the payload
+    // plumbing (session_commands' content record), the minter, and
+    // exactly the two folds. A sixth file referencing
+    // TriageDestination or CoarseVolumeTag is a third fold or a
+    // vocabulary leak, and fails here (the cluster_curation_changed
+    // stated-reader precedent, on the vocabulary this substrate
+    // reads by). ports/store_port.dart names the vocabulary in doc
+    // comments alone — comment-stripping removes them, correctly:
+    // prose is not a reader.
     final vocabularyFiles = [
       for (final path in files)
         if (RegExp(r'\b(TriageDestination|CoarseVolumeTag)\b')
@@ -2638,7 +2640,6 @@ final class KitchenSink {
         'log/log_entry.dart',
         'commands/session_commands.dart',
         'commands/triage_commands.dart',
-        'ports/store_port.dart',
         'derive/quarantine.dart',
         'derive/declutter_metric.dart',
       ]),
