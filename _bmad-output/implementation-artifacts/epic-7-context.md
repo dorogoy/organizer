@@ -9,8 +9,10 @@ Show the user the same corner of their home before and after, in two plates of e
 ## Stories
 
 - Story 7.1: The Before/After reward
-- Story 7.2: The local Transformation Album
-- Story 7.3: The cumulative impact dashboard
+- Story 7.2: The album substrate — the derived read model and the deletion acts
+- Story 7.3: The Transformation Album — the contextual gallery
+- Story 7.4: The cumulative impact dashboard
+- Story 7.5: The snowball — the comfortable-day run and the Time Bag suggestion
 
 ## Requirements & Constraints
 
@@ -48,4 +50,4 @@ Show the user the same corner of their home before and after, in two plates of e
 - **Depends on Epic 5:** Before photos exist only for scanned spaces; the reward's shoot action follows the Cámara entry's own rule — absent when the camera is disabled or its permission refused, and any failed attempt degrades to the reward's no-photo presentation — never a dead button on the reward surface.
 - **Ambient strip is Epic 2's component** — the snowball arrives as a new resident carried in behaviour/data, not new chrome.
 - **Instrumentation series (c)** (Before/After pairs per project milestone) is written here but assembled and rendered by Epic 9's series work; the content-addressed album blobs feed Epic 9's export generations, whose coordinator/property-test rules live there.
-- **Story order is the navigation order:** 7.1 → 7.2 → 7.3 — the album exists only as the reward's completion, the dashboard only behind the album.
+- **Story order is the navigation order:** 7.1 → 7.2 → 7.3 → 7.4 → 7.5 — the album exists only as the reward's completion, the dashboard only behind the album, and the substrate precedes its gallery; the snowball rides Epic 2's ambient strip.

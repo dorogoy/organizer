@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-27-2026 20:29
-last_updated: 09-12-2026 08:14
+last_updated: 09-12-2026 08:58
 project: organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -103,8 +103,10 @@ development_status:
 
   epic-7: in-progress
   7-1-the-before-after-reward: done
-  7-2-the-local-transformation-album: backlog
-  7-3-the-cumulative-impact-dashboard: backlog
+  7-2-the-album-substrate-the-derived-read-model-and-the-deletion-acts: backlog
+  7-3-the-transformation-album-the-contextual-gallery: backlog
+  7-4-the-cumulative-impact-dashboard: backlog
+  7-5-the-snowball-the-comfortable-day-run-and-the-time-bag-suggestion: backlog
   epic-7-retrospective: optional
 
   epic-8: backlog
@@ -324,5 +326,15 @@ action_items:
       the 24 KB story-diet gate — held for epic 6 (seven specs of 10.5-19.8 KB after
       the 2026-09-09 re-partition); apply at the epic 7 door before its first story."
     owner: "Sergio"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-11.md"
+  - id: "epic-7-door-re-partition-missed-for-7-1"
+    epic: 7
+    action: "Standing door re-partition (epic-6 retro R5, item epic-6-retro-item-23)
+      was not applied at the epic 7 door: 7.1 shipped as one story at 20.2 KB — under
+      the 24 KB gate — yet its code review had to run in three parts. Re-partition
+      applied 2026-09-12 before 7.2 (3→5 stories; note in epics.md Epic 7). For the
+      epic-7 retrospective: weigh the 24 KB number itself, with 7.1 as evidence."
+    owner: "Sergio"
+    status: open
+    ref: "_bmad-output/planning-artifacts/epics.md (Epic 7 re-partition note); _bmad-output/implementation-artifacts/7-1-the-before-after-reward.md"
