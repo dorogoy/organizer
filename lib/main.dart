@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'album/album_controller.dart';
 import 'capture/capture_controller.dart';
 import 'capture/dictation_controller.dart';
+import 'catalogue/loader.dart';
 import 'crash.dart';
+import 'dashboard/dashboard_controller.dart';
 import 'dispenser/dispenser_controller.dart';
 import 'egress/slicer_factory.dart';
 import 'files/app_files.dart';
@@ -139,6 +141,19 @@ void main() {
     files: files,
     writeQueue: logWrites,
   );
+  // The dashboard seam (Story 7.4, FR-23): the cumulative impact
+  // read's own controller — same store, same Files root, the same
+  // catalogue loader the Dispenser holds (`rootBundle` only, offline
+  // by construction). No camera, no egress and NO write queue: the
+  // dashboard is read-only, the log's one rendering surface.
+  // Constructed here and threaded root → Dispenser → reward → album —
+  // the 7.3 seam hop extended one step, so the gallery's `Ver lo que
+  // ya has movido` affordance is the dashboard's one entry point.
+  final dashboard = DashboardController(
+    store: store,
+    files: files,
+    loadCatalogue: () => loadEvergreenCatalogue(AppStringsEs()),
+  );
   // The route-awareness observer (Story 5.2): registered with the
   // navigator and threaded to the Dispenser, so a Settings toggle that
   // moves the Cámara entry lands the moment the way-out chain pops
@@ -194,6 +209,9 @@ void main() {
         // The album seam (Story 7.2, claimed by 7.3's gallery): the
         // reward's pair-landed arm opens the album through it.
         album: album,
+        // The dashboard seam (Story 7.4): the contextual chain's last
+        // hop — reward → album → the cumulative impact surface.
+        dashboard: dashboard,
         // The lifecycle's session-milestone drain (Story 7.1): the
         // backgrounding's own end has no navigator in front of it,
         // so its milestone stands in the session controller until
@@ -234,6 +252,7 @@ class OrganizerApp extends StatelessWidget {
     this.genesis,
     this.reward,
     this.album,
+    this.dashboard,
     this.sessionMilestone,
     this.vault,
     this.slicer,
@@ -275,6 +294,13 @@ class OrganizerApp extends StatelessWidget {
   /// pair-landed arm, whose `Ver el álbum` affordance is the
   /// gallery's one entry point (7.3).
   final AlbumController? album;
+
+  /// The dashboard seam (Story 7.4, FR-23): the cumulative impact
+  /// read's controller — held at the root and threaded down the
+  /// contextual chain (Dispenser → reward → album), whose `Ver lo
+  /// que ya has movido` affordance is the dashboard's one entry
+  /// point. Read-only: no write path exists behind it.
+  final DashboardController? dashboard;
 
   /// The lifecycle's session-milestone drain (Story 7.1): the session
   /// controller's own stash, threaded to the Dispenser screen.
@@ -322,6 +348,7 @@ class OrganizerApp extends StatelessWidget {
               genesis: genesis,
               reward: reward,
               album: album,
+              dashboard: dashboard,
               sessionMilestone: sessionMilestone,
               routeObserver: routeObserver,
             ),

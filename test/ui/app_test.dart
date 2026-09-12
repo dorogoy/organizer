@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/catalogue/catalogue.dart';
 import 'package:core/derive/reward.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/recognizer_port.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/album/album_controller.dart';
 import 'package:organizer/capture/dictation_controller.dart';
+import 'package:organizer/dashboard/dashboard_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/genesis/genesis_controller.dart';
 import 'package:organizer/main.dart';
@@ -316,6 +318,11 @@ void main() {
       files: _EmptyFiles(),
       writeQueue: LogWriteQueue(),
     );
+    final dashboard = DashboardController(
+      store: store,
+      files: _EmptyFiles(),
+      loadCatalogue: () async => Catalogue(version: 1, entries: const []),
+    );
     const space = (groupId: 'group-1', origin: Origin.cloud);
 
     await tester.pumpWidget(
@@ -332,16 +339,28 @@ void main() {
             camera: _NoopCamera(),
           ),
           album: album,
+          dashboard: dashboard,
           sessionMilestone: () => space,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    // The milestone's push ran through the real `_maybePushReward`:
-    // the reward screen stands, carrying the SAME album controller.
-    final reward = tester.widget<RewardScreen>(find.byType(RewardScreen));
+    final reward = tester.widget<RewardScreen>(
+      find.byType(RewardScreen, skipOffstage: false),
+    );
     expect(identical(reward.album, album), isTrue);
+    // And the 7.4 hop, one step further down the contextual chain:
+    // the SAME dashboard controller reaches the reward screen too,
+    // whose album push carries it to the gallery — the dashboard's one
+    // entry point (Story 7.4, dropping either hand-down ships it dead
+    // with every composition pin green).
+    expect(identical(reward.dashboard, dashboard), isTrue);
+    // The Dispenser holds the same seam it threaded.
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen, skipOffstage: false),
+    );
+    expect(identical(dispenser.dashboard, dashboard), isTrue);
   });
 
   test(
@@ -454,6 +473,40 @@ void main() {
             .hasMatch(source),
         isTrue,
         reason: 'the genesis rows ride the one shared write queue',
+      );
+      // The dashboard seam (Story 7.4, FR-23) rides the same store and
+      // the one Files adapter, and holds NO write queue — the surface
+      // is read-only by construction. Bounded by the statement's
+      // semicolon, like the pins above, so the Dispenser's own
+      // `store:` cannot satisfy it.
+      expect(
+        RegExp(r'DashboardController\([^;]*?store:\s*store').hasMatch(source),
+        isTrue,
+        reason: 'the dashboard wiring must hold the same single store',
+      );
+      expect(
+        RegExp(r'DashboardController\([^;]*?files:\s*files').hasMatch(source),
+        isTrue,
+        reason: 'the dashboard wiring must hold the one Files adapter',
+      );
+      expect(
+        RegExp(
+          r'DashboardController\([^;]*?loadCatalogue:\s*\(\)\s*=>\s*loadEvergreenCatalogue',
+        ).hasMatch(source),
+        isTrue,
+        reason: 'the catalogue read must come from the shell\'s loader',
+      );
+      // And the dashboard's own two hand-downs inside main.dart: the
+      // OrganizerApp construction and the Dispenser home it builds —
+      // losing either ships the cumulative impact surface unreachable
+      // from the Album, with every composition pin above still green
+      // (the 7.3 seam-hop lesson, one hop further).
+      expect(
+        source.split('dashboard: dashboard,').length - 1,
+        2,
+        reason:
+            'the dashboard seam is handed down twice inside main.dart — '
+            'OrganizerApp and the Dispenser home it builds',
       );
       // And both hand-downs inside main.dart: the OrganizerApp
       // construction and the Dispenser home it builds — losing

@@ -30,7 +30,9 @@ import 'package:core/ports/files_port.dart';
 import 'package:flutter/material.dart';
 
 import '../../album/album_controller.dart';
+import '../../dashboard/dashboard_controller.dart';
 import '../../strings/app_strings.dart';
+import '../dashboard/dashboard_screen.dart';
 import '../dispenser/task_card.dart';
 import '../photo_frame.dart';
 import '../tokens.dart';
@@ -38,11 +40,21 @@ import '../tokens.dart';
 /// The contextual gallery (FR-18). [album] is the 7.2 controller the
 /// reward's pair-landed arm threads — same store, same Files root, the
 /// same seam main composes. Absent (the test seam), the read answers
-/// empty and the surface pops: nothing half-wired renders.
+/// empty and the surface pops: nothing half-wired renders. [dashboard]
+/// is the 7.4 controller behind the gallery's one quiet way onward —
+/// `Ver lo que ya has movido`, the dashboard's ONLY entry point
+/// anywhere in the app (UX-DR31/32); absent, the affordance renders
+/// nowhere (never a dead button).
 class AlbumScreen extends StatefulWidget {
-  const AlbumScreen({super.key, this.album});
+  const AlbumScreen({super.key, this.album, this.dashboard});
 
   final AlbumController? album;
+
+  /// The dashboard seam (Story 7.4, FR-23): the cumulative impact
+  /// read's controller — the same store and Files root, threaded so
+  /// the gallery the transformation-completed moment reached is the
+  /// dashboard's one and only door.
+  final DashboardController? dashboard;
 
   @override
   State<AlbumScreen> createState() => _AlbumScreenState();
@@ -141,6 +153,22 @@ class _AlbumScreenState extends State<AlbumScreen> {
     await _read();
   }
 
+  /// The dashboard's one entry point (Story 7.4, FR-23,
+  /// UX-DR31/32/51): the gallery's quiet prose way onward — one
+  /// SecondaryTextAction above the close, rendered only while the
+  /// seam stands. The push sits behind the same isCurrent guard
+  /// every push in this flow owns; the dashboard's own empty-album
+  /// self-pop covers a stale affordance over an already-empty album.
+  void _openDashboard() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DashboardScreen(dashboard: widget.dashboard),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -215,6 +243,20 @@ class _AlbumScreenState extends State<AlbumScreen> {
                     // largest interior gap the register owns, the
                     // pause between reading and committing.
                     const SizedBox(height: Spacing.taskToActions),
+                    if (widget.dashboard != null) ...[
+                      // The dashboard's one entry point (Story 7.4,
+                      // FR-23, UX-DR31/32): quiet prose sited with the
+                      // other secondary actions, above the close — the
+                      // app's only way into the cumulative impact
+                      // surface, and nothing here until a first
+                      // transformation exists (the gallery renders
+                      // only then, so the reach is contextual by
+                      // construction).
+                      SecondaryTextAction(
+                        label: strings.albumOpenDashboard,
+                        onTap: _openDashboard,
+                      ),
+                    ],
                   ],
                   // The shared close — never a *seguir* variant, and
                   // closing has zero side effects.

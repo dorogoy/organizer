@@ -857,7 +857,10 @@ final class KitchenSink {
       // window's remainder. The charged skipped days and the carried
       // focus days (Story 4.6) are the refusal counter's input and the
       // rescue conversion's statement — where a decline landed and
-      // which day's "1" a chain carries, never anything owed.
+      // which day's "1" a chain carries, never anything owed. The
+      // all-time pair (Story 7.4, FR-23, AD-26) is the cumulative
+      // impact read's own input — statements about work already
+      // happened, never about a target, a rate or a denominator.
       expect(
         _classOwnFields('LogFacts', 'weave/session.dart'),
         equals([
@@ -867,6 +870,8 @@ final class KitchenSink {
           'dealtDaysByItemId',
           'skippedDaysByItemId',
           'answeredItemIds',
+          'cardDoneCount',
+          'answeredSecondsAllTime',
           'openSessionStart',
           'dealtUnanswered',
           'openSessionPocketMinutes',
@@ -1355,6 +1360,14 @@ final class KitchenSink {
       // group pair, both blob names and the added act's instant
       // (FR-18, AD-13).
       'derive/album.dart:AlbumEntry',
+      // Story 7.4: the cumulative impact read's own records — the
+      // AD-26 crossing surface (work figures, per-tag tallies,
+      // highlights) and one highlight's caption facts (the place, the
+      // added act's instant and its civil-day offset, AD-4);
+      // achievement figures only, so no denominator is representable
+      // (FR-23).
+      'derive/impact.dart:ImpactRead',
+      'derive/impact.dart:ImpactHighlight',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {
