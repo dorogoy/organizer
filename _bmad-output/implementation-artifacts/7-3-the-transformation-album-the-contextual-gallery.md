@@ -133,3 +133,20 @@ context: []
 
 - Affordance gating on every arm, double-tap, and the return leg with the stale path.
   [`reward_screen_test.dart:283`](../../test/ui/reward/reward_screen_test.dart#L283)
+
+## Manual Verification (Android emulator, 2026-09-12)
+
+**Environment:** AVD `organizer36` (Pixel 6, API 36 `google_apis` x86_64, KVM), debug `app-debug.apk` @ `6582c3f`, driven over adb; UI read via `screencap` + OCR, every observation cross-checked against the pulled substrate DB. State synthesized by direct substrate seeding (the 2-7 precedent): two single-step `local`-origin epic groups (`scan-alpha`/`scan-beta` contexts) + `epic_activated` + `before_saved` rows + two content-addressed JPEGs pushed into `files/album/`. Two machine-local pitfalls hit and worked around: pushed files land root-owned (app uid cannot write — chown before launch), and the WAL-less push must replace a force-stopped app. Day 2 synthesized via clock +25 h (`adb root` + `date -s`); the day-2 focus chunk needed a fresh pocket that could hold the 10-min step.
+
+| Check | Observed |
+|---|---|
+| Contextual entry | `Ver el álbum` absent on the shoot-offered arm; appears the moment the pair lands (both days) ✓ |
+| Pair grammar | Two equal plates (452×600 px, ~44 px gap), labels `Antes`/`Después` outside the frames ✓ |
+| Gallery render | `Tu álbum` title; thumbnails at the small cut-edge radius with 1 px hairline; newest-first (day-2 entry above day-1's); one `Borrar` per entry ✓ |
+| Delete one entry | `album_entry_deleted|step-b1` appended; gallery re-read shows the other entry intact ✓ |
+| Purge | One tap, no confirmation: `album_purged` appended, `files/album/` swept to 0 files, screen popped ✓ |
+| No empty state | Post-purge tap on the stale reward affordance: gallery opens, reads empty, pops itself — back on the reward, no empty copy ✓ |
+| 200 % font scale | Gallery renders complete (title, pair, all controls), nothing truncated or overlapping ✓ |
+| Log truth | Final album rows: `album_entry_added`×2, `album_entry_deleted`×1, `album_purged`×1 — matching every UI act ✓ |
+
+Also exercised incidentally: the 6.1 purge cards dealt ahead of each group's steps (skip closes them), the Sunday self-report holding the strip, and the pocket ladder declaring the day-2 session.
