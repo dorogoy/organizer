@@ -91,19 +91,6 @@ ImpactRead deriveImpact({
   final metric = deriveDeclutterMetric(entries);
   final live = albumEntries(entries);
   final groups = epicGroupsByStableId(poolFacts);
-  // The civil-day recovery (AD-4): each highlight carries the offset
-  // its own `album_entry_added` row recorded, folded straight off
-  // the raw entries the album fold read — keyed by the group and
-  // instant that identify the add act — so the caption's short date
-  // is the act's recorded civil day. Every live entry's act sits in
-  // this fold; the `?? 0` is shape tolerance, never a second
-  // definition.
-  final addOffsets = <({String groupId, int addedUtcMicros}), int>{
-    for (final entry in entries)
-      if (entry is AlbumEntryAddedEntry)
-        (groupId: entry.itemId, addedUtcMicros: entry.instantUtcMicros):
-            entry.offsetSeconds,
-  };
   // The newest three, newest first — the gallery's own order, so the
   // row and the album never disagree about which transformation is
   // the latest.
@@ -130,12 +117,7 @@ ImpactRead deriveImpact({
           // never an invented label.
           place: groups[entry.groupId]?.first.originContext,
           addedUtcMicros: entry.addedUtcMicros,
-          offsetSeconds:
-              addOffsets[(
-                groupId: entry.groupId,
-                addedUtcMicros: entry.addedUtcMicros,
-              )] ??
-              0,
+          offsetSeconds: entry.offsetSeconds,
         ),
     ],
   );

@@ -44,6 +44,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/catalogue/catalogue_names.g.dart';
 import 'package:organizer/catalogue/loader.dart';
+import 'package:organizer/dashboard/dashboard_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/session/session_controller.dart';
@@ -765,6 +766,11 @@ Widget _harness(
   /// the real controller.
   RewardController? reward,
 
+  /// The dashboard seam (Story 7.4): threaded exactly as main threads
+  /// it, so the test can prove the dashboard remains contextual to the
+  /// Album and is absent from this entry point.
+  DashboardController? dashboard,
+
   /// The lifecycle's session-milestone drain (Story 7.1, the 7.1
   /// session push test): threaded exactly as main threads it.
   NamedRewardSpace? Function()? sessionMilestone,
@@ -784,6 +790,7 @@ Widget _harness(
     sessionSettled: sessionSettled,
     settings: settings,
     reward: reward,
+    dashboard: dashboard,
     sessionMilestone: sessionMilestone,
   ),
 );
@@ -7655,16 +7662,25 @@ void main() {
               itemOrigin: Origin.cloud,
             ),
           ]);
+    final files = _RewardPushFiles();
     final reward = RewardController(
       store: store,
-      files: _RewardPushFiles(),
+      files: files,
       camera: _RewardPushCamera(),
       nowOf: _fixedClock,
     );
     final controller = buildController(store);
-    await tester.pumpWidget(_harness(controller, reward: reward));
+    final dashboard = DashboardController(
+      store: store,
+      files: files,
+      loadCatalogue: () async => Catalogue(version: 1, entries: const []),
+    );
+    await tester.pumpWidget(
+      _harness(controller, reward: reward, dashboard: dashboard),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(TaskCard), findsOneWidget);
+    expect(find.text(AppStringsEs().albumOpenDashboard), findsNothing);
 
     await tester.tap(find.byType(HechoButton));
     await tester.pumpAndSettle();
@@ -7673,6 +7689,7 @@ void main() {
     // fired and the screen pushed the reward over the dispenser.
     expect(find.byType(RewardScreen), findsOneWidget);
     expect(find.text(AppStringsEs().rewardWithoutPhoto), findsOneWidget);
+    expect(find.text(AppStringsEs().albumOpenDashboard), findsNothing);
 
     // Cerrar closes — zero side effects — and the milestone is spent:
     // the pop's refresh commits with no second push, and the drain

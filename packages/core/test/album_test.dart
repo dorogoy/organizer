@@ -77,6 +77,7 @@ void main() {
         beforeName: 'a.jpg',
         afterName: 'b.jpg',
         addedUtcMicros: 1000,
+        offsetSeconds: 3600,
       ));
       expect(entries[1].groupId, 'g2');
       expect(entries[1].afterName, 'd.jpg');

@@ -434,10 +434,21 @@ class _HighlightRow extends StatelessWidget {
         final candidateWidth = (constraints.maxWidth - gaps) / columnCount;
         final support = theme.textTheme.bodySmall;
         final scaler = MediaQuery.textScalerOf(context);
-        final anyCaptionBeyondTwoLines = captions.any(
-          (caption) => _lineCount(caption, candidateWidth, scaler, support) > 2,
-        );
-        if (anyCaptionBeyondTwoLines || columnCount == 1) {
+        // A narrow parent can leave no positive width for the candidate
+        // columns. Reflow before measuring so TextPainter never receives
+        // an invalid maxWidth; the one-column layout is the existing
+        // graceful degradation for this constraint.
+        final widthRequiresReflow =
+            !candidateWidth.isFinite || candidateWidth <= 0;
+        final anyCaptionBeyondTwoLines = widthRequiresReflow
+            ? false
+            : captions.any(
+                (caption) =>
+                    _lineCount(caption, candidateWidth, scaler, support) > 2,
+              );
+        if (widthRequiresReflow ||
+            anyCaptionBeyondTwoLines ||
+            columnCount == 1) {
           // One column per row (UX-DR30/46): the whole row reflows,
           // the gaps stay the row's own unscaled actionGap, and every
           // caption renders whole.

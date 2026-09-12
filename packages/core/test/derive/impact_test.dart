@@ -85,14 +85,17 @@ void main() {
     int micros, {
     Origin origin = Origin.cloud,
     int offsetSeconds = 0,
+    String? id,
+    String? beforeName,
+    String? afterName,
   }) => AlbumEntryAddedEntry(
-    id: 'al-$group-$micros',
+    id: id ?? 'al-$group-$micros-$offsetSeconds',
     instantUtcMicros: micros,
     offsetSeconds: offsetSeconds,
     itemId: group,
     itemOrigin: origin,
-    beforeName: 'before-$group.jpg',
-    afterName: 'after-$group.jpg',
+    beforeName: beforeName ?? 'before-$group.jpg',
+    afterName: afterName ?? 'after-$group.jpg',
   );
 
   /// One scan group's head fact — a slicer-origin step carrying the
@@ -329,6 +332,69 @@ void main() {
     expect(read.highlights[0].beforeName, 'before-g-unknown.jpg');
     expect(read.highlights[1].afterName, 'after-g-silent.jpg');
     expect(read.highlights[1].addedUtcMicros, 1000);
+  });
+
+  test('each live entry keeps its own civil-day offset when group and '
+      'instant collide — the add row is the identity, not a lookup key', () {
+    final read = deriveImpact(
+      entries: [
+        albumEntry(
+          'same-group',
+          1000,
+          offsetSeconds: -7 * 3600,
+          id: 'album-west',
+          beforeName: 'before-west.jpg',
+          afterName: 'after-west.jpg',
+        ),
+        albumEntry(
+          'same-group',
+          1000,
+          offsetSeconds: 9 * 3600,
+          id: 'album-east',
+          beforeName: 'before-east.jpg',
+          afterName: 'after-east.jpg',
+        ),
+      ],
+      catalogue: catalogue,
+      poolFacts: const [],
+    );
+
+    expect(
+      read.highlights
+          .map((highlight) => (highlight.beforeName, highlight.offsetSeconds))
+          .toList(),
+      [('before-east.jpg', 9 * 3600), ('before-west.jpg', -7 * 3600)],
+      reason: 'newest-first order still carries each add row\'s offset',
+    );
+  });
+
+  test('the AD-26 crossing keeps the exact read and highlight record '
+      'shapes — no internal or denominator-bearing field can slip across', () {
+    const ImpactHighlight expectedHighlight = (
+      beforeName: 'before-shape.jpg',
+      afterName: 'after-shape.jpg',
+      place: null,
+      addedUtcMicros: 1000,
+      offsetSeconds: 0,
+    );
+    const expectedReadShape = (
+      answeredSecondsAllTime: 0,
+      cardDoneCount: 0,
+      liberatedBolsa: 0,
+      liberatedCaja: 0,
+      liberatedCajaGrande: 0,
+      liberatedMueble: 0,
+      highlights: <ImpactHighlight>[expectedHighlight],
+    );
+    final read = deriveImpact(
+      entries: [albumEntry('shape', 1000)],
+      catalogue: catalogue,
+      poolFacts: const [],
+    );
+
+    expect(read.runtimeType, expectedReadShape.runtimeType);
+    expect(read.highlights, hasLength(1));
+    expect(read.highlights.single.runtimeType, expectedHighlight.runtimeType);
   });
 
   test('the derivation is pure — two calls over the same inputs derive '

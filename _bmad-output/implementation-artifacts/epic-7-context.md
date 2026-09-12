@@ -4,7 +4,7 @@
 
 ## Goal
 
-Make completed work visible without turning it into a score: show the same scanned space before and after, preserve the pair in a private local album, and expose cumulative achievements without quotas or deficit framing. Epic 7 consumes scan, completion, and triage facts produced elsewhere; it renders what the user did and does not infer new progress. No product-brief artifact is present in the planning directory, so this context uses the available epics, PRD, architecture spine, and UX design spines.
+Make completed work visible as a calm, ungraded fact: offer a before/after view of a scanned space, preserve completed pairs in a private local Transformation Album, and show cumulative achievements without quotas, comparisons, or deficit framing. This epic consumes scan/milestone facts and `item_triaged` acts produced by earlier capabilities; it must not infer progress from photographs. No product-brief artifact is present in the planning directory, so this context uses the available epics, PRD, architecture, and UX artifacts.
 
 ## Stories
 

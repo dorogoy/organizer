@@ -224,6 +224,7 @@ class _AlbumScreenState extends State<AlbumScreen> {
                           entry.beforeName,
                           entry.afterName,
                           entry.addedUtcMicros,
+                          entry.offsetSeconds,
                         )),
                         files: controller.files,
                         entry: entry,

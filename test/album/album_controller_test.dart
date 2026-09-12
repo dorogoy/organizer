@@ -385,6 +385,7 @@ void main() {
         beforeName: 'a.jpg',
         afterName: 'b.jpg',
         addedUtcMicros: 1000,
+        offsetSeconds: 0,
       );
       await controller.deleteEntry(stale);
       expect(
@@ -662,6 +663,7 @@ void main() {
         beforeName: 'a.jpg',
         afterName: 'b.jpg',
         addedUtcMicros: 1000,
+        offsetSeconds: 0,
       );
       final afterName = albumPhotoName([7, 8, 9]);
 

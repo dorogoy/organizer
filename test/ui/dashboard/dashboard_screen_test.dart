@@ -16,6 +16,8 @@
 // leaves the quiet pending plate with `Volver al álbum` working; an
 // empty album read pops the surface; a highlight tap is the same
 // guarded pop back into the Album — no viewer, no browse surface.
+import 'dart:ui' as ui;
+
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/files_port.dart';
@@ -23,9 +25,12 @@ import 'package:core/ports/store_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:organizer/album/album_controller.dart';
 import 'package:organizer/dashboard/dashboard_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
+import 'package:organizer/ui/album/album_screen.dart';
 import 'package:organizer/ui/dashboard/dashboard_screen.dart';
 import 'package:organizer/ui/glyphs/album_glyph.dart';
 import 'package:organizer/ui/glyphs/clock_glyph.dart';
@@ -36,14 +41,20 @@ import 'package:organizer/ui/tokens.dart';
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
   final List<PoolFactRecord> poolFacts = [];
+  var appendLogEntryCalls = 0;
+  var appendPoolFactCalls = 0;
   bool throwOnRead = false;
   bool throwOnPoolRead = false;
 
   @override
-  Future<void> appendPoolFact(PoolFactRecord fact) async {}
+  Future<void> appendPoolFact(PoolFactRecord fact) async {
+    appendPoolFactCalls++;
+  }
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async {}
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    appendLogEntryCalls++;
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async {
@@ -255,6 +266,73 @@ void _seedScanGroup(
 int _noon(int year, int month, int day) =>
     DateTime.utc(year, month, day, 12).microsecondsSinceEpoch;
 
+/// Rendered copy that would introduce a denominator or a comparison frame
+/// is forbidden on the dashboard, even when it does not use `%` or `/`.
+final _denominatorDenyList = <RegExp>[
+  RegExp(r'\bde\s+\d+\b', caseSensitive: false),
+  RegExp(r'\b(promedio|media|average)\b', caseSensitive: false),
+  RegExp(r'\b(meta|objetivo|target|cuota|quota)\b', caseSensitive: false),
+  RegExp(
+    r'\b(comparad[oa]|comparación|comparacion|frente a|vs\.?|periodo|período)\b',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\b(tasa|rate|ritmo|por\s+(día|dia|semana|mes|hora))\b',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\b(ratio|proporción|proporcion|porcentaje|completion\s+ratio)\b',
+    caseSensitive: false,
+  ),
+];
+
+void _expectNoDenominatorCopy(Iterable<String> texts) {
+  for (final text in texts) {
+    for (final forbidden in _denominatorDenyList) {
+      expect(
+        forbidden.hasMatch(text),
+        isFalse,
+        reason: 'denominator/comparison copy rendered: $text',
+      );
+    }
+    expect(text.contains('%'), isFalse, reason: 'percentage rendered: $text');
+    expect(text.contains('/'), isFalse, reason: 'ratio slash rendered: $text');
+  }
+}
+
+String _inlineSpanCopy(InlineSpan span) {
+  if (span is! TextSpan) {
+    return '';
+  }
+  return [
+    if (span.text != null) span.text!,
+    for (final child in span.children ?? const <InlineSpan>[])
+      _inlineSpanCopy(child),
+  ].join();
+}
+
+Iterable<String> _renderedCopy(WidgetTester tester) sync* {
+  for (final element in tester.allElements) {
+    final widget = element.widget;
+    if (widget is Text) {
+      final copy =
+          widget.data ??
+          (widget.textSpan == null ? '' : _inlineSpanCopy(widget.textSpan!));
+      if (copy.isNotEmpty) {
+        yield copy;
+      }
+      if (widget.semanticsLabel != null) {
+        yield widget.semanticsLabel!;
+      }
+    } else if (widget is RichText) {
+      final copy = _inlineSpanCopy(widget.text);
+      if (copy.isNotEmpty) {
+        yield copy;
+      }
+    }
+  }
+}
+
 void main() {
   final strings = AppStringsEs();
   final theme = OrganizerTheme.light();
@@ -279,14 +357,15 @@ void main() {
   /// a standing home route, the dashboard pushed on top.
   Future<void> pumpDashboard(
     WidgetTester tester,
-    DashboardController dashboard,
-  ) async {
+    DashboardController dashboard, {
+    Widget home = const Scaffold(body: SizedBox.shrink()),
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
         localizationsDelegates: AppStrings.localizationsDelegates,
         supportedLocales: AppStrings.supportedLocales,
-        home: const Scaffold(body: SizedBox.shrink()),
+        home: home,
       ),
     );
     tester
@@ -635,6 +714,51 @@ void main() {
     expect(find.text(strings.dashboardBackToAlbum), findsOneWidget);
   });
 
+  testWidgets('two entries render two cells with the normal pair and '
+      'column gaps — no third placeholder (matrix: 1–2 entries)', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    _seedScanGroup(store, 'g1', 'Mesa');
+    _seedScanGroup(store, 'g2', 'Entrada');
+    _seedAlbumEntry(store, 'g1', _noon(2026, 8, 4));
+    _seedAlbumEntry(store, 'g2', _noon(2026, 8, 12));
+    files.blobsByName
+      ..['before-g1.jpg'] = [1]
+      ..['after-g1.jpg'] = [2]
+      ..['before-g2.jpg'] = [3]
+      ..['after-g2.jpg'] = [4];
+    await pumpDashboard(tester, controllerWith(store, files));
+
+    final frames = find.byType(PhotoFrame);
+    expect(frames, findsNWidgets(4));
+    final newestBefore = tester.getRect(frames.at(0));
+    final newestAfter = tester.getRect(frames.at(1));
+    final olderBefore = tester.getRect(frames.at(2));
+    expect(newestAfter.left - newestBefore.right, Spacing.spacingBase);
+    expect(olderBefore.left - newestAfter.right, Spacing.actionGap);
+    expect(newestBefore.width, olderBefore.width);
+    expect(newestBefore.top, olderBefore.top);
+    expect(find.text(strings.dashboardBackToAlbum), findsOneWidget);
+  });
+
+  testWidgets('a non-positive highlight candidate width takes the existing '
+      'one-column path without an invalid TextPainter width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const ui.Size(30, 600));
+    final (store, files) = seededSurface();
+    await pumpDashboard(tester, controllerWith(store, files));
+
+    final frames = find.byType(PhotoFrame);
+    expect(frames, findsNWidgets(6));
+    expect(
+      tester.getRect(frames.at(2)).top,
+      greaterThan(tester.getRect(frames.at(0)).bottom),
+      reason: 'the narrow row reflows one cell per row',
+    );
+  });
+
   testWidgets('a highlight with no Origin Context renders the dateless '
       'caption — the date alone, never an invented place (matrix: '
       'missing origin context)', (tester) async {
@@ -729,22 +853,63 @@ void main() {
     expect(find.text('≈\u00A01 caja grande liberada'), findsOneWidget);
   });
 
+  testWidgets('every volume unit renders its singular gendered arm — '
+      'bolsa, caja, caja grande and mueble (FR-22, UX-DR37/49)', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    _seedTriage(store, 'bolsa', 'donate_sell', 'bolsa');
+    _seedTriage(store, 'caja', 'donate_sell', 'caja');
+    _seedTriage(store, 'caja-grande', 'donate_sell', 'caja_grande');
+    _seedTriage(store, 'mueble', 'donate_sell', 'mueble');
+    _seedScanGroup(store, 'g1', 'La mesa del salón');
+    _seedAlbumEntry(store, 'g1', _noon(2026, 8, 12));
+    files.blobsByName
+      ..['before-g1.jpg'] = [1]
+      ..['after-g1.jpg'] = [2];
+    await pumpDashboard(tester, controllerWith(store, files));
+
+    expect(find.text('≈\u00A01 bolsa liberada'), findsOneWidget);
+    expect(find.text('≈\u00A01 caja liberada'), findsOneWidget);
+    expect(find.text('≈\u00A01 caja grande liberada'), findsOneWidget);
+    expect(find.text('≈\u00A01 mueble liberado'), findsOneWidget);
+  });
+
+  testWidgets('every volume unit renders its plural gendered arm — '
+      'bolsas, cajas, cajas grandes and muebles (FR-22, UX-DR37/49)', (
+    tester,
+  ) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles();
+    for (var i = 0; i < 2; i++) {
+      _seedTriage(store, 'bolsa-$i', 'donate_sell', 'bolsa');
+      _seedTriage(store, 'caja-$i', 'donate_sell', 'caja');
+      _seedTriage(store, 'caja-grande-$i', 'donate_sell', 'caja_grande');
+      _seedTriage(store, 'mueble-$i', 'donate_sell', 'mueble');
+    }
+    _seedScanGroup(store, 'g1', 'La mesa del salón');
+    _seedAlbumEntry(store, 'g1', _noon(2026, 8, 12));
+    files.blobsByName
+      ..['before-g1.jpg'] = [1]
+      ..['after-g1.jpg'] = [2];
+    await pumpDashboard(tester, controllerWith(store, files));
+
+    expect(find.text('≈\u00A02 bolsas liberadas'), findsOneWidget);
+    expect(find.text('≈\u00A02 cajas liberadas'), findsOneWidget);
+    expect(find.text('≈\u00A02 cajas grandes liberadas'), findsOneWidget);
+    expect(find.text('≈\u00A02 muebles liberados'), findsOneWidget);
+  });
+
   testWidgets('no rendered value admits a denominator — neither the % '
       'nor the / character renders anywhere on the surface '
       '(UX-DR36, FR-23, the negative sweep)', (tester) async {
     final (store, files) = seededSurface();
     await pumpDashboard(tester, controllerWith(store, files));
 
-    final texts = tester
-        .widgetList<Text>(find.byType(Text))
-        .map((text) => text.data)
-        .whereType<String>()
-        .toList();
+    final texts = _renderedCopy(tester).toList();
     expect(texts, isNotEmpty, reason: 'the sweep reads a rendered surface');
-    for (final text in texts) {
-      expect(text.contains('%'), isFalse, reason: 'no percentage: $text');
-      expect(text.contains('/'), isFalse, reason: 'no ratio slash: $text');
-    }
+    _expectNoDenominatorCopy(texts);
   });
 
   testWidgets('the work figure renders the existing seconds figure under '
@@ -809,13 +974,27 @@ void main() {
       'browse surface — and a double-tap inside the transition folds to '
       'the one guarded pop (matrix: highlight tap)', (tester) async {
     final (store, files) = seededSurface();
-    await pumpDashboard(tester, controllerWith(store, files));
+    await pumpDashboard(
+      tester,
+      controllerWith(store, files),
+      home: AlbumScreen(
+        album: AlbumController(
+          store: store,
+          files: files,
+          writeQueue: LogWriteQueue(),
+        ),
+      ),
+    );
 
     // The tap lands on the newest cell's pair — below the fold on the
     // test surface, so scroll it in first.
     final frames = find.byType(PhotoFrame);
     await tester.ensureVisible(frames.at(0));
     await tester.pumpAndSettle();
+    final cellTap = find
+        .ancestor(of: frames.at(0), matching: find.byType(GestureDetector))
+        .first;
+    final onCellTap = tester.widget<GestureDetector>(cellTap).onTap!;
     await tester.tap(frames.at(0));
     await tester.pump();
     // The transition starts — the dashboard route is no longer current,
@@ -823,15 +1002,22 @@ void main() {
     // refused (the reward's double-tap recipe: the guard every pop in
     // the flow owns, invoked directly because the route beneath the
     // transition cannot be tapped reliably).
-    final cellTap = find
-        .ancestor(of: frames.at(0), matching: find.byType(GestureDetector))
-        .first;
-    tester.widget<GestureDetector>(cellTap).onTap!();
+    onCellTap();
     await tester.pumpAndSettle();
     expect(
       find.byType(DashboardScreen),
       findsNothing,
       reason: 'one pop, back into the Album beneath',
+    );
+    expect(
+      find.byType(AlbumScreen, skipOffstage: false),
+      findsOneWidget,
+      reason: 'the guarded pop reveals the actual Album route',
+    );
+    expect(
+      find.text(strings.albumTitle).hitTestable(),
+      findsOneWidget,
+      reason: 'the existing Album route is now the visible destination',
     );
   });
 
@@ -854,5 +1040,7 @@ void main() {
           'the dashboard has no write path — no LogWriteQueue '
           'exists behind it',
     );
+    expect(store.appendLogEntryCalls, 0);
+    expect(store.appendPoolFactCalls, 0);
   });
 }

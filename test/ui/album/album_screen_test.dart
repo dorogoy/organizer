@@ -136,12 +136,14 @@ void _seedAlbumEntry(
   required String beforeName,
   required String afterName,
   int instantUtcMicros = 1000,
+  int offsetSeconds = 3600,
+  String? id,
 }) {
   store.entries.add((
-    id: 'album-$group',
+    id: id ?? 'album-$group-$offsetSeconds',
     kind: 'album_entry_added',
     instantUtcMicros: instantUtcMicros,
-    offsetSeconds: 3600,
+    offsetSeconds: offsetSeconds,
     itemId: group,
     itemOrigin: Origin.cloud,
     stack: null,
@@ -302,6 +304,34 @@ void main() {
     expect(find.text(strings.albumEntryDelete), findsNWidgets(2));
     expect(find.text(strings.albumPurge), findsOneWidget);
     expect(find.text(strings.rewardClose), findsOneWidget);
+  });
+
+  testWidgets('same pair entries with distinct civil-day offsets keep '
+      'distinct album keys and both render (AD-4)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()
+      ..blobsByName['before-shared.jpg'] = [1]
+      ..blobsByName['after-shared.jpg'] = [2];
+    _seedAlbumEntry(
+      store,
+      group: 'shared',
+      beforeName: 'before-shared.jpg',
+      afterName: 'after-shared.jpg',
+      offsetSeconds: -7 * 3600,
+      id: 'album-west',
+    );
+    _seedAlbumEntry(
+      store,
+      group: 'shared',
+      beforeName: 'before-shared.jpg',
+      afterName: 'after-shared.jpg',
+      offsetSeconds: 9 * 3600,
+      id: 'album-east',
+    );
+    await pumpAlbum(tester, controllerWith(store, files));
+
+    expect(find.byType(PhotoFrame), findsNWidgets(4));
+    expect(find.text(strings.albumEntryDelete), findsNWidgets(2));
   });
 
   testWidgets('one tap on Borrar deletes exactly that entry — the row, the '

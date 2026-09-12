@@ -1357,8 +1357,8 @@ final class KitchenSink {
       // the group id and origin every reward row carries.
       'derive/reward.dart:NamedRewardSpace',
       // Story 7.2: the album read model's live-entry record — the
-      // group pair, both blob names and the added act's instant
-      // (FR-18, AD-13).
+      // group pair, both blob names, the added act's instant and its
+      // civil-day offset (FR-18, AD-13, AD-4).
       'derive/album.dart:AlbumEntry',
       // Story 7.4: the cumulative impact read's own records — the
       // AD-26 crossing surface (work figures, per-tag tallies,

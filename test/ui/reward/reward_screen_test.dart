@@ -336,6 +336,11 @@ void main() {
     );
     // While the After is owed the affordance is absent.
     expect(find.text(strings.rewardOpenAlbum), findsNothing);
+    expect(
+      find.text(strings.albumOpenDashboard),
+      findsNothing,
+      reason: 'the dashboard remains contextual to the Album, never Reward',
+    );
 
     await tester.ensureVisible(find.text(strings.rewardAfterShoot));
     await tester.pumpAndSettle();
@@ -347,6 +352,7 @@ void main() {
     // The pair landed: exactly one album affordance, quiet prose in
     // the secondary register.
     expect(find.text(strings.rewardOpenAlbum), findsOneWidget);
+    expect(find.text(strings.albumOpenDashboard), findsNothing);
 
     await tester.tap(find.text(strings.rewardOpenAlbum));
     await tester.pumpAndSettle();
