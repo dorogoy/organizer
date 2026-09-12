@@ -29,8 +29,10 @@ import 'package:core/derive/reward.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:flutter/material.dart';
 
+import '../../album/album_controller.dart';
 import '../../reward/reward_controller.dart';
 import '../../strings/app_strings.dart';
+import '../album/album_screen.dart';
 import '../dispenser/task_card.dart';
 import '../photo_frame.dart';
 import '../photo_shoot_screen.dart';
@@ -41,12 +43,25 @@ import '../tokens.dart';
 /// named. [controller] is the reward seam main composes over the same
 /// store, Files and camera the scan path holds; absent (the test
 /// seam), the read answers the no-photo presentation and a shoot
-/// writes nothing.
+/// writes nothing. [album] is the 7.2 controller the pair-landed
+/// arm's `Ver el álbum` affordance threads into the gallery (Story
+/// 7.3) — absent, the affordance renders nowhere (never a dead
+/// button).
 class RewardScreen extends StatefulWidget {
-  const RewardScreen({super.key, required this.space, this.controller});
+  const RewardScreen({
+    super.key,
+    required this.space,
+    this.controller,
+    this.album,
+  });
 
   final NamedRewardSpace space;
   final RewardController? controller;
+
+  /// The album seam (Story 7.3, FR-18): the pair-landed arm's
+  /// contextual way onward into the gallery — the album's ONLY entry
+  /// point anywhere in the app (UX-DR31/32).
+  final AlbumController? album;
 
   @override
   State<RewardScreen> createState() => _RewardScreenState();
@@ -141,6 +156,22 @@ class _RewardScreenState extends State<RewardScreen> {
     }
   }
 
+  /// The gallery's one entry point (Story 7.3, FR-18, UX-DR31/32):
+  /// the pair-landed arm's quiet prose way onward — never a permanent
+  /// destination, never rendered on any other arm. The push sits
+  /// behind the same rapid-tap guard every push in this flow owns; a
+  /// stale affordance over an already-empty album degrades to the
+  /// gallery's own open-then-pop, accepted and self-correcting.
+  void _openAlbum() {
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => AlbumScreen(album: widget.album),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -219,6 +250,18 @@ class _RewardScreenState extends State<RewardScreen> {
                         ),
                       ],
                     ),
+                    if (widget.album != null) ...[
+                      // The album's one entry point (Story 7.3, FR-18,
+                      // UX-DR31/32): the transformation-completed
+                      // moment's quiet prose way onward — this arm
+                      // alone, never the shoot-offered or no-Before
+                      // arms, never anywhere else in the app.
+                      const SizedBox(height: Spacing.taskToActions),
+                      SecondaryTextAction(
+                        label: strings.rewardOpenAlbum,
+                        onTap: _openAlbum,
+                      ),
+                    ],
                   ] else if (shootOffered) ...[
                     // The Before plate and the one recommended action
                     // (the I/O matrix's reward route): the plate

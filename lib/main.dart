@@ -132,8 +132,8 @@ void main() {
   // — same store, same shared write queue, the same Files root the
   // album blobs live under. No camera and no egress: the deletion
   // acts touch only the `album` scope inside app-private storage.
-  // Constructed here and threaded to the shell root unread until
-  // 7.3's surface claims it — the slicer seam's own precedent.
+  // Constructed here and threaded to the shell root — claimed by
+  // 7.3's gallery surface through the reward's pair-landed arm.
   final album = AlbumController(
     store: store,
     files: files,
@@ -191,8 +191,8 @@ void main() {
         // — same store, same shared write queue, same Files root,
         // the camera facade.
         reward: reward,
-        // The album seam (Story 7.2): unread until 7.3's surface —
-        // threaded so the composition stays visible at the root.
+        // The album seam (Story 7.2, claimed by 7.3's gallery): the
+        // reward's pair-landed arm opens the album through it.
         album: album,
         // The lifecycle's session-milestone drain (Story 7.1): the
         // backgrounding's own end has no navigator in front of it,
@@ -271,9 +271,9 @@ class OrganizerApp extends StatelessWidget {
   final RewardController? reward;
 
   /// The album seam (Story 7.2, FR-18): the substrate's read and
-  /// deletion acts — held at the root, unread until 7.3's gallery
-  /// surface claims it (the slicer field's own composition-visible
-  /// precedent).
+  /// deletion acts — held at the root and threaded to the reward's
+  /// pair-landed arm, whose `Ver el álbum` affordance is the
+  /// gallery's one entry point (7.3).
   final AlbumController? album;
 
   /// The lifecycle's session-milestone drain (Story 7.1): the session
@@ -321,6 +321,7 @@ class OrganizerApp extends StatelessWidget {
               scan: scan,
               genesis: genesis,
               reward: reward,
+              album: album,
               sessionMilestone: sessionMilestone,
               routeObserver: routeObserver,
             ),

@@ -12,21 +12,25 @@ import 'package:core/derive/reward.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:core/pool/pool_fact.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:organizer/album/album_controller.dart';
 import 'package:organizer/capture/dictation_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/genesis/genesis_controller.dart';
 import 'package:organizer/main.dart';
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/reward/reward_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
+import 'package:organizer/ui/reward/reward_screen.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
 import 'package:organizer/ui/tokens.dart';
 
@@ -272,6 +276,72 @@ void main() {
     );
     expect(identical(dispenser.reward, reward), isTrue);
     expect(identical(dispenser.sessionMilestone, takeSessionMilestone), isTrue);
+  });
+
+  testWidgets('the album seam is exercised: OrganizerApp hands its '
+      'AlbumController down to the Dispenser home (Story 7.3)', (tester) async {
+    final store = _EmptyCatalogueStore();
+    final album = AlbumController(
+      store: store,
+      files: _EmptyFiles(),
+      writeQueue: LogWriteQueue(),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: store,
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          album: album,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen),
+    );
+    expect(identical(dispenser.album, album), isTrue);
+  });
+
+  testWidgets('the album seam hop-through: the milestone reward push '
+      'carries the SAME controller into the reward screen (Story 7.3 — '
+      'dropping either hand-down ships the gallery dead with every '
+      'composition pin green)', (tester) async {
+    final store = _EmptyCatalogueStore();
+    final album = AlbumController(
+      store: store,
+      files: _EmptyFiles(),
+      writeQueue: LogWriteQueue(),
+    );
+    const space = (groupId: 'group-1', origin: Origin.cloud);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: store,
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          reward: RewardController(
+            store: store,
+            files: _EmptyFiles(),
+            camera: _NoopCamera(),
+          ),
+          album: album,
+          sessionMilestone: () => space,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The milestone's push ran through the real `_maybePushReward`:
+    // the reward screen stands, carrying the SAME album controller.
+    final reward = tester.widget<RewardScreen>(find.byType(RewardScreen));
+    expect(identical(reward.album, album), isTrue);
   });
 
   test(

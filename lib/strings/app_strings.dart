@@ -653,6 +653,30 @@ abstract class AppStrings {
   /// **'Hacer la foto'**
   String get rewardAfterShoot;
 
+  /// The contextual gallery's one title (Story 7.3, FR-18): a noun, never a count — the gallery shows no number of any kind (AD-26), and no date or place caption anywhere on its entries.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu álbum'**
+  String get albumTitle;
+
+  /// The reward's pair-landed arm — its ONLY home (Story 7.3, FR-18, UX-DR31/32): the album's one entry point, contextual navigation at the transformation-completed moment, never a permanent destination. Quiet prose, one tap, no confirmation; never rendered on the shoot-offered or no-Before arms, never anywhere else in the app.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver el álbum'**
+  String get rewardOpenAlbum;
+
+  /// One gallery entry's delete (Story 7.3, FR-18): one tap, no confirmation — nothing important costs two. Invokes the album controller's single deletion operation; a fresh read re-renders truth.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar'**
+  String get albumEntryDelete;
+
+  /// The whole album's purge (Story 7.3, FR-18): one tap, no confirmation — FR-18's one action. Invokes the controller's purge; the screen pops on the empty read that follows. Names no count of what goes (AD-26).
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar todo'**
+  String get albumPurge;
+
   /// Snowball suggestion dismissal.
   ///
   /// In es, this message translates to:

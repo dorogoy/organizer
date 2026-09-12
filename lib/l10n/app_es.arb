@@ -518,6 +518,26 @@
     "description": "The reward's shoot-After action (Story 7.1, FR-17): the milestone's one recommended action while a Before exists. No adjective about the result; the pair itself is the answer."
   },
 
+  "albumTitle": "Tu álbum",
+  "@albumTitle": {
+    "description": "The contextual gallery's one title (Story 7.3, FR-18): a noun, never a count — the gallery shows no number of any kind (AD-26), and no date or place caption anywhere on its entries."
+  },
+
+  "rewardOpenAlbum": "Ver el álbum",
+  "@rewardOpenAlbum": {
+    "description": "The reward's pair-landed arm — its ONLY home (Story 7.3, FR-18, UX-DR31/32): the album's one entry point, contextual navigation at the transformation-completed moment, never a permanent destination. Quiet prose, one tap, no confirmation; never rendered on the shoot-offered or no-Before arms, never anywhere else in the app."
+  },
+
+  "albumEntryDelete": "Borrar",
+  "@albumEntryDelete": {
+    "description": "One gallery entry's delete (Story 7.3, FR-18): one tap, no confirmation — nothing important costs two. Invokes the album controller's single deletion operation; a fresh read re-renders truth."
+  },
+
+  "albumPurge": "Borrar todo",
+  "@albumPurge": {
+    "description": "The whole album's purge (Story 7.3, FR-18): one tap, no confirmation — FR-18's one action. Invokes the controller's purge; the screen pops on the empty read that follows. Names no count of what goes (AD-26)."
+  },
+
   "snowballDismissAcknowledgement": "Está bien así.",
   "@snowballDismissAcknowledgement": {
     "description": "Snowball suggestion dismissal."

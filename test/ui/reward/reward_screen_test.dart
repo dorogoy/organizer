@@ -19,11 +19,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:organizer/album/album_controller.dart';
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/reward/reward_controller.dart';
 import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
+import 'package:organizer/ui/album/album_screen.dart';
 import 'package:organizer/ui/photo_frame.dart';
 import 'package:organizer/ui/photo_shoot_screen.dart';
 import 'package:organizer/ui/reward/reward_screen.dart';
@@ -84,7 +86,13 @@ class _RecordingFiles implements FilesPort {
   Future<void> sweepScanCache() async {}
 
   @override
-  Future<void> sweepAlbum() async {}
+  Future<void> sweepAlbum() async {
+    // The real sweep takes every album-scope blob: the purge's
+    // read-back verification depends on it (7.2's honest-failure
+    // contract — a fake that leaves blobs standing would fail the
+    // act before it lands).
+    blobsByName.clear();
+  }
 }
 
 class _FakeCamera implements CameraShell {
@@ -177,10 +185,20 @@ void main() {
     nowOf: _fixedClock,
   );
 
+  AlbumController albumWith(_RecordingStore store, _RecordingFiles files) =>
+      AlbumController(
+        store: store,
+        files: files,
+        writeQueue: LogWriteQueue(),
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+
   Future<void> pumpReward(
     WidgetTester tester,
     RewardController controller, {
     String groupId = 'group-1',
+    AlbumController? album,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -190,6 +208,7 @@ void main() {
         home: RewardScreen(
           space: (groupId: groupId, origin: Origin.cloud),
           controller: controller,
+          album: album,
         ),
       ),
     );
@@ -202,7 +221,11 @@ void main() {
     final store = _RecordingStore();
     final files = _RecordingFiles()..blobsByName['hash-a.jpg'] = [1, 2, 3];
     _seedBefore(store);
-    await pumpReward(tester, controllerWith(store, files, _FakeCamera()));
+    await pumpReward(
+      tester,
+      controllerWith(store, files, _FakeCamera()),
+      album: albumWith(store, files),
+    );
     expect(find.text(strings.rewardBeforeOfferTitle), findsNothing);
     expect(find.byType(PhotoFrame), findsOneWidget);
     expect(find.text(strings.rewardLabelBefore), findsOneWidget);
@@ -210,6 +233,9 @@ void main() {
     expect(find.text(strings.rewardClose), findsOneWidget);
     // The no-photo string renders nowhere on this arm.
     expect(find.text(strings.rewardWithoutPhoto), findsNothing);
+    // The album affordance renders nowhere but the pair-landed arm
+    // (Story 7.3, UX-DR31/32) — not while the After is still owed.
+    expect(find.text(strings.rewardOpenAlbum), findsNothing);
   });
 
   testWidgets('the shot lands: the pair shows EQUAL plates — same size, '
@@ -265,6 +291,113 @@ void main() {
     // No caption, no share action: Cerrar is the only control.
     expect(find.text(strings.rewardClose), findsOneWidget);
     expect(find.byType(PhotoFrame), findsNWidgets(2));
+    // The absent album seam renders no affordance even on the landed
+    // arm — nothing half-wired (Story 7.3's seam rule).
+    expect(find.text(strings.rewardOpenAlbum), findsNothing);
+  });
+
+  testWidgets('the pair-landed arm carries exactly one quiet album '
+      'affordance — the app\'s only way into the gallery — and a tap '
+      'pushes AlbumScreen (Story 7.3, FR-18, UX-DR31/32)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()..blobsByName['hash-a.jpg'] = [1, 2, 3];
+    _seedBefore(store);
+    final album = AlbumController(
+      store: store,
+      files: files,
+      writeQueue: LogWriteQueue(),
+      idMinter: const Uuid(),
+      nowOf: _fixedClock,
+    );
+    await pumpReward(
+      tester,
+      controllerWith(store, files, _FakeCamera()),
+      album: album,
+    );
+    // While the After is owed the affordance is absent.
+    expect(find.text(strings.rewardOpenAlbum), findsNothing);
+
+    await tester.ensureVisible(find.text(strings.rewardAfterShoot));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.rewardAfterShoot));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+
+    // The pair landed: exactly one album affordance, quiet prose in
+    // the secondary register.
+    expect(find.text(strings.rewardOpenAlbum), findsOneWidget);
+
+    await tester.tap(find.text(strings.rewardOpenAlbum));
+    await tester.pumpAndSettle();
+    // The gallery stands over the same substrate — the shot's own
+    // album_entry_added row is the entry it renders.
+    expect(find.byType(AlbumScreen), findsOneWidget);
+    expect(find.text(strings.albumTitle), findsOneWidget);
+    expect(find.byType(PhotoFrame), findsNWidgets(2));
+
+    // The return leg and the stale path, end to end: the purge pops
+    // the gallery, the reward still stands with its pair and the
+    // affordance, and the second open reads empty and pops back —
+    // the accepted open-then-pop degradation (UX-DR51).
+    await tester.ensureVisible(find.text(strings.albumPurge));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.albumPurge));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlbumScreen), findsNothing);
+    expect(find.byType(PhotoFrame), findsNWidgets(2));
+    expect(find.text(strings.rewardOpenAlbum), findsOneWidget);
+
+    await tester.tap(find.text(strings.rewardOpenAlbum));
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(AlbumScreen),
+      findsNothing,
+      reason: 'the stale affordance degrades to open-then-pop',
+    );
+    expect(find.byType(PhotoFrame), findsNWidgets(2));
+    expect(find.text(strings.rewardOpenAlbum), findsOneWidget);
+  });
+
+  testWidgets('a rapid double-tap on the album affordance pushes exactly '
+      'ONE gallery — the isCurrent guard (the dispenser double-Hecho '
+      'recipe)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()..blobsByName['hash-a.jpg'] = [1, 2, 3];
+    _seedBefore(store);
+    final album = AlbumController(
+      store: store,
+      files: files,
+      writeQueue: LogWriteQueue(),
+      idMinter: const Uuid(),
+      nowOf: _fixedClock,
+    );
+    await pumpReward(
+      tester,
+      controllerWith(store, files, _FakeCamera()),
+      album: album,
+    );
+    await tester.ensureVisible(find.text(strings.rewardAfterShoot));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.rewardAfterShoot));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.scanShutter));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text(strings.rewardOpenAlbum));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.rewardOpenAlbum));
+    // The transition starts — the reward route is no longer current,
+    // so invoking the old route's callback inside the window is refused.
+    await tester.pump();
+    final action = find.ancestor(
+      of: find.text(strings.rewardOpenAlbum),
+      matching: find.byType(GestureDetector),
+    );
+    expect(action, findsOneWidget);
+    tester.widget<GestureDetector>(action).onTap!();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlbumScreen, skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('no Before ever: Un trabajo estupendo with no shoot prompt '
@@ -272,14 +405,19 @@ void main() {
     tester,
   ) async {
     final store = _RecordingStore();
+    final files = _RecordingFiles();
     await pumpReward(
       tester,
-      controllerWith(store, _RecordingFiles(), _FakeCamera()),
+      controllerWith(store, files, _FakeCamera()),
+      album: albumWith(store, files),
     );
     expect(find.text(strings.rewardWithoutPhoto), findsOneWidget);
     expect(find.byType(PhotoFrame), findsNothing);
     expect(find.text(strings.rewardAfterShoot), findsNothing);
     expect(find.text(strings.rewardClose), findsOneWidget);
+    // The no-Before arm carries no album affordance (Story 7.3,
+    // UX-DR31/32).
+    expect(find.text(strings.rewardOpenAlbum), findsNothing);
   });
 
   testWidgets('the Cámara entry rule hides the shoot action when the log '

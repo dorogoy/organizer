@@ -54,6 +54,7 @@ import 'package:core/settings/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../album/album_controller.dart';
 import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
@@ -111,6 +112,7 @@ class DispenserScreen extends StatefulWidget {
     this.scan,
     this.genesis,
     this.reward,
+    this.album,
     this.sessionMilestone,
     this.routeObserver,
   });
@@ -159,6 +161,12 @@ class DispenserScreen extends StatefulWidget {
   /// (the test seam), a milestone still fires — the drain consumes it
   /// — but no surface renders.
   final RewardController? reward;
+
+  /// The album seam (Story 7.3, FR-18): the 7.2 controller threaded
+  /// into the reward screen so its pair-landed arm — the album's one
+  /// entry point — can open the gallery. Absent (the test seam), the
+  /// affordance renders nowhere.
+  final AlbumController? album;
 
   /// The lifecycle's session-milestone drain (Story 7.1, FR-17): the
   /// session controller's own stash — a backgrounding's end has no
@@ -886,8 +894,11 @@ class _DispenserScreenState extends State<DispenserScreen>
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) =>
-            RewardScreen(space: space, controller: widget.reward),
+        builder: (context) => RewardScreen(
+          space: space,
+          controller: widget.reward,
+          album: widget.album,
+        ),
       ),
     );
   }
