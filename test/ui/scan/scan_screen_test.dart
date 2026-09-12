@@ -1147,6 +1147,20 @@ void main() {
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pumpAndSettle();
+      // No write can land while the departure stands: nothing was
+      // saved by the departure itself.
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
+      // Frames are suppressed while paused, so the tree cannot change
+      // until the app resumes — and neither can a real user tap. On
+      // resume the offer's shoot action is gone for good: the
+      // departure invalidated it (allowed=false + the scan's own
+      // epoch capability), so the space derives as a no-Before one.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
       expect(find.text(strings.rewardBeforeShoot).hitTestable(), findsNothing);
       expect(
         store.entries.where((entry) => entry.kind == 'before_saved'),
