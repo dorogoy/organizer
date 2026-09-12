@@ -2,7 +2,7 @@
 title: 'Story 7.5: The snowball — the comfortable-day run and the Time Bag suggestion'
 type: 'feature'
 created: '2026-09-12'
-status: 'in-progress'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: '493d3177a1f80c1d9bc1584506b7c915de3ae77a'
 context: []
@@ -69,18 +69,18 @@ context: []
 - NEW `packages/core/test/derive/comfortable_day_test.dart` -- machine-side matrix on the `impact_test.dart` convention (`test/derive/impact_test.dart:35-104` builders): comfortable day, missing session, missing done, marathon (strict span), extension excused, open session, unbounded sitting, supersede, absence breaks the chain, today never counts, pre-log days stop the walk, rows after read instant.
 - `packages/core/test/strip_test.dart:116` -- the never-eligible pin flips; add the eligibility matrix (== 10 crossing, 9, 11, bag top, `time_bag` row today, exclusion marker, precedence below seasonal, the carried `snowballProposedMinutes`).
 - `test/ui/dispenser/ambient_strip_test.dart:50-320` -- the harness/fakes convention; add the snowball arm: sentence + numeral rendering, accept appends exactly one `setting_changed` row naming the shown value, stale-tap guard, dismiss writes nothing and hands the slot to the next resident in the same opening, ✕ semantics label, 200 % scale touch-target sweep, displacement re-offer at a later same-day opening.
-- `test/dispenser/dispenser_controller_test.dart` + `packages/core/test/no_lateness_proof_test.dart:581-660` -- controller unit pins for the two paths; the append census gains the one new `settingChanged(` site pin (5-13's pattern).
+- `test/dispenser/dispenser_controller_test.dart` + `test/no_lateness_proof_test.dart:581-660` -- controller unit pins for the two paths; the append census gains the one new `settingChanged(` site pin (5-13's pattern).
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] NEW `packages/core/lib/derive/comfortable_day.dart` -- the run derivation, session pairing and original-pocket judgment mirroring the walk.
-- [ ] `packages/core/lib/derive/strip.dart` -- the eligibility conjunction, `StripState.snowballProposedMinutes`, the resident/enum docs.
-- [ ] NEW `packages/core/test/derive/comfortable_day_test.dart` + `packages/core/test/strip_test.dart` edits -- the machine-side matrix.
-- [ ] `lib/dispenser/dispenser_controller.dart` -- `_shownSnowballMinutes`, `acceptSnowball`, `dismissSnowball`, the exclusion line.
-- [ ] `lib/ui/dispenser/ambient_strip.dart` + `lib/ui/dispenser/dispenser_strip_layer.dart` + `lib/ui/dispenser/dispenser_screen.dart` -- `SnowballStrip`, the ✕ label override, the wiring.
-- [ ] `lib/l10n/app_es.arb` + `make codegen` -- `snowballSuggestion(minutes)`, generated files committed.
-- [ ] `test/ui/dispenser/ambient_strip_test.dart` + `test/dispenser/dispenser_controller_test.dart` + `no_lateness_proof_test.dart` -- the widget/unit/census pins.
+- [x] NEW `packages/core/lib/derive/comfortable_day.dart` -- the run derivation, session pairing and original-pocket judgment mirroring the walk.
+- [x] `packages/core/lib/derive/strip.dart` -- the eligibility conjunction, `StripState.snowballProposedMinutes`, the resident/enum docs.
+- [x] NEW `packages/core/test/derive/comfortable_day_test.dart` + `packages/core/test/strip_test.dart` edits -- the machine-side matrix.
+- [x] `lib/dispenser/dispenser_controller.dart` -- `_shownSnowballMinutes`, `acceptSnowball`, `dismissSnowball`, the exclusion line.
+- [x] `lib/ui/dispenser/ambient_strip.dart` + `lib/ui/dispenser/dispenser_strip_layer.dart` + `lib/ui/dispenser/dispenser_screen.dart` -- `SnowballStrip`, the ✕ label override, the wiring.
+- [x] `lib/l10n/app_es.arb` + `make codegen` -- `snowballSuggestion(minutes)`, generated files committed.
+- [x] `test/ui/dispenser/ambient_strip_test.dart` + `test/dispenser/dispenser_controller_test.dart` + `no_lateness_proof_test.dart` -- the widget/unit/census pins.
 
 **Acceptance Criteria:**
 - Given ten consecutive comfortable days ending yesterday and a bag below its top, when the strip derives, then the snowball holds the slot unless a rarer resident stands, carrying exactly `bag + 5` as the shown fact — and on no other day of that run (FR-23).
@@ -91,6 +91,18 @@ context: []
 - Given a session the user chose to extend, when the predicate reads its pocket, then it reads the original plus that session's own extensions — the extension is never scored as a marathon (AD-19).
 - Given the ✕, when voiced by semantics, then it speaks `Está bien así.` — the authored dismissal (UX-DR52).
 - Given `make gate`, when it runs, then all targets pass — no seal edits, no forbidden-vocabulary hits, string-table audit and codegen green.
+
+### Review Findings
+
+- [x] [Review][Patch] An off-lattice bag of 26–29 makes the offer name a bag above the cap, and the accept silently mints nothing all day [packages/core/lib/derive/strip.dart] — **Severity: medium.** `deriveTimeBagMinutes` accepts any in-range 5–30 value while the 5-step lattice is enforced only by the Settings UI, so an imported/restored row of 26–29 passed `bag < 30` and the offer read 31–34, which the `settingChanged` minter refuses — a dead accept standing the whole crossing day. The offer now caps at `timeBagMostMinutes` (the frozen AC's own "capped at 30"); pinned at core (27 → 30) and at the controller (accept lands one row naming 30).
+- [x] [Review][Patch] `dismissSnowball` did not clear the shown fact at entry [lib/dispenser/dispenser_controller.dart] — **Severity: low.** Until the dismiss's read completed, an accept through any path bypassing the screen's in-flight guard captured the stale fact and minted a row for an offer already declined. One consume-at-entry line (the `dismissSeasonalSuggestion` precedent), pinned by a dismiss-then-accept overlap test minting zero rows.
+- [x] [Review][Patch] The session-day attribution pin was vacuous [packages/core/test/derive/comfortable_day_test.dart] — **Severity: medium.** The fixture's done at 00:05 sat before the 04:00 boundary, so both the session-day and own-day rules charged the same day and the mirror of `_chargedDayOf` was never discriminated. Rebuilt with the session starting 03:30 (domestic day before) and the done at 04:05 (domestic day after), verified to fail under an own-day fold.
+- [x] [Review][Patch] The order-sensitivity of the comfortable-day fold was undocumented [packages/core/lib/derive/comfortable_day.dart] — **Severity: low.** Open-session tracking, supersede and extension attribution assume the store's instant-ordered read; the library doc now states the precondition.
+- [x] [Review][Patch] `launchWithSnowball`'s `days` parameter was dead [test/ui/dispenser/ambient_strip_test.dart] — **Severity: low.** The 9-day negative arm existed only at core level; one widget test now launches with `days: 9` and asserts no `SnowballStrip` renders.
+- [x] [Review][Patch] The composed re-earn cycle had no test [packages/core/test/strip_test.dart] — **Severity: low.** `== 10`, the row-today guard and the break-day rule were pinned separately but never the acceptance criterion's sequence: accept on the crossing day → a break day → ten fresh comfortable days → the offer appears again naming the raised bag + 5.
+- [x] [Review][Patch] The Closed/RestOffer view arms carried no pin for the shown fact [test/dispenser/dispenser_controller_test.dart] — **Severity: medium.** Every snowball read tested went through the Dealt arm, so deleting the `snowballProposedMinutes` forward on a non-dealt view would ship the offer invisible on closed/rest-offer reads with the suite green; one closed-view test now asserts the resident and the 20.
+
+Rejected in triage (recorded for the retro, not re-litigated): mixed-offset day-frame questions (attribution in per-row offsets vs the read-frame walk-back) — the house-wide day-scoping discipline, errs only against appearing; the unbounded imported `session_extended` sum — the walk's own AD-23 tolerance, mirrored deliberately; the walk-mirror drift guard — the spec's documented cycle-constrained decision; hardcoded `'time_bag'` literals in tests — the wire-contract fence they build fails loudly on a key change; per-resident displacement arms beyond the seasonal — the core precedence pin owns the order.
 
 ## Spec Change Log
 
@@ -107,5 +119,58 @@ context: []
 - `devbox run -- make gate` -- expected: check (incl. text-scaling, no-literal-strings, string-table audit, forbidden vocabulary), test, format-check, analyze all green.
 - `wc -c` on this spec ≤ 24576 bytes at review presentation.
 
+**Gate evidence (review presentation):** `devbox run -- make gate` exit 0 after the review patches — 1320 root tests + core suite all passing, format/analyze green; implementation commits `2c50512`/`9f3707c`, review patches `e5da319`, baseline `493d317`.
+
 **Manual checks (if no CLI):**
 - On the emulator per the AGENTS.md recipe, seed ten consecutive comfortable days (per day: `session_started{pocket}` + `card_done` + `session_ended` inside the pocket) plus an eleventh day's facts — the crossing day shows the sentence with `bag + 5`; tap → the bag reads +5 in a pulled-substrate `setting_changed` row and the strip is quiet; a re-seeded dismiss day appends no row; the day after the crossing shows nothing.
+
+## Suggested Review Order
+
+**The derivation — the story's heart (entry point)**
+
+- The run fold in one function: sessions paired like the walk, judged by original pocket, walked back from yesterday.
+  [`comfortable_day.dart:64`](../../packages/core/lib/derive/comfortable_day.dart#L64)
+
+- The marathon judgment: span strictly beyond original + own extensions, no grace, open judged to the read instant.
+  [`comfortable_day.dart:77`](../../packages/core/lib/derive/comfortable_day.dart#L77)
+
+- The chain walk-back: today never counts, any break ends it, the log's first row floors it.
+  [`comfortable_day.dart:185`](../../packages/core/lib/derive/comfortable_day.dart#L185)
+
+**The eligibility — the crossing-day window**
+
+- The conjunction: shown fact + run == 10 exactly, no first-opening gate — the once-offer made structural.
+  [`strip.dart:299`](../../packages/core/lib/derive/strip.dart#L299)
+
+- The shown fact's own fold: bag below top, no `time_bag` row today, the offer clamped at the cap.
+  [`strip.dart:559`](../../packages/core/lib/derive/strip.dart#L559)
+
+**The surface — bare strip grammar**
+
+- `SnowballStrip`: the seasonal's skeleton, one decision sentence, ✕ speaking `Está bien así.`
+  [`ambient_strip.dart:342`](../../lib/ui/dispenser/ambient_strip.dart#L342)
+
+- The placeholder branch becomes wiring — the slot's one mount.
+  [`dispenser_strip_layer.dart:192`](../../lib/ui/dispenser/dispenser_strip_layer.dart#L192)
+
+- Accept: consume-at-entry, one `setting_changed` row, the shown value. Dismiss: marker only, zero writes.
+  [`dispenser_controller.dart:1427`](../../lib/dispenser/dispenser_controller.dart#L1427)
+
+**Copy — the single string table**
+
+- The authored offer: destination-naming, count-free, one atomic numeral.
+  [`app_es.arb:667`](../../lib/l10n/app_es.arb#L667)
+
+**Peripherals — the pins**
+
+- The machine-side matrix: comfort, marathons, extensions, supersedes, offsets, day floors.
+  [`comfortable_day_test.dart:289`](../../packages/core/test/derive/comfortable_day_test.dart#L289)
+
+- The crossing matrix and the composed re-earn cycle, off-lattice clamp included.
+  [`strip_test.dart:1481`](../../packages/core/test/strip_test.dart#L1481)
+
+- The widget arm: sentence, ✕, displacement re-offer, 200 % targets, the 9-day negative.
+  [`ambient_strip_test.dart:1926`](../../test/ui/dispenser/ambient_strip_test.dart#L1926)
+
+- The controller pins: accept/stale/overlap, manual-change, the closed-view arm.
+  [`dispenser_controller_test.dart:4055`](../../test/dispenser/dispenser_controller_test.dart#L4055)
