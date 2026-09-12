@@ -338,3 +338,15 @@ action_items:
     owner: "Sergio"
     status: open
     ref: "_bmad-output/planning-artifacts/epics.md (Epic 7 re-partition note); _bmad-output/implementation-artifacts/7-1-the-before-after-reward.md"
+  - id: "epic-7-local-gate-misses-core-suite-7-5"
+    epic: 7
+    action: "The NFR17 completion gate (make gate) does not run make test-core, so a
+      story touching packages/core can pass the local gate with the core census
+      (packages/core/test/no_lateness_proof_test.dart) never executed — 7.5 passed
+      the local gate twice and failed CI on two stale census pins (StripState field
+      set, card_done reader set; fixed in PR #67 commit d37eb8e, 2026-09-12). For the
+      epic-7 retrospective: either fold test-core into the gate target or add it to
+      the story-completion policy — the CI should confirm the gate, not widen it."
+    owner: "Sergio"
+    status: open
+    ref: "Makefile (gate :101, test-core :32); PR dorogoy/organizer#67"
