@@ -2466,6 +2466,7 @@ The user sees the same corner of their home before and after, in two plates of e
 - **This epic reads what Epic 6 wrote.** The per-destination counts and volume tags come from `item_triaged`; nothing here recomputes them from anything else.
 - **The dashboard is the app's one declared density exception**, and the denominator rule is what makes it safe. Both are review gates on this epic's stories, checkable value by value.
 - **The album is contextual only.** It is reached when a transformation completes and not otherwise, and the dashboard sits behind it. A permanently reachable album is a surface that invites browsing, which is the thing the product removed.
+- **Re-partitioned 2026-09-12** (standing story diet, each epic re-partitioned at its door under the 24 KB gate — `project-context.md` → Story size budget; not a correct-course, no policy change): the original three stories became five; acceptance criteria redistributed, none lost, none invented. **Constancia for the retro:** the door application was missed — 7.1 shipped without the re-partition (epic-6 retro R5, `epic-6-retro-item-23`), measured 20.2 KB, under the numeric gate, yet its code review had to run in three parts; the evidence is logged for the epic-7 retrospective to weigh. Old→new mapping: 7.1→7.1 · old 7.2→7.2 (substrate ACs: app-private bytes that never cross, the `album_entry_deleted`+unlink single operation, the one-action purge, the derived read model, exported-generation reachability) + 7.3 (surface ACs: contextual-only entry, thumbnails, delete/purge affordances, no empty state) · old 7.3→7.4 (the dashboard render: figures, denominator rule, density exception, AD-26, highlight row) + 7.5 (the snowball: comfortable-day run, strip resident, accept/dismiss semantics). Ordering: 7.1→7.2→7.3→7.4→7.5 — still the navigation order; 7.5 is independent of 7.4's render and lands on Epic 2's ambient strip.
 
 **Implementation notes:** the `photo-frame` pair has only `Antes` and `Después` outside the pastel — no caption, share action or rating language. AD-26's split is the gate for the dashboard: achievement figures may cross to the shell, internal signals never. `dashboard-highlight-row` reflows to one column when a caption would break beyond two lines; it never shrinks. Album bytes are content-addressed, and `album_entry_deleted` unlinks the app-private source file in the same operation.
 
@@ -2518,7 +2519,37 @@ So that the work is visible without anyone putting a score on it.
 **When** this story is planned
 **Then** equal-size frames sit side-by-side, labelled only `Antes` and `Después`; the pair is private and local, has no caption or share action, and the no-Before case shows `Un trabajo estupendo` (UX-DR57)
 
-### Story 7.2: The local Transformation Album
+### Story 7.2: The album substrate — the derived read model and the deletion acts
+
+As Sergio,
+I want the album to exist only as something derived from bytes and log acts, with deletion that removes the file and the record together,
+So that what the app keeps of my home cannot drift from the log that governs it.
+
+**Acceptance Criteria:**
+
+**Given** album images
+**When** their location is inspected
+**Then** they live in **app-private Files storage** and the app **never sends them** — they leave the device only via user-initiated export, into the folder the user chose (FR-18, NFR4)
+
+**Given** the album read model
+**When** its shape is inspected
+**Then** it is **derived** over stored image bytes and log acts — there is **no album table**, because an independently editable manifest would let one unit delete by removing a row while another deletes by appending an event (AD-13)
+
+**Given** an album entry
+**When** the deletion operation runs
+**Then** an `album_entry_deleted` entry is appended **and the app-private source file is unlinked in the same operation** (FR-18, AD-13)
+
+**Given** the whole album
+**When** the purge operation runs
+**Then** it is purgeable **in one action**, unlinking all app-private album files (FR-18)
+
+**Given** an already-exported generation
+**When** an album source file is deleted
+**Then** the committed generation stays valid — exported bytes are content-addressed and obey the retained-generation reachability rule, so deleting the source never invalidates a committed export (AD-13)
+
+*(No drawn surface in this story — it is the core-side substrate. Story 7.1's blob write, log append and rollback are inherited, not rebuilt; this story adds the read model and the deletion/purge operations over them.)*
+
+### Story 7.3: The Transformation Album — the contextual gallery
 
 As Sergio,
 I want a private gallery of what changed that I can delete piece by piece,
@@ -2530,35 +2561,23 @@ So that a record of my own home stays mine and stays deletable.
 **When** it is reached
 **Then** it is reached **only from the Before/After reward when a transformation completes** — contextual, never a permanently available destination (UX-DR31, UX-DR32)
 
-**Given** album images
-**When** their location is inspected
-**Then** they live in **app-private Files storage** and the app **never sends them** — they leave the device only via user-initiated export, into the folder the user chose (FR-18, NFR4)
-
-**Given** an album entry
-**When** the user deletes it
-**Then** an `album_entry_deleted` entry is appended **and the app-private source file is unlinked in the same operation** (FR-18, AD-13)
-
-**Given** the whole album
-**When** the user purges it
-**Then** it is purgeable **in one action**, unlinking all app-private album files (FR-18)
-
-**Given** the album read model
-**When** its shape is inspected
-**Then** it is **derived** over stored image bytes and log acts — there is **no album table**, because an independently editable manifest would let one unit delete by removing a row while another deletes by appending an event (AD-13)
-
 **Given** album thumbnails
 **When** they are rendered
 **Then** they use `photo-frame` at the 4px thumb radius, because 14px on a ~100dp plate eats the corners of the photograph itself (UX-DR7, UX-DR29)
 
-**Given** an already-exported generation
-**When** an album source file is deleted
-**Then** the committed generation stays valid — exported bytes are content-addressed and obey the retained-generation reachability rule, so deleting the source never invalidates a committed export (AD-13)
+**Given** an album entry
+**When** the user deletes it
+**Then** the surface invokes Story 7.2's deletion operation — `album_entry_deleted` appended, the app-private source file unlinked in the same operation — and the entry leaves the gallery (FR-18, AD-13)
+
+**Given** the whole album
+**When** the user purges it
+**Then** the surface invokes Story 7.2's purge operation — **one action**, unlinking all app-private album files (FR-18)
 
 **Given** the album's empty state
 **When** this story is planned
 **Then** no empty state exists: the Album is unreachable until a first transformation exists (UX-DR51)
 
-### Story 7.3: The cumulative impact dashboard
+### Story 7.4: The cumulative impact dashboard
 
 As Sergio,
 I want one place that adds up what I have actually done,
@@ -2604,6 +2623,18 @@ So that progress is visible as a completed fact rather than as a fraction of som
 **When** the user taps it
 **Then** it is a way **into** the album, not a browse surface (UX-DR30)
 
+**Given** the dashboard's empty state
+**When** this story is planned
+**Then** the dashboard is unreachable until a first transformation exists (UX-DR51)
+
+### Story 7.5: The snowball — the comfortable-day run and the Time Bag suggestion
+
+As Sergio,
+I want a bigger Time Bag offered once, after ten comfortable days, and never otherwise,
+So that the app's one suggestion is earned by what I did and disappears the moment I say so.
+
+**Acceptance Criteria:**
+
 **Given** at least 10 comfortable days — each with ≥ 1 session, ≥ 1 completed Micro-task and no session beyond its declared pocket
 **When** the snowball condition is evaluated
 **Then** a one-tap-dismissable suggestion to raise the Time Bag by ≤ 5 min may appear **on the ambient strip**, and declining has no effect (FR-23, UX-DR22)
@@ -2628,9 +2659,9 @@ So that progress is visible as a completed fact rather than as a fraction of som
 **When** the comfortable-day predicate reads its pocket
 **Then** it reads the **original** pocket, so the extension is never scored as a marathon (AD-19)
 
-**Given** the dashboard's empty state and the snowball's dismissal copy
+**Given** the snowball's dismissal copy
 **When** this story is planned
-**Then** the dashboard is unreachable until a first transformation exists, and the snowball dismissal is `Está bien así.` (UX-DR51, UX-DR52)
+**Then** the dismissal is `Está bien así.` (UX-DR52)
 
 ---
 
