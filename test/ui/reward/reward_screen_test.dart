@@ -185,6 +185,15 @@ void main() {
     nowOf: _fixedClock,
   );
 
+  AlbumController albumWith(_RecordingStore store, _RecordingFiles files) =>
+      AlbumController(
+        store: store,
+        files: files,
+        writeQueue: LogWriteQueue(),
+        idMinter: const Uuid(),
+        nowOf: _fixedClock,
+      );
+
   Future<void> pumpReward(
     WidgetTester tester,
     RewardController controller, {
@@ -212,7 +221,11 @@ void main() {
     final store = _RecordingStore();
     final files = _RecordingFiles()..blobsByName['hash-a.jpg'] = [1, 2, 3];
     _seedBefore(store);
-    await pumpReward(tester, controllerWith(store, files, _FakeCamera()));
+    await pumpReward(
+      tester,
+      controllerWith(store, files, _FakeCamera()),
+      album: albumWith(store, files),
+    );
     expect(find.text(strings.rewardBeforeOfferTitle), findsNothing);
     expect(find.byType(PhotoFrame), findsOneWidget);
     expect(find.text(strings.rewardLabelBefore), findsOneWidget);
@@ -375,11 +388,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(strings.rewardOpenAlbum));
     // The transition starts — the reward route is no longer current,
-    // so the second tap inside the window is refused.
+    // so invoking the old route's callback inside the window is refused.
     await tester.pump();
-    await tester.tap(find.text(strings.rewardOpenAlbum));
+    final action = find.ancestor(
+      of: find.text(strings.rewardOpenAlbum),
+      matching: find.byType(GestureDetector),
+    );
+    expect(action, findsOneWidget);
+    tester.widget<GestureDetector>(action).onTap!();
     await tester.pumpAndSettle();
-    expect(find.byType(AlbumScreen), findsOneWidget);
+    expect(find.byType(AlbumScreen, skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('no Before ever: Un trabajo estupendo with no shoot prompt '
@@ -387,9 +405,11 @@ void main() {
     tester,
   ) async {
     final store = _RecordingStore();
+    final files = _RecordingFiles();
     await pumpReward(
       tester,
-      controllerWith(store, _RecordingFiles(), _FakeCamera()),
+      controllerWith(store, files, _FakeCamera()),
+      album: albumWith(store, files),
     );
     expect(find.text(strings.rewardWithoutPhoto), findsOneWidget);
     expect(find.byType(PhotoFrame), findsNothing);

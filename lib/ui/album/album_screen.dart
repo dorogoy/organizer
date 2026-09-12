@@ -99,6 +99,9 @@ class _AlbumScreenState extends State<AlbumScreen> {
       // works, and nothing reads as an empty album. Retry is
       // re-entering the surface — close, come back from the reward —
       // and the plate stands until then; never an error surface.
+      if (mounted && generation == _readGeneration) {
+        setState(() => _entries = null);
+      }
     }
   }
 
@@ -187,6 +190,13 @@ class _AlbumScreenState extends State<AlbumScreen> {
                     // nothing else per entry (UX-DR40; AD-26).
                     for (final entry in entries.reversed) ...[
                       _AlbumEntryView(
+                        key: ValueKey((
+                          entry.groupId,
+                          entry.origin,
+                          entry.beforeName,
+                          entry.afterName,
+                          entry.addedUtcMicros,
+                        )),
                         files: controller.files,
                         entry: entry,
                         onDelete: () => _delete(entry),
@@ -210,7 +220,11 @@ class _AlbumScreenState extends State<AlbumScreen> {
                   // closing has zero side effects.
                   SecondaryTextAction(
                     label: strings.rewardClose,
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: () {
+                      if (ModalRoute.of(context)?.isCurrent ?? false) {
+                        Navigator.of(context).pop();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -228,6 +242,7 @@ class _AlbumScreenState extends State<AlbumScreen> {
 /// under the pair. No caption, no date, no count.
 class _AlbumEntryView extends StatelessWidget {
   const _AlbumEntryView({
+    super.key,
     required this.files,
     required this.entry,
     required this.onDelete,

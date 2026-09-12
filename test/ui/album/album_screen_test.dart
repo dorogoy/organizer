@@ -30,6 +30,8 @@ import 'package:organizer/ui/tokens.dart';
 class _RecordingStore implements StorePort {
   final List<LogEntryRecord> entries = [];
   bool throwOnRead = false;
+  int? throwOnReadNumber;
+  int readCalls = 0;
   bool throwOnAppend = false;
 
   @override
@@ -48,7 +50,8 @@ class _RecordingStore implements StorePort {
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async {
-    if (throwOnRead) {
+    readCalls++;
+    if (throwOnRead || readCalls == throwOnReadNumber) {
       throw StateError('read failed');
     }
     return List.unmodifiable(entries);
@@ -110,12 +113,16 @@ class _GatedReadStore extends _RecordingStore {
 
   @override
   Future<List<LogEntryRecord>> readLogEntries() async {
+    if (throwOnRead) {
+      throw StateError('read failed');
+    }
+    final snapshot = List<LogEntryRecord>.unmodifiable(entries);
     _reads++;
     if (_reads == parkReadNumber) {
       _gate = Completer<void>();
       await _gate!.future;
     }
-    return super.readLogEntries();
+    return snapshot;
   }
 }
 
@@ -445,6 +452,32 @@ void main() {
     expect(find.byType(AlbumScreen), findsOneWidget);
     expect(find.byType(PhotoFrame), findsNWidgets(2));
     expect(find.text(strings.albumEntryDelete), findsOneWidget);
+  });
+
+  testWidgets('a failed mutation refresh returns to the quiet pending state '
+      'instead of retaining stale rows', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()
+      ..blobsByName['before-1.jpg'] = [1]
+      ..blobsByName['after-1.jpg'] = [2];
+    _seedAlbumEntry(
+      store,
+      group: 'group-1',
+      beforeName: 'before-1.jpg',
+      afterName: 'after-1.jpg',
+    );
+    await pumpAlbum(tester, controllerWith(store, files));
+
+    // Read #1 opens the surface and #2 belongs to deleteEntry; fail the
+    // fresh surface read (#3) after the mutation has completed.
+    store.throwOnReadNumber = 3;
+    await tester.tap(find.text(strings.albumEntryDelete));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlbumScreen), findsOneWidget);
+    expect(find.byType(PhotoFrame), findsNothing);
+    expect(find.text(strings.albumPurge), findsNothing);
+    expect(find.byType(AspectRatio), findsOneWidget);
   });
 
   testWidgets('a purge failure is absorbed by the fresh read — no landed '
