@@ -1923,6 +1923,405 @@ void main() {
     });
   });
 
+  group('the comfortable-day snowball (Story 7.5, FR-23, UX-DR22)', () {
+    /// One comfortable day as store records: a 15-minute pocketed
+    /// session at 09:00 with a done inside, closed 09:10.
+    void seedComfortableDays(_FactsRecordingStore store, {int n = 10}) {
+      for (var day = 29 - n; day <= 28; day++) {
+        store.entries.addAll([
+          (
+            id: 'start-$day',
+            kind: 'session_started',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              day,
+              9,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: null,
+            itemOrigin: null,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            settingTextValue: null,
+            pocketMinutes: 15,
+            energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
+            permission: null,
+            sliceCause: null,
+            cluster: null,
+            enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
+            triageBoxId: null,
+            beforeName: null,
+            afterName: null,
+          ),
+          (
+            id: 'done-$day',
+            kind: 'card_done',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              day,
+              9,
+              5,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: 'hab-a',
+            itemOrigin: Origin.shipped,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            settingTextValue: null,
+            pocketMinutes: null,
+            energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
+            permission: null,
+            sliceCause: null,
+            cluster: null,
+            enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
+            triageBoxId: null,
+            beforeName: null,
+            afterName: null,
+          ),
+          (
+            id: 'end-$day',
+            kind: 'session_ended',
+            instantUtcMicros: DateTime.utc(
+              2026,
+              8,
+              day,
+              9,
+              10,
+            ).microsecondsSinceEpoch,
+            offsetSeconds: 0,
+            itemId: null,
+            itemOrigin: null,
+            stack: null,
+            settingKey: null,
+            settingValue: null,
+            settingTextValue: null,
+            pocketMinutes: null,
+            energyLevel: null,
+            reportValue: null,
+            reportWeek: null,
+            permission: null,
+            sliceCause: null,
+            cluster: null,
+            enabled: null,
+            triageDestination: null,
+            triageVolumeTag: null,
+            triageBoxId: null,
+            beforeName: null,
+            afterName: null,
+          ),
+        ]);
+      }
+    }
+
+    /// The snowball's launch: an established install over a ten-day
+    /// comfortable run ending yesterday, the due week answered — so
+    /// the freed slots read as the check-in and the snowball alone
+    /// owes the strip. An optional dormant Epic displaces it (the
+    /// rarer resident, the displacement matrix's own arm).
+    Future<_FactsRecordingStore> launchWithSnowball(
+      WidgetTester tester, {
+      PoolFactRecord? epic,
+      int days = 10,
+    }) async {
+      final store = _FactsRecordingStore([?epic])
+        ..entries.add(_installOpen())
+        ..entries.add((
+          id: 'seed-week-answered',
+          kind: 'report_answered',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            23,
+            12,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: 3,
+          reportWeek: 1389,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
+          triageBoxId: null,
+          beforeName: null,
+          afterName: null,
+        ));
+      seedComfortableDays(store, n: days);
+      final session = SessionController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final controller = DispenserController(
+        store: store,
+        strings: AppStringsEs(),
+        bundle: bundle(),
+        nowOf: _fixedClock,
+      );
+      final opening = session.handleAppOpen();
+      await tester.pumpWidget(
+        _harness(controller, sessionSettled: () => session.settled),
+      );
+      await opening;
+      await tester.pumpAndSettle();
+      return store;
+    }
+
+    testWidgets('renders the raised-bag sentence with its atomic '
+        'numeral as one whole-sentence button with the ✕ — bare '
+        'chrome, everything else displaced (UX-DR22, FR-23)', (tester) async {
+      await launchWithSnowball(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.snowballSuggestion(20);
+
+      expect(find.byType(TaskCard), findsOneWidget);
+      expect(find.byType(SnowballStrip), findsOneWidget);
+      expect(find.text(sentence), findsOneWidget);
+      final text = tester.widget<Text>(find.text(sentence));
+      final style = text.style!;
+      expect(style.fontFamily, TypeRoles.support.fontFamily);
+      expect(style.fontSize, TypeRoles.support.fontSize);
+      expect(style.fontWeight, TypeRoles.support.fontWeight);
+      expect(style.height, TypeRoles.support.height);
+      expect(style.letterSpacing, TypeRoles.support.letterSpacing);
+      expect(style.color, FieldPalette.inkSecondary);
+      // Below the card, geometrically.
+      expect(
+        tester.getTopLeft(find.byType(SnowballStrip)).dy,
+        greaterThan(tester.getTopLeft(find.byType(TaskCard)).dy),
+      );
+
+      // The whole sentence is one button, the band holds the 48dp
+      // floor as one opaque target.
+      final button = find
+          .ancestor(of: find.text(sentence), matching: find.byType(Semantics))
+          .first;
+      expect(tester.widget<Semantics>(button).properties.button, isTrue);
+      final band = find
+          .ancestor(
+            of: find.text(sentence),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+
+      // Bare chrome: no hairlined wrapper anywhere in the strip.
+      expect(
+        find.descendant(
+          of: find.byType(SnowballStrip),
+          matching: find.byType(Container),
+        ),
+        findsNothing,
+      );
+
+      // The displaced instruments render nothing; the ✕ speaks its
+      // own authored acknowledgement (UX-DR52), never the shared
+      // dismissal.
+      expect(find.byType(BatteryGlyph), findsNothing);
+      expect(find.text(strings.weeklySelfReportQuestion), findsNothing);
+      expect(
+        find.bySemanticsLabel(strings.snowballDismissAcknowledgement),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel(strings.ambientStripDismiss), findsNothing);
+    });
+
+    testWidgets('the tap writes exactly one setting_changed row naming '
+        'the shown bag — the strip quiet after, the check-in holding '
+        'the freed slot (matrix: accept)', (tester) async {
+      final store = await launchWithSnowball(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.snowballSuggestion(20);
+      final rowsBefore = store.entries.length;
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(sentence));
+      await tester.pumpAndSettle();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'setting_changed')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.settingKey, 'time_bag');
+      expect(rows.single.settingValue, 20);
+      // Zero collateral: nothing but the one row appended.
+      expect(store.entries.length, rowsBefore + 1);
+      expect(
+        find.text(sentence),
+        findsNothing,
+        reason: 'gone by derivation — the day holds a time_bag row',
+      );
+      expect(
+        find.text(strings.energyCheckInQuestion),
+        findsOneWidget,
+        reason: 'the freed slot — the check-in takes it in the same opening',
+      );
+    });
+
+    testWidgets('the ✕ writes nothing, hides the snowball for the day, '
+        'and hands the slot to the check-in in the same opening '
+        '(matrix: dismiss)', (tester) async {
+      final store = await launchWithSnowball(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.snowballSuggestion(20);
+      final rowsBefore = store.entries.length;
+
+      await tester.ensureVisible(find.text(sentence));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.bySemanticsLabel(strings.snowballDismissAcknowledgement),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.length,
+        rowsBefore,
+        reason: 'zero rows — declining has no effect (FR-23)',
+      );
+      expect(find.text(sentence), findsNothing);
+      expect(
+        find.text(strings.energyCheckInQuestion),
+        findsOneWidget,
+        reason: 'the freed slot — the check-in takes it in the same opening',
+      );
+    });
+
+    testWidgets('a rarer resident displaces the first opening — its ✕ '
+        're-offers the snowball in the same opening (matrix: '
+        'displacement)', (tester) async {
+      final epic = (
+        id: 'epic-a',
+        origin: Origin.cloud,
+        size: sizeOfEstimateSeconds(180),
+        instantUtcMicros: DateTime.utc(2026, 8, 20, 9).microsecondsSinceEpoch,
+        offsetSeconds: 0,
+        originContext: 'el trastero del fondo',
+        dictated: null,
+        rescueOf: null,
+        estimateSeconds: 180,
+        stepText: 'Recoger las cajas',
+      );
+      await launchWithSnowball(tester, epic: epic);
+      final strings = AppStringsEs();
+      final seasonalSentence = strings.seasonalSuggestion(
+        'el trastero del fondo',
+      );
+      expect(
+        find.text(seasonalSentence),
+        findsOneWidget,
+        reason: 'the seasonal is rarer — it holds the slot',
+      );
+
+      await tester.ensureVisible(find.text(seasonalSentence));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel(strings.ambientStripDismiss));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(strings.snowballSuggestion(20)),
+        findsOneWidget,
+        reason:
+            'the snowball re-offers in the same opening — the '
+            'whole-day window, never a first-opening gate',
+      );
+    });
+
+    testWidgets('200% font scale: the sentence button and the ✕ hold '
+        'their floors, the strip grows inside the scroll (UX-DR45, '
+        'NFR6 — the siblings\' own pin)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await tester.binding.setSurfaceSize(const ui.Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await launchWithSnowball(tester);
+      final strings = AppStringsEs();
+      final sentence = strings.snowballSuggestion(20);
+      expect(tester.takeException(), isNull);
+      expect(find.text(sentence), findsOneWidget);
+
+      final band = find
+          .ancestor(
+            of: find.text(sentence),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final box = tester.renderObject<RenderBox>(band);
+      expect(box.size.height, greaterThanOrEqualTo(48));
+      final dismissTarget = find.descendant(
+        of: find.bySemanticsLabel(strings.snowballDismissAcknowledgement),
+        matching: find.byType(GestureDetector),
+      );
+      final dismissBox = tester.renderObject<RenderBox>(dismissTarget);
+      expect(dismissBox.size.width, greaterThanOrEqualTo(48));
+      expect(dismissBox.size.height, greaterThanOrEqualTo(48));
+
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -60),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(scrollable.position.pixels, greaterThan(0));
+      expect(find.text(sentence), findsOneWidget);
+    });
+
+    testWidgets('a null shown fact renders nothing — no fallback '
+        'sentence, no ✕; the derivation-violating path stays the '
+        'quiet one', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OrganizerTheme.light(),
+          localizationsDelegates: AppStrings.localizationsDelegates,
+          supportedLocales: AppStrings.supportedLocales,
+          home: const Scaffold(
+            body: SnowballStrip(proposedMinutes: null, onAccept: _Noop.accept),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnowballStrip), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SnowballStrip),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.bySemanticsLabel(AppStringsEs().snowballDismissAcknowledgement),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('the blind six-month quarantine follow-up (Story 6.6, FR-21, '
       'UX-DR22)', () {
     DateTime dueDayClock() => DateTime.utc(2026, 9, 1, 12);

@@ -17,10 +17,9 @@
 /// quarantine follow-up, the once-per-season suggestion, the snowball,
 /// the weekly self-report, then the daily check-in — ties broken by
 /// earliest-eligible instant, then stable id (AD-3's discipline). This
-/// build implements five eligibilities (the first-run curation offer,
-/// the quarantine follow-up, the seasonal suggestion, the report and
-/// the check-in, below); the later stories add the snowball as data
-/// under the same order. A
+/// build implements all six eligibilities (the first-run curation
+/// offer, the quarantine follow-up, the seasonal suggestion, the
+/// snowball of Story 7.5, the report and the check-in, below). A
 /// displaced resident is neither consumed nor dismissed — it re-offers
 /// at the next opening: only the surface's ✕ is a dismissal, and its
 /// scope belongs to the resident — the seasonal suggestion's ✕ alone
@@ -62,9 +61,11 @@
 library;
 
 import 'package:core/day/calendar.dart';
+import 'package:core/derive/comfortable_day.dart';
 import 'package:core/derive/quarantine.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
+import 'package:core/settings/settings.dart';
 
 /// One resident of the ambient strip (UX-DR22). A value vocabulary:
 /// members carry no fields — each resident's eligibility is its own
@@ -90,7 +91,15 @@ enum StripResident {
   /// rate limit, written by its own ✕.
   seasonalSuggestion,
 
-  /// The snowball suggestion (Epic 7's data).
+  /// The snowball suggestion (Epic 7, Story 7.5, FR-23): eligible
+  /// exactly on the crossing day — the one day the comfortable-day
+  /// run first reaches ten consecutive comfortable days ending
+  /// yesterday — while the Time Bag sits below its top and no
+  /// `time_bag` row stands today, so the earned offer of a raised
+  /// bag appears at most once per run and never again until a fresh
+  /// ten after a break (AD-1, AD-21: nothing stored, the chain is
+  /// 10 on exactly one day, and the accept's own setting row closes
+  /// the window by derivation alone — the 6-6 knock's own pattern).
   snowball,
 
   /// The weekly self-report while it stands unanswered (SM-2, 2.6).
@@ -105,10 +114,11 @@ enum StripResident {
 /// in order and takes the first eligible resident — the order is
 /// load-bearing, not documentation — and ties by earliest-eligible
 /// instant then stable id apply only between residents eligible at
-/// the same opening; this build's four implemented residents (the
-/// first-run offer, suggestion, report and check-in) never need
+/// the same opening; this build's implemented residents (the
+/// first-run offer, follow-up, suggestion, snowball, report and
+/// check-in) never need
 /// them, the order alone deciding the overlaps they can produce.
-/// The order is the contract the later stories plug their
+/// The order is the contract a later resident plugs its
 /// eligibility into.
 const List<StripResident> stripResidentPrecedence = [
   StripResident.firstRunCuration,
@@ -119,6 +129,19 @@ const List<StripResident> stripResidentPrecedence = [
   StripResident.energyCheckIn,
 ];
 
+/// The comfortable-day run length whose crossing day earns the
+/// snowball's offer (Story 7.5, FR-23): ten consecutive comfortable
+/// days. Authored, never a setting — one number, read by the strip's
+/// eligibility alone (the crossing is `== this`, never `>=`).
+const int snowballRunLength = 10;
+
+/// The minutes the snowball's offer raises the Time Bag by (Story
+/// 7.5, FR-23): five — the bag's own step (`timeBagOptions`'s
+/// cadence), authored beside the derivation that composes it. The
+/// eligibility guarantee keeps `bag + this ≤ timeBagMostMinutes`
+/// structurally: the offer never stands while the bag reads 30.
+const int snowballRaiseMinutes = 5;
+
 /// The strip's state at one read instant: the resident the precedence
 /// order resolves to, or absent when none is eligible. Fields are
 /// facts, never verbs (AD-6).
@@ -127,6 +150,7 @@ final class StripState {
     required this.resident,
     this.reportWeekOrdinal,
     this.suggestion,
+    this.snowballProposedMinutes,
   });
 
   /// The winning resident — at most one is ever visible (UX-DR22).
@@ -153,6 +177,18 @@ final class StripState {
   /// with `core/weave`'s `dormantEpicProjects` by shape alone — strip
   /// must not import weave (the cycle), so no named type crosses.
   final StripSuggestion? suggestion;
+
+  /// The raised Time Bag the snowball's sentence offers, in minutes
+  /// (Story 7.5, FR-23) — non-null exactly when [resident] is
+  /// [StripResident.snowball], null for every other resident (the
+  /// [suggestion] field's own grammar). The shown fact BOTH one-tap
+  /// paths need — the tap mints the bag the user was SHOWN through
+  /// the existing `setting_changed` minter, never one re-derived at
+  /// tap time (the `reportWeekOrdinal` grammar) — and the only fact
+  /// the resident carries: no count, chain length or run name
+  /// crosses to the shell (§1.1 P2, AD-26 — the offer's grounding is
+  /// the moment, never a number).
+  final int? snowballProposedMinutes;
 }
 
 /// One dormant Epic Project the strip may suggest (Story 5.13,
@@ -165,16 +201,18 @@ typedef StripSuggestion = ({
   String description,
 });
 
-/// One resident's eligibility at the read instant. This build
-/// implements five — the offer, the follow-up, the suggestion, the
-/// report and the check-in, below; every other resident derives
-/// not-eligible until its own story lands its data, so the precedence
-/// walk falls through them to the implemented set (or to nothing). A
+/// One resident's eligibility at the read instant. Since Story 7.5
+/// this build implements all six — the offer, the follow-up, the
+/// suggestion, the snowball, the report and the check-in, below. A
 /// new resident's eligibility arrives HERE, in the same pass as its
 /// data — never as a special case inside the walk. Since Story 6.6
-/// five eligibilities stand: the once-ever first-run curation offer,
+/// five eligibilities stood: the once-ever first-run curation offer,
 /// the once-per-box quarantine follow-up, the once-per-season
-/// suggestion, the weekly self-report and the daily check-in.
+/// suggestion, the weekly self-report and the daily check-in; since
+/// Story 7.5 the sixth stands beside them: the snowball's
+/// comfortable-day crossing (ten consecutive comfortable days ending
+/// yesterday, the bag below its top, no `time_bag` row today — one
+/// day per run, nothing stored).
 bool _residentEligible(
   StripResident resident,
   List<LogEntry> entries,
@@ -183,7 +221,9 @@ bool _residentEligible(
   required bool answeredToday,
   required bool answeredDueWeek,
   required StripSuggestion? seasonalShown,
+  required int? snowballShown,
   required int instantUtcMicros,
+  required int offsetSeconds,
 }) {
   switch (resident) {
     case StripResident.energyCheckIn:
@@ -254,8 +294,28 @@ bool _residentEligible(
             instantUtcMicros: instantUtcMicros,
           );
     case StripResident.snowball:
-      // Epic 7's comfortable-day suggestion — its story's data.
-      return false;
+      // 7.5's crossing-day window (FR-23, AD-1, AD-21): eligible
+      // exactly on the day the comfortable-day run first reaches
+      // ten — `== 10`, never ≥ (a chain is 10 on one day only, so
+      // once-ness, the accept's reset and dismissal's no-nag scope
+      // are all structural: nothing is stored, no dismissal row
+      // exists, and a fully displaced or unopened day misses it,
+      // "at most once" allowing zero — the 6-6 knock's own
+      // pattern). No first-opening gate: a rarer resident displacing
+      // the first opening re-offers the snowball at the next opening
+      // of the same crossing day (the whole-day window). The shown
+      // fact's own fold (`_snowballShown`) decides the bag halves:
+      // the bag below its top and no `time_bag` row today — the
+      // accept's own row (and a manual bag change) consumes the
+      // window for the day.
+      return snowballShown != null &&
+          comfortableDayRunLength(
+                entries: entries,
+                instantUtcMicros: instantUtcMicros,
+                offsetSeconds: offsetSeconds,
+              ) ==
+              snowballRunLength;
+    // ponytail: the ten is authored (FR-23) — not a settings knob.
     case StripResident.weeklySelfReport:
       // SM-2's persistent weekly report (Story 2.6): due while the due
       // week stands unanswered, at the day's first opening — the same
@@ -471,11 +531,47 @@ StripSuggestion? _seasonalShown(
   return null;
 }
 
+/// The raised Time Bag the snowball may offer at this read (Story
+/// 7.5, FR-23): the derived bag plus [snowballRaiseMinutes] — or
+/// null, the offer's own silence, when nothing is left to suggest:
+/// the bag already reads [timeBagMostMinutes], or a `time_bag`
+/// `SettingEntry` stands whose OWN civil day is today (each row
+/// scoped in its own stored offset, AD-4), the accept's own row and
+/// a manual bag change alike consuming the window for the day — the
+/// once-per-run clause by derivation alone, never a stored marker
+/// (AD-21). Rows after the read instant are excluded, exactly the
+/// derivation's own convention. The bag itself is the settings
+/// derivation's ([deriveTimeBagMinutes] — the last valid row, the
+/// default 15): no second definition of the bag exists here.
+int? _snowballShown(
+  List<LogEntry> entries,
+  Calendar calendar,
+  Day today,
+  int instantUtcMicros,
+) {
+  final visible = [
+    for (final entry in entries)
+      if (entry.instantUtcMicros <= instantUtcMicros) entry,
+  ];
+  final bag = deriveTimeBagMinutes(visible);
+  if (bag >= timeBagMostMinutes) {
+    return null;
+  }
+  for (final entry in visible) {
+    if (entry is SettingEntry &&
+        entry.key == timeBagSettingKey &&
+        calendar.dayOf(entry.instantUtcMicros, entry.offsetSeconds) == today) {
+      return null;
+    }
+  }
+  return bag + snowballRaiseMinutes;
+}
+
 /// Derives the strip's resident at one read instant (Story 2.5,
 /// FR-4): pure over the log, writing nothing (AD-3). The resolution
 /// walks [stripResidentPrecedence] in order and takes the first
 /// resident whose eligibility holds — the load-bearing total order
-/// UX-DR22 names. This build implements five eligibilities: the
+/// UX-DR22 names. This build implements all six eligibilities: the
 /// once-ever first-run curation offer (due iff the first opening
 /// ever is underway — the day's first opening AND no `app_opened`
 /// row from any earlier day, Story 5.12, FR-31), the once-per-box
@@ -484,7 +580,11 @@ StripSuggestion? _seasonalShown(
 /// day-window derivation of Story 6.6, FR-21), the once-per-season
 /// suggestion (due iff the day's first opening is underway and the
 /// dormant fold handed in an Epic no live same-season
-/// `suggestion_dismissed` row names, Story 5.13, FR-15), the weekly
+/// `suggestion_dismissed` row names, Story 5.13, FR-15), the
+/// snowball (due exactly on the crossing day the comfortable-day
+/// run first reaches ten — while the bag sits below its top and no
+/// `time_bag` row stands today, one day per run, nothing stored,
+/// Story 7.5, FR-23), the weekly
 /// self-report (due iff the due week — `weekOf(today).weekOrdinal`
 /// minus 0 on Sunday, 1 on Mon–Sat, the latest week whose Sunday has
 /// arrived — holds no accepted `report_answered` row whose carried
@@ -492,8 +592,7 @@ StripSuggestion? _seasonalShown(
 /// first opening is underway, SM-2), and the daily check-in (due iff
 /// the current domestic day — each row scoped in its own stored
 /// offset, AD-4 — holds no `energy_set` row and the day's first
-/// opening is underway), so the walk falls through the one
-/// not-yet-eligible resident to them, or to nothing. A corrupt
+/// opening is underway). A corrupt
 /// `energy_set` or `report_answered` row never reaches this
 /// derivation — the read boundary excluded it, and the day (or week)
 /// derives as unanswered.
@@ -555,6 +654,18 @@ StripState? deriveStrip({
     today,
     instantUtcMicros,
   );
+  // The snowball's shown fact (Story 7.5, FR-23): the raised bag the
+  // crossing day's sentence offers — null when the bag sits at its
+  // top or today already holds a `time_bag` row, which is the
+  // eligibility's own suppressed arm. Computed once beside the
+  // seasonal pick, so the walk below reads it as the fact its branch
+  // and its StripState both need.
+  final snowballShown = _snowballShown(
+    entries,
+    calendar,
+    today,
+    instantUtcMicros,
+  );
   for (final resident in stripResidentPrecedence) {
     if (excludeResidents.contains(resident)) {
       continue;
@@ -567,12 +678,19 @@ StripState? deriveStrip({
       answeredToday: answeredToday,
       answeredDueWeek: answeredDueWeek,
       seasonalShown: seasonalShown,
+      snowballShown: snowballShown,
       instantUtcMicros: instantUtcMicros,
+      offsetSeconds: offsetSeconds,
     )) {
       return resident == StripResident.weeklySelfReport
           ? StripState(resident: resident, reportWeekOrdinal: dueWeek)
           : resident == StripResident.seasonalSuggestion
           ? StripState(resident: resident, suggestion: seasonalShown)
+          : resident == StripResident.snowball
+          ? StripState(
+              resident: resident,
+              snowballProposedMinutes: snowballShown,
+            )
           : StripState(resident: resident);
     }
   }

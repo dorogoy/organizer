@@ -1433,4 +1433,150 @@ void main() {
       expect(entries, hasLength(3));
     });
   });
+
+  group('the snowball (Story 7.5, FR-23, AD-26)', () {
+    SessionStartEntry pocketedStart(
+      int micros,
+      int minutes, {
+      String id = 'start',
+    }) => SessionStartEntry(
+      id: id,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.sessionStarted,
+      pocketMinutes: minutes,
+    );
+
+    ItemActEntry doneAt(int micros, {String id = 'done'}) => ItemActEntry(
+      id: id,
+      instantUtcMicros: micros,
+      offsetSeconds: 0,
+      kind: LogKind.cardDone,
+      itemId: 'hab-a',
+      itemOrigin: Origin.shipped,
+    );
+
+    SettingEntry bagRow(int micros, int value, {String id = 'bag'}) =>
+        SettingEntry(
+          id: id,
+          instantUtcMicros: micros,
+          offsetSeconds: 0,
+          key: 'time_bag',
+          value: value,
+        );
+
+    /// One comfortable day on [day] of August 2026: a 15-minute
+    /// pocketed session at 09:00 with a done inside, closed 09:10.
+    List<LogEntry> comfortableDay(int day) => [
+      pocketedStart(utcMicros(2026, 8, day, 9), 15, id: 'start-$day'),
+      doneAt(utcMicros(2026, 8, day, 9, 5), id: 'done-$day'),
+      _ended(utcMicros(2026, 8, day, 9, 10), id: 'end-$day'),
+    ];
+
+    /// [n] consecutive comfortable days ending yesterday (Aug 28).
+    List<LogEntry> comfortableDays(int n) => [
+      for (var day = 29 - n; day <= 28; day++) ...comfortableDay(day),
+    ];
+
+    test('the crossing day — a run of exactly ten ending yesterday '
+        'holds the slot, carrying the raised bag as the shown fact '
+        '(matrix: crossing day)', () {
+      final state = resolve(comfortableDays(10));
+      expect(state?.resident, StripResident.snowball);
+      // The default bag is 15: the offer names 20 — bag + 5, and
+      // nothing else (no count, no chain length, AD-26).
+      expect(state?.snowballProposedMinutes, 20);
+      expect(state?.reportWeekOrdinal, isNull);
+      expect(state?.suggestion, isNull);
+    });
+
+    test('a run of nine — not eligible: the strip falls through to '
+        'the next resident (matrix: 9)', () {
+      final state = resolve(comfortableDays(9));
+      expect(state?.resident, isNot(StripResident.snowball));
+      expect(state?.snowballProposedMinutes, isNull);
+    });
+
+    test('a run of eleven — a later day of a chain past ten, the '
+        'window consumed structurally: not eligible (matrix: 11)', () {
+      final state = resolve(comfortableDays(11));
+      expect(state?.resident, isNot(StripResident.snowball));
+    });
+
+    test('the bag at its top — nothing left to suggest: not eligible '
+        '(FR-23)', () {
+      final entries = [
+        bagRow(utcMicros(2026, 8, 10, 9), 30, id: 'bag-top'),
+        ...comfortableDays(10),
+      ];
+      expect(resolve(entries)?.resident, isNot(StripResident.snowball));
+    });
+
+    test('a raised bag below the top composes — bag 25 offers the top '
+        'itself (30), still one decision', () {
+      final entries = [
+        bagRow(utcMicros(2026, 8, 10, 9), 25, id: 'bag-25'),
+        ...comfortableDays(10),
+      ];
+      final state = resolve(entries);
+      expect(state?.resident, StripResident.snowball);
+      expect(state?.snowballProposedMinutes, 30);
+    });
+
+    test('a time_bag row today — the accept\'s own row or a manual '
+        'change consumes the window for the day (matrix: same-day '
+        'reopen)', () {
+      final entries = [
+        ...comfortableDays(10),
+        bagRow(utcMicros(2026, 8, 29, 10), 20, id: 'bag-today'),
+      ];
+      expect(resolve(entries)?.resident, isNot(StripResident.snowball));
+    });
+
+    test('a time_bag row of an earlier day suppresses nothing — the '
+        'window is today\'s alone', () {
+      final entries = [
+        bagRow(utcMicros(2026, 8, 15, 9), 20, id: 'bag-earlier'),
+        ...comfortableDays(10),
+      ];
+      final state = resolve(entries);
+      expect(state?.resident, StripResident.snowball);
+      expect(state?.snowballProposedMinutes, 25);
+    });
+
+    test('a time_bag row after the read instant is skipped — the '
+        'readers\' convention', () {
+      final entries = [
+        ...comfortableDays(10),
+        bagRow(utcMicros(2026, 8, 29, 13), 20, id: 'bag-future'),
+      ];
+      expect(resolve(entries)?.resident, StripResident.snowball);
+    });
+
+    test('the exclusion seam — the shell\'s day marker hands the '
+        'slot to the next resident in the same opening', () {
+      final state = resolve(comfortableDays(10), null, const {
+        StripResident.snowball,
+      });
+      expect(state?.resident, isNot(StripResident.snowball));
+    });
+
+    test('precedence below the seasonal suggestion, above the report '
+        'and the check-in (UX-DR22\'s order, lived)', () {
+      final epic = (
+        stableId: 'epic-a',
+        origin: Origin.shipped,
+        description: 'la descripcion',
+      );
+      // The seasonal holds the slot while it stands eligible —
+      // the snowball is displaced, not consumed.
+      final displaced = resolve(comfortableDays(10), null, const {}, [epic]);
+      expect(displaced?.resident, StripResident.seasonalSuggestion);
+      // And with the seasonal ineligible, the snowball outranks the
+      // report and the check-in: ten comfortable days, the due week
+      // unanswered, the day\'s first opening — the snowball wins.
+      final winner = resolve(comfortableDays(10));
+      expect(winner?.resident, StripResident.snowball);
+    });
+  });
 }

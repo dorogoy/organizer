@@ -662,6 +662,14 @@ void main() {
           'seasonal suggestion\'s accept tap, the landing paths\' own minter '
           'from the one new pinned call site (Story 5.13)',
     );
+    expect(
+      RegExp(r'\bsettingChanged\s*\(').allMatches(dispenserSource),
+      hasLength(1),
+      reason:
+          'exactly one core settingChanged command invocation — the '
+          'snowball\'s accept tap, the settings kind\'s own sanctioned '
+          'minter reused for the raised bag\'s single row (Story 7.5)',
+    );
 
     // The append-site census, exact per file: `appendLogEntry` calls
     // (a receiver-dotted call, never the adapter's own

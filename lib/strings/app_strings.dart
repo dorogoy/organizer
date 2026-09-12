@@ -767,6 +767,12 @@ abstract class AppStrings {
   /// **'Está bien así.'**
   String get snowballDismissAcknowledgement;
 
+  /// The comfortable-day snowball's offer (Story 7.5, FR-23): one whole-sentence accept button offering the raised Time Bag — the concrete bag the tap produces, the Settings surface's own name (bolsa de tiempo), one decision. The offer's being earned is the moment it appears, never prose about it: no count, chain length, run name, step size or deficit may appear (§1.1 P2, AD-26). The minutes are the one atomic numeral placeholder (the duration format's own rule), never a composed or concatenated figure.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Subimos la bolsa de tiempo a {minutes} minutos?'**
+  String snowballSuggestion(int minutes);
+
   /// Energy check-in — the daily ambient strip, first opening; exists to ask for less, never a gate.
   ///
   /// In es, this message translates to:

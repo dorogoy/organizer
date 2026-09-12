@@ -30,7 +30,17 @@
 // persists across openings within its due day); there is no accept
 // path — acting on the physical box is the user's — and the ✕ writes
 // nothing at all, the day-window derivation never re-offering it on
-// any later day. The strip inherits the
+// any later day. The comfortable-day snowball (Story 7.5, FR-23):
+// the raised-bag sentence naming the shown minutes as one
+// whole-sentence button plus the ✕ under its own authored
+// acknowledgement (`Está bien así.`, UX-DR52 — this resident's ✕
+// alone speaks it), bare chrome (its window is the run's one
+// crossing day, never a persistent resident); the tap raises the
+// Time Bag through exactly one `setting_changed` row naming the
+// shown minutes — the resident gone by derivation, no later day of
+// the run re-offering it — and the ✕ writes nothing at all, the
+// slot handing to the displaced instruments in the same opening.
+// The strip inherits the
 // short-surface floor — it grows and scrolls at 200%, nothing
 // truncated, every target at or above 48dp — and after it leaves,
 // nothing on this surface displays the level: the narrower deal is
@@ -55,6 +65,7 @@ class StripLayer extends StatelessWidget {
     super.key,
     required this.resident,
     this.seasonalSuggestion,
+    this.snowballProposedMinutes,
     required this.onEnergy,
     this.onDismissCheckIn,
     required this.onAnswerReport,
@@ -64,6 +75,8 @@ class StripLayer extends StatelessWidget {
     required this.onAcceptSuggestion,
     this.onDismissSuggestion,
     this.onDismissQuarantineFollowUp,
+    required this.onAcceptSnowball,
+    this.onDismissSnowball,
     required this.child,
   });
 
@@ -78,6 +91,13 @@ class StripLayer extends StatelessWidget {
   /// names the shown Epic's description, and both paths act on the
   /// project the user was shown, never one re-derived at tap time.
   final StripSuggestion? seasonalSuggestion;
+
+  /// The raised Time Bag the snowball's sentence offers, in minutes
+  /// (Story 7.5, FR-23) — the read's own fact beside the resident,
+  /// non-null exactly when [resident] is [StripResident.snowball]:
+  /// the sentence names the shown bag, and both paths act on the
+  /// value the user was shown, never one re-derived at tap time.
+  final int? snowballProposedMinutes;
 
   /// The check-in's answer path: the screen's energy handler, one
   /// write per tap.
@@ -117,6 +137,17 @@ class StripLayer extends StatelessWidget {
   /// its own tomorrow.
   final VoidCallback? onDismissQuarantineFollowUp;
 
+  /// The snowball's accept path (Story 7.5, FR-23): the screen's
+  /// bag-raise handler — one `setting_changed` row per tap, naming
+  /// the shown minutes.
+  final VoidCallback onAcceptSnowball;
+
+  /// The snowball's ✕ path (Story 7.5, FR-23): the screen's dismissal
+  /// handler, never a write — shell state for the crossing day, and
+  /// the run's own `== 10` window closes the resident on its own
+  /// tomorrow.
+  final VoidCallback? onDismissSnowball;
+
   final Widget child;
 
   @override
@@ -154,10 +185,15 @@ class StripLayer extends StatelessWidget {
           StripResident.quarantineFollowUp => QuarantineFollowUpStrip(
             onDismiss: onDismissQuarantineFollowUp,
           ),
-          // The snowball resident is never eligible in this build —
-          // its story's data does not exist yet — so the read can
-          // never hand this switch one.
-          StripResident.snowball => child,
+          // The comfortable-day snowball (Story 7.5, FR-23): the
+          // raised-bag sentence plus the ✕ under its own
+          // acknowledgement — the tap raises the bag through one
+          // `setting_changed` row, the ✕ writes nothing.
+          StripResident.snowball => SnowballStrip(
+            proposedMinutes: snowballProposedMinutes,
+            onAccept: onAcceptSnowball,
+            onDismiss: onDismissSnowball,
+          ),
         },
       ],
     );

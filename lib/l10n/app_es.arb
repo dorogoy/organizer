@@ -664,6 +664,16 @@
     "description": "Snowball suggestion dismissal."
   },
 
+  "snowballSuggestion": "¿Subimos la bolsa de tiempo a {minutes} minutos?",
+  "@snowballSuggestion": {
+    "description": "The comfortable-day snowball's offer (Story 7.5, FR-23): one whole-sentence accept button offering the raised Time Bag — the concrete bag the tap produces, the Settings surface's own name (bolsa de tiempo), one decision. The offer's being earned is the moment it appears, never prose about it: no count, chain length, run name, step size or deficit may appear (§1.1 P2, AD-26). The minutes are the one atomic numeral placeholder (the duration format's own rule), never a composed or concatenated figure.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+
   "energyCheckInQuestion": "¿Cuánta energía tienes hoy?",
   "@energyCheckInQuestion": {
     "description": "Energy check-in — the daily ambient strip, first opening; exists to ask for less, never a gate."
