@@ -474,4 +474,44 @@ void main() {
       expect(after, isNot(before));
     });
   });
+
+  group('the album purge sweep (Story 7.2, FR-18)', () {
+    test('sweepAlbum unlinks every blob in the scope — the scope dir '
+        'survives, another scope is not the sweep\'s to touch', () async {
+      await writeAlbumPhoto(files, [1]);
+      await writeAlbumPhoto(files, [2, 2]);
+      await writeAlbumPhoto(files, [3, 3, 3]);
+      // Another scope's blob is not the purge's to touch — and a
+      // user-initiated export lands outside the app-private root
+      // altogether, structurally beyond the sweep (NFR4).
+      await files.write(credentialFilesScope, 'openai', [9]);
+
+      await files.sweepAlbum();
+
+      final albumDir = Directory(
+        '${root.path}${Platform.pathSeparator}$albumFilesScope',
+      );
+      expect(albumDir.existsSync(), isTrue, reason: 'the scope remains');
+      expect(albumDir.listSync(followLinks: false), isEmpty);
+      expect(await files.read(credentialFilesScope, 'openai'), [9]);
+    });
+
+    test('a fresh install: a missing album scope sweeps as a quiet '
+        'no-op, creating nothing', () async {
+      await files.sweepAlbum();
+      expect(root.listSync(), isEmpty);
+    });
+
+    test('the sweep is idempotent — a second run is the same quiet '
+        'outcome, the purge retry\'s own footing', () async {
+      await writeAlbumPhoto(files, [1]);
+      await files.sweepAlbum();
+      await files.sweepAlbum();
+      expect(
+        Directory('${root.path}${Platform.pathSeparator}$albumFilesScope')
+            .listSync(followLinks: false),
+        isEmpty,
+      );
+    });
+  });
 }

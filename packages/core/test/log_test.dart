@@ -55,9 +55,10 @@ LogEntryRecord _record(
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-seven kinds (24 since Story '
+    test('holds exactly the build\'s twenty-nine kinds (24 since Story '
         '6.3 added item_triaged; 25 since Story 6.5 added box_created; 27 '
-        'since Story 7.1 added before_saved and album_entry_added)', () {
+        'since Story 7.1 added before_saved and album_entry_added; 29 '
+        'since Story 7.2 added album_entry_deleted and album_purged)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -86,9 +87,13 @@ void main() {
         LogKind.boxCreated,
         LogKind.beforeSaved,
         LogKind.albumEntryAdded,
+        LogKind.albumEntryDeleted,
+        LogKind.albumPurged,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
         'album_entry_added',
+        'album_entry_deleted',
+        'album_purged',
         'app_opened',
         'before_saved',
         'box_created',
@@ -116,7 +121,7 @@ void main() {
         'slice_returned',
         'suggestion_dismissed',
       ]);
-      expect(LogKind.knownByName, hasLength(27));
+      expect(LogKind.knownByName, hasLength(29));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1912,6 +1917,15 @@ void main() {
           afterName: 'b.jpg',
           cluster: 'z1',
         ),
+        'album_entry_deleted': _record(
+          'album_entry_deleted',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+          cluster: 'z1',
+        ),
+        'album_purged': _record('album_purged', cluster: 'z1'),
       };
       // Every known kind but the curation kind itself is in the map.
       final expectedKinds =
@@ -2320,6 +2334,15 @@ void main() {
           afterName: 'b.jpg',
           triageDestination: 'keep',
         ),
+        'album_entry_deleted': _record(
+          'album_entry_deleted',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+          triageDestination: 'keep',
+        ),
+        'album_purged': _record('album_purged', triageDestination: 'keep'),
       };
       final expectedKinds =
           LogKind.knownByName.keys
@@ -2682,6 +2705,225 @@ void main() {
             convertLogEntryRecord(row).flaw,
             LogRecordFlaw.photoNameOnNonPhotoKind,
             reason: row.kind,
+          );
+        }
+      });
+
+      test('an album_entry_deleted row converts with its pair and both '
+          'names intact — the pair row\'s exact mirror (Story 7.2)', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'album_entry_deleted',
+            itemId: 'step-1',
+            itemOrigin: Origin.cloud,
+            beforeName: 'hash-a.jpg',
+            afterName: 'hash-b.jpg',
+          ),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<AlbumEntryDeletedEntry>());
+        expect(
+          (entry as AlbumEntryDeletedEntry).kind,
+          LogKind.albumEntryDeleted,
+        );
+        expect(entry.beforeName, 'hash-a.jpg');
+        expect(entry.afterName, 'hash-b.jpg');
+        expect(entry.itemId, 'step-1');
+        expect(entry.itemOrigin, Origin.cloud);
+      });
+
+      test('an album_purged row converts as its own payload-less '
+          'entry — the box_created precedent (Story 7.2, FR-18, '
+          'AD-21)', () {
+        final conversion = convertLogEntryRecord(_record('album_purged'));
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<AlbumPurgedEntry>());
+        expect((entry as AlbumPurgedEntry).kind, LogKind.albumPurged);
+        expect(entry.instantUtcMicros, 7000);
+        expect(entry.offsetSeconds, 3600);
+      });
+
+      test('an album_entry_deleted row without either blob name or '
+          'with a broken pair is excluded, exactly as the pair row '
+          '(Story 7.2)', () {
+        for (final record in [
+          _record(
+            'album_entry_deleted',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            beforeName: 'a.jpg',
+          ),
+          _record(
+            'album_entry_deleted',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            beforeName: 'a.jpg',
+            afterName: '',
+          ),
+          _record(
+            'album_entry_deleted',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            afterName: 'b.jpg',
+          ),
+        ]) {
+          expect(
+            convertLogEntryRecord(record).flaw,
+            LogRecordFlaw.rewardNameAbsent,
+            reason: record.kind,
+          );
+        }
+        expect(
+          convertLogEntryRecord(
+            _record(
+              'album_entry_deleted',
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+            ),
+          ).flaw,
+          LogRecordFlaw.itemPairAbsent,
+        );
+        expect(
+          convertLogEntryRecord(
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+            ),
+          ).flaw,
+          LogRecordFlaw.halfItemPair,
+        );
+      });
+
+      test('an album_purged row carrying any payload family is '
+          'excluded — the sweep names no child, so even the photo '
+          'columns are foreign (Story 7.2)', () {
+        final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+          (
+            _record(
+              'album_purged',
+              itemId: 'man-a',
+              itemOrigin: Origin.shipped,
+            ),
+            LogRecordFlaw.itemOnNonItemKind,
+          ),
+          (
+            _record('album_purged', stack: 'a-stack'),
+            LogRecordFlaw.stackOffCrashKind,
+          ),
+          (
+            _record('album_purged', settingKey: 'time_bag'),
+            LogRecordFlaw.settingOnNonSettingKind,
+          ),
+          (
+            _record('album_purged', pocketMinutes: 15),
+            LogRecordFlaw.pocketOnNonPocketKind,
+          ),
+          (
+            _record('album_purged', energyLevel: 1),
+            LogRecordFlaw.energyOnNonEnergyKind,
+          ),
+          (
+            _record('album_purged', reportValue: 3, reportWeek: 32),
+            LogRecordFlaw.reportOnNonReportKind,
+          ),
+          (
+            _record('album_purged', permission: 'camera'),
+            LogRecordFlaw.permissionOnNonPermissionKind,
+          ),
+          (
+            _record('album_purged', cluster: 'z1', enabled: true),
+            LogRecordFlaw.curationOnNonCurationKind,
+          ),
+          (
+            _record('album_purged', sliceCause: 'invalidKey'),
+            LogRecordFlaw.causeOnNonFailedKind,
+          ),
+          (
+            _record('album_purged', triageDestination: 'keep'),
+            LogRecordFlaw.triageOnNonTriageKind,
+          ),
+          (
+            _record('album_purged', beforeName: 'a.jpg', afterName: 'b.jpg'),
+            LogRecordFlaw.photoNameOnNonPhotoKind,
+          ),
+        ];
+        for (final (row, flaw) in payloaded) {
+          expect(
+            convertLogEntryRecord(row).flaw,
+            flaw,
+            reason: 'a purge row carries no payload at all',
+          );
+        }
+      });
+
+      test('an album_entry_deleted row carrying any other payload '
+          'family is excluded, never coerced (Story 7.2)', () {
+        final payloaded = <(LogEntryRecord, LogRecordFlaw)>[
+          (
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+              stack: 'a-stack',
+            ),
+            LogRecordFlaw.stackOffCrashKind,
+          ),
+          (
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+              settingKey: 'time_bag',
+            ),
+            LogRecordFlaw.settingOnNonSettingKind,
+          ),
+          (
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+              pocketMinutes: 15,
+            ),
+            LogRecordFlaw.pocketOnNonPocketKind,
+          ),
+          (
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+              triageDestination: 'keep',
+            ),
+            LogRecordFlaw.triageOnNonTriageKind,
+          ),
+          (
+            _record(
+              'album_entry_deleted',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+              cluster: 'z1',
+            ),
+            LogRecordFlaw.curationOnNonCurationKind,
+          ),
+        ];
+        for (final (row, flaw) in payloaded) {
+          expect(
+            convertLogEntryRecord(row).flaw,
+            flaw,
+            reason: 'a delete row carries its pair and names and no other',
           );
         }
       });

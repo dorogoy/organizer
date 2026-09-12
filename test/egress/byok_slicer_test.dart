@@ -1432,6 +1432,9 @@ class _ThrowingReadFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// An in-memory Files fake (the vault suite's own shape).
@@ -1462,6 +1465,9 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// A transparent cipher: the envelope is the plaintext, so a seeded

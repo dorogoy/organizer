@@ -67,6 +67,9 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// A scripted cipher fake: seals answer through an optional gate (so

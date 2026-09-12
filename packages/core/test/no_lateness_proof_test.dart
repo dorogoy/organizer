@@ -1285,6 +1285,10 @@ final class KitchenSink {
       // shot and the saved pair (FR-17).
       'log/log_entry.dart:BeforeSavedEntry',
       'log/log_entry.dart:AlbumEntryAddedEntry',
+      // Story 7.2: the album's two deletion rows — the entry delete
+      // mirroring the pair row, and the payload-less purge (FR-18).
+      'log/log_entry.dart:AlbumEntryDeletedEntry',
+      'log/log_entry.dart:AlbumPurgedEntry',
       'log/log_entry.dart:UnknownEntry',
       'weave/session.dart:LogFacts',
       'weave/weave.dart:Card',
@@ -1347,6 +1351,10 @@ final class KitchenSink {
       // Story 7.1: the milestone derivations' named-space record —
       // the group id and origin every reward row carries.
       'derive/reward.dart:NamedRewardSpace',
+      // Story 7.2: the album read model's live-entry record — the
+      // group pair, both blob names and the added act's instant
+      // (FR-18, AD-13).
+      'derive/album.dart:AlbumEntry',
     };
     // The deliberate exemptions, each with its reason:
     const exempted = {

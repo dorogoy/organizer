@@ -93,6 +93,9 @@ class _EmptyFiles implements FilesPort {
   Future<void> sweepScanCache() async {}
 
   @override
+  Future<void> sweepAlbum() async {}
+
+  @override
   Future<void> unlinkScan(String scanId) async {}
 
   @override

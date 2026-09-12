@@ -175,18 +175,29 @@ NamedRewardSpace? sessionMilestoneGroupId({
   return (groupId: stableId, origin: groups[stableId]!.first.origin);
 }
 
-/// The group's persisted Before blob name (Story 7.1, FR-17, AD-13) —
-/// the LATEST `before_saved` row naming [groupId] in store read
-/// order, or null when none stands: the declined, camera-blocked and
-/// typed-genesis cases are all the same absence, never a row that
-/// asserts one (AD-21). The name is content-addressed (sha256 hex +
-/// `.jpg`); the bytes live in the Files `album` scope, never here.
+/// The group's persisted Before blob name (Stories 7.1/7.2, FR-17,
+/// FR-18, AD-13, AD-21) — the LATEST `before_saved` row naming
+/// [groupId] in store read order that no later `album_purged` has
+/// killed, or null when none stands: the declined, camera-blocked
+/// and typed-genesis cases are all the same absence, never a row
+/// that asserts one (AD-21), and since Story 7.2 a Before saved
+/// before a purge is dead too — the fold never offers a pair whose
+/// bytes cannot exist, so a post-purge milestone degrades to `Un
+/// trabajo estupendo` until a fresh Before lands. The name is
+/// content-addressed (sha256 hex + `.jpg`); the bytes live in the
+/// Files `album` scope, never here.
 String? spaceBeforeName(List<LogEntry> log, String groupId) {
   String? name;
-  for (final entry in log) {
+  var nameIndex = -1;
+  var lastPurgeIndex = -1;
+  for (var i = 0; i < log.length; i++) {
+    final entry = log[i];
     if (entry is BeforeSavedEntry && entry.itemId == groupId) {
       name = entry.blobName;
+      nameIndex = i;
+    } else if (entry is AlbumPurgedEntry) {
+      lastPurgeIndex = i;
     }
   }
-  return name;
+  return nameIndex > lastPurgeIndex ? name : null;
 }
