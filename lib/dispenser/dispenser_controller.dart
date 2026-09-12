@@ -1455,7 +1455,6 @@ class DispenserController {
   /// the tap's own instant, no log read, no write, and the read's
   /// `excludeResidents` seam hides the resident for the rest of
   /// that day, handing the slot to the next resident in the same
-  /// that day, handing the slot to the next resident in the same
   /// opening. The shown fact is consumed at ENTRY, the
   /// `dismissSeasonalSuggestion` precedent: an accept arriving through
   /// any path that bypasses the screen's in-flight guard before this

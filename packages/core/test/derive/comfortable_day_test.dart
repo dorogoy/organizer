@@ -141,6 +141,28 @@ void main() {
     expect(runOf(entries), 1);
   });
 
+  test('one marathon sitting makes the whole domestic day uncomfortable '
+      '— a second in-pocket sitting the same day cannot save it', () {
+    // Aug 26 holds two sittings: 09:00→09:10 (in pocket, with a done)
+    // and 10:00→10:20 against a fifteen pocket (a marathon). FR-23's
+    // "no marathon session that day" fails the day as a whole; if the
+    // fold only required some non-marathon sitting, Aug 26 would still
+    // count and the run would read ten. The walk-back breaks there, so
+    // only Aug 27–28 stand.
+    final entries = [
+      for (var day = 19; day <= 28; day++)
+        if (day == 26) ...[
+          started(utcMicros(2026, 8, 26, 9), id: 'start-26-a'),
+          done(utcMicros(2026, 8, 26, 9, 5), id: 'done-26'),
+          ended(utcMicros(2026, 8, 26, 9, 10), id: 'end-26-a'),
+          started(utcMicros(2026, 8, 26, 10), id: 'start-26-b'),
+          ended(utcMicros(2026, 8, 26, 10, 20), id: 'end-26-b'),
+        ] else
+          ...comfortableDay(day),
+    ];
+    expect(runOf(entries), 2);
+  });
+
   test('span exactly at the pocket — not a marathon: strictly beyond is '
       'the whole judgment (no grace, no threshold band)', () {
     // Every day runs 09:00→09:15 — exactly the fifteen-minute pocket.
@@ -185,14 +207,19 @@ void main() {
 
   test('an unbounded sitting can fire no marathon — a start row with no '
       'pocket is judged never (AD-23)', () {
-    // Aug 22's session opens with no pocket and runs an hour: the
-    // day still counts (session + done), nothing can call it a
-    // marathon.
+    // Aug 22's session opens with no pocket and runs an hour
+    // (09:00→10:00): the day still counts (session + done), nothing
+    // can call it a marathon. The sitting is the day's only pair —
+    // a 09:10 close from `comfortableDay` would end it first and the
+    // hour span would never exist.
     final entries = [
-      for (var day = 19; day <= 28; day++) ...[
-        ...comfortableDay(day, pocket: day == 22 ? null : 15),
-        if (day == 22) ended(utcMicros(2026, 8, 22, 10), id: 'end-22-long'),
-      ],
+      for (var day = 19; day <= 28; day++)
+        if (day == 22) ...[
+          started(utcMicros(2026, 8, 22, 9), pocket: null, id: 'start-22'),
+          done(utcMicros(2026, 8, 22, 9, 5), id: 'done-22'),
+          ended(utcMicros(2026, 8, 22, 10), id: 'end-22-long'),
+        ] else
+          ...comfortableDay(day),
     ];
     expect(runOf(entries), 10);
   });
@@ -200,12 +227,17 @@ void main() {
   test('an out-of-range pocket derives as no pocket — never a repair, '
       'never a marathon (AD-23)', () {
     // Aug 21's start carries an imported 99: outside 1–60, the walk
-    // reads it as absent, so its two-hour span fires nothing.
+    // reads it as absent, so its two-hour span (09:00→11:00) fires
+    // nothing. Same discipline as the unbounded arm: this is the
+    // day's only pair, so the claimed span actually stands.
     final entries = [
-      for (var day = 19; day <= 28; day++) ...[
-        ...comfortableDay(day, pocket: day == 21 ? 99 : 15),
-        if (day == 21) ended(utcMicros(2026, 8, 21, 11), id: 'end-21-long'),
-      ],
+      for (var day = 19; day <= 28; day++)
+        if (day == 21) ...[
+          started(utcMicros(2026, 8, 21, 9), pocket: 99, id: 'start-21'),
+          done(utcMicros(2026, 8, 21, 9, 5), id: 'done-21'),
+          ended(utcMicros(2026, 8, 21, 11), id: 'end-21-long'),
+        ] else
+          ...comfortableDay(day),
     ];
     expect(runOf(entries), 10);
   });
@@ -334,30 +366,40 @@ void main() {
   });
 
   test('each row\'s own stored offset scopes its day (AD-4)', () {
-    // A comfortable day written under +02:00: 09:00 wall UTC+2 is
-    // 07:00 UTC — still inside Aug 20's domestic window ([04:00,
-    // 04:00) computed in its own frame). The ten stand.
+    // Aug 20's sitting is written at 02:00 UTC under +02:00: wall
+    // 04:00, so its own frame opens Aug 20. The same UTC instant in
+    // the read frame (offset 0) is still Aug 19 — before 04:00 UTC —
+    // so ignoring `entry.offsetSeconds` would charge Aug 19, leave
+    // Aug 20 empty, and the walk-back would break there (run of 8:
+    // Aug 21–28). Honoring the stored offset keeps Aug 20 comfortable
+    // and the ten stand.
     final entries = [
       for (var day = 19; day <= 28; day++)
         if (day == 20) ...[
           started(
-            utcMicros(2026, 8, 20, 7),
+            utcMicros(2026, 8, 20, 2),
             offsetSeconds: 7200,
             id: 'start-20',
           ),
           done(
-            utcMicros(2026, 8, 20, 7, 5),
+            utcMicros(2026, 8, 20, 2, 5),
             offsetSeconds: 7200,
             id: 'done-20',
           ),
           ended(
-            utcMicros(2026, 8, 20, 7, 10),
+            utcMicros(2026, 8, 20, 2, 10),
             offsetSeconds: 7200,
             id: 'end-20',
           ),
         ] else
           ...comfortableDay(day),
     ];
-    expect(runOf(entries), 10);
+    expect(
+      runOf(entries),
+      10,
+      reason:
+          'stored +02:00 charges Aug 20; the read frame would '
+          'charge Aug 19 and the run would read 8',
+    );
   });
 }

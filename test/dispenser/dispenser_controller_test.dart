@@ -4440,11 +4440,11 @@ void main() {
         'fact forwards on every variant, never the dealt arm alone', () async {
       // Every other snowball read in this group resolves a dealt
       // card; deleting the `snowballProposedMinutes` forward on the
-      // Closed or RestOffer constructor would ship the offer
-      // invisible on those reads with the suite green. A crossing-day
-      // log whose day holds no OPEN session — the sitting opened and
-      // closed before the read, no deal standing — reads as the warm
-      // close, and the strip must still name the raised bag.
+      // Closed constructor would ship the offer invisible on that
+      // read with the suite green. A crossing-day log whose day holds
+      // no OPEN session — the sitting opened and closed before the
+      // read, no deal standing — reads as the warm close, and the
+      // strip must still name the raised bag.
       final store = snowballStore()
         ..entries.addAll([
           _moment('app_opened', DateTime.utc(2026, 8, 29, 10), 'day-open'),
@@ -4458,6 +4458,23 @@ void main() {
       final view = await buildFor(store).read();
 
       expect(view, isA<DispenserClosed>());
+      expect(view.stripResident, StripResident.snowball);
+      expect(view.snowballProposedMinutes, 20);
+    });
+
+    test('the rest-offer view arm carries the snowball too — the shown '
+        'fact forwards on every variant, never the dealt arm alone', () async {
+      // The Closed pin parks on a finished sitting. A mid-pocket rest
+      // offer on the crossing day is a real concurrent state: snowball
+      // eligibility ignores today, and `checkpoint.offerDue` still
+      // preempts the deal. Deleting `super.snowballProposedMinutes`
+      // from DispenserRestOffer would shrink the strip with Dealt and
+      // Closed still green.
+      final store = snowballStore()
+        ..entries.add(_pocketedStart(DateTime.utc(2026, 8, 29, 11, 20), 45));
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserRestOffer>());
       expect(view.stripResident, StripResident.snowball);
       expect(view.snowballProposedMinutes, 20);
     });
