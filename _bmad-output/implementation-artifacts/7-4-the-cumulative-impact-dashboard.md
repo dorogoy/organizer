@@ -98,6 +98,23 @@ context: []
 - `devbox run -- make gate` -- expected: check (incl. text-scaling, no-literal-strings, string-table audit, forbidden vocabulary), test, format-check, analyze all green.
 - `wc -c` on this spec ≤ 24576 bytes at review presentation.
 
+## Manual Verification (Android emulator, 2026-09-12)
+
+**Environment:** AVD `organizer36` (Pixel 6, API 36 `google_apis` x86_64, KVM), debug `app-debug.apk` @ `b90bb5e`, driven over adb; UI read via `screencap` + vision OCR, every figure cross-checked against the pulled substrate DB. State synthesized by direct substrate seeding on a `pm clear`-fresh install: 4 single-step `local`-origin epic groups (one with a 60+ char place) + `epic_activated` + `before_saved` + 4 content-addressed JPEGs, 21 answered manual captures (16 focus/3 maintenance/2 instant) with `card_done` rows, and 7 `item_triaged` rows (bolsa/caja/caja grande/mueble + keep + quarantine). Two machine-local pitfalls hit and fixed: blobs must go to `/data/data/<pkg>/files/album/` (the FilesPort root — NOT `app_flutter/files/`), and `item_triaged` rows must leave `item_id`/`item_origin` NULL (the read boundary flaws them out otherwise — which the screen itself proved by rendering zero until the rows were corrected).
+
+| Check | Observed |
+|---|---|
+| Contextual entry | `Ver lo que ya has movido` on the album only, sited between `Borrar todo` and `Cerrar`; no dashboard affordance anywhere on the Dispenser or reward ✓ |
+| Figures | `4 h 40 min` + `de trabajo hecho, desde el primer día`; `27` + `micro-tareas hechas` — SQL parity: 27 `card_done` rows exactly; 15 900 s over pool facts + 900 s of one catalogue focus item = 16 800 s ✓ |
+| Volume card | Four sentences, gender/plural correct: `≈ 1 bolsa liberada`, `≈ 2 cajas liberadas` (authored shape), `≈ 1 caja grande liberada`, `≈ 1 mueble liberado` + method line; keep/quarantine rows contribute nothing ✓ |
+| Flaw filtering | Screen tallies (1/2/1/1) = the 7 valid rows only; raw SQL over all 14 rows gives 2/4/2/2 — the read boundary's flaw discipline demonstrably holds on-device ✓ |
+| Highlight row | Three columns at default scale, pairs side-by-side at thumb radius, captions `El balcón de casa · 13 sept` / `La mesa del salón · 12 sept` / `El trastero del pasillo · 2 sept` — newest-first, oldest two (incl. the long-place group) correctly excluded ✓ |
+| Civil-day dates | Captions show each entry's own day (13/12 sept, 2 sept) under a device clock moved +25 h mid-pass ✓ |
+| Real pair flow | Group milestone → Before renders (seeded kalimba photo) → `Hacer la foto` → virtual-scene After → pair lands → `Ver el álbum` appears ✓ |
+| Highlight tap | Pops back into the Album — no viewer, no browse surface ✓ |
+| 200 % font scale | Row reflows to one column per row, each unit full-width with its pair + caption; nothing truncated, nothing shrunk, `≈` sentences wrap naturally with no ellipsis ✓ |
+| Log truth | 5 `album_entry_added` (4 seeded + 1 real), 2 `slice_requested/failed` (rescue attempts, degraded honestly), figures identical across re-entry ✓ |
+
 **Manual checks (if no CLI):**
 - On emulator per the AGENTS.md recipe: complete a transformation → album shows `Ver lo que ya has movido`; dashboard figures match a pulled-substrate SQL count (`card_done` rows, triage tags, album entries); long-place seed and 200 % font scale reflow the highlight row to one column with gaps unchanged.
 
