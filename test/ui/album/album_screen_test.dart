@@ -11,6 +11,7 @@
 // fresh read — no error chrome anywhere.
 import 'dart:async';
 
+import 'package:core/catalogue/catalogue.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -19,10 +20,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:organizer/album/album_controller.dart';
+import 'package:organizer/dashboard/dashboard_controller.dart';
 import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/album/album_screen.dart';
+import 'package:organizer/ui/dashboard/dashboard_screen.dart';
 import 'package:organizer/ui/photo_frame.dart';
 import 'package:organizer/ui/theme.dart';
 import 'package:organizer/ui/tokens.dart';
@@ -133,12 +136,14 @@ void _seedAlbumEntry(
   required String beforeName,
   required String afterName,
   int instantUtcMicros = 1000,
+  int offsetSeconds = 3600,
+  String? id,
 }) {
   store.entries.add((
-    id: 'album-$group',
+    id: id ?? 'album-$group-$offsetSeconds',
     kind: 'album_entry_added',
     instantUtcMicros: instantUtcMicros,
-    offsetSeconds: 3600,
+    offsetSeconds: offsetSeconds,
     itemId: group,
     itemOrigin: Origin.cloud,
     stack: null,
@@ -176,10 +181,49 @@ void main() {
     nowOf: _fixedClock,
   );
 
+  /// The hand-built catalogue the dashboard's loader answers — one
+  /// entry per taxonomy size, the loader's parsed output shape.
+  final Catalogue catalogue = Catalogue(
+    version: 1,
+    entries: const [
+      CatalogueEntry(
+        id: 'focus-a',
+        size: Size.focus,
+        cadence: Cadence.daily,
+        name: 'Tarea de focus-a',
+      ),
+      CatalogueEntry(
+        id: 'man-a',
+        size: Size.maintenance,
+        cadence: Cadence.daily,
+        name: 'Tarea de man-a',
+      ),
+      CatalogueEntry(
+        id: 'hab-a',
+        size: Size.instant,
+        cadence: Cadence.daily,
+        name: 'Tarea de hab-a',
+      ),
+    ],
+  );
+
+  DashboardController dashboardWith(
+    _RecordingStore store,
+    _RecordingFiles files,
+  ) => DashboardController(
+    store: store,
+    files: files,
+    loadCatalogue: () async => catalogue,
+  );
+
   /// The gallery is never a MaterialApp's home — it is pushed over the
   /// reward, and its pop returns there. The harness mirrors that: a
   /// standing home route, the gallery pushed on top.
-  Future<void> pumpAlbum(WidgetTester tester, AlbumController album) async {
+  Future<void> pumpAlbum(
+    WidgetTester tester,
+    AlbumController album, {
+    DashboardController? dashboard,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -191,7 +235,10 @@ void main() {
     tester
         .state<NavigatorState>(find.byType(Navigator).first)
         .push(
-          MaterialPageRoute(builder: (context) => AlbumScreen(album: album)),
+          MaterialPageRoute(
+            builder: (context) =>
+                AlbumScreen(album: album, dashboard: dashboard),
+          ),
         );
     await tester.pumpAndSettle();
   }
@@ -257,6 +304,34 @@ void main() {
     expect(find.text(strings.albumEntryDelete), findsNWidgets(2));
     expect(find.text(strings.albumPurge), findsOneWidget);
     expect(find.text(strings.rewardClose), findsOneWidget);
+  });
+
+  testWidgets('same pair entries with distinct civil-day offsets keep '
+      'distinct album keys and both render (AD-4)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()
+      ..blobsByName['before-shared.jpg'] = [1]
+      ..blobsByName['after-shared.jpg'] = [2];
+    _seedAlbumEntry(
+      store,
+      group: 'shared',
+      beforeName: 'before-shared.jpg',
+      afterName: 'after-shared.jpg',
+      offsetSeconds: -7 * 3600,
+      id: 'album-west',
+    );
+    _seedAlbumEntry(
+      store,
+      group: 'shared',
+      beforeName: 'before-shared.jpg',
+      afterName: 'after-shared.jpg',
+      offsetSeconds: 9 * 3600,
+      id: 'album-east',
+    );
+    await pumpAlbum(tester, controllerWith(store, files));
+
+    expect(find.byType(PhotoFrame), findsNWidgets(4));
+    expect(find.text(strings.albumEntryDelete), findsNWidgets(2));
   });
 
   testWidgets('one tap on Borrar deletes exactly that entry — the row, the '
@@ -581,5 +656,86 @@ void main() {
     );
     expect(find.byType(AlbumScreen), findsOneWidget);
     expect(find.text(strings.albumEntryDelete), findsOneWidget);
+  });
+
+  testWidgets('the gallery carries exactly one dashboard affordance '
+      'while the seam stands — the app\'s only way into the cumulative '
+      'impact surface — and a tap pushes the SAME controller\'s '
+      'DashboardScreen (Story 7.4, FR-23, UX-DR31/32)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()
+      ..blobsByName['before-1.jpg'] = [1]
+      ..blobsByName['after-1.jpg'] = [2];
+    _seedAlbumEntry(
+      store,
+      group: 'group-1',
+      beforeName: 'before-1.jpg',
+      afterName: 'after-1.jpg',
+    );
+    final dashboard = dashboardWith(store, files);
+    await pumpAlbum(tester, controllerWith(store, files), dashboard: dashboard);
+
+    // Exactly one affordance, quiet prose above the close — and
+    // nothing else on the surface names the dashboard. The siting
+    // pin (UX-DR31/32): the way onward renders ABOVE the close
+    // action, sited with the other secondary actions — reading
+    // order puts the way onward before the way out.
+    expect(find.text(strings.albumOpenDashboard), findsOneWidget);
+    expect(
+      tester.getRect(find.text(strings.albumOpenDashboard)).top,
+      lessThan(tester.getRect(find.text(strings.rewardClose)).top),
+      reason: 'the dashboard affordance sits above the close',
+    );
+    expect(find.text(strings.dashboardTitle), findsNothing);
+
+    await tester.ensureVisible(find.text(strings.albumOpenDashboard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.albumOpenDashboard));
+    await tester.pumpAndSettle();
+
+    // The push carries the SAME controller — the seam hop-through pin
+    // (dropping the hand-off ships the dashboard dead with every
+    // composition pin green) — and the surface renders over the same
+    // substrate: the entry it highlights is the album's own.
+    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(
+      identical(
+        tester.widget<DashboardScreen>(find.byType(DashboardScreen)).dashboard,
+        dashboard,
+      ),
+      isTrue,
+    );
+    expect(find.text(strings.dashboardTitle), findsOneWidget);
+    expect(
+      find.byType(AlbumScreen, skipOffstage: false),
+      findsOneWidget,
+      reason: 'the gallery stands beneath, the pop\'s destination',
+    );
+
+    // The way back lands on the gallery again.
+    await tester.ensureVisible(find.text(strings.dashboardBackToAlbum));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.dashboardBackToAlbum));
+    await tester.pumpAndSettle();
+    expect(find.byType(DashboardScreen), findsNothing);
+    expect(find.text(strings.albumTitle), findsOneWidget);
+  });
+
+  testWidgets('the absent dashboard seam renders no affordance — never '
+      'a dead button (Story 7.4, the 7-3 gating lesson)', (tester) async {
+    final store = _RecordingStore();
+    final files = _RecordingFiles()
+      ..blobsByName['before-1.jpg'] = [1]
+      ..blobsByName['after-1.jpg'] = [2];
+    _seedAlbumEntry(
+      store,
+      group: 'group-1',
+      beforeName: 'before-1.jpg',
+      afterName: 'after-1.jpg',
+    );
+    await pumpAlbum(tester, controllerWith(store, files));
+
+    expect(find.text(strings.albumOpenDashboard), findsNothing);
+    expect(find.byType(DashboardScreen), findsNothing);
   });
 }

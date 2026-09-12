@@ -263,11 +263,29 @@ abstract class AppStrings {
   /// **'Todavía no lo decido'**
   String get destinationQuarantine;
 
-  /// Cumulative impact dashboard — the volume figure. It carries no glyph (the glyph-adjacency rule) and no denominator.
+  /// Cumulative impact dashboard — the bolsa volume approximation sentence (Story 7.4, FR-22, UX-DR37/49): one sentence per non-zero tag, the approximation mark, the unit visible, gender and plural correct. The approximation mark binds to its count with a non-breaking space — the durations' own load-bearing rule at 200%. It carries no glyph (the glyph-adjacency rule — the only box glyph is Quedármelo's, which would say the opposite of the sentence) and no denominator: the count is of things already gone, never of anything owed. Supersedes the authored `liberatedVolume` literal as its parameterized family; the shape is never re-worded.
   ///
   /// In es, this message translates to:
-  /// **'≈ 3 cajas liberadas'**
-  String get liberatedVolume;
+  /// **'≈ {count, plural, =1 {1 bolsa liberada} other {{count} bolsas liberadas}}'**
+  String liberatedVolumeBolsa(int count);
+
+  /// Cumulative impact dashboard — the caja volume approximation sentence (Story 7.4, FR-22, UX-DR37/49): the authored `≈ 3 cajas liberadas` shape verbatim in the plural arm, the approximation mark bound to its count with a non-breaking space (the durations' own load-bearing rule at 200%). No glyph, no denominator; one sentence per non-zero tag — FR-22 forbids unit equivalence, so the tallies never collapse into one number.
+  ///
+  /// In es, this message translates to:
+  /// **'≈ {count, plural, =1 {1 caja liberada} other {{count} cajas liberadas}}'**
+  String liberatedVolumeCaja(int count);
+
+  /// Cumulative impact dashboard — the caja grande volume approximation sentence (Story 7.4, FR-22, UX-DR37/49): adjective agrees in number with the noun; the approximation mark binds to its count with a non-breaking space (the durations' own load-bearing rule at 200%). No glyph, no denominator.
+  ///
+  /// In es, this message translates to:
+  /// **'≈ {count, plural, =1 {1 caja grande liberada} other {{count} cajas grandes liberadas}}'**
+  String liberatedVolumeCajaGrande(int count);
+
+  /// Cumulative impact dashboard — the mueble volume approximation sentence (Story 7.4, FR-22, UX-DR37/49): masculine agreement, liberado/liberados; the approximation mark binds to its count with a non-breaking space (the durations' own load-bearing rule at 200%). No glyph, no denominator.
+  ///
+  /// In es, this message translates to:
+  /// **'≈ {count, plural, =1 {1 mueble liberado} other {{count} muebles liberados}}'**
+  String liberatedVolumeMueble(int count);
 
   /// Sunday self-report, ambient and dismissible; persists until answered, never notified.
   ///
@@ -676,6 +694,72 @@ abstract class AppStrings {
   /// In es, this message translates to:
   /// **'Borrar todo'**
   String get albumPurge;
+
+  /// The dashboard's one and only entry point (Story 7.4, FR-23, UX-DR31/32/51) — its ONLY home, sited with the album's other secondary actions above the close: contextual navigation from the gallery the transformation-completed moment reached, never a permanent destination, never rendered on the Dispenser or the reward. Quiet prose, one tap, no confirmation; renders only while the dashboard seam stands (never a dead button) and the album it sits on is non-empty — the dashboard is unreachable until a first transformation exists.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver lo que ya has movido'**
+  String get albumOpenDashboard;
+
+  /// The cumulative impact dashboard's title (Story 7.4, FR-23): a statement about the past, never a target — mockup-verbatim. screenHeading register, the Album's own. No denominator may reach any value beneath it (UX-DR36).
+  ///
+  /// In es, this message translates to:
+  /// **'Lo que ya has movido'**
+  String get dashboardTitle;
+
+  /// The cumulative work figure's support label (Story 7.4, FR-23): mockup-verbatim. Names the whole history, never a period — no `this week`, no average, no rate, no comparison; the figure above it is a fact about time already spent, never of time owed.
+  ///
+  /// In es, this message translates to:
+  /// **'de trabajo hecho, desde el primer día'**
+  String get dashboardWorkCaption;
+
+  /// The cumulative work figure at an hour or more (Story 7.4, FR-23): {formats.duration} — largest unit first, value + non-breaking space + unit, the minutes arm absent when zero (`4 h`, `4 h 25 min`). The non-breaking spaces are load-bearing at 200%. Below an hour the existing durationMinutes / durationSeconds figures render; a sub-minute total is honestly seconds, never a rounded zero.
+  ///
+  /// In es, this message translates to:
+  /// **'{hours} h{minutes, plural, =0 {} other { {minutes} min}}'**
+  String dashboardWorkDuration(int hours, int minutes);
+
+  /// The completed Micro-tasks figure's own numeral (Story 7.4, FR-23): one atomic int placeholder, the self-report scale's and duration format's own rule — digits never render as string literals (AD-15, the mockup's own rule). metricNumeral register, never composed with any other string.
+  ///
+  /// In es, this message translates to:
+  /// **'{count}'**
+  String dashboardMicroTasksFigure(int count);
+
+  /// The completed Micro-tasks figure's support label (Story 7.4, FR-23): mockup register, `hechas` — things that already happened, never a quota, a target or a remainder of anything. The ICU plural substitutes one atomic numeral into an otherwise fixed label.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =1 {micro-tarea hecha} other {micro-tareas hechas}}'**
+  String dashboardMicroTasksLabel(int count);
+
+  /// The volume card's one method line (Story 7.4, FR-22, UX-DR49): mockup-verbatim — the units named in the user's own tap vocabulary, the counting honest about being theirs. Support register under the approximation sentences; absent entirely when no tally stands (no zero sentence, no method over nothing).
+  ///
+  /// In es, this message translates to:
+  /// **'Contado en bolsas, cajas y muebles, tal como los fuiste marcando.'**
+  String get dashboardVolumeMethod;
+
+  /// The highlight row's section label (Story 7.4, FR-23): mockup-verbatim support copy naming where the highlights come from — the Album, the dashboard's own only way in.
+  ///
+  /// In es, this message translates to:
+  /// **'Del álbum'**
+  String get dashboardAlbumSection;
+
+  /// One highlight's support caption (Story 7.4, FR-23): the group's own Origin Context (the space description) and the entry's short date ({formats.short-date}), bound by non-breaking spaces around the separator — the durations' own load-bearing rule at 200%. No adjective about the result, no count; measured in lines by the row's reflow rule — never truncated, never shrunk.
+  ///
+  /// In es, this message translates to:
+  /// **'{place} · {date}'**
+  String dashboardHighlightCaption(String place, String date);
+
+  /// One highlight's support caption when no Origin Context resolves (Story 7.4): the short date alone — the honest absence, never an invented place label.
+  ///
+  /// In es, this message translates to:
+  /// **'{date}'**
+  String dashboardHighlightDatelessCaption(String date);
+
+  /// The dashboard's close (Story 7.4, FR-23): mockup-verbatim — the secondary register, the Album named as the way back it always is (the dashboard is reachable only from there). Closing has zero side effects; a highlight tap is the same guarded pop, never a viewer.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver al álbum'**
+  String get dashboardBackToAlbum;
 
   /// Snowball suggestion dismissal.
   ///

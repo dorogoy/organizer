@@ -57,6 +57,7 @@ import 'package:flutter/services.dart';
 import '../../album/album_controller.dart';
 import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
+import '../../dashboard/dashboard_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
 import '../../genesis/genesis_controller.dart';
 import '../../reward/reward_controller.dart';
@@ -113,6 +114,7 @@ class DispenserScreen extends StatefulWidget {
     this.genesis,
     this.reward,
     this.album,
+    this.dashboard,
     this.sessionMilestone,
     this.routeObserver,
   });
@@ -167,6 +169,13 @@ class DispenserScreen extends StatefulWidget {
   /// entry point — can open the gallery. Absent (the test seam), the
   /// affordance renders nowhere.
   final AlbumController? album;
+
+  /// The dashboard seam (Story 7.4, FR-23): the 7.4 controller
+  /// threaded one hop further — into the reward screen, whose album
+  /// push carries it to the gallery whose `Ver lo que ya has movido`
+  /// affordance is the dashboard's one entry point. Absent (the test
+  /// seam), that affordance renders nowhere.
+  final DashboardController? dashboard;
 
   /// The lifecycle's session-milestone drain (Story 7.1, FR-17): the
   /// session controller's own stash — a backgrounding's end has no
@@ -898,6 +907,7 @@ class _DispenserScreenState extends State<DispenserScreen>
           space: space,
           controller: widget.reward,
           album: widget.album,
+          dashboard: widget.dashboard,
         ),
       ),
     );

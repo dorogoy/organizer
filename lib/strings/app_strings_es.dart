@@ -111,7 +111,48 @@ class AppStringsEs extends AppStrings {
   String get destinationQuarantine => 'Todavía no lo decido';
 
   @override
-  String get liberatedVolume => '≈ 3 cajas liberadas';
+  String liberatedVolumeBolsa(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bolsas liberadas',
+      one: '1 bolsa liberada',
+    );
+    return '≈ $_temp0';
+  }
+
+  @override
+  String liberatedVolumeCaja(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cajas liberadas',
+      one: '1 caja liberada',
+    );
+    return '≈ $_temp0';
+  }
+
+  @override
+  String liberatedVolumeCajaGrande(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cajas grandes liberadas',
+      one: '1 caja grande liberada',
+    );
+    return '≈ $_temp0';
+  }
+
+  @override
+  String liberatedVolumeMueble(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count muebles liberados',
+      one: '1 mueble liberado',
+    );
+    return '≈ $_temp0';
+  }
 
   @override
   String get weeklySelfReportQuestion =>
@@ -348,6 +389,62 @@ class AppStringsEs extends AppStrings {
 
   @override
   String get albumPurge => 'Borrar todo';
+
+  @override
+  String get albumOpenDashboard => 'Ver lo que ya has movido';
+
+  @override
+  String get dashboardTitle => 'Lo que ya has movido';
+
+  @override
+  String get dashboardWorkCaption => 'de trabajo hecho, desde el primer día';
+
+  @override
+  String dashboardWorkDuration(int hours, int minutes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: ' $minutes min',
+      zero: '',
+    );
+    return '$hours h$_temp0';
+  }
+
+  @override
+  String dashboardMicroTasksFigure(int count) {
+    return '$count';
+  }
+
+  @override
+  String dashboardMicroTasksLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'micro-tareas hechas',
+      one: 'micro-tarea hecha',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dashboardVolumeMethod =>
+      'Contado en bolsas, cajas y muebles, tal como los fuiste marcando.';
+
+  @override
+  String get dashboardAlbumSection => 'Del álbum';
+
+  @override
+  String dashboardHighlightCaption(String place, String date) {
+    return '$place · $date';
+  }
+
+  @override
+  String dashboardHighlightDatelessCaption(String date) {
+    return '$date';
+  }
+
+  @override
+  String get dashboardBackToAlbum => 'Volver al álbum';
 
   @override
   String get snowballDismissAcknowledgement => 'Está bien así.';

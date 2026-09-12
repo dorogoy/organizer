@@ -11,6 +11,7 @@
 // writes nothing (zero side effects).
 import 'dart:async';
 
+import 'package:core/catalogue/catalogue.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:organizer/album/album_controller.dart';
+import 'package:organizer/dashboard/dashboard_controller.dart';
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/reward/reward_controller.dart';
 import 'package:organizer/session/log_write_queue.dart';
@@ -126,6 +128,11 @@ class _FakeCamera implements CameraShell {
 
 DateTime _fixedClock() => DateTime.utc(2026, 9, 11, 10);
 
+/// The dashboard loader's catalogue — empty, the hand-built shape of
+/// the loader's parsed output; the seam pin's business is the
+/// threading, not the figures.
+final Catalogue _emptyCatalogue = Catalogue(version: 1, entries: const []);
+
 /// The Before row the space holds — the read's whole input.
 void _seedBefore(_RecordingStore store, {String name = 'hash-a.jpg'}) {
   store.entries.add((
@@ -194,11 +201,21 @@ void main() {
         nowOf: _fixedClock,
       );
 
+  DashboardController dashboardWith(
+    _RecordingStore store,
+    _RecordingFiles files,
+  ) => DashboardController(
+    store: store,
+    files: files,
+    loadCatalogue: () async => _emptyCatalogue,
+  );
+
   Future<void> pumpReward(
     WidgetTester tester,
     RewardController controller, {
     String groupId = 'group-1',
     AlbumController? album,
+    DashboardController? dashboard,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -209,6 +226,7 @@ void main() {
           space: (groupId: groupId, origin: Origin.cloud),
           controller: controller,
           album: album,
+          dashboard: dashboard,
         ),
       ),
     );
@@ -309,13 +327,20 @@ void main() {
       idMinter: const Uuid(),
       nowOf: _fixedClock,
     );
+    final dashboard = dashboardWith(store, files);
     await pumpReward(
       tester,
       controllerWith(store, files, _FakeCamera()),
       album: album,
+      dashboard: dashboard,
     );
     // While the After is owed the affordance is absent.
     expect(find.text(strings.rewardOpenAlbum), findsNothing);
+    expect(
+      find.text(strings.albumOpenDashboard),
+      findsNothing,
+      reason: 'the dashboard remains contextual to the Album, never Reward',
+    );
 
     await tester.ensureVisible(find.text(strings.rewardAfterShoot));
     await tester.pumpAndSettle();
@@ -327,13 +352,25 @@ void main() {
     // The pair landed: exactly one album affordance, quiet prose in
     // the secondary register.
     expect(find.text(strings.rewardOpenAlbum), findsOneWidget);
+    expect(find.text(strings.albumOpenDashboard), findsNothing);
 
     await tester.tap(find.text(strings.rewardOpenAlbum));
     await tester.pumpAndSettle();
     // The gallery stands over the same substrate — the shot's own
-    // album_entry_added row is the entry it renders.
+    // album_entry_added row is the entry it renders — and the hop-
+    // through pin: the SAME dashboard controller the reward holds
+    // reaches the gallery's own seam (Story 7.4 — dropping either
+    // hand-down ships the dashboard dead with every pin green).
     expect(find.byType(AlbumScreen), findsOneWidget);
     expect(find.text(strings.albumTitle), findsOneWidget);
+    expect(
+      identical(
+        tester.widget<AlbumScreen>(find.byType(AlbumScreen)).dashboard,
+        dashboard,
+      ),
+      isTrue,
+    );
+    expect(find.text(strings.albumOpenDashboard), findsOneWidget);
     expect(find.byType(PhotoFrame), findsNWidgets(2));
 
     // The return leg and the stale path, end to end: the purge pops

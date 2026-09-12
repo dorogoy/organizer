@@ -89,6 +89,8 @@ final class LogFacts {
     required this.dealtDaysByItemId,
     required this.skippedDaysByItemId,
     required this.answeredItemIds,
+    required this.cardDoneCount,
+    required this.answeredSecondsAllTime,
     required this.openSessionStart,
     required this.dealtUnanswered,
     required this.openSessionPocketMinutes,
@@ -137,6 +139,31 @@ final class LogFacts {
   /// deal, the only thing that consumes (AD-20 — FR-31's floor counts
   /// answered deals, not calendar days, and a skip consumes nothing).
   final Set<String> answeredItemIds;
+
+  /// How many `card_done` rows the log holds, all-time (Story 7.4,
+  /// FR-23, AD-26): completed Micro-tasks, the count the cumulative
+  /// impact dashboard renders. Counted at the same branch that keeps
+  /// [answeredItemIds] — one site, so no second definition of "a
+  /// completed Micro-task" can drift — and never reset by a session
+  /// boundary, unlike the sitting-scoped seconds below. Every row
+  /// counts: the count is the act's own fact, while the seconds it
+  /// charges ride the size resolution beneath it (unknown ids charge
+  /// no seconds, AD-23's tolerance — the act itself still happened).
+  final int cardDoneCount;
+
+  /// The all-time answered estimate, in seconds (Story 7.4, FR-23,
+  /// AD-26): the per-size estimate of every `card_done` the walk has
+  /// passed, charged through the same [dealSizeOf]/`answeredSecondsOf`
+  /// resolution the sitting's own [openSessionAnsweredSeconds] reads —
+  /// one charging table, so the cumulative figure cannot drift from
+  /// the session ledger (the design's own reason this lives in the
+  /// walk and not a second fold). Charged on every `card_done`
+  /// regardless of session state — completed work is never un-done by
+  /// a missing or closed session — and never reset: a superseding
+  /// declaration restarts only the sitting-scoped figure. Unknown ids
+  /// charge nothing (AD-23's tolerance), and a skip releases nothing
+  /// here exactly as it releases nothing there.
+  final int answeredSecondsAllTime;
 
   /// The open session's start instant and its stored offset, or absent
   /// when no session is open — the latest `session_started` with no
@@ -321,6 +348,8 @@ LogFacts walkLog(
   final dealtDaysByItemId = <String, Set<Day>>{};
   final skippedDaysByItemId = <String, Set<Day>>{};
   final answeredItemIds = <String>{};
+  var cardDoneCount = 0;
+  var answeredSecondsAllTime = 0;
   ({int instantUtcMicros, int offsetSeconds})? openSessionStart;
   ({String itemId, Origin itemOrigin})? dealtUnanswered;
   int? openSessionPocketMinutes;
@@ -461,6 +490,19 @@ LogFacts walkLog(
           }
           if (kind == LogKind.cardDone) {
             answeredItemIds.add(itemId);
+            // The all-time crossing pair (Story 7.4, FR-23, AD-26):
+            // charged here — the one `card_done` branch — and outside
+            // the open-session gate, so completed work counts on every
+            // read regardless of session state. The resolution is the
+            // sitting's own (`dealSizeOf` → `answeredSecondsOf`): one
+            // charging table, zero drift, and an unknown id charges no
+            // seconds (AD-23's tolerance) while its act still counts
+            // as a completed Micro-task.
+            cardDoneCount++;
+            final doneSize = dealSizeOf(itemId);
+            if (doneSize != null) {
+              answeredSecondsAllTime += answeredSecondsOf(itemId, doneSize);
+            }
             if (sizeByItemId[itemId] == Size.focus) {
               focusSlotClosedDays.add(dayOfOpenOrOwnSession(entry));
             }
@@ -483,9 +525,11 @@ LogFacts walkLog(
               // Purge-aware (Story 6.1): a done purge charges its own
               // 60 s — every dealt card charges to the sitting,
               // synthetic or not, and through the estimate it carries.
-              final size = dealSizeOf(itemId);
-              if (size != null) {
-                openSessionAnsweredSeconds += answeredSecondsOf(itemId, size);
+              if (doneSize != null) {
+                openSessionAnsweredSeconds += answeredSecondsOf(
+                  itemId,
+                  doneSize,
+                );
               }
             }
           }
@@ -543,6 +587,8 @@ LogFacts walkLog(
     dealtDaysByItemId: dealtDaysByItemId,
     skippedDaysByItemId: skippedDaysByItemId,
     answeredItemIds: answeredItemIds,
+    cardDoneCount: cardDoneCount,
+    answeredSecondsAllTime: answeredSecondsAllTime,
     openSessionStart: openSessionStart,
     dealtUnanswered: dealtUnanswered,
     openSessionPocketMinutes: openSessionPocketMinutes,

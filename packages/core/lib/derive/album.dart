@@ -35,14 +35,18 @@ import 'package:core/pool/pool_fact.dart';
 
 /// One live album entry (Story 7.2): the group pair and both blob
 /// names of an `album_entry_added` act no later delete or purge has
-/// killed, plus the act's own instant — the fact 7.3's surface
-/// renders and hands back to `AlbumController.deleteEntry`.
+/// killed, plus the act's own instant and civil-day offset — the fact
+/// 7.3's surface renders and hands back to
+/// `AlbumController.deleteEntry`. Keeping the offset beside the live
+/// entry preserves the add row's identity when two entries share a
+/// group and instant.
 typedef AlbumEntry = ({
   String groupId,
   Origin origin,
   String beforeName,
   String afterName,
   int addedUtcMicros,
+  int offsetSeconds,
 });
 
 /// The album's live entries, in log order (Story 7.2, FR-18): an
@@ -69,6 +73,7 @@ List<AlbumEntry> albumEntries(List<LogEntry> log) {
           beforeName: entry.beforeName,
           afterName: entry.afterName,
           addedUtcMicros: entry.instantUtcMicros,
+          offsetSeconds: entry.offsetSeconds,
         ));
       case AlbumEntryDeletedEntry():
         live.removeWhere(

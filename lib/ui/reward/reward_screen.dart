@@ -30,6 +30,7 @@ import 'package:core/ports/files_port.dart';
 import 'package:flutter/material.dart';
 
 import '../../album/album_controller.dart';
+import '../../dashboard/dashboard_controller.dart';
 import '../../reward/reward_controller.dart';
 import '../../strings/app_strings.dart';
 import '../album/album_screen.dart';
@@ -46,13 +47,17 @@ import '../tokens.dart';
 /// writes nothing. [album] is the 7.2 controller the pair-landed
 /// arm's `Ver el álbum` affordance threads into the gallery (Story
 /// 7.3) — absent, the affordance renders nowhere (never a dead
-/// button).
+/// button). [dashboard] is the 7.4 controller threaded one hop
+/// further — the gallery's `Ver lo que ya has movido` affordance is
+/// the dashboard's only entry point (Story 7.4); absent, that
+/// affordance renders nowhere either.
 class RewardScreen extends StatefulWidget {
   const RewardScreen({
     super.key,
     required this.space,
     this.controller,
     this.album,
+    this.dashboard,
   });
 
   final NamedRewardSpace space;
@@ -62,6 +67,12 @@ class RewardScreen extends StatefulWidget {
   /// contextual way onward into the gallery — the album's ONLY entry
   /// point anywhere in the app (UX-DR31/32).
   final AlbumController? album;
+
+  /// The dashboard seam (Story 7.4, FR-23): the cumulative impact
+  /// read's controller, threaded through the gallery — the hop the
+  /// Dispenser's milestone push carries so main's one composition
+  /// reaches the whole contextual chain.
+  final DashboardController? dashboard;
 
   @override
   State<RewardScreen> createState() => _RewardScreenState();
@@ -166,7 +177,8 @@ class _RewardScreenState extends State<RewardScreen> {
     if (ModalRoute.of(context)?.isCurrent ?? false) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => AlbumScreen(album: widget.album),
+          builder: (context) =>
+              AlbumScreen(album: widget.album, dashboard: widget.dashboard),
         ),
       );
     }
