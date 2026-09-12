@@ -144,6 +144,8 @@ CheckpointState deriveCheckpoint({
       case TriageEntry():
       case BeforeSavedEntry():
       case AlbumEntryAddedEntry():
+      case AlbumEntryDeletedEntry():
+      case AlbumPurgedEntry():
       case BoxCreatedEntry():
       case UnknownEntry():
       case SliceEntry():

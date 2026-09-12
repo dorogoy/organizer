@@ -63,6 +63,9 @@ class _ShellFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// A shell-side stand-in proving the slicer port is implementable

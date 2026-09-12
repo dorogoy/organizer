@@ -357,5 +357,54 @@ void main() {
         'camera-blocked and typed-genesis alike', () {
       expect(spaceBeforeName(const [], 'g'), isNull);
     });
+
+    test('a purge after the group\'s Before kills it — the fold '
+        'never offers a pair whose bytes cannot exist, so a '
+        'post-purge milestone degrades to Un trabajo estupendo '
+        '(Story 7.2, FR-18)', () {
+      final log = [
+        _before('g', 'a.jpg', 1000),
+        AlbumPurgedEntry(
+          id: 'purged',
+          instantUtcMicros: 2000,
+          offsetSeconds: 3600,
+        ),
+      ];
+      expect(spaceBeforeName(log, 'g'), isNull);
+    });
+
+    test('a Before saved after the purge is effective — the space '
+        'behaves as a no-Before space only until a fresh Before '
+        'lands', () {
+      final log = [
+        _before('g', 'old.jpg', 1000),
+        AlbumPurgedEntry(
+          id: 'purged',
+          instantUtcMicros: 2000,
+          offsetSeconds: 3600,
+        ),
+        _before('g', 'fresh.jpg', 3000),
+      ];
+      expect(spaceBeforeName(log, 'g'), 'fresh.jpg');
+    });
+
+    test('a purge between two Befores leaves only the later one '
+        'standing — the latest match no purge follows wins', () {
+      final log = [
+        _before('g', 'old.jpg', 1000),
+        AlbumPurgedEntry(
+          id: 'purged',
+          instantUtcMicros: 2000,
+          offsetSeconds: 3600,
+        ),
+        _before('g', 'fresh.jpg', 3000),
+        AlbumPurgedEntry(
+          id: 'purged-2',
+          instantUtcMicros: 4000,
+          offsetSeconds: 3600,
+        ),
+      ];
+      expect(spaceBeforeName(log, 'g'), isNull);
+    });
   });
 }

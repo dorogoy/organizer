@@ -96,6 +96,9 @@ class _RecordingFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 class _FakeCamera implements CameraShell {

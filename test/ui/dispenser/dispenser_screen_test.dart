@@ -845,6 +845,9 @@ class _RewardPushFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// The reward push test's camera seam: never opened on the no-Before

@@ -2,7 +2,8 @@
 /// app-private byte storage — the spine's seventh declared port, whose
 /// first consumer is the shell's credential vault (the envelopes are
 /// the port's bytes, never plaintext). Epic 5 adds the scan cache and
-/// Epic 7 the album bytes over the same port, additively.
+/// Epic 7 the album bytes — and, since Story 7.2, the album purge's
+/// blind sweep — over the same port, additively.
 ///
 /// The port is deliberately narrower than a filesystem: one stored
 /// blob is a ([scope], [name]) pair — a scope being a flat partition
@@ -99,4 +100,26 @@ abstract interface class FilesPort {
   /// may never break the open it runs inside. The scope directory
   /// itself remains.
   Future<void> sweepScanCache();
+
+  /// Unlinks every child of the album scope (Story 7.2, FR-18) — the
+  /// purge act's unlink: every album blob dies, whatever act named
+  /// it, because the `album_purged` row the same operation appends
+  /// kills every earlier photo claim. Blind by contract exactly as
+  /// [sweepScanCache] is: the sweep names no child to any caller and
+  /// returns nothing — it is not a listing, and the port's
+  /// no-listing ban holds by construction. The register differs from
+  /// the scan cache's, though the mechanics do not: there the sweep
+  /// is a backstop behind the unlinks every terminal path already
+  /// ran, while here it IS the purge operation's own unlink half —
+  /// which is why the controller verifies with a read-back over the
+  /// names the acts reference and throws before appending the act,
+  /// rather than leaning on a backstop's idempotence. The method
+  /// itself stays idempotent and quiet on every error — a missing
+  /// scope (a fresh install), an unremovable child, a failed root
+  /// resolution — because the port's contract is the quiet unlink
+  /// and the failure is the caller's to surface. The scope directory
+  /// itself remains, and user-initiated exports land outside it (in
+  /// the user's chosen folder — NFR4), structurally beyond this
+  /// sweep's reach.
+  Future<void> sweepAlbum();
 }

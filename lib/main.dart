@@ -3,6 +3,7 @@ import 'package:core/ports/slicer_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'album/album_controller.dart';
 import 'capture/capture_controller.dart';
 import 'capture/dictation_controller.dart';
 import 'crash.dart';
@@ -127,6 +128,17 @@ void main() {
     camera: PluginCameraShell(),
     writeQueue: logWrites,
   );
+  // The album seam (Story 7.2, FR-18): the substrate's own controller
+  // — same store, same shared write queue, the same Files root the
+  // album blobs live under. No camera and no egress: the deletion
+  // acts touch only the `album` scope inside app-private storage.
+  // Constructed here and threaded to the shell root unread until
+  // 7.3's surface claims it — the slicer seam's own precedent.
+  final album = AlbumController(
+    store: store,
+    files: files,
+    writeQueue: logWrites,
+  );
   // The route-awareness observer (Story 5.2): registered with the
   // navigator and threaded to the Dispenser, so a Settings toggle that
   // moves the Cámara entry lands the moment the way-out chain pops
@@ -179,6 +191,9 @@ void main() {
         // — same store, same shared write queue, same Files root,
         // the camera facade.
         reward: reward,
+        // The album seam (Story 7.2): unread until 7.3's surface —
+        // threaded so the composition stays visible at the root.
+        album: album,
         // The lifecycle's session-milestone drain (Story 7.1): the
         // backgrounding's own end has no navigator in front of it,
         // so its milestone stands in the session controller until
@@ -218,6 +233,7 @@ class OrganizerApp extends StatelessWidget {
     this.scan,
     this.genesis,
     this.reward,
+    this.album,
     this.sessionMilestone,
     this.vault,
     this.slicer,
@@ -253,6 +269,12 @@ class OrganizerApp extends StatelessWidget {
   /// The reward seam (Story 7.1, FR-17): the Dispenser's milestone
   /// drains push its surface.
   final RewardController? reward;
+
+  /// The album seam (Story 7.2, FR-18): the substrate's read and
+  /// deletion acts — held at the root, unread until 7.3's gallery
+  /// surface claims it (the slicer field's own composition-visible
+  /// precedent).
+  final AlbumController? album;
 
   /// The lifecycle's session-milestone drain (Story 7.1): the session
   /// controller's own stash, threaded to the Dispenser screen.

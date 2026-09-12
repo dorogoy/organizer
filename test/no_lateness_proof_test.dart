@@ -598,6 +598,26 @@ void main() {
           'saved pair\'s single sanctioned minter, riding the channel\'s '
           'shared content copier (Story 7.1)',
     );
+    final album = sources['lib/album/album_controller.dart'];
+    expect(album, isNotNull, reason: 'the album channel is gone');
+    final albumSource = album ?? '';
+    expect(
+      RegExp(r'\balbumEntryDeleted\s*\(').allMatches(albumSource),
+      hasLength(1),
+      reason:
+          'exactly one core albumEntryDeleted command invocation — the '
+          'entry delete\'s single sanctioned minter (Story 7.2), inline '
+          'in the delete operation\'s queued closure beside its unlink '
+          '(the scan landing\'s own inline idiom)',
+    );
+    expect(
+      RegExp(r'\balbumPurged\s*\(').allMatches(albumSource),
+      hasLength(1),
+      reason:
+          'exactly one core albumPurged command invocation — the '
+          'purge\'s single sanctioned minter (Story 7.2), inline in the '
+          'purge operation\'s queued closure beside its sweep',
+    );
     expect(
       RegExp(r'\bpermissionRefuse\s*\(').allMatches(rewardSource),
       hasLength(1),
@@ -707,6 +727,13 @@ void main() {
         // `album_entry_added` append and a denied open's camera
         // refusal — through one shared content copier of its own.
         'lib/reward/reward_controller.dart': 1,
+        // Story 7.2: the album channel's two deletion rows — the
+        // entry delete's `album_entry_deleted` append and the purge's
+        // `album_purged` append — each inline in its own queued
+        // operation beside its unlink half (the scan landing's inline
+        // idiom, not a shared copier: the unlink and the append stay
+        // visibly one operation).
+        'lib/album/album_controller.dart': 2,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -724,6 +751,7 @@ void main() {
         'lib/scan/scan_controller.dart': 2,
         'lib/genesis/genesis_controller.dart': 2,
         'lib/reward/reward_controller.dart': 1,
+        'lib/album/album_controller.dart': 2,
       },
       reason:
           'records constructed over core LogEntryContent exist '

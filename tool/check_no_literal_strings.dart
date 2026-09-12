@@ -200,6 +200,15 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'catalogueCauseSlot',
     'catalogueIdSlot',
   },
+  // Story 7.2: the album controller's read-back failure templates —
+  // crash-path diagnostics naming the blob that survived its unlink
+  // or the purge sweep, on the catalogue loader's own terms (a named
+  // decision, never widget copy).
+  'lib/album/album_controller.dart': {
+    'albumBlobSurvivedDeleteTemplate',
+    'albumBlobSurvivedPurgeTemplate',
+    'albumBlobNameSlot',
+  },
   'lib/crash.dart': {
     '_redactedText',
     '_sensitivePatternString',

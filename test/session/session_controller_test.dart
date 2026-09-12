@@ -181,6 +181,9 @@ class _SweepCountingFiles implements FilesPort {
       throw StateError('sweep boom');
     }
   }
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 LogEntryRecord _moment(String kind, DateTime at, String id) => (

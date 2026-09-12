@@ -139,6 +139,9 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// A transparent cipher: the envelope is the plaintext, so a saved

@@ -415,13 +415,25 @@ class AppFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {
+    await _sweepScope(scanCacheScope);
+  }
+
+  @override
+  Future<void> sweepAlbum() async {
+    await _sweepScope(albumFilesScope);
+  }
+
+  /// The one sweep body both blind mass-unlinks share (Stories 5.4
+  /// and 7.2): every child of [scope] dies, the scope directory
+  /// itself remains, and no child's name ever leaves this method.
+  Future<void> _sweepScope(String scope) async {
     try {
       final root = await _resolvedRoot();
-      final scopeDir = Directory.fromUri(_segmentUri(root.uri, scanCacheScope));
+      final scopeDir = Directory.fromUri(_segmentUri(root.uri, scope));
       // Async like every other path here: the sweep runs at the
       // lifecycle opens that request the crash backstop and blocks the
       // platform isolate on the filesystem no
-      // longer than the write paths do. A scope with no scans yet has
+      // longer than the write paths do. A scope with no children yet has
       // no directory: the fresh-install sweep is a no-op, and nothing
       // is created on the way out.
       if (!await scopeDir.exists()) {
@@ -430,12 +442,12 @@ class AppFiles implements FilesPort {
       // Blind by construction: the children are read here only to be
       // unlinked, and no child's name is returned, stored or passed
       // anywhere — this enumeration is the adapter's own mechanics,
-      // never a capability the port exposes (the port's method
-      // returns void and takes nothing).
+      // never a capability the port exposes (the port's methods
+      // return void and take nothing).
       // Handle an enumeration error on the stream itself rather than
       // letting it abort the async loop before later children are seen.
-      // The Directory stream remains best-effort and the next open retries
-      // anything the platform still refused.
+      // The Directory stream remains best-effort and the next sweep
+      // retries anything the platform still refused.
       final children = scopeDir
           .list(followLinks: false)
           .handleError((Object _) {});
@@ -444,14 +456,15 @@ class AppFiles implements FilesPort {
           await child.delete(recursive: true);
         } on Object {
           // Quiet per child — every flavour, not just the filesystem
-          // family: one refused delete never stops the sweep, and the
-          // next open sweeps again. The backstop's idempotence is
-          // what makes the refusal survivable.
+          // family: one refused delete never stops the sweep. The
+          // scan-cache backstop's idempotence and the purge's blind
+          // retry are what make the refusal survivable.
         }
       }
     } on Object {
-      // Quiet by contract: the sweep is the open's backstop — a
-      // backstop may never break the open it runs inside.
+      // Quiet by contract: the sweep is a backstop's or a purge's
+      // unlink half — it may never break the operation it runs
+      // inside.
     }
   }
 

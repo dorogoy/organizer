@@ -529,6 +529,8 @@ LogFacts walkLog(
       case BoxCreatedEntry():
       case BeforeSavedEntry():
       case AlbumEntryAddedEntry():
+      case AlbumEntryDeletedEntry():
+      case AlbumPurgedEntry():
       case UnknownEntry():
         break;
     }

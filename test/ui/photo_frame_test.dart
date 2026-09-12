@@ -48,6 +48,9 @@ class _FakeFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 Widget _frame(FilesPort files) => MaterialApp(

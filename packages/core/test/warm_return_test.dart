@@ -361,6 +361,25 @@ void main() {
           beforeName: 'a.jpg',
           afterName: 'b.jpg',
         ),
+        // Story 7.2's rows: the album's two deletion acts — the entry
+        // delete and the purge — are the user tapping an entry away
+        // or clearing the album, contact exactly as the triage and
+        // box taps are (the `item_triaged` precedent's own register:
+        // a management tap is the user using the app).
+        AlbumEntryDeletedEntry(
+          id: 'album-deleted-act',
+          instantUtcMicros: before(const Duration(hours: 47)),
+          offsetSeconds: 0,
+          itemId: 'group-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+        ),
+        AlbumPurgedEntry(
+          id: 'album-purged-act',
+          instantUtcMicros: before(const Duration(hours: 47)),
+          offsetSeconds: 0,
+        ),
       ];
       for (final act in acts) {
         expect(

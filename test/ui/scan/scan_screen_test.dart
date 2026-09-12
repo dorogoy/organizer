@@ -90,6 +90,9 @@ class _RecordingFiles implements FilesPort {
 
   @override
   Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> sweepAlbum() async {}
 }
 
 /// The camera fake whose preview is a visible marker widget, whose

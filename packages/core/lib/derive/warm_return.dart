@@ -96,9 +96,14 @@ bool _isUserAct(LogEntry entry) {
     case ClusterCurationChangedEntry():
     // The reward's two shots (Story 7.1, FR-17): the user held the
     // camera and took a photo — user acts, contact for the warm
-    // return exactly as a capture is.
+    // return exactly as a capture is. The album's two deletion acts
+    // (Story 7.2, FR-18) join them on the same register — the user
+    // tapping an entry away or purging the album is the user using
+    // the app, the `item_triaged` precedent's own tap.
     case BeforeSavedEntry():
     case AlbumEntryAddedEntry():
+    case AlbumEntryDeletedEntry():
+    case AlbumPurgedEntry():
       return true;
     case SliceEntry():
       // The rescue channel splits (Story 4.6, AD-21's own

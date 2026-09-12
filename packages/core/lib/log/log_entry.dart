@@ -79,7 +79,13 @@
 /// and the content-addressed album blob; and the saved Before/After
 /// pair, naming the same group and BOTH blob names. Album mutation
 /// is log acts, never flags on old kinds — the `capture_created`
-/// register, each on its own two nullable schema columns (v14)). A
+/// register, each on its own two nullable schema columns (v14)) —
+/// and since Story 7.2 the twenty-eighth and twenty-ninth kinds
+/// `album_entry_deleted` and `album_purged` (FR-18, AD-13, AD-21 —
+/// the album's deletion acts: the entry delete, carrying the killed
+/// entry's before/after blob names on the same v14 photo columns and
+/// the group pair, and the payload-less purge, whose fold clears the
+/// album and kills every earlier photo claim). A
 /// new kind is a new kind, never a flag
 /// on an old one.
 ///
@@ -100,7 +106,10 @@
 /// — its id and instant are the whole row), a `before_saved` row
 /// (Story 7.1) carries its full item pair — the scan group's stable
 /// id and origin — plus its Before blob name, an `album_entry_added`
-/// row (Story 7.1) carries the same pair plus BOTH blob names, and a
+/// row (Story 7.1) carries the same pair plus BOTH blob names, an
+/// `album_entry_deleted` row (Story 7.2) carries the same pair plus
+/// BOTH blob names of the entry it killed, an `album_purged` row
+/// (Story 7.2) carries nothing at all — and a
 /// known
 /// kind's payload must match
 /// the kind.
@@ -276,6 +285,11 @@ final class LogKind {
   static const boxCreated = LogKind._('box_created', known: true);
   static const beforeSaved = LogKind._('before_saved', known: true);
   static const albumEntryAdded = LogKind._('album_entry_added', known: true);
+  static const albumEntryDeleted = LogKind._(
+    'album_entry_deleted',
+    known: true,
+  );
+  static const albumPurged = LogKind._('album_purged', known: true);
 
   /// Every kind this build knows, keyed by wire name.
   static const knownByName = <String, LogKind>{
@@ -306,6 +320,8 @@ final class LogKind {
     'box_created': boxCreated,
     'before_saved': beforeSaved,
     'album_entry_added': albumEntryAdded,
+    'album_entry_deleted': albumEntryDeleted,
+    'album_purged': albumPurged,
   };
 
   /// Resolves a stored name. A name this build does not know parses to an
@@ -892,6 +908,79 @@ final class AlbumEntryAddedEntry extends LogEntry {
   final String afterName;
 }
 
+/// An `album_entry_deleted` user act (Story 7.2, FR-18, AD-13, AD-21):
+/// one album entry left the album because this row exists — the
+/// deletion act's own shape, mirroring `album_entry_added` field for
+/// field (the group pair plus BOTH blob names of the entry it
+/// killed, on the same v14 photo columns) so the read model's fold
+/// can tombstone exactly the act the surface named. One row per
+/// delete through the single sanctioned minter
+/// (`core/commands/reward_commands.dart`), so no second deletion
+/// writer can appear silently. The row references the names for the
+/// audit trail alone — it claims nothing, pins nothing: a dead
+/// entry's bytes are exactly what the controller unlinks when no
+/// live claim stands (`core/derive/album.dart`, the pin fold). A
+/// double invocation is quiet: files already absent are not an
+/// error, the act still lands, and the fold no-ops. The type offers
+/// no other field, so no caption, no restore fact and no count can
+/// ride along — reversal is a new pair's `album_entry_added`, never
+/// an un-append (the substrate is append-only).
+final class AlbumEntryDeletedEntry extends LogEntry {
+  const AlbumEntryDeletedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+    required this.itemId,
+    required this.itemOrigin,
+    required this.beforeName,
+    required this.afterName,
+  });
+
+  @override
+  final LogKind kind = LogKind.albumEntryDeleted;
+
+  /// The killed entry's group stable id — the same id the entry's
+  /// `album_entry_added` row named.
+  final String itemId;
+
+  /// The group's own origin (AD-14).
+  final Origin itemOrigin;
+
+  /// The killed entry's Before blob name (AD-13) — carried for the
+  /// audit trail; the deletion unpins it only when no live claim
+  /// stands (the group's `before_saved` may still pin it).
+  final String beforeName;
+
+  /// The killed entry's After blob name (AD-13) — the name the
+  /// deletion unpins unless another live entry shares it.
+  final String afterName;
+}
+
+/// An `album_purged` user act (Story 7.2, FR-18, AD-4, AD-21): the
+/// album was purged — one payload-less row whose instant is the
+/// purge's own moment, minted once per purge through the single
+/// sanctioned minter (`core/commands/reward_commands.dart`), so no
+/// second purge writer can appear silently. The row carries no
+/// names because it names no child (the sweep is blind — the
+/// port's no-listing ban) and no count because it asserts no
+/// tally: the folds read it purely by position — every earlier
+/// `before_saved` and `album_entry_added` claim dies before it,
+/// and every later one stands (`core/derive/album.dart`,
+/// `spaceBeforeName`). The scope directory itself survives the
+/// sweep; a fresh Before saved after the purge is effective, so the
+/// space behaves as a no-Before space until it lands. The type
+/// offers no payload field at all — the `box_created` precedent.
+final class AlbumPurgedEntry extends LogEntry {
+  const AlbumPurgedEntry({
+    required super.id,
+    required super.instantUtcMicros,
+    required super.offsetSeconds,
+  });
+
+  @override
+  final LogKind kind = LogKind.albumPurged;
+}
+
 /// An entry whose kind this build does not know. Carried verbatim and
 /// skipped by every derivation — never coerced, never fatal (AD-23).
 final class UnknownEntry extends LogEntry {
@@ -1065,20 +1154,22 @@ enum LogRecordFlaw {
   /// payload column rides its own kind and no other.
   triageOnNonTriageKind,
 
-  /// A `before_saved` row without its Before blob name, or an
-  /// `album_entry_added` row without either of its two blob names
-  /// (Story 7.1, AD-13): the name is the row's whole link to the
+  /// A `before_saved` row without its Before blob name, an
+  /// `album_entry_added` row without either of its two blob names, or
+  /// an `album_entry_deleted` row without either of its two blob names
+  /// (Stories 7.1/7.2, AD-13): the name is the row's whole link to the
   /// bytes — without it the row asserts a photo that cannot be read,
   /// so it asserts nothing. Quiet tolerance, never a repair write
   /// (AD-23).
   rewardNameAbsent,
 
-  /// A Before or After blob name on a kind that is not
-  /// `before_saved`/`album_entry_added` — or an After name on a
-  /// `before_saved` row (Story 7.1) — mirroring the setting, pocket,
-  /// energy, report, permission, cause, curation and triage rules:
-  /// every payload column rides its own kind and no other, and the
-  /// After name rides the pair row alone.
+  /// A Before or After blob name on a kind that is not one of the
+  /// three photo kinds — or an After name on a `before_saved` row
+  /// (Stories 7.1/7.2) — mirroring the setting, pocket, energy,
+  /// report, permission, cause, curation and triage rules: every
+  /// payload column rides its own kind and no other, the After name
+  /// rides the pair rows alone, and the payload-less `album_purged`
+  /// row forbids both names outright.
   photoNameOnNonPhotoKind,
 }
 
@@ -1150,7 +1241,11 @@ bool _isSliceKind(LogKind kind) =>
 /// [CoarseVolumeTag] map knows, absent when the tag was declined —
 /// and its optional box link (6.5), absent or empty when the row
 /// names no box — and nothing else. A `box_created` row (Story 6.5)
-/// carries nothing at all: its id and instant are the whole row. A
+/// carries nothing at all: its id and instant are the whole row. An
+/// `album_entry_deleted` row (Story 7.2) carries the full pair plus
+/// both blob names of the entry it killed, the pair row's exact
+/// mirror; an `album_purged` row (Story 7.2) carries nothing at
+/// all. A
 /// known kind this boundary does not classify is
 /// excluded with
 /// [LogRecordFlaw.unclassifiedKind] — never coerced.
@@ -1965,6 +2060,113 @@ LogEntryConversion convertLogEntryRecord(LogEntryRecord record) {
         itemOrigin: record.itemOrigin!,
         beforeName: record.beforeName!,
         afterName: record.afterName!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.albumEntryDeleted) {
+    // The deletion row's own discipline (Story 7.2): the full item
+    // pair plus BOTH blob names of the entry it killed — the exact
+    // mirror of the pair row above, so the fold's tombstone matches
+    // what the surface named. Without either name the row asserts a
+    // deletion of a photo it cannot identify, so it asserts nothing.
+    if (itemIdIsAbsent && record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.itemPairAbsent);
+    }
+    if (itemIdIsAbsent || record.itemOrigin == null) {
+      return (entry: null, flaw: LogRecordFlaw.halfItemPair);
+    }
+    if (record.beforeName?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.rewardNameAbsent);
+    }
+    if (record.afterName?.isEmpty ?? true) {
+      return (entry: null, flaw: LogRecordFlaw.rewardNameAbsent);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    return (
+      entry: AlbumEntryDeletedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
+        itemId: record.itemId!,
+        itemOrigin: record.itemOrigin!,
+        beforeName: record.beforeName!,
+        afterName: record.afterName!,
+      ),
+      flaw: null,
+    );
+  }
+
+  if (kind == LogKind.albumPurged) {
+    // The purge row's own discipline (Story 7.2): payload-less by
+    // construction — the sweep is blind and names no child, so every
+    // payload family is foreign here, the photo columns included,
+    // the whole foreign-column set every branch above guards.
+    if (record.itemId != null || record.itemOrigin != null) {
+      return (entry: null, flaw: LogRecordFlaw.itemOnNonItemKind);
+    }
+    if (record.stack != null) {
+      return (entry: null, flaw: LogRecordFlaw.stackOffCrashKind);
+    }
+    if (carriesSetting) {
+      return (entry: null, flaw: LogRecordFlaw.settingOnNonSettingKind);
+    }
+    if (carriesPocket) {
+      return (entry: null, flaw: LogRecordFlaw.pocketOnNonPocketKind);
+    }
+    if (carriesEnergy) {
+      return (entry: null, flaw: LogRecordFlaw.energyOnNonEnergyKind);
+    }
+    if (carriesReport) {
+      return (entry: null, flaw: LogRecordFlaw.reportOnNonReportKind);
+    }
+    if (carriesPermission) {
+      return (entry: null, flaw: LogRecordFlaw.permissionOnNonPermissionKind);
+    }
+    if (carriesCuration) {
+      return (entry: null, flaw: LogRecordFlaw.curationOnNonCurationKind);
+    }
+    if (carriesCause) {
+      return (entry: null, flaw: LogRecordFlaw.causeOnNonFailedKind);
+    }
+    if (carriesTriage) {
+      return (entry: null, flaw: LogRecordFlaw.triageOnNonTriageKind);
+    }
+    if (carriesPhoto) {
+      return (entry: null, flaw: LogRecordFlaw.photoNameOnNonPhotoKind);
+    }
+    return (
+      entry: AlbumPurgedEntry(
+        id: record.id,
+        instantUtcMicros: record.instantUtcMicros,
+        offsetSeconds: record.offsetSeconds,
       ),
       flaw: null,
     );
