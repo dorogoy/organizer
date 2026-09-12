@@ -527,6 +527,8 @@ LogFacts walkLog(
       case ClusterCurationChangedEntry():
       case TriageEntry():
       case BoxCreatedEntry():
+      case BeforeSavedEntry():
+      case AlbumEntryAddedEntry():
       case UnknownEntry():
         break;
     }

@@ -264,6 +264,14 @@ abstract final class Spacing {
   static const double photoPairGap = 16;
 }
 
+/// The full-screen register's width bound on wide grounds (the
+/// no-Slicer surface, the consent gate, the reward surface — every
+/// full-screen single-decision register shares it): a layout bound,
+/// not a gap; the tokenized side rule `Spacing.screenMargin` stays in
+/// force below it. One constant so the register surfaces cannot
+/// drift apart (Story 7.1's review).
+const double registerMaxWidth = 480;
+
 /// The two format rules (DESIGN.md formats), transcribed as patterns. Both
 /// land on the densest screen in the app; the non-breaking spaces are
 /// load-bearing at 200%.

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:core/commands/permission_commands.dart';
+import 'package:core/commands/reward_commands.dart';
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/camera_entry.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/face_gate_port.dart';
@@ -15,6 +17,7 @@ import 'package:core/slicer/scan_steps.dart';
 import 'package:uuid/uuid.dart';
 
 import '../egress/local_slicer.dart';
+import '../files/app_files.dart';
 import '../plugins/camera/camera_shell.dart';
 import '../session/log_write_queue.dart';
 
@@ -83,14 +86,36 @@ sealed class ScanConsentOutcome {
 /// Origin Context, the step's own words as `stepText` — and nothing
 /// is dealt: the facts are not candidates until 5.9 wires Epic
 /// material into the weave, so the caller closes the scan quietly
-/// to the Dispenser (the one-card landing is 5.9's). A body that
+/// to the Dispenser (the one-card landing is 5.9's). Since Story 7.1
+/// the arm carries the landing's group identity — the group's stable
+/// id and its own origin — so the consent gate's Before-offer can
+/// name the space its `before_saved` row must name (FR-17); a body
+/// that
 /// parses but violates the step contract never reaches this arm —
 /// it folds into [ScanConsentFailed] under `malformedResponse`, the
 /// declared mapping. The dispatch wiring above this arm — mint
 /// order, token, cap-in-binding, failure mapping — is permanent
 /// since 5.5.
 final class ScanConsentDelivered extends ScanConsentOutcome {
-  const ScanConsentDelivered();
+  const ScanConsentDelivered({
+    required this.groupId,
+    required this.origin,
+    required this.beforeOfferEpoch,
+  });
+
+  /// The landed group's stable id — its first landed fact's id, the
+  /// same id the landing's `epic_activated` row names and the
+  /// Before-offer's `before_saved` row names (Story 7.1).
+  final String groupId;
+
+  /// The landed group's own origin (`cloud`/`local`), the Before
+  /// row's item origin (AD-14).
+  final Origin origin;
+
+  /// The standing scan's epoch at delivery. The Before offer carries this
+  /// capability into its camera read and save so a lifecycle close cannot
+  /// later turn an invalidated scan into a new persisted album act.
+  final int beforeOfferEpoch;
 }
 
 /// The slice failed terminally with one of the closed eight causes:
@@ -278,7 +303,7 @@ class ScanController {
           _open = true;
           return outcome;
         case CameraOpenOutcome.denied:
-          await _appendPermissionRefusal();
+          await appendCameraRefusal();
           await close();
           return outcome;
         case CameraOpenOutcome.interrupted:
@@ -513,6 +538,8 @@ class ScanController {
       triageDestination: content.triageDestination?.name,
       triageVolumeTag: content.triageVolumeTag?.name,
       triageBoxId: content.triageBoxId,
+      beforeName: content.beforeName,
+      afterName: content.afterName,
     ));
   }
 
@@ -536,8 +563,11 @@ class ScanController {
 
   /// Appends exactly one `permission_refused` {camera} row through
   /// the core's single sanctioned minter — the dictation seam's own
-  /// shape.
-  Future<void> _appendPermissionRefusal() =>
+  /// shape. Public since Story 7.1's viewfinder patch: the
+  /// Before-offer's shared shoot pipeline
+  /// (`PhotoShootScreen`) appends the denial's row through this seam,
+  /// the camera attempt being the pipeline's own.
+  Future<void> appendCameraRefusal() =>
       _appendMinted(() => permissionRefuse(Permission.camera));
 
   /// Appends exactly one `face_refused` row through the core's single
@@ -703,8 +733,9 @@ class ScanController {
               SlicerFailureCause.malformedResponse,
             );
           }
+          ({String groupId, Origin origin})? landed;
           try {
-            await _appendScanLanded(
+            landed = await _appendScanLanded(
               slice,
               origin: slicer is LocalSlicer ? Origin.local : Origin.cloud,
               epoch: epoch,
@@ -720,10 +751,23 @@ class ScanController {
               SlicerFailureCause.providerUnreachable,
             );
           }
-          if (_epoch != epoch) {
+          if (_epoch != epoch || landed == null) {
+            // `landed == null` is Stale by the landing's own contract:
+            // the queue's closure answers null only for an epoch the
+            // close already won (checked at every step inside), and a
+            // delivered slice always lands at least one fact —
+            // `parseScanSlice`'s parse floor bounds steps 1–6, so a
+            // null here can only be that staleness. The floor is what
+            // makes the arm unreachable for any other reason; if the
+            // parse ever admits an empty steps list, that list must
+            // fold to Failed before this point, never a quiet Stale.
             return const ScanConsentStale();
           }
-          return const ScanConsentDelivered();
+          return ScanConsentDelivered(
+            groupId: landed.groupId,
+            origin: landed.origin,
+            beforeOfferEpoch: epoch,
+          );
         case SlicerFailed(:final cause):
           // A failed dispatch resolves on record (Story 5.7, FR-26
           // b): one `slice_failed` row carrying the raw cause, then
@@ -827,7 +871,7 @@ class ScanController {
   /// against every other write the shell owns. A failing store is
   /// not absorbed here — [grantConsent] refuses Delivered when the
   /// landing throws — and the queue's own tail still does not stall.
-  Future<void> _appendScanLanded(
+  Future<({String groupId, Origin origin})?> _appendScanLanded(
     ScanSlice slice, {
     required Origin origin,
     required int epoch,
@@ -835,7 +879,7 @@ class ScanController {
     final now = nowOf();
     return writeQueue.enqueue(() async {
       if (_epoch != epoch) {
-        return;
+        return null;
       }
       String? stableId;
       for (final seed in scanSliceLanded(
@@ -844,7 +888,7 @@ class ScanController {
         steps: slice.steps,
       )) {
         if (_epoch != epoch) {
-          return;
+          return null;
         }
         final factId = idMinter.v7();
         stableId ??= factId;
@@ -863,7 +907,7 @@ class ScanController {
       }
       if (stableId != null) {
         if (_epoch != epoch) {
-          return;
+          return null;
         }
         for (final content in epicActivated(itemId: stableId, origin: origin)) {
           await store.appendLogEntry((
@@ -888,12 +932,100 @@ class ScanController {
             triageDestination: content.triageDestination?.name,
             triageVolumeTag: content.triageVolumeTag?.name,
             triageBoxId: content.triageBoxId,
+            beforeName: content.beforeName,
+            afterName: content.afterName,
           ));
         }
+        return (groupId: stableId, origin: origin);
+      }
+      return null;
+    });
+  }
+
+  /// Whether the Cámara entry rule admits the Before-offer's shoot
+  /// action (Story 7.1, FR-16, UX-DR24): the same log-derived fold
+  /// `cameraEntryVisible` the Dispenser's entry reads - never an OS
+  /// probe, never stored - over the log as it stands once the
+  /// landing's rows have landed. Absent never greyed: the offer's
+  /// shoot action simply does not render, and the space derives as a
+  /// no-Before space exactly as a declined offer does.
+  Future<bool> beforeOfferCameraAllowed({required int epoch}) async {
+    try {
+      if (_epoch != epoch || _scanId == null) {
+        return false;
+      }
+      final log = logEntriesOf(await store.readLogEntries());
+      return _epoch == epoch && _scanId != null && cameraEntryVisible(log);
+    } on Object {
+      // The read failed: the honest nothing - the shoot action stays
+      // absent rather than rendering a dead button the rule refused.
+      return false;
+    }
+  }
+
+  /// The Before-offer's commit (Story 7.1, FR-17, FR-25, AD-8,
+  /// AD-13): the shared shoot pipeline's (`PhotoShootScreen`)
+  /// controller half — the viewfinder's captured bytes become one
+  /// content-addressed album write and one `before_saved` row through
+  /// the kind's single sanctioned minter naming [groupId] and
+  /// [origin] - and nothing else: no face gate (the photo never
+  /// uploads), no consent, no egress. The open, the framing and the
+  /// denial's own row belong to the pipeline's surface half; this
+  /// half answers the landed blob's name, or null when the write or
+  /// the append failed - the space is a no-Before space, never an
+  /// error dead-end and never a retry loop (the offer declines
+  /// permanently either way). A separate deliberate shot - never the
+  /// uploaded frame, which the scan's own terminal paths already
+  /// unlinked.
+  Future<String?> saveBeforeBlob(
+    List<int> bytes, {
+    required String groupId,
+    required Origin origin,
+    required int epoch,
+  }) async {
+    final name = albumPhotoName(bytes);
+    // The blob's ownership decision and cleanup share the log queue with the
+    // reward's After flow. No same-hash writer can commit between a failed
+    // Before append and its rollback.
+    return writeQueue.enqueue(() async {
+      var createdHere = false;
+      try {
+        if (_epoch != epoch || _scanId == null) {
+          return null;
+        }
+        final existed = await files.read(albumFilesScope, name) != null;
+        await writeAlbumPhoto(files, bytes);
+        createdHere = !existed;
+        if (_epoch != epoch || _scanId == null) {
+          throw _BeforeOfferInvalidated();
+        }
+        final now = nowOf();
+        for (final content in beforeSaved(
+          groupId: groupId,
+          origin: origin,
+          blobName: name,
+        )) {
+          await _appendContent(content, now);
+        }
+        return name;
+      } on Object {
+        if (createdHere) {
+          try {
+            await files.delete(albumFilesScope, name);
+          } on Object {
+            // Store and Files do not share a transaction; the flow still folds
+            // to no-Before when a best-effort cleanup itself cannot complete.
+          }
+        }
+        // Quiet by contract: the offer's whole exposure is one row and
+        // one blob, and any failure leaves the honest nothing standing.
+        return null;
       }
     });
   }
 }
+
+final class _BeforeOfferInvalidated implements Exception {}
 
 /// The scan prompt (Story 5.5; the description clause Story 5.7):
 /// the Slicer's step contract for a photo scan — real actions on

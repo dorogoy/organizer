@@ -86,7 +86,12 @@ typedef PoolFactRecord = ({
 /// `box_created` row's own id — set only on a quarantine
 /// `item_triaged` row, additively since schema v13 (Story 6.5,
 /// FR-21, AD-23 — membership exists only as this link; no table and
-/// no stored follow-up date anywhere).
+/// no stored follow-up date anywhere). [beforeName]/[afterName] are
+/// the reward's album blob names (Story 7.1, FR-17, AD-13, AD-23) —
+/// content-addressed (sha256 hex + `.jpg`), set only on the two
+/// photo kinds: `beforeName` on `before_saved` and both names on
+/// `album_entry_added`, where the group's stable id and origin ride
+/// the item pair.
 typedef LogEntryRecord = ({
   String id,
   String kind,
@@ -109,6 +114,8 @@ typedef LogEntryRecord = ({
   String? triageDestination,
   String? triageVolumeTag,
   String? triageBoxId,
+  String? beforeName,
+  String? afterName,
 });
 
 /// The pool-fact snapshot's domain objects, in snapshot order — the

@@ -205,6 +205,8 @@ LogEntryRecord _installOpen() => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 /// A dealt card for the queued-read fakes (the screen suite's own
@@ -357,6 +359,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     final session = SessionController(
       store: store,
@@ -638,6 +642,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ))
       ..entries.add((
         id: 'seed-offer',
@@ -667,6 +673,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     final controller = DispenserController(
       store: store,
@@ -1642,6 +1650,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       }
       final session = SessionController(
@@ -1942,6 +1952,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     /// A `box_created` row — the core suite's `_box` pattern, one
@@ -1968,6 +1980,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     /// The box's linked `item_triaged(quarantine)` row — the same
@@ -1994,6 +2008,8 @@ void main() {
       triageDestination: 'quarantine',
       triageVolumeTag: null,
       triageBoxId: boxId,
+      beforeName: null,
+      afterName: null,
     );
 
     /// One non-empty box dated 2026-03-01 — due exactly the due-day

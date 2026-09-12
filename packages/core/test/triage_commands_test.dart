@@ -109,6 +109,8 @@ void main() {
           triageDestination: content.triageDestination?.name,
           triageVolumeTag: content.triageVolumeTag?.name,
           triageBoxId: content.triageBoxId,
+          beforeName: null,
+          afterName: null,
         );
         final converted = convertLogEntryRecord(record);
         expect(
@@ -210,6 +212,8 @@ void main() {
       String? triageBoxId,
       String? triageDestination,
       String? triageVolumeTag,
+      String? beforeName,
+      String? afterName,
     }) => (
       id: id ?? 'row-${content.kind.name}',
       kind: content.kind.name,
@@ -232,6 +236,8 @@ void main() {
       triageDestination: triageDestination,
       triageVolumeTag: triageVolumeTag,
       triageBoxId: triageBoxId,
+      beforeName: beforeName,
+      afterName: afterName,
     );
     final box = boxRecord(boxCreated().single, id: boxId);
     final boxConversion = convertLogEntryRecord(box);
@@ -245,6 +251,8 @@ void main() {
       ).single,
       triageDestination: TriageDestination.quarantine.name,
       triageBoxId: boxId,
+      beforeName: null,
+      afterName: null,
     );
     final triageConversion = convertLogEntryRecord(triage);
     expect(triageConversion.flaw, isNull);

@@ -1,3 +1,4 @@
+import 'package:core/derive/reward.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'platform/credentials/credentials_cipher.dart';
 import 'platform/dictate/dictate_recognizer.dart';
 import 'plugins/camera/plugin_camera_shell.dart';
 import 'plugins/mlkit_face/mlkit_face_gate.dart';
+import 'reward/reward_controller.dart';
 import 'scan/scan_controller.dart';
 import 'session/session_controller.dart';
 import 'session/log_write_queue.dart';
@@ -114,6 +116,17 @@ void main() {
     readSelectedProvider: settings.readSelectedProvider,
     writeQueue: logWrites,
   );
+  // The reward seam (Story 7.1, FR-17): the transformation reward's
+  // own controller — same store, same shared write queue, the same
+  // Files root the album blobs live under, and the camera facade the
+  // scan path holds. No face gate and no Slicer: the reward photos
+  // never upload.
+  final reward = RewardController(
+    store: store,
+    files: files,
+    camera: PluginCameraShell(),
+    writeQueue: logWrites,
+  );
   // The route-awareness observer (Story 5.2): registered with the
   // navigator and threaded to the Dispenser, so a Settings toggle that
   // moves the Cámara entry lands the moment the way-out chain pops
@@ -162,6 +175,15 @@ void main() {
         // surface's channel — same store, same shared write queue,
         // the one production Slicer.
         genesis: genesis,
+        // The reward seam (Story 7.1): the milestone reward's surface
+        // — same store, same shared write queue, same Files root,
+        // the camera facade.
+        reward: reward,
+        // The lifecycle's session-milestone drain (Story 7.1): the
+        // backgrounding's own end has no navigator in front of it,
+        // so its milestone stands in the session controller until
+        // this screen's next commit claims it.
+        sessionMilestone: session.takeUnfiredSessionMilestone,
         // The credential vault (Story 4.3): one instance, constructed
         // in main beside the cipher seam it consumes — the Settings
         // key path (4-4) is its first reader, and nothing here pulls
@@ -195,6 +217,8 @@ class OrganizerApp extends StatelessWidget {
     this.dictation,
     this.scan,
     this.genesis,
+    this.reward,
+    this.sessionMilestone,
     this.vault,
     this.slicer,
     this.routeObserver,
@@ -225,6 +249,14 @@ class OrganizerApp extends StatelessWidget {
   /// the photo mechanics, over the same store and the one production
   /// Slicer.
   final GenesisController? genesis;
+
+  /// The reward seam (Story 7.1, FR-17): the Dispenser's milestone
+  /// drains push its surface.
+  final RewardController? reward;
+
+  /// The lifecycle's session-milestone drain (Story 7.1): the session
+  /// controller's own stash, threaded to the Dispenser screen.
+  final NamedRewardSpace? Function()? sessionMilestone;
 
   /// The credential vault (Story 4.3, AD-22), constructed once in
   /// main — the shell's only seal/unseal composition, consumed by
@@ -266,6 +298,8 @@ class OrganizerApp extends StatelessWidget {
               dictation: dictation,
               scan: scan,
               genesis: genesis,
+              reward: reward,
+              sessionMilestone: sessionMilestone,
               routeObserver: routeObserver,
             ),
     );

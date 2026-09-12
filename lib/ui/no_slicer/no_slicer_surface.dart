@@ -36,11 +36,6 @@ import '../capture/capture_screen.dart';
 import '../dispenser/task_card.dart';
 import '../tokens.dart';
 
-/// The surface's width bound on wide grounds — CaptureScreen's own
-/// layout bound (a layout bound, not a gap; the tokenized side rule
-/// `Spacing.screenMargin` stays in force below it).
-const double _noSlicerMaxWidth = 480;
-
 /// The no-Slicer surface (FR-29). [cause] is the immutable fact this
 /// surface renders — the only state it holds. [controller] and
 /// [dictation] are the Manual Capture seams, threaded into the exit's
@@ -114,7 +109,7 @@ class NoSlicerSurface extends StatelessWidget {
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _noSlicerMaxWidth),
+              constraints: const BoxConstraints(maxWidth: registerMaxWidth),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

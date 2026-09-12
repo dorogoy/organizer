@@ -25,6 +25,8 @@ LogEntryRecord _record(
   String? triageDestination,
   String? triageVolumeTag,
   String? triageBoxId,
+  String? beforeName,
+  String? afterName,
 }) => (
   id: '0190bbbb-0000-7000-8000-$kind',
   kind: kind,
@@ -47,12 +49,15 @@ LogEntryRecord _record(
   triageDestination: triageDestination,
   triageVolumeTag: triageVolumeTag,
   triageBoxId: triageBoxId,
+  beforeName: beforeName,
+  afterName: afterName,
 );
 
 void main() {
   group('LogKind vocabulary membership (AD-21)', () {
-    test('holds exactly the build\'s twenty-five kinds (24 since Story '
-        '6.3 added item_triaged; 25 since Story 6.5 added box_created)', () {
+    test('holds exactly the build\'s twenty-seven kinds (24 since Story '
+        '6.3 added item_triaged; 25 since Story 6.5 added box_created; 27 '
+        'since Story 7.1 added before_saved and album_entry_added)', () {
       final names = [
         LogKind.cardDealt,
         LogKind.cardDone,
@@ -79,9 +84,13 @@ void main() {
         LogKind.suggestionDismissed,
         LogKind.itemTriaged,
         LogKind.boxCreated,
+        LogKind.beforeSaved,
+        LogKind.albumEntryAdded,
       ].map((kind) => kind.name).toList()..sort();
       expect(names, [
+        'album_entry_added',
         'app_opened',
+        'before_saved',
         'box_created',
         'capture_created',
         'card_dealt',
@@ -107,7 +116,7 @@ void main() {
         'slice_returned',
         'suggestion_dismissed',
       ]);
-      expect(LogKind.knownByName, hasLength(25));
+      expect(LogKind.knownByName, hasLength(27));
     });
 
     test('every known kind is known, and parse round-trips wire names', () {
@@ -1888,6 +1897,21 @@ void main() {
           cluster: 'z1',
         ),
         'box_created': _record('box_created', cluster: 'z1'),
+        'before_saved': _record(
+          'before_saved',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          cluster: 'z1',
+        ),
+        'album_entry_added': _record(
+          'album_entry_added',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+          cluster: 'z1',
+        ),
       };
       // Every known kind but the curation kind itself is in the map.
       final expectedKinds =
@@ -2281,6 +2305,21 @@ void main() {
           triageDestination: 'keep',
         ),
         'box_created': _record('box_created', triageDestination: 'keep'),
+        'before_saved': _record(
+          'before_saved',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          triageDestination: 'keep',
+        ),
+        'album_entry_added': _record(
+          'album_entry_added',
+          itemId: 'step-1',
+          itemOrigin: Origin.cloud,
+          beforeName: 'a.jpg',
+          afterName: 'b.jpg',
+          triageDestination: 'keep',
+        ),
       };
       final expectedKinds =
           LogKind.knownByName.keys
@@ -2368,6 +2407,22 @@ void main() {
         (
           _record('item_triaged', triageDestination: 'keep', cluster: 'z1'),
           LogRecordFlaw.curationOnNonCurationKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            beforeName: 'a.jpg',
+          ),
+          LogRecordFlaw.photoNameOnNonPhotoKind,
+        ),
+        (
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            afterName: 'b.jpg',
+          ),
+          LogRecordFlaw.photoNameOnNonPhotoKind,
         ),
       ];
       for (final (row, flaw) in payloaded) {
@@ -2499,6 +2554,137 @@ void main() {
           reason: 'a box row carries no payload at all',
         );
       }
+    });
+
+    group('the reward photo path (Story 7.1, FR-17, AD-13, AD-21)', () {
+      test('a before_saved row converts with its pair and blob intact', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'before_saved',
+            itemId: 'step-1',
+            itemOrigin: Origin.cloud,
+            beforeName: 'hash-a.jpg',
+          ),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<BeforeSavedEntry>());
+        expect((entry as BeforeSavedEntry).kind, LogKind.beforeSaved);
+        expect(entry.itemId, 'step-1');
+        expect(entry.itemOrigin, Origin.cloud);
+        expect(entry.blobName, 'hash-a.jpg');
+      });
+
+      test('an album_entry_added row converts with both blob names '
+          'intact', () {
+        final conversion = convertLogEntryRecord(
+          _record(
+            'album_entry_added',
+            itemId: 'step-1',
+            itemOrigin: Origin.local,
+            beforeName: 'hash-a.jpg',
+            afterName: 'hash-b.jpg',
+          ),
+        );
+        final entry = conversion.entry;
+        expect(conversion.flaw, isNull);
+        expect(entry, isA<AlbumEntryAddedEntry>());
+        expect((entry as AlbumEntryAddedEntry).beforeName, 'hash-a.jpg');
+        expect(entry.afterName, 'hash-b.jpg');
+        expect(entry.itemId, 'step-1');
+      });
+
+      test('a photo row without its blob name(s) is excluded — the '
+          'name is the row\'s whole link to the bytes '
+          '(rewardNameAbsent)', () {
+        for (final record in [
+          _record('before_saved', itemId: 's', itemOrigin: Origin.cloud),
+          _record(
+            'before_saved',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            beforeName: '',
+          ),
+          _record(
+            'album_entry_added',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            afterName: 'b.jpg',
+          ),
+          _record(
+            'album_entry_added',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            beforeName: 'a.jpg',
+          ),
+          _record(
+            'album_entry_added',
+            itemId: 's',
+            itemOrigin: Origin.cloud,
+            beforeName: 'a.jpg',
+            afterName: '',
+          ),
+        ]) {
+          expect(
+            convertLogEntryRecord(record).flaw,
+            LogRecordFlaw.rewardNameAbsent,
+            reason: record.kind,
+          );
+        }
+      });
+
+      test('a photo row with a half or absent item pair is excluded — '
+          'the pair travels whole (AD-14)', () {
+        expect(
+          convertLogEntryRecord(_record('before_saved', beforeName: 'a.jpg'))
+              .flaw,
+          LogRecordFlaw.itemPairAbsent,
+        );
+        expect(
+          convertLogEntryRecord(
+            _record('before_saved', itemId: 's', beforeName: 'a.jpg'),
+          ).flaw,
+          LogRecordFlaw.halfItemPair,
+        );
+      });
+
+      test('an After name on a before_saved row, or any blob name on '
+          'a foreign kind, is excluded — every payload column rides '
+          'its own kind and no other', () {
+        expect(
+          convertLogEntryRecord(
+            _record(
+              'before_saved',
+              itemId: 's',
+              itemOrigin: Origin.cloud,
+              beforeName: 'a.jpg',
+              afterName: 'b.jpg',
+            ),
+          ).flaw,
+          LogRecordFlaw.photoNameOnNonPhotoKind,
+        );
+        for (final row in [
+          _record('app_opened', beforeName: 'a.jpg'),
+          _record('app_opened', afterName: 'b.jpg'),
+          _record(
+            'card_done',
+            itemId: 's',
+            itemOrigin: Origin.shipped,
+            beforeName: 'a.jpg',
+          ),
+          _record(
+            'item_triaged',
+            triageDestination: 'keep',
+            afterName: 'b.jpg',
+          ),
+        ]) {
+          expect(
+            convertLogEntryRecord(row).flaw,
+            LogRecordFlaw.photoNameOnNonPhotoKind,
+            reason: row.kind,
+          );
+        }
+      });
     });
   });
 }

@@ -248,6 +248,22 @@ void main() {
       .ancestor(of: find.byWidget(text), matching: find.byType(Material))
       .first;
 
+  /// The delivered arm's new tail (Story 7.1, FR-17): the resolution
+  /// no longer pops — the Before-offer stands in, and its `Cerrar`
+  /// takes the pop the delivery used to take. Pumps settle the
+  /// offer's camera-rule read first.
+  Future<void> dismissBeforeOffer(WidgetTester tester) async {
+    await tester.pumpAndSettle();
+    expect(find.text(strings.rewardBeforeOfferTitle), findsOneWidget);
+    // The offer's Cerrar may sit below the fold on a short surface
+    // (the 200% test's own floor) — scroll it into view before the
+    // tap.
+    await tester.ensureVisible(find.text(strings.rewardClose));
+    await tester.tap(find.text(strings.rewardClose));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsentGateScreen), findsNothing);
+  }
+
   testWidgets('the body states what is sent and to whom — the provider '
       'name interpolated, the one sanctioned placeholder (FR-25, AD-15)', (
     tester,
@@ -318,7 +334,7 @@ void main() {
       const SlicerDelivered(
         '{"description": "Un rinc\u00f3n con cajas apiladas", "steps": [{"text": "Recoger una caja", "duration_minutes": 4}]}',
       ),
-    );
+    )..gate = Completer<void>();
     final (controller, store, _, _) = await standingController(slicer);
     await pumpGate(tester, controller);
     await tester.tap(find.text(strings.consentGateSend));
@@ -359,8 +375,13 @@ void main() {
     // forever and never settles.
     await tester.pump(routePopSettle);
     expect(slicer.requests, hasLength(1));
-    // The delivered arm's own dispose (the pop) mints no abandonment:
-    // the dispatch resolved, so nothing stands at the close.
+    // The delivered arm now stands in the Before-offer (Story 7.1):
+    // its Cerrar takes the pop, and neither the resolution's own
+    // dispose nor the offer's departure mints an abandonment — the
+    // dispatch resolved, so nothing stands at the close.
+    slicer.gate!.complete();
+    await tester.pump();
+    await dismissBeforeOffer(tester);
     expect(store.entries.map((entry) => entry.kind), [
       'consent_granted',
       'epic_activated',
@@ -705,8 +726,7 @@ void main() {
     // quiet pop, and never an abandonment.
     slicer.gate!.complete();
     await tester.pump();
-    await tester.pump(routePopSettle);
-    expect(find.byType(ConsentGateScreen), findsNothing);
+    await dismissBeforeOffer(tester);
     expect(store.entries.map((entry) => entry.kind), [
       'consent_granted',
       'epic_activated',
@@ -775,8 +795,7 @@ void main() {
     expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
     slicer.gate!.complete();
     await tester.pump();
-    await tester.pump(routePopSettle);
-    expect(find.byType(ConsentGateScreen), findsNothing);
+    await dismissBeforeOffer(tester);
   });
 
   testWidgets('a real departure (hidden, then detached in a fresh scan) '
@@ -855,8 +874,7 @@ void main() {
     expect(store.entries.map((entry) => entry.kind), ['consent_granted']);
     slicer.gate!.complete();
     await tester.pump();
-    await tester.pump(routePopSettle);
-    expect(find.byType(ConsentGateScreen), findsNothing);
+    await dismissBeforeOffer(tester);
   });
 
   testWidgets('the null-controller test seam: the pair renders and a tap '

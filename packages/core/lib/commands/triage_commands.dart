@@ -76,6 +76,8 @@ List<LogEntryContent> triageItem({
       triageDestination: destination,
       triageVolumeTag: volumeTag,
       triageBoxId: boxId,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -108,6 +110,8 @@ List<LogEntryContent> boxCreated() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }

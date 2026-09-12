@@ -6,6 +6,7 @@
 import 'dart:io';
 
 import 'package:core/ports/scan_consent.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:organizer/files/app_files.dart';
@@ -430,6 +431,47 @@ void main() {
       // Nothing threw; whatever the filesystem refused stands for the
       // next open's sweep.
       expect(scopeDir.existsSync(), isTrue);
+    });
+  });
+
+  group('the content-addressed album write (Story 7.1, FR-17, AD-13)', () {
+    test(
+      'the sha256 hex of the bytes names the blob, with the fixed '
+      'suffix, in the album scope — and it reads back byte-for-byte',
+      () async {
+        final name = await writeAlbumPhoto(files, [4, 5, 250]);
+        final expected =
+            '${sha256.convert([4, 5, 250]).toString()}$albumPhotoSuffix';
+        expect(name, expected);
+        expect(await files.read(albumFilesScope, name), [4, 5, 250]);
+        // The blob lives in the album scope alone — one flat partition,
+        // exactly the scope FilesPort's own doc reserved.
+        final albumDir = Directory(
+          '${root.path}${Platform.pathSeparator}$albumFilesScope',
+        );
+        expect(
+          albumDir.listSync().map((e) => e.uri.pathSegments.last).toList(),
+          [expected],
+        );
+      },
+    );
+
+    test('content addressing is idempotent — the same bytes name the '
+        'same blob, so no duplicate ever grows the album', () async {
+      final one = await writeAlbumPhoto(files, [1, 2, 3]);
+      final two = await writeAlbumPhoto(files, [1, 2, 3]);
+      expect(two, one);
+      final albumDir = Directory(
+        '${root.path}${Platform.pathSeparator}$albumFilesScope',
+      );
+      expect(albumDir.listSync(), hasLength(1));
+    });
+
+    test('different bytes name different blobs — a Before and an After '
+        'never collide', () async {
+      final before = await writeAlbumPhoto(files, [1]);
+      final after = await writeAlbumPhoto(files, [2]);
+      expect(after, isNot(before));
     });
   });
 }
