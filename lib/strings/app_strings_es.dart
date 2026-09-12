@@ -338,6 +338,18 @@ class AppStringsEs extends AppStrings {
   String get rewardAfterShoot => 'Hacer la foto';
 
   @override
+  String get albumTitle => 'Tu álbum';
+
+  @override
+  String get rewardOpenAlbum => 'Ver el álbum';
+
+  @override
+  String get albumEntryDelete => 'Borrar';
+
+  @override
+  String get albumPurge => 'Borrar todo';
+
+  @override
   String get snowballDismissAcknowledgement => 'Está bien así.';
 
   @override
