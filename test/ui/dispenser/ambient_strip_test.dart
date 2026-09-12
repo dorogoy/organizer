@@ -2149,6 +2149,22 @@ void main() {
       expect(find.bySemanticsLabel(strings.ambientStripDismiss), findsNothing);
     });
 
+    testWidgets('a run of nine — no snowball renders: the strip falls '
+        'through to the next resident (the dead `days` param, '
+        'exercised)', (tester) async {
+      await launchWithSnowball(tester, days: 9);
+      final strings = AppStringsEs();
+
+      expect(find.byType(SnowballStrip), findsNothing);
+      expect(
+        find.text(strings.energyCheckInQuestion),
+        findsOneWidget,
+        reason:
+            'the slot falls through to the check-in — nine never '
+            'crosses',
+      );
+    });
+
     testWidgets('the tap writes exactly one setting_changed row naming '
         'the shown bag — the strip quiet after, the check-in holding '
         'the freed slot (matrix: accept)', (tester) async {

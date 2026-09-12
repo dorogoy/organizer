@@ -137,9 +137,12 @@ const int snowballRunLength = 10;
 
 /// The minutes the snowball's offer raises the Time Bag by (Story
 /// 7.5, FR-23): five — the bag's own step (`timeBagOptions`'s
-/// cadence), authored beside the derivation that composes it. The
-/// eligibility guarantee keeps `bag + this ≤ timeBagMostMinutes`
-/// structurally: the offer never stands while the bag reads 30.
+/// cadence), authored beside the derivation that composes it. On
+/// the Settings lattice the eligibility guard alone keeps
+/// `bag + this ≤ timeBagMostMinutes`; a legal derived bag OFF the
+/// lattice (26–29, an imported or restored row) composes past the
+/// top, so `_snowballShown` caps the raise there — the frozen AC's
+/// "rises by exactly 5 minutes capped at 30".
 const int snowballRaiseMinutes = 5;
 
 /// The strip's state at one read instant: the resident the precedence
@@ -532,17 +535,27 @@ StripSuggestion? _seasonalShown(
 }
 
 /// The raised Time Bag the snowball may offer at this read (Story
-/// 7.5, FR-23): the derived bag plus [snowballRaiseMinutes] — or
-/// null, the offer's own silence, when nothing is left to suggest:
-/// the bag already reads [timeBagMostMinutes], or a `time_bag`
-/// `SettingEntry` stands whose OWN civil day is today (each row
-/// scoped in its own stored offset, AD-4), the accept's own row and
-/// a manual bag change alike consuming the window for the day — the
-/// once-per-run clause by derivation alone, never a stored marker
-/// (AD-21). Rows after the read instant are excluded, exactly the
-/// derivation's own convention. The bag itself is the settings
-/// derivation's ([deriveTimeBagMinutes] — the last valid row, the
-/// default 15): no second definition of the bag exists here.
+/// 7.5, FR-23): the derived bag plus [snowballRaiseMinutes], CAPPED
+/// at [timeBagMostMinutes] (the frozen AC's "rises by exactly 5
+/// minutes capped at 30") — or null, the offer's own silence, when
+/// nothing is left to suggest: the bag already reads
+/// [timeBagMostMinutes], or a `time_bag` `SettingEntry` stands whose
+/// OWN civil day is today (each row scoped in its own stored offset,
+/// AD-4), the accept's own row and a manual bag change alike
+/// consuming the window for the day — the once-per-run clause by
+/// derivation alone, never a stored marker (AD-21). Rows after the
+/// read instant are excluded, exactly the derivation's own
+/// convention. The bag itself is the settings derivation's
+/// ([deriveTimeBagMinutes] — the last valid row, the default 15): no
+/// second definition of the bag exists here.
+///
+/// The cap is load-bearing for the OFF-lattice bag: eligibility
+/// already requires the bag below the top, but a legal derived
+/// 26–29 (in the confirmed range, between the Settings surface's
+/// 5-step options — reachable through imported or restored rows)
+/// raises past 30, and `settingChanged` silently refuses the row
+/// (an offer whose tap mints nothing — a dead accept standing all
+/// day). The clamp binds exactly there, offering the top itself.
 int? _snowballShown(
   List<LogEntry> entries,
   Calendar calendar,
@@ -564,7 +577,8 @@ int? _snowballShown(
       return null;
     }
   }
-  return bag + snowballRaiseMinutes;
+  final raised = bag + snowballRaiseMinutes;
+  return raised > timeBagMostMinutes ? timeBagMostMinutes : raised;
 }
 
 /// Derives the strip's resident at one read instant (Story 2.5,

@@ -38,6 +38,12 @@
 /// before the log's earliest row end the walk. One length leaves the
 /// file: no per-day detail exists to cross anywhere.
 ///
+/// The fold is ORDER-SENSITIVE: open-session tracking, supersede and
+/// extension attribution all read the rows in the order given. The
+/// input is the store's instant-ordered log read — the walk's own
+/// precondition (`walkLog` reads the same list the same way); an
+/// unsorted list derives nothing meaningful.
+///
 /// Rows after the read instant are skipped (the readers' convention,
 /// strip.dart); every value is derived from log facts, nothing
 /// stored (AD-1).

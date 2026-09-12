@@ -1523,6 +1523,25 @@ void main() {
       expect(state?.snowballProposedMinutes, 30);
     });
 
+    test('an OFF-lattice bag of 27 — the raise clamps at the top: the '
+        'offer names 30 itself, never 32 (a dead accept)', () {
+      // A legal derived bag between the Settings lattice's steps —
+      // inside the confirmed range 5–30, not one of `timeBagOptions`,
+      // reachable through imported or restored rows — makes the
+      // unclamped offer name 32, outside the minter's range, and
+      // `settingChanged` refuses the row silently: a dead accept
+      // button standing all day. The clamp holds the frozen AC —
+      // rises by exactly 5 minutes capped at 30 — so the offer names
+      // the top itself.
+      final entries = [
+        bagRow(utcMicros(2026, 8, 10, 9), 27, id: 'bag-27'),
+        ...comfortableDays(10),
+      ];
+      final state = resolve(entries);
+      expect(state?.resident, StripResident.snowball);
+      expect(state?.snowballProposedMinutes, 30);
+    });
+
     test('a time_bag row today — the accept\'s own row or a manual '
         'change consumes the window for the day (matrix: same-day '
         'reopen)', () {
@@ -1577,6 +1596,37 @@ void main() {
       // unanswered, the day\'s first opening — the snowball wins.
       final winner = resolve(comfortableDays(10));
       expect(winner?.resident, StripResident.snowball);
+    });
+
+    test('the composed re-earn cycle — an accept on the crossing day, a '
+        'break, a fresh ten: the offer is earned again and names the '
+        'raised bag + 5 (FR-23, AD-1)', () {
+      // The acceptance criteria's whole sequence in one log, never a
+      // stored counter anywhere: ten comfortable days ending Aug 28 →
+      // the crossing day Aug 29, whose accept row raises the bag to
+      // 20 and consumes that day\'s window by derivation; a
+      // non-comfortable break (Aug 30–Sep 1 hold nothing — absence
+      // breaks the chain); then ten fresh comfortable days ending
+      // the new yesterday, Sep 11. The Sep 12 read: the run is ten
+      // again, the bag 20, no `time_bag` row today — the offer names
+      // 25, the raised bag + 5.
+      final entries = [
+        ...comfortableDays(10),
+        bagRow(utcMicros(2026, 8, 29, 10), 20, id: 'bag-accept'),
+        for (var day = 2; day <= 11; day++) ...[
+          pocketedStart(utcMicros(2026, 9, day, 9), 15, id: 's-start-$day'),
+          doneAt(utcMicros(2026, 9, day, 9, 5), id: 's-done-$day'),
+          _ended(utcMicros(2026, 9, day, 9, 10), id: 's-end-$day'),
+        ],
+      ];
+      // The crossing day itself: not eligible — the accept\'s own
+      // row stands today (the row-today guard), and the September
+      // rows are after the read instant, skipped.
+      expect(resolve(entries)?.resident, isNot(StripResident.snowball));
+      // The fresh ten: eligible again, naming the raised bag + 5.
+      final state = resolve(entries, utcMicros(2026, 9, 12, 12));
+      expect(state?.resident, StripResident.snowball);
+      expect(state?.snowballProposedMinutes, 25);
     });
   });
 }

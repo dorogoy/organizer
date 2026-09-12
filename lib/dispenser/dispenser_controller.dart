@@ -1455,10 +1455,17 @@ class DispenserController {
   /// the tap's own instant, no log read, no write, and the read's
   /// `excludeResidents` seam hides the resident for the rest of
   /// that day, handing the slot to the next resident in the same
-  /// opening. Never styled as anything owed: a fully displaced
-  /// crossing day misses the run silently, "at most once" allowing
-  /// zero.
+  /// that day, handing the slot to the next resident in the same
+  /// opening. The shown fact is consumed at ENTRY, the
+  /// `dismissSeasonalSuggestion` precedent: an accept arriving through
+  /// any path that bypasses the screen's in-flight guard before this
+  /// dismiss's own read resolves would otherwise capture the stale
+  /// fact and mint a row for an already-dismissed offer — cleared
+  /// here, the accept's own null-capture guard mints nothing. Never
+  /// styled as anything owed: a fully displaced crossing day misses
+  /// the run silently, "at most once" allowing zero.
   Future<DispenserView> dismissSnowball({DateTime? tapTime}) {
+    _shownSnowballMinutes = null;
     _snowballDismissMarker = _dayOf(tapTime ?? nowOf());
     return read();
   }

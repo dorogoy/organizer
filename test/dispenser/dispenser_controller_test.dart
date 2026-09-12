@@ -4083,6 +4083,34 @@ void main() {
       return store;
     }
 
+    /// One `time_bag` `setting_changed` row — the bag seed the
+    /// off-lattice and manual-change arms append.
+    LogEntryRecord bagRow(DateTime at, int value, String id) => (
+      id: id,
+      kind: 'setting_changed',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: 'time_bag',
+      settingValue: value,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
+      triageBoxId: null,
+      beforeName: null,
+      afterName: null,
+    );
+
     test('the crossing-day read carries the raised bag as the shown '
         'fact — and reading wrote nothing (matrix: crossing day)', () async {
       final store = snowballStore();
@@ -4149,6 +4177,38 @@ void main() {
       );
     });
 
+    test('an OFF-lattice bag of 27 — the accept lands exactly one '
+        'setting_changed row naming 30, the clamped raise — never a '
+        'dead button', () async {
+      // A legal derived bag between the Settings lattice's steps
+      // (in range, not one of `timeBagOptions`) makes the unclamped
+      // offer name 32, which `settingChanged` silently refuses: the
+      // tap would mint nothing and the offer would stand all day.
+      // The clamp caps the shown fact at 30, so the accept lands the
+      // top itself.
+      final store = snowballStore()
+        ..entries.add(bagRow(DateTime.utc(2026, 8, 10, 9), 27, 'bag-27'));
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final before = await controller.read();
+      expect(before.stripResident, StripResident.snowball);
+      expect(before.snowballProposedMinutes, 30);
+
+      final after = await controller.acceptSnowball();
+
+      final rows = store.entries
+          .where(
+            (entry) =>
+                entry.kind == 'setting_changed' &&
+                entry.settingKey == 'time_bag' &&
+                entry.id != 'bag-27',
+          )
+          .toList();
+      expect(rows, hasLength(1), reason: 'the accept landed exactly one row');
+      expect(rows.single.settingValue, 30);
+      expect(after.stripResident, isNot(StripResident.snowball));
+    });
+
     test('a stale accept — a handler firing after a read that showed '
         'no snowball — mints nothing, quietly (matrix: stale tap)', () async {
       final store = snowballStore();
@@ -4193,6 +4253,32 @@ void main() {
         store.entries.where((entry) => entry.kind == 'setting_changed'),
         hasLength(1),
         reason: 'the first capture owns the shown fact',
+      );
+    });
+
+    test('a dismiss-then-accept overlap mints zero rows — the ✕ '
+        'clears the shown fact at entry, before its own read '
+        'resolves', () async {
+      // The ✕ taps first, but its read is queued: an accept arriving
+      // through any path that bypasses the screen's in-flight guard
+      // captures its shown fact synchronously at entry — before the
+      // dismiss's read runs — and would mint a row for an
+      // already-dismissed offer. The dismiss consumes the fact at
+      // entry (the `dismissSeasonalSuggestion` precedent), so the
+      // racing accept's own null-capture guard mints nothing.
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+
+      final dismiss = controller.dismissSnowball();
+      final accept = controller.acceptSnowball();
+      await Future.wait([dismiss, accept]);
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason: 'the ✕ consumed the shown fact — nothing was shown',
       );
     });
 
@@ -4348,6 +4434,32 @@ void main() {
             'the whole-day window re-offers at any same-day '
             'opening',
       );
+    });
+
+    test('the closed view arm carries the snowball too — the shown '
+        'fact forwards on every variant, never the dealt arm alone', () async {
+      // Every other snowball read in this group resolves a dealt
+      // card; deleting the `snowballProposedMinutes` forward on the
+      // Closed or RestOffer constructor would ship the offer
+      // invisible on those reads with the suite green. A crossing-day
+      // log whose day holds no OPEN session — the sitting opened and
+      // closed before the read, no deal standing — reads as the warm
+      // close, and the strip must still name the raised bag.
+      final store = snowballStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 29, 10), 'day-open'),
+          _pocketedStart(DateTime.utc(2026, 8, 29, 10, 0, 30), 15),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, 29, 10, 30),
+            'day-end',
+          ),
+        ]);
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserClosed>());
+      expect(view.stripResident, StripResident.snowball);
+      expect(view.snowballProposedMinutes, 20);
     });
   });
 

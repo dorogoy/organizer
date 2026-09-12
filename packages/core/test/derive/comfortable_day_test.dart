@@ -286,20 +286,30 @@ void main() {
     expect(runOf(comfortableDays(5)), 5);
   });
 
-  test('a card_done charged by the session-day rule — a crossing '
-      'session\'s done belongs to its start day, never the crossed-into '
-      'day (AD-19)', () {
-    // Aug 26's session starts 23:50 and the done lands at 00:05 on
-    // Aug 27's clock, inside the still-open sitting: charged to Aug
-    // 26 (its session's own start day), so Aug 27 holds a session
-    // (its own start below) with no done of its own — not
-    // comfortable.
+  test('a card_done charged by the session-day rule — a done past the '
+      '04:00 boundary belongs to its session\'s start day, never the '
+      'crossed-into day (AD-19)', () {
+    // Aug 26's session starts 03:30 on Aug 27's clock — before the
+    // 04:00 boundary, so its own domestic day is Aug 26 — with a
+    // sixty-minute pocket; the done lands at 04:05, whose OWN civil
+    // day is Aug 27, and the end at 04:10: a 40-minute span inside
+    // the pocket, no marathon. Session-day charging charges the done
+    // to Aug 26 (its session's own start day), so Aug 26 is
+    // comfortable and Aug 27 — its own session below, no done of
+    // its own — breaks the chain, leaving the run's only day Aug
+    // 28: the run reads one. Under OWN-day charging the done would
+    // land on Aug 27 instead, Aug 26 would hold no done, and the run
+    // would read zero — the fixture discriminates the attribution
+    // mirror exactly because the done's own civil day (Aug 27)
+    // differs from its session's start day (Aug 26): a 00:05 done,
+    // whose own day is still Aug 26 under the 04:00 boundary, is
+    // charged Aug 26 by both rules and cannot tell them apart.
     final entries = [
       for (var day = 19; day <= 28; day++)
         if (day == 26) ...[
-          started(utcMicros(2026, 8, 26, 23, 50), id: 'start-26'),
-          done(utcMicros(2026, 8, 27, 0, 5), id: 'done-26'),
-          ended(utcMicros(2026, 8, 27, 0, 6), id: 'end-26'),
+          started(utcMicros(2026, 8, 27, 3, 30), pocket: 60, id: 'start-26'),
+          done(utcMicros(2026, 8, 27, 4, 5), id: 'done-26'),
+          ended(utcMicros(2026, 8, 27, 4, 10), id: 'end-26'),
         ] else if (day == 27) ...[
           started(utcMicros(2026, 8, 27, 9), id: 'start-27'),
           ended(utcMicros(2026, 8, 27, 9, 10), id: 'end-27'),
