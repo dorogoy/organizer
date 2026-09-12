@@ -4052,6 +4052,434 @@ void main() {
     });
   });
 
+  group('the snowball (Story 7.5, FR-23, AD-26)', () {
+    /// One comfortable day of the seeded run: a 15-minute pocketed
+    /// session at 09:00 with a done inside, closed 09:10 — the
+    /// core suite's own shape, as store records.
+    void seedComfortableDays(_RecordingStore store, {int n = 10}) {
+      for (var day = 29 - n; day <= 28; day++) {
+        store.entries.addAll([
+          _pocketedStart(DateTime.utc(2026, 8, day, 9), 15),
+          _act(
+            'card_done',
+            DateTime.utc(2026, 8, day, 9, 5),
+            'done-$day',
+            chunkSeedId,
+          ),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, day, 9, 10),
+            'end-$day',
+          ),
+        ]);
+      }
+    }
+
+    _RecordingStore snowballStore() {
+      final store = _RecordingStore()
+        ..entries.add(_installOpen())
+        ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+      seedComfortableDays(store);
+      return store;
+    }
+
+    /// One `time_bag` `setting_changed` row — the bag seed the
+    /// off-lattice and manual-change arms append.
+    LogEntryRecord bagRow(DateTime at, int value, String id) => (
+      id: id,
+      kind: 'setting_changed',
+      instantUtcMicros: at.microsecondsSinceEpoch,
+      offsetSeconds: 0,
+      itemId: null,
+      itemOrigin: null,
+      stack: null,
+      settingKey: 'time_bag',
+      settingValue: value,
+      settingTextValue: null,
+      pocketMinutes: null,
+      energyLevel: null,
+      reportValue: null,
+      reportWeek: null,
+      permission: null,
+      sliceCause: null,
+      cluster: null,
+      enabled: null,
+      triageDestination: null,
+      triageVolumeTag: null,
+      triageBoxId: null,
+      beforeName: null,
+      afterName: null,
+    );
+
+    test('the crossing-day read carries the raised bag as the shown '
+        'fact — and reading wrote nothing (matrix: crossing day)', () async {
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+
+      final view = await controller.read();
+
+      expect(view.stripResident, StripResident.snowball);
+      expect(
+        view.snowballProposedMinutes,
+        20,
+        reason:
+            'the default bag is 15 — the offer names bag + 5 and '
+            'nothing else (AD-26: no count crosses)',
+      );
+      expect(view.seasonalSuggestion, isNull);
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason: 'the strip renders, it never writes on a read',
+      );
+    });
+
+    test('the accept writes exactly one setting_changed row naming the '
+        'SHOWN bag — the resident gone by derivation, later same-day '
+        'reads quiet, the bag itself raised (matrix: accept)', () async {
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final before = await controller.read();
+      expect(before.snowballProposedMinutes, 20);
+      final kindsBefore = store.entries.map((entry) => entry.kind).toList();
+
+      final after = await controller.acceptSnowball();
+
+      final rows = store.entries
+          .where((entry) => entry.kind == 'setting_changed')
+          .toList();
+      expect(rows, hasLength(1));
+      expect(rows.single.settingKey, 'time_bag');
+      expect(rows.single.settingValue, 20);
+      expect(
+        rows.single.instantUtcMicros,
+        _fixedClock().microsecondsSinceEpoch,
+      );
+      expect(rows.single.id, matches(v7));
+      // Zero collateral: nothing but the one row appended.
+      expect(store.entries.map((entry) => entry.kind).toList(), [
+        ...kindsBefore,
+        'setting_changed',
+      ]);
+      // Gone by derivation: today holds a time_bag row, and the
+      // freed slot hands to the check-in (the week is answered).
+      expect(after.stripResident, isNot(StripResident.snowball));
+      expect(after.snowballProposedMinutes, isNull);
+      expect(after.stripResident, StripResident.energyCheckIn);
+      expect(
+        (await controller.read()).stripResident,
+        isNot(StripResident.snowball),
+        reason:
+            'a same-day reopen after the accept shows nothing — the '
+            'row-today guard',
+      );
+    });
+
+    test('an OFF-lattice bag of 27 — the accept lands exactly one '
+        'setting_changed row naming 30, the clamped raise — never a '
+        'dead button', () async {
+      // A legal derived bag between the Settings lattice's steps
+      // (in range, not one of `timeBagOptions`) makes the unclamped
+      // offer name 32, which `settingChanged` silently refuses: the
+      // tap would mint nothing and the offer would stand all day.
+      // The clamp caps the shown fact at 30, so the accept lands the
+      // top itself.
+      final store = snowballStore()
+        ..entries.add(bagRow(DateTime.utc(2026, 8, 10, 9), 27, 'bag-27'));
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final before = await controller.read();
+      expect(before.stripResident, StripResident.snowball);
+      expect(before.snowballProposedMinutes, 30);
+
+      final after = await controller.acceptSnowball();
+
+      final rows = store.entries
+          .where(
+            (entry) =>
+                entry.kind == 'setting_changed' &&
+                entry.settingKey == 'time_bag' &&
+                entry.id != 'bag-27',
+          )
+          .toList();
+      expect(rows, hasLength(1), reason: 'the accept landed exactly one row');
+      expect(rows.single.settingValue, 30);
+      expect(after.stripResident, isNot(StripResident.snowball));
+    });
+
+    test('a stale accept — a handler firing after a read that showed '
+        'no snowball — mints nothing, quietly (matrix: stale tap)', () async {
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+      await controller.acceptSnowball(); // The real tap.
+      final rowsAfterReal = store.entries.length;
+
+      // A second tap: the last read showed no snowball, so the shown
+      // fact is null — nothing mints.
+      final after = await controller.acceptSnowball();
+      expect(store.entries.length, rowsAfterReal);
+      expect(after.stripResident, isNot(StripResident.snowball));
+
+      // And the same guard on a controller that never read one:
+      final fresh = snowballStore();
+      await openSessionAndReadFirstDeal(fresh);
+      final freshController = buildFor(fresh);
+      await freshController.acceptSnowball();
+      expect(
+        fresh.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason:
+            'no read ever showed the snowball — the tap mints '
+            'nothing',
+      );
+    });
+
+    test('overlapping one-tap calls mint exactly one row — the '
+        'consume-at-entry guard, not the screen', () async {
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+
+      final first = controller.acceptSnowball();
+      final second = controller.acceptSnowball();
+      await Future.wait([first, second]);
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        hasLength(1),
+        reason: 'the first capture owns the shown fact',
+      );
+    });
+
+    test('a dismiss-then-accept overlap mints zero rows — the ✕ '
+        'clears the shown fact at entry, before its own read '
+        'resolves', () async {
+      // The ✕ taps first, but its read is queued: an accept arriving
+      // through any path that bypasses the screen's in-flight guard
+      // captures its shown fact synchronously at entry — before the
+      // dismiss's read runs — and would mint a row for an
+      // already-dismissed offer. The dismiss consumes the fact at
+      // entry (the `dismissSeasonalSuggestion` precedent), so the
+      // racing accept's own null-capture guard mints nothing.
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+
+      final dismiss = controller.dismissSnowball();
+      final accept = controller.acceptSnowball();
+      await Future.wait([dismiss, accept]);
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason: 'the ✕ consumed the shown fact — nothing was shown',
+      );
+    });
+
+    test('a failed accept append lands nothing — the suggestion stands '
+        'and the retry is the same tap (matrix: read failure under the '
+        'accept)', () async {
+      final inner = snowballStore();
+      await openSessionAndReadFirstDeal(inner);
+      var failNextAppend = true;
+      final store = _DelegatingStore(
+        appendLogEntry: (entry) {
+          if (failNextAppend) {
+            failNextAppend = false;
+            throw StateError('append failed');
+          }
+          return inner.appendLogEntry(entry);
+        },
+        readLogEntries: inner.readLogEntries,
+        readPoolFacts: inner.readPoolFacts,
+      );
+      final controller = buildFor(store);
+      await controller.read();
+
+      await expectLater(controller.acceptSnowball(), throwsStateError);
+      expect(
+        inner.entries.where((entry) => entry.kind == 'setting_changed'),
+        isEmpty,
+        reason: 'nothing landed',
+      );
+      expect(
+        (await controller.read()).stripResident,
+        StripResident.snowball,
+        reason: 'the suggestion stands — the derivation re-resolves it',
+      );
+    });
+
+    test('the ✕ writes nothing and hides the resident for the day — '
+        'the slot hands to the check-in in the same opening, and '
+        'declining has no effect (matrix: dismiss)', () async {
+      final store = snowballStore();
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      await controller.read();
+      final rowsBefore = store.entries.length;
+
+      final after = await controller.dismissSnowball();
+
+      expect(
+        store.entries.length,
+        rowsBefore,
+        reason: 'zero rows — FR-23\'s declining literal',
+      );
+      expect(after.stripResident, isNot(StripResident.snowball));
+      expect(after.stripResident, StripResident.energyCheckIn);
+      expect(
+        (await controller.read()).stripResident,
+        isNot(StripResident.snowball),
+        reason: 'the day marker holds for every read of the day',
+      );
+    });
+
+    test('a manual bag change today consumes the window — the '
+        'same-day row suppresses the suggestion whatever its value '
+        '(matrix: same-day reopen)', () async {
+      final store = snowballStore()
+        ..entries.add((
+          id: 'manual-bag',
+          kind: 'setting_changed',
+          instantUtcMicros: DateTime.utc(
+            2026,
+            8,
+            29,
+            10,
+          ).microsecondsSinceEpoch,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: 'time_bag',
+          settingValue: 20,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: null,
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
+          triageBoxId: null,
+          beforeName: null,
+          afterName: null,
+        ));
+      await openSessionAndReadFirstDeal(store);
+      final view = await buildFor(store).read();
+      expect(view.stripResident, isNot(StripResident.snowball));
+    });
+
+    test('a rarer resident displaces the first opening — the ✕ on the '
+        'seasonal suggestion re-offers the snowball in the same '
+        'opening (matrix: displacement)', () async {
+      // A dormant Epic beside the comfortable run: the seasonal is
+      // rarer, so it holds the slot; its ✕ resolves within the day,
+      // and the snowball takes the freed slot in the same opening —
+      // the whole-day window, not a first-opening gate.
+      final store =
+          _RecordingStore([
+              (
+                id: 'epic-a',
+                origin: Origin.cloud,
+                size: sizeOfEstimateSeconds(180),
+                instantUtcMicros: DateTime.utc(
+                  2026,
+                  8,
+                  20,
+                  9,
+                ).microsecondsSinceEpoch,
+                offsetSeconds: 0,
+                originContext: 'el trastero del fondo',
+                dictated: null,
+                rescueOf: null,
+                estimateSeconds: 180,
+                stepText: 'Recoger las cajas',
+              ),
+            ])
+            ..entries.add(_installOpen())
+            ..entries.add(_answeredWeek(weekOfAug17, 'seed-week-answered'));
+      seedComfortableDays(store);
+      await openSessionAndReadFirstDeal(store);
+      final controller = buildFor(store);
+      final displaced = await controller.read();
+      expect(displaced.stripResident, StripResident.seasonalSuggestion);
+
+      await controller.dismissSeasonalSuggestion();
+      final reoffered = await controller.read();
+
+      expect(reoffered.stripResident, StripResident.snowball);
+      expect(reoffered.snowballProposedMinutes, 20);
+
+      // And at a LATER same-day opening — a fresh `app_opened` — the
+      // offer still stands: the snowball's window is the whole
+      // crossing day, never a first-opening gate.
+      store.entries.add(
+        _moment('app_opened', DateTime.utc(2026, 8, 29, 15), 'second-open'),
+      );
+      final laterOpening = await controller.read();
+      expect(
+        laterOpening.stripResident,
+        StripResident.snowball,
+        reason:
+            'the whole-day window re-offers at any same-day '
+            'opening',
+      );
+    });
+
+    test('the closed view arm carries the snowball too — the shown '
+        'fact forwards on every variant, never the dealt arm alone', () async {
+      // Every other snowball read in this group resolves a dealt
+      // card; deleting the `snowballProposedMinutes` forward on the
+      // Closed constructor would ship the offer invisible on that
+      // read with the suite green. A crossing-day log whose day holds
+      // no OPEN session — the sitting opened and closed before the
+      // read, no deal standing — reads as the warm close, and the
+      // strip must still name the raised bag.
+      final store = snowballStore()
+        ..entries.addAll([
+          _moment('app_opened', DateTime.utc(2026, 8, 29, 10), 'day-open'),
+          _pocketedStart(DateTime.utc(2026, 8, 29, 10, 0, 30), 15),
+          _moment(
+            'session_ended',
+            DateTime.utc(2026, 8, 29, 10, 30),
+            'day-end',
+          ),
+        ]);
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserClosed>());
+      expect(view.stripResident, StripResident.snowball);
+      expect(view.snowballProposedMinutes, 20);
+    });
+
+    test('the rest-offer view arm carries the snowball too — the shown '
+        'fact forwards on every variant, never the dealt arm alone', () async {
+      // The Closed pin parks on a finished sitting. A mid-pocket rest
+      // offer on the crossing day is a real concurrent state: snowball
+      // eligibility ignores today, and `checkpoint.offerDue` still
+      // preempts the deal. Deleting `super.snowballProposedMinutes`
+      // from DispenserRestOffer would shrink the strip with Dealt and
+      // Closed still green.
+      final store = snowballStore()
+        ..entries.add(_pocketedStart(DateTime.utc(2026, 8, 29, 11, 20), 45));
+      final view = await buildFor(store).read();
+
+      expect(view, isA<DispenserRestOffer>());
+      expect(view.stripResident, StripResident.snowball);
+      expect(view.snowballProposedMinutes, 20);
+    });
+  });
+
   group('the warm return (Story 2.7, FR-6, AD-24)', () {
     /// A completed day, dealt-and-answered through a closed sitting,
     /// ending 2026-08-26 09:06 — just under 75 hours before the fixed

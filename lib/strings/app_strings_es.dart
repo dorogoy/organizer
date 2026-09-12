@@ -450,6 +450,11 @@ class AppStringsEs extends AppStrings {
   String get snowballDismissAcknowledgement => 'Está bien así.';
 
   @override
+  String snowballSuggestion(int minutes) {
+    return '¿Subimos la bolsa de tiempo a $minutes minutos?';
+  }
+
+  @override
   String get energyCheckInQuestion => '¿Cuánta energía tienes hoy?';
 
   @override

@@ -989,6 +989,7 @@ class _DispenserScreenState extends State<DispenserScreen>
     final content = StripLayer(
       resident: view.stripResident,
       seasonalSuggestion: view.seasonalSuggestion,
+      snowballProposedMinutes: view.snowballProposedMinutes,
       onEnergy: _onSetEnergy,
       onDismissCheckIn: _onDismissCheckIn,
       onAnswerReport: _onAnswerReport,
@@ -998,6 +999,8 @@ class _DispenserScreenState extends State<DispenserScreen>
       onAcceptSuggestion: _onAcceptSeasonalSuggestion,
       onDismissSuggestion: _onDismissSeasonalSuggestion,
       onDismissQuarantineFollowUp: _onDismissQuarantineFollowUp,
+      onAcceptSnowball: _onAcceptSnowball,
+      onDismissSnowball: _onDismissSnowball,
       child: CompletionAck(
         visible: _completionAckVisible,
         child: switch (view) {
@@ -1194,6 +1197,36 @@ class _DispenserScreenState extends State<DispenserScreen>
     (tappedAt) =>
         widget.controller.acceptSeasonalSuggestion(tappedAt: tappedAt),
     recoverOnFailure: true,
+  );
+
+  /// The snowball's tap (Story 7.5, FR-23, AD-21): the accept DOES
+  /// the thing the sentence proposes — the raised Time Bag. Exactly
+  /// one `setting_changed` row (`time_bag`, the shown minutes)
+  /// through the kind's own minter (the controller's path), the same
+  /// seam, and the committed view is the fresh read: the resident is
+  /// gone by derivation (today holds a `time_bag` row, the window's
+  /// own suppression) and the displaced instruments hold the freed
+  /// slot. No confirmation, no push, no feedback of any kind: the
+  /// quieter strip is the answer, and no count or run name ever
+  /// renders (§1.1 P2, AD-26).
+  Future<void> _onAcceptSnowball() => _stripAct(
+    (tappedAt) => widget.controller.acceptSnowball(tappedAt: tappedAt),
+    recoverOnFailure: true,
+  );
+
+  /// The snowball's ✕ tap (Story 7.5, FR-23, UX-DR52):
+  /// skip-for-the-crossing-day, and deliberately no write — declining
+  /// has no effect, so the dismissal is shell state keyed by the day
+  /// (the check-in's own scope grammar), the committed view is the
+  /// same read with the displaced instruments holding the freed
+  /// slot, and no later day of the run can make the suggestion
+  /// eligible again: `== 10` holds on the crossing day alone,
+  /// nothing stored (AD-21). The ✕ alone speaks its own
+  /// acknowledgement (`Está bien así.`). It shares the in-flight
+  /// guard with the strip's other paths; a failed read is absorbed
+  /// by the empty frame, quietly.
+  Future<void> _onDismissSnowball() => _stripAct(
+    (tapTime) => widget.controller.dismissSnowball(tapTime: tapTime),
   );
 
   /// The follow-up's ✕ tap (Story 6.6, FR-21, UX-DR22): skip-for-the-

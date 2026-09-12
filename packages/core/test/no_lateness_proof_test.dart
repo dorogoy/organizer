@@ -1253,7 +1253,15 @@ final class KitchenSink {
       // folds.
       expect(
         _classOwnFields('StripState', 'derive/strip.dart'),
-        equals(['resident', 'reportWeekOrdinal', 'suggestion']),
+        equals([
+          'resident',
+          'reportWeekOrdinal',
+          'suggestion',
+          // Story 7.5: the snowball's shown fact — the raised bag the
+          // crossing day's sentence offers, the fact both one-tap
+          // paths carry (FR-23, AD-26).
+          'snowballProposedMinutes',
+        ]),
       );
     });
   });
@@ -1542,6 +1550,10 @@ final class KitchenSink {
       // kind to find the log's latest `card_done` — a read, never a
       // mint (FR-17, AD-3).
       'derive/reward.dart',
+      // Story 7.5: the comfortable-day run's fold reads the answer
+      // kind to charge each `card_done` to its session's own day —
+      // a read, never a mint (FR-23, AD-19).
+      'derive/comfortable_day.dart',
     };
     final files = _coreLibFiles();
     final identifierOffenders = [

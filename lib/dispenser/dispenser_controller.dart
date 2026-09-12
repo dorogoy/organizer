@@ -4,6 +4,7 @@ import 'package:core/commands/report_commands.dart';
 import 'package:core/commands/rescue_commands.dart';
 import 'package:core/commands/scan_commands.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/commands/settings_commands.dart';
 import 'package:core/commands/suggestion_commands.dart';
 import 'package:core/commands/triage_commands.dart';
 import 'package:core/day/calendar.dart';
@@ -59,6 +60,7 @@ sealed class DispenserView {
     this.stripResident,
     this.reportWeekOrdinal,
     this.seasonalSuggestion,
+    this.snowballProposedMinutes,
     this.warmReturnDue = false,
     this.cameraEntryVisible = false,
   });
@@ -87,6 +89,18 @@ sealed class DispenserView {
   /// never one re-derived at tap time (a boundary crossed since the
   /// view committed would otherwise act on a different project).
   final StripSuggestion? seasonalSuggestion;
+
+  /// The raised Time Bag the snowball's sentence offers, in minutes
+  /// (Story 7.5, FR-23) — non-null exactly when [stripResident] is
+  /// [StripResident.snowball], null for every other resident (the
+  /// derivation's own invariant, the `seasonalSuggestion` grammar).
+  /// The fact BOTH one-tap paths need: the tap mints the bag the user
+  /// was SHOWN through the existing `setting_changed` minter — never
+  /// one re-derived at tap time, where a boundary crossed since the
+  /// view committed would otherwise write a different bag entirely.
+  /// The offer's whole grounding is the moment it appears: no count,
+  /// chain length or run name rides the view (§1.1 P2, AD-26).
+  final int? snowballProposedMinutes;
 
   /// The Warm Return fact (Story 2.7, FR-6, AD-24): this opening
   /// arrives 48 h or more after the latest contact (`app_opened` rows
@@ -130,6 +144,7 @@ final class DispenserDealt extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.seasonalSuggestion,
+    super.snowballProposedMinutes,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -180,6 +195,7 @@ final class DispenserClosed extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.seasonalSuggestion,
+    super.snowballProposedMinutes,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -202,6 +218,7 @@ final class DispenserRestOffer extends DispenserView {
     super.stripResident,
     super.reportWeekOrdinal,
     super.seasonalSuggestion,
+    super.snowballProposedMinutes,
     super.warmReturnDue,
     super.cameraEntryVisible,
   });
@@ -371,6 +388,25 @@ class DispenserController {
   /// no suggestion; a null here mints nothing — the stale-tap guard.
   StripSuggestion? _shownSuggestion;
 
+  /// The raised Time Bag the last queue read's snowball was showing,
+  /// in minutes (Story 7.5, FR-23, AD-21): the tap mints the bag the
+  /// user was SHOWN — never one re-derived at tap time, where a
+  /// boundary crossed since the view committed would write a
+  /// different bag entirely (the `_shownSuggestion` grammar). Null
+  /// whenever the last read showed no snowball; a null here mints
+  /// nothing — the stale-tap guard.
+  int? _shownSnowballMinutes;
+
+  /// The day whose snowball the ✕ dismissed (Story 7.5, FR-23,
+  /// UX-DR22) — shell state, never a row: declining has no effect
+  /// (FR-23 literal), and the run's once-ness is the derivation's
+  /// own (a chain is 10 on exactly one day, so every later day of
+  /// the run fails `== 10` structurally). The `_checkInDismissMarker`
+  /// grammar exactly — the day minted at entry from the tap's own
+  /// instant, no log read, no write — skip-for-TODAY, and the next
+  /// day is a different `Day` by construction.
+  Day? _snowballDismissMarker;
+
   /// The once-ever curation offer's process-lifetime consumption
   /// (Story 5.12, FR-31, AD-21): shell state, never a row — the
   /// offer's once-ever fact is the derivation's own (eligibility is
@@ -465,6 +501,7 @@ class DispenserController {
       if (_checkInDismissMarker == today) StripResident.energyCheckIn,
       if (_quarantineFollowUpDismissMarker == today)
         StripResident.quarantineFollowUp,
+      if (_snowballDismissMarker == today) StripResident.snowball,
       if (_curationOfferConsumed) StripResident.firstRunCuration,
     };
     final reportMarker = _reportDismissMarker;
@@ -510,6 +547,13 @@ class DispenserController {
     final suggestionShowing =
         strip?.resident == StripResident.seasonalSuggestion;
     _shownSuggestion = suggestionShowing ? strip!.suggestion : null;
+    // The snowball's shown bag rides the read the same way (Story
+    // 7.5): the write path mints the bag the user was shown, never
+    // one re-derived at tap time. Any other read clears it.
+    final snowballShowing = strip?.resident == StripResident.snowball;
+    _shownSnowballMinutes = snowballShowing
+        ? strip!.snowballProposedMinutes
+        : null;
     final unanswered = facts.dealtUnanswered;
     // The purge step's authored text (Story 6.1, FR-19, AD-15): the
     // ARB table's own copy handed to the core as inert data — the
@@ -571,6 +615,7 @@ class DispenserController {
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
         seasonalSuggestion: strip?.suggestion,
+        snowballProposedMinutes: strip?.snowballProposedMinutes,
         warmReturnDue: warm,
         cameraEntryVisible: cameraVisible,
       );
@@ -587,6 +632,7 @@ class DispenserController {
         stripResident: strip?.resident,
         reportWeekOrdinal: strip?.reportWeekOrdinal,
         seasonalSuggestion: strip?.suggestion,
+        snowballProposedMinutes: strip?.snowballProposedMinutes,
         warmReturnDue: warm,
         cameraEntryVisible: cameraVisible,
       );
@@ -631,6 +677,7 @@ class DispenserController {
       stripResident: strip?.resident,
       reportWeekOrdinal: strip?.reportWeekOrdinal,
       seasonalSuggestion: strip?.suggestion,
+      snowballProposedMinutes: strip?.snowballProposedMinutes,
       warmReturnDue: warm,
       cameraEntryVisible: cameraVisible,
     );
@@ -1356,6 +1403,70 @@ class DispenserController {
       }
     });
     return write.then((_) => read());
+  }
+
+  /// Accepts the snowball (Story 7.5, FR-23, AD-21): the tap DOES
+  /// the thing the sentence proposes — the raised Time Bag, minted
+  /// as exactly one `setting_changed` row (`time_bag`, the shown
+  /// value) through the kind's single sanctioned minter, in
+  /// [answerReport]'s write-then-read shape minus the log read —
+  /// `settingChanged` is pure over its input. The value is the bag
+  /// the user was SHOWN (`_shownSnowballMinutes` at entry), never
+  /// one re-derived at tap time; a null shown fact mints nothing
+  /// (the stale-tap guard, the `_shownSuggestion` grammar). The
+  /// instant is minted at entry, before any await, so the row
+  /// describes the tap; a failing append rethrows to the caller
+  /// while the chain recovers — nothing landed, the suggestion
+  /// stands, and the retry is the same tap. The resident is gone by
+  /// derivation the moment the row lands (today holds a `time_bag`
+  /// row, the window's own suppression), and no later day of the
+  /// same run shows the suggestion: `== 10` holds on the crossing
+  /// day alone, so the next offer is earned by a fresh ten after a
+  /// break. Nothing else is written — no count, no chain length, no
+  /// accumulator anywhere (2-3's ban, AD-26).
+  Future<DispenserView> acceptSnowball({DateTime? tappedAt}) {
+    final now = tappedAt ?? nowOf();
+    // The capture consumes the shown fact exactly as the suggestion's
+    // paths do — a second overlapping call mints nothing, and the
+    // read after the write re-derives it fresh.
+    final shown = _shownSnowballMinutes;
+    _shownSnowballMinutes = null;
+    final write = _enqueueWrite(() async {
+      if (shown == null) {
+        // No read ever showed the snowball — nothing was shown, so
+        // nothing is accepted. The path stays a write and a read,
+        // minting nothing.
+        return;
+      }
+      final contents = settingChanged(key: timeBagSettingKey, value: shown);
+      for (final content in contents) {
+        await _appendContent(content, now);
+      }
+    });
+    return write.then((_) => read());
+  }
+
+  /// Dismisses the snowball (Story 7.5, FR-23, UX-DR52): skip-for-the-
+  /// crossing-day, and deliberately NOT a write — declining has no
+  /// effect (FR-23 literal), AD-21's vocabulary has no dismissal
+  /// kind, and the run's once-ness is the derivation's own (every
+  /// later day of the run fails `== 10` on its own rows). The act is
+  /// [dismissCheckIn]'s body verbatim — the day minted at entry from
+  /// the tap's own instant, no log read, no write, and the read's
+  /// `excludeResidents` seam hides the resident for the rest of
+  /// that day, handing the slot to the next resident in the same
+  /// opening. The shown fact is consumed at ENTRY, the
+  /// `dismissSeasonalSuggestion` precedent: an accept arriving through
+  /// any path that bypasses the screen's in-flight guard before this
+  /// dismiss's own read resolves would otherwise capture the stale
+  /// fact and mint a row for an already-dismissed offer — cleared
+  /// here, the accept's own null-capture guard mints nothing. Never
+  /// styled as anything owed: a fully displaced crossing day misses
+  /// the run silently, "at most once" allowing zero.
+  Future<DispenserView> dismissSnowball({DateTime? tapTime}) {
+    _shownSnowballMinutes = null;
+    _snowballDismissMarker = _dayOf(tapTime ?? nowOf());
+    return read();
   }
 
   /// Consumes the first-run curation offer (Story 5.12, FR-31): the

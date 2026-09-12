@@ -4,17 +4,21 @@
 // ink-secondary, tappable where an accept action exists and never a
 // primary action, ✕ dismissal at 48dp, at most one resident visible.
 //
-// This build holds five residents: the check-in (bare, ephemeral),
+// This build holds six residents: the check-in (bare, ephemeral),
 // the weekly self-report (hairlined, because it persists until
 // answered, SM-2), the once-ever first-run curation offer (since
 // Story 5.12 — bare: it is rarest, never persistent), the
 // once-per-season suggestion (since Story 5.13 — bare: it is an
 // ephemeral resident, and its ✕ is the only dismissal that writes a
-// row, the season's whole rate limit) and the blind six-month
+// row, the season's whole rate limit), the blind six-month
 // quarantine follow-up (since Story 6.6 — hairlined: it persists
 // across openings within its due day; its ✕ writes nothing, and no
 // accept path exists at all — the copy's donation suggestion is the
-// sentence's whole job). The check-in
+// sentence's whole job) and the comfortable-day snowball (since
+// Story 7.5 — bare: its window is the run's one crossing day, its
+// ✕ writes nothing and alone speaks its own acknowledgement,
+// UX-DR52, while its tap raises the Time Bag through one
+// `setting_changed` row). The check-in
 // is bare: the question verbatim plus three battery marks as direct
 // targets, llena pre-marked as the standing default (the surface's own
 // state, never a written row), selected reading `icon-mass-blue` charge
@@ -87,12 +91,19 @@ class _DismissPainter extends CustomPainter {
 /// The ✕ dismissal (UX-DR22): one tap, with the resident owning its
 /// behavior and scope — today for the check-in, this opening for the
 /// report, one persisted `suggestion_dismissed` row for the seasonal
-/// suggestion. The quietest control the surface owns, in the unsplit
-/// secondary grammar: no fill, no ripple, nothing animated.
+/// suggestion, and, since Story 7.5, the snowball's own authored
+/// acknowledgement ([label] — UX-DR52's `Está bien así.`, spoken by
+/// this mark alone). The quietest control the surface owns, in the
+/// unsplit secondary grammar: no fill, no ripple, nothing animated.
 class _DismissMark extends StatelessWidget {
-  const _DismissMark({this.onTap});
+  const _DismissMark({this.onTap, this.label});
 
   final VoidCallback? onTap;
+
+  /// The semantics label this mark speaks — the resident's own
+  /// acknowledgement when it carries one (the snowball's), else the
+  /// strip's shared dismissal.
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +111,7 @@ class _DismissMark extends StatelessWidget {
     final ink = dark ? DarkPalette.inkSecondaryDark : FieldPalette.inkSecondary;
     return Semantics(
       button: true,
-      label: AppStrings.of(context).ambientStripDismiss,
+      label: label ?? AppStrings.of(context).ambientStripDismiss,
       child: GestureDetector(
         // Absent, the tap stays an accepted no-op — a null onTap would
         // render a disabled control instead.
@@ -306,6 +317,88 @@ class SeasonalSuggestionStrip extends StatelessWidget {
           ),
         ),
         _DismissMark(onTap: onDismiss),
+      ],
+    );
+  }
+}
+
+/// The ambient strip holding the comfortable-day snowball (Story
+/// 7.5, FR-23, UX-DR22): `snowballSuggestion(minutes)` verbatim —
+/// the whole sentence one ≥48dp opaque button, the support role in
+/// ink-secondary — and the ✕ dismissal under its own authored
+/// acknowledgement (`snowballDismissAcknowledgement`, UX-DR52 — this
+/// resident's ✕ alone speaks it), bare chrome on the ground (the
+/// snowball's window is one day, never a persistent resident, so no
+/// hairline). One tap on the sentence accepts through [onAccept] —
+/// the raised Time Bag, exactly one `setting_changed` row naming
+/// the shown minutes through the controller's path (the FR-23
+/// precedent a suggestion's accept does the thing it proposes); the
+/// ✕ dismisses through [onDismiss] with no write at all (shell
+/// state for the crossing day; the derivation never re-offers on
+/// any later day of the run). No count, chain length or run name
+/// renders anywhere — the offer's grounding is the moment it
+/// appears (§1.1 P2, AD-26). `SeasonalSuggestionStrip`'s grammar,
+/// pins included.
+class SnowballStrip extends StatelessWidget {
+  const SnowballStrip({
+    super.key,
+    required this.proposedMinutes,
+    required this.onAccept,
+    this.onDismiss,
+  });
+
+  /// The raised Time Bag the sentence offers, in minutes — the
+  /// read's own fact, non-null exactly when the resident holds this
+  /// strip (the derivation's own invariant). A null renders nothing:
+  /// it never occurs on a view the derivation produced, and no
+  /// fallback sentence exists to name a bag the user was not shown.
+  final int? proposedMinutes;
+
+  /// The accept path: the controller's one-tap bag raise — exactly
+  /// one `setting_changed` row, never a count or a plan.
+  final VoidCallback onAccept;
+
+  /// The dismissal path: shell state only, never a write.
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = proposedMinutes;
+    if (shown == null) {
+      return const SizedBox.shrink();
+    }
+    final strings = AppStrings.of(context);
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Semantics(
+            button: true,
+            child: GestureDetector(
+              onTap: onAccept,
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: Spacing.touchTargetMin,
+                ),
+                child: Center(
+                  child: Text(
+                    strings.snowballSuggestion(shown),
+                    // bodySmall is the wired support role (theme.dart)
+                    // — the strip's sentence register, ink-secondary.
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _DismissMark(
+          onTap: onDismiss,
+          label: strings.snowballDismissAcknowledgement,
+        ),
       ],
     );
   }
