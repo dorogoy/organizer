@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/reward.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
+import 'package:core/weave/session.dart';
 import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
@@ -98,6 +100,25 @@ class SessionController with WidgetsBindingObserver {
   /// launch-time `resumed` finds this false and appends nothing.
   bool _leftForegroundSinceOpen = false;
 
+  /// The session milestone the lifecycle fired and no surface has
+  /// claimed yet (Story 7.1, FR-17): shell state, never a row — the
+  /// backgrounding's own `session_ended` has no navigator in front
+  /// of it, so the milestone stands here for the Dispenser screen's
+  /// next commit to drain (the pause tap's own end stashes through
+  /// the Dispenser controller instead — one seam per cause, one
+  /// stash per milestone). Spent once; a closed reward never
+  /// re-fires it.
+  NamedRewardSpace? _unfiredSessionMilestone;
+
+  /// Takes the unclaimed lifecycle session milestone, if one stands
+  /// (Story 7.1): the Dispenser screen's drain — one call, one
+  /// answer, the stash consumed either way.
+  NamedRewardSpace? takeUnfiredSessionMilestone() {
+    final milestone = _unfiredSessionMilestone;
+    _unfiredSessionMilestone = null;
+    return milestone;
+  }
+
   /// Whether the departure was a real backgrounding rather than a
   /// transient `inactive` occlusion. A scan may keep its frame while an
   /// inactive→resumed beat completes, so only the former authorizes the
@@ -189,7 +210,28 @@ class SessionController with WidgetsBindingObserver {
     final now = nowOf();
     return _enqueue(() async {
       final log = await _readLog();
-      await _appendAll(sessionEnd(log: log), now);
+      final contents = sessionEnd(log: log);
+      await _appendAll(contents, now);
+      // The session-milestone hook (Story 7.1, FR-17): the
+      // backgrounding's own end — the pause tap's end stashes
+      // through the Dispenser controller, and this one stands here
+      // for the screen's next commit. The derivation is the core's
+      // own over the pre-close log, seeded by the walk's own
+      // open-session fact; a quiet no-op or a failing read stashes
+      // nothing (the reward is a moment, never an obligation).
+      final openStart = walkLog(log).openSessionStart;
+      if (openStart != null && contents.isNotEmpty) {
+        try {
+          final poolFacts = poolFactsOf(await store.readPoolFacts());
+          _unfiredSessionMilestone ??= sessionMilestoneGroupId(
+            poolFacts: poolFacts,
+            log: log,
+            sessionStartUtcMicros: openStart.instantUtcMicros,
+          );
+        } on Object {
+          // Quiet: nothing is owed.
+        }
+      }
     });
   }
 
@@ -264,6 +306,8 @@ class SessionController with WidgetsBindingObserver {
         triageDestination: content.triageDestination?.name,
         triageVolumeTag: content.triageVolumeTag?.name,
         triageBoxId: content.triageBoxId,
+        beforeName: content.beforeName,
+        afterName: content.afterName,
       ));
     }
   }

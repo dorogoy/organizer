@@ -61,6 +61,8 @@ List<LogEntryContent> faceRefused() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -99,6 +101,8 @@ List<LogEntryContent> consentGranted() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -135,6 +139,8 @@ List<LogEntryContent> consentDeclined() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -173,6 +179,8 @@ List<LogEntryContent> scanAbandoned() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -260,6 +268,8 @@ List<LogEntryContent> scanSliceFailed({required SlicerFailureCause cause}) {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }
@@ -301,6 +311,8 @@ List<LogEntryContent> epicActivated({
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }

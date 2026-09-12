@@ -16,9 +16,11 @@
 import 'dart:async';
 
 import 'package:core/ports/face_gate_port.dart';
+import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/files_port.dart';
 import 'package:core/ports/slicer_port.dart';
 import 'package:core/ports/store_port.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,12 +36,18 @@ import 'package:organizer/ui/theme.dart';
 class _RecordingStore implements StorePort {
   final List<PoolFactRecord> facts = [];
   final List<LogEntryRecord> entries = [];
+  bool throwOnAppend = false;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async => facts.add(fact);
 
   @override
-  Future<void> appendLogEntry(LogEntryRecord entry) async => entries.add(entry);
+  Future<void> appendLogEntry(LogEntryRecord entry) async {
+    if (throwOnAppend) {
+      throw StateError('append failed');
+    }
+    entries.add(entry);
+  }
 
   @override
   Future<List<PoolFactRecord>> readPoolFacts() async =>
@@ -52,15 +60,22 @@ class _RecordingStore implements StorePort {
 
 class _RecordingFiles implements FilesPort {
   final unlinkedScans = <String>[];
+  final writtenBlobs = <(String, String, List<int>)>[];
+  final blobsByName = <String, List<int>>{};
 
   @override
-  Future<List<int>?> read(String scope, String name) async => null;
+  Future<List<int>?> read(String scope, String name) async => blobsByName[name];
 
   @override
-  Future<void> write(String scope, String name, List<int> bytes) async {}
+  Future<void> write(String scope, String name, List<int> bytes) async {
+    writtenBlobs.add((scope, name, bytes));
+    blobsByName[name] = bytes;
+  }
 
   @override
-  Future<void> delete(String scope, String name) async {}
+  Future<void> delete(String scope, String name) async {
+    blobsByName.remove(name);
+  }
 
   @override
   Future<String> writeScanFrame(String scanId, List<int> bytes) async =>
@@ -88,10 +103,13 @@ class _FakeCamera implements CameraShell {
     this.shotOutcome = const CameraShotCaptured([1]),
   });
 
-  final CameraOpenOutcome? openOutcome;
+  /// Mutable so one camera can carry a granted scan open and a
+  /// denied Before-offer open in one flow (the offer's own open is a
+  /// second, later attempt).
+  CameraOpenOutcome? openOutcome;
   final bool throwOnOpen;
   final bool throwOnShoot;
-  final CameraShotOutcome shotOutcome;
+  CameraShotOutcome shotOutcome;
 
   final openedCalls = <void>[];
   final disposedCalls = <void>[];
@@ -520,9 +538,14 @@ void main() {
     // pencil repeats forever and never settles (Story 5.6).
     await tester.pump();
     await tester.pump(routePopSettle);
-    // Delivered: the scan closes to the Dispenser — the launch surface
-    // is back, the steps landed as facts (Story 5.7; nothing dealt,
-    // the one-card landing is 5.9's), no second answer exists.
+    // Delivered: the Before-offer stands in (Story 7.1, FR-17) — the
+    // quiet moment the space's Before can exist — and its Cerrar takes
+    // the pop the delivery used to take. Declining writes nothing
+    // beyond the landing's own rows: no before_saved row, no blob.
+    expect(find.text(strings.rewardBeforeOfferTitle), findsOneWidget);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(strings.rewardClose));
+    await tester.pumpAndSettle();
     expect(find.byType(ConsentGateScreen), findsNothing);
     expect(find.text(launchWord), findsOneWidget);
     expect(slicer.requests, hasLength(1));
@@ -532,6 +555,11 @@ void main() {
     ]);
     expect(store.facts, hasLength(1), reason: 'the delivered slice landed');
     expect(files.unlinkedScans, isNotEmpty);
+    expect(
+      files.writtenBlobs,
+      isEmpty,
+      reason: 'a declined offer writes no blob',
+    );
   });
 
   testWidgets('a failed dispatch routes the no-Slicer surface through '
@@ -985,5 +1013,250 @@ void main() {
     expect(camera.openedCalls, hasLength(1));
     expect(find.byKey(_FakeCamera.previewKey), findsOneWidget);
     expect(store.entries, isEmpty);
+  });
+
+  group('the Before-offer at scan delivery (Story 7.1, FR-17)', () {
+    /// Drives the scan flow to the delivered arm's offer: open, shoot
+    /// (gate pass), consent send, delivered. The offer stands on the
+    /// gate once the camera-rule read settles.
+    Future<(_RecordingStore, _RecordingFiles, _FakeCamera)> deliverToOffer(
+      WidgetTester tester, {
+      required _RecordingStore store,
+      required _RecordingFiles files,
+      required _FakeCamera camera,
+    }) async {
+      final slicer = _FakeSlicer();
+      await launch(
+        tester,
+        controllerWith(
+          store,
+          files,
+          camera,
+          gate: _FakeGate(const FaceGatePass()),
+          slicer: slicer,
+          readSelectedProvider: () async => 'gemini',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.scanShutter));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.consentGateSend));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.text(strings.rewardBeforeOfferTitle), findsOneWidget);
+      return (store, files, camera);
+    }
+
+    testWidgets('shooting the Before writes the content-addressed blob '
+        'and exactly one before_saved row naming the landed group — '
+        'then the quiet pop to the Dispenser (AD-8, AD-13, AD-21)', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+      expect(find.text(strings.rewardBeforeShoot), findsOneWidget);
+      expect(find.text(strings.rewardClose), findsOneWidget);
+      await tester.tap(find.text(strings.rewardBeforeShoot));
+      await tester.pumpAndSettle();
+      // The viewfinder mounts at the tap — the shot is never blind —
+      // and only its shutter fires the pipeline.
+      expect(find.byKey(_FakeCamera.previewKey), findsOneWidget);
+      expect(find.text(strings.scanShutter), findsOneWidget);
+      await tester.tap(find.text(strings.scanShutter));
+      await tester.pumpAndSettle();
+      // The blob: content-addressed (AD-13) — the shot's bytes name
+      // themselves under the album scope.
+      final shotBytes = (camera.shotOutcome as CameraShotCaptured).bytes;
+      final expectedName = '${sha256.convert(shotBytes).toString()}.jpg';
+      expect(files.writtenBlobs, hasLength(1));
+      expect(files.writtenBlobs.single, ('album', expectedName, shotBytes));
+      // The row: the kind's single sanctioned minter, naming the
+      // landed group's stable id (its first fact) and origin.
+      expect(store.entries.map((entry) => entry.kind), [
+        'consent_granted',
+        'epic_activated',
+        'before_saved',
+      ]);
+      final before = store.entries[2];
+      expect(before.itemId, store.facts.first.id);
+      expect(before.itemOrigin, Origin.cloud);
+      expect(before.beforeName, expectedName);
+      // The scan closes to the Dispenser either way.
+      expect(find.byType(ConsentGateScreen), findsNothing);
+      expect(find.text(launchWord), findsOneWidget);
+    });
+
+    testWidgets('a camera rule the log refuses hides the shoot action '
+        'absent — Cerrar only, no act, no blob, never a dead button '
+        '(UX-DR24, FR-16/29)', (tester) async {
+      final store = _RecordingStore()
+        ..entries.add((
+          id: 'refusal-1',
+          kind: 'permission_refused',
+          instantUtcMicros: 1,
+          offsetSeconds: 0,
+          itemId: null,
+          itemOrigin: null,
+          stack: null,
+          settingKey: null,
+          settingValue: null,
+          settingTextValue: null,
+          pocketMinutes: null,
+          energyLevel: null,
+          reportValue: null,
+          reportWeek: null,
+          permission: 'camera',
+          sliceCause: null,
+          cluster: null,
+          enabled: null,
+          triageDestination: null,
+          triageVolumeTag: null,
+          triageBoxId: null,
+          beforeName: null,
+          afterName: null,
+        ));
+      final files = _RecordingFiles();
+      await deliverToOffer(
+        tester,
+        store: store,
+        files: files,
+        camera: _FakeCamera(),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(strings.rewardBeforeShoot), findsNothing);
+      expect(find.text(strings.rewardClose), findsOneWidget);
+      // Cerrar pops with zero writes of the offer's own.
+      final kindsBefore = store.entries.map((e) => e.kind).toList();
+      await tester.tap(find.text(strings.rewardClose));
+      await tester.pumpAndSettle();
+      expect(find.byType(ConsentGateScreen), findsNothing);
+      expect(store.entries.map((e) => e.kind), kindsBefore);
+      expect(files.writtenBlobs, isEmpty);
+    });
+
+    testWidgets('a real departure invalidates the delivered Before offer: '
+        'its action is no longer hittable and no Before can be saved', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      // No write can land while the departure stands: nothing was
+      // saved by the departure itself.
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
+      // Frames are suppressed while paused, so the tree cannot change
+      // until the app resumes — and neither can a real user tap. On
+      // resume the offer's shoot action is gone for good: the
+      // departure invalidated it (allowed=false + the scan's own
+      // epoch capability), so the space derives as a no-Before one.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text(strings.rewardBeforeShoot).hitTestable(), findsNothing);
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
+    });
+
+    testWidgets('a failed before_saved append removes the newly written '
+        'Before blob and closes as a no-Before space', (tester) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+      store.throwOnAppend = true;
+
+      await tester.tap(find.text(strings.rewardBeforeShoot));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(strings.scanShutter));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.blobsByName, isEmpty);
+    });
+
+    testWidgets('a denied open at the offer\'s shoot appends exactly one '
+        'permission_refused row and nothing else — the offer pops, no '
+        'before_saved, no blob (ruling 1-B, the review\'s missing pin)', (
+      tester,
+    ) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+      // The scan's own open was granted; the offer's open is denied —
+      // a second, later attempt on the same facade.
+      camera.openOutcome = CameraOpenOutcome.denied;
+      await tester.tap(find.text(strings.rewardBeforeShoot));
+      await tester.pumpAndSettle();
+      // The whole chain settled in one window: viewfinder open denied
+      // → refusal row → viewfinder pops → the offer pops with it (the
+      // space is a no-Before space, never a retry loop).
+      expect(find.byType(ConsentGateScreen), findsNothing);
+      expect(find.text(launchWord), findsOneWidget);
+      expect(
+        store.entries.where((entry) => entry.kind == 'permission_refused'),
+        hasLength(1),
+        reason: 'exactly one permission_refused{camera} row',
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'permission_refused'),
+        everyElement(
+          predicate<LogEntryRecord>(
+            (row) => row.permission == 'camera' && row.itemId == null,
+            'a camera refusal row with no item',
+          ),
+        ),
+      );
+      expect(
+        store.entries.where((entry) => entry.kind == 'before_saved'),
+        isEmpty,
+      );
+      expect(files.writtenBlobs, isEmpty);
+      expect(camera.disposedCalls, isNotEmpty);
+    });
+
+    testWidgets('exiting the viewfinder without shooting writes nothing '
+        '— the offer keeps standing with its shoot action (the '
+        'blind-shot patch)', (tester) async {
+      final store = _RecordingStore();
+      final files = _RecordingFiles();
+      final camera = _FakeCamera();
+      await deliverToOffer(tester, store: store, files: files, camera: camera);
+      final kindsBefore = store.entries.map((e) => e.kind).toList();
+      await tester.tap(find.text(strings.rewardBeforeShoot));
+      await tester.pumpAndSettle();
+      // The viewfinder mounts — the photo is never fired blind at the
+      // tap.
+      expect(find.byKey(_FakeCamera.previewKey), findsOneWidget);
+      expect(find.text(strings.scanShutter), findsOneWidget);
+      // The OS back: the quiet exit — nothing written, the offer
+      // stands exactly as it was.
+      final navigator = tester.state<NavigatorState>(
+        find.byType(Navigator).first,
+      );
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.byType(ConsentGateScreen), findsOneWidget);
+      expect(find.text(strings.rewardBeforeShoot), findsOneWidget);
+      expect(find.text(strings.rewardClose), findsOneWidget);
+      expect(store.entries.map((e) => e.kind), kindsBefore);
+      expect(files.writtenBlobs, isEmpty);
+      expect(camera.disposedCalls, isNotEmpty);
+    });
   });
 }

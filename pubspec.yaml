@@ -33,6 +33,12 @@ dependencies:
   # resolved Gradle graph is unchanged by it. Exact-pinned like
   # every runtime dep (the caret range was the review's finding).
   http: 1.6.0
+  # The album blob's content-addressed naming (Story 7.1, AD-13):
+  # pure Dart (sha256), promoted from transitive to direct — hashing
+  # lives in the shell (lib/files/), never the core, and Epic 9's
+  # manifests reuse it. No native footprint: both Gradle and manifest
+  # seals stay unaffected.
+  crypto: 3.0.7
 
   # The on-device face gate (story 5.1, FR-25): the spine-pinned community
   # plugin whose detection 5.2 will refuse frames through. Measured by the

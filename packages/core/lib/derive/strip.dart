@@ -367,6 +367,8 @@ bool _firstOpeningUnderway(
       case PermissionRefusedEntry():
       case ClusterCurationChangedEntry():
       case TriageEntry():
+      case BeforeSavedEntry():
+      case AlbumEntryAddedEntry():
       case BoxCreatedEntry():
       case UnknownEntry():
       case SliceEntry():

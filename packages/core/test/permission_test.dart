@@ -29,6 +29,8 @@ LogEntryRecord _refusal(Permission permission, int micros) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 void main() {
@@ -79,6 +81,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       expect(conversion.flaw, isNull);
       final entry = conversion.entry as PermissionRefusedEntry;
@@ -155,6 +159,8 @@ void main() {
             triageDestination: null,
             triageVolumeTag: null,
             triageBoxId: null,
+            beforeName: null,
+            afterName: null,
           );
         }(),
       ]);

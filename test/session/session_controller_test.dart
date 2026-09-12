@@ -205,6 +205,8 @@ LogEntryRecord _moment(String kind, DateTime at, String id) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
@@ -229,6 +231,8 @@ LogEntryRecord _act(String kind, DateTime at, String id, String itemId) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 const chunkSeedId = 'pasar-la-aspiradora-a-la-cocina';
@@ -409,6 +413,76 @@ void main() {
       ]);
     },
   );
+
+  test('a backgrounding session end stashes the session milestone for the '
+      'screen\'s next commit — the lifecycle\'s own cause has no '
+      'navigator (Story 7.1, FR-17)', () async {
+    final landing = DateTime.utc(2026, 8, 29, 9);
+    final store =
+        _RecordingStore([
+            (
+              id: 'step-1',
+              origin: Origin.cloud,
+              size: Size.maintenance,
+              instantUtcMicros: landing.microsecondsSinceEpoch,
+              offsetSeconds: 0,
+              originContext: 'Un rinc\u00f3n con cajas',
+              dictated: null,
+              rescueOf: null,
+              estimateSeconds: 240,
+              stepText: 'Recoger una caja',
+            ),
+            (
+              id: 'step-2',
+              origin: Origin.cloud,
+              size: Size.maintenance,
+              instantUtcMicros: landing.microsecondsSinceEpoch,
+              offsetSeconds: 0,
+              originContext: 'Un rinc\u00f3n con cajas',
+              dictated: null,
+              rescueOf: null,
+              estimateSeconds: 240,
+              stepText: 'Apilar las cajas',
+            ),
+          ])
+          ..entries.addAll([
+            _moment('session_started', DateTime.utc(2026, 8, 29, 11), 'seed-1'),
+            _act(
+              'epic_activated',
+              DateTime.utc(2026, 8, 29, 11, 0, 1),
+              'seed-e',
+              'step-1',
+            ),
+            _act(
+              'card_dealt',
+              DateTime.utc(2026, 8, 29, 11, 0, 2),
+              'seed-2',
+              'step-1',
+            ),
+            _act(
+              'card_done',
+              DateTime.utc(2026, 8, 29, 11, 0, 3),
+              'seed-3',
+              'step-1',
+            ),
+          ]);
+    final controller = buildController(store);
+    await controller.handleSessionEnd();
+
+    expect(
+      store.entries.where((entry) => entry.kind == 'session_ended'),
+      hasLength(1),
+    );
+    final milestone = controller.takeUnfiredSessionMilestone();
+    expect(milestone, isNotNull);
+    expect(milestone!.groupId, 'step-1');
+    expect(milestone.origin, Origin.cloud);
+    expect(
+      controller.takeUnfiredSessionMilestone(),
+      isNull,
+      reason: 'spent once',
+    );
+  });
 
   test('a day whose slot a card_done-on-chunk already closed deals no second '
       'chunk — upkeep or habits open the new session', () async {
@@ -644,6 +718,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
         _act(
           'card_dealt',
@@ -712,6 +788,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
       ]);
     await buildController(within).handleAppOpen();

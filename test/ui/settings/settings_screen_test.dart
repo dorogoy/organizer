@@ -469,6 +469,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     await launch(tester, store);
 
@@ -511,6 +513,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
         (
           id: 'seed-invalid',
@@ -539,6 +543,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
       ]);
     await launch(tester, store);
@@ -660,6 +666,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       await launch(tester, store);
       await openSettings(tester);
@@ -924,6 +932,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       );
 
       // The IA y voz label now names the group header (Story 4-4), so
@@ -1074,6 +1084,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       );
 
       // The row stands: refused and not granted — the label renders
@@ -1132,6 +1144,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     testWidgets('the toggle writes exactly one setting_changed '
@@ -1321,6 +1335,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       final disabledCensus = await nuevoProyectoCensus(disabled);
       expect(disabledCensus, enabledCensus);

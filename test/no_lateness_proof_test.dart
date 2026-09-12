@@ -359,6 +359,12 @@ void main() {
       'face_refused',
       'cluster_curation_changed',
       'suggestion_dismissed',
+      // Story 7.1: the reward's two album-mutation rows — minted only
+      // through the core's sanctioned minters, fenced by wire ban plus
+      // the invocation pins below (the strongest fence, the dismissal
+      // row's own precedent).
+      'before_saved',
+      'album_entry_added',
     ];
     final wireOffenders = <String>[];
     for (final entry in sources.entries) {
@@ -507,7 +513,9 @@ void main() {
       hasLength(1),
       reason:
           'exactly one core permissionRefuse command invocation — the '
-          'scan channel\'s camera refusal (Story 5.2)',
+          'scan channel\'s single refusal wrapper, serving both camera '
+          'attempts (the open\'s, Story 5.2, and the Before-offer\'s '
+          'denied open, Story 7.1)',
     );
     expect(
       RegExp(r'\bfaceRefused\s*\(').allMatches(scanSource),
@@ -579,6 +587,34 @@ void main() {
           'inside _appendGenesisLanded (Story 5.9, the scan channel\'s '
           'own minter)',
     );
+    final reward = sources['lib/reward/reward_controller.dart'];
+    expect(reward, isNotNull, reason: 'the reward channel is gone');
+    final rewardSource = reward ?? '';
+    expect(
+      RegExp(r'\balbumEntryAdded\s*\(').allMatches(rewardSource),
+      hasLength(1),
+      reason:
+          'exactly one core albumEntryAdded command invocation — the '
+          'saved pair\'s single sanctioned minter, riding the channel\'s '
+          'shared content copier (Story 7.1)',
+    );
+    expect(
+      RegExp(r'\bpermissionRefuse\s*\(').allMatches(rewardSource),
+      hasLength(1),
+      reason:
+          'exactly one core permissionRefuse command invocation — the '
+          'reward\'s own open carrying its denial row (Story 7.1, ruling '
+          '1-B, the scan channel\'s own duty)',
+    );
+    expect(
+      RegExp(r'\bbeforeSaved\s*\(').allMatches(scanSource),
+      hasLength(1),
+      reason:
+          'exactly one core beforeSaved command invocation — the '
+          'Before-offer\'s shot, the kind\'s single sanctioned minter, '
+          'riding the scan channel\'s shared content copier (Story 7.1)',
+    );
+
     final settingsChannel = sources['lib/settings/settings_controller.dart'];
     expect(settingsChannel, isNotNull, reason: 'the settings channel is gone');
     final settingsSource = settingsChannel ?? '';
@@ -667,6 +703,10 @@ void main() {
         // second site as the scan channel's: the landing's own
         // `epic_activated` append, inline in `_appendGenesisLanded`.
         'lib/genesis/genesis_controller.dart': 2,
+        // Story 7.1: the reward channel's own rows — the After shot's
+        // `album_entry_added` append and a denied open's camera
+        // refusal — through one shared content copier of its own.
+        'lib/reward/reward_controller.dart': 1,
       },
       reason:
           'the exact census of append sites changed — an unlisted '
@@ -683,6 +723,7 @@ void main() {
         'lib/settings/settings_controller.dart': 1,
         'lib/scan/scan_controller.dart': 2,
         'lib/genesis/genesis_controller.dart': 2,
+        'lib/reward/reward_controller.dart': 1,
       },
       reason:
           'records constructed over core LogEntryContent exist '

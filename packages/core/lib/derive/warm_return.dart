@@ -94,6 +94,11 @@ bool _isUserAct(LogEntry entry) {
     case EnergySetEntry():
     case ReportAnsweredEntry():
     case ClusterCurationChangedEntry():
+    // The reward's two shots (Story 7.1, FR-17): the user held the
+    // camera and took a photo — user acts, contact for the warm
+    // return exactly as a capture is.
+    case BeforeSavedEntry():
+    case AlbumEntryAddedEntry():
       return true;
     case SliceEntry():
       // The rescue channel splits (Story 4.6, AD-21's own

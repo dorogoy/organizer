@@ -57,6 +57,8 @@ List<LogEntryContent> reportAnswered({required int value, required int week}) {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     ),
   ];
 }

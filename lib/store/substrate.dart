@@ -194,10 +194,25 @@ const String tableInfoPragmaSlot = '@';
 /// name — the field the presence comparison reads.
 const String tableInfoNameField = 'name';
 
+/// Schema v14's additive upgrades of `log_entries` (Story 7.1,
+/// AD-23): the two nullable reward payload columns — the album
+/// blob's content-addressed name the Before shot saved (the
+/// `before_saved` row) and the After the pair saved (the
+/// `album_entry_added` row) — added by ALTER TABLE only, on the
+/// v2→v13 pattern: no table rebuild, no data migration, refusal
+/// triggers untouched. Named infrastructure identifiers on the
+/// store module's terms (AD-15's ban is on literals reaching a
+/// widget).
+const String logEntriesBeforeBlobUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN before_blob TEXT NULL';
+
+const String logEntriesAfterBlobUpgrade =
+    'ALTER TABLE log_entries ADD COLUMN after_blob TEXT NULL';
+
 /// The substrate database: two insert-only tables whose refusal of UPDATE
 /// and DELETE is declared in `substrate.drift` and installed by the initial
-/// migration (AD-2). schemaVersion 13 (Story 6.5): the only change
-/// from 12 is the nullable triage box-id column above, and
+/// migration (AD-2). schemaVersion 14 (Story 7.1): the only change
+/// from 13 is the two nullable reward blob-name columns above, and
 /// every later change is additive-only (AD-23).
 ///
 /// Upgrades run inside one transaction and add each column only when the
@@ -211,7 +226,7 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   SubstrateDatabase(super.connection);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   /// Adds [upgrade]'s column to its table only when the table does not
   /// already hold it — the idempotence half of the upgrade guarantee:
@@ -280,7 +295,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
   /// adds the log's triage box-id column the same way, so a v12
   /// install upgrades with its rows unchanged too — old rows with
   /// a null box link, deriving exactly as before (no quarantine row
-  /// stands).
+  /// stands). The v13→v14 step adds the log's two reward blob-name
+  /// columns the same way, so a v13 install upgrades with its rows
+  /// unchanged too — old rows with null blob names, deriving
+  /// exactly as before (no photo row stands).
   /// Every
   /// step runs inside the one transaction and adds only an absent
   /// column, and the mechanism is
@@ -333,6 +351,10 @@ class SubstrateDatabase extends _$SubstrateDatabase {
       }
       if (from < 13) {
         await _addColumnIfAbsent(logEntriesTriageBoxIdUpgrade);
+      }
+      if (from < 14) {
+        await _addColumnIfAbsent(logEntriesBeforeBlobUpgrade);
+        await _addColumnIfAbsent(logEntriesAfterBlobUpgrade);
       }
     }),
     beforeOpen: (_) => customStatement(recursiveTriggersPragma),

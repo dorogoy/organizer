@@ -867,6 +867,28 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     requiredDuringInsert: false,
     $customConstraints: 'NULL',
   );
+  static const VerificationMeta _beforeBlobMeta = const VerificationMeta(
+    'beforeBlob',
+  );
+  late final GeneratedColumn<String> beforeBlob = GeneratedColumn<String>(
+    'before_blob',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
+  static const VerificationMeta _afterBlobMeta = const VerificationMeta(
+    'afterBlob',
+  );
+  late final GeneratedColumn<String> afterBlob = GeneratedColumn<String>(
+    'after_blob',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -890,6 +912,8 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
     triageDestination,
     triageVolumeTag,
     triageBoxId,
+    beforeBlob,
+    afterBlob,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1061,6 +1085,18 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         ),
       );
     }
+    if (data.containsKey('before_blob')) {
+      context.handle(
+        _beforeBlobMeta,
+        beforeBlob.isAcceptableOrUnknown(data['before_blob']!, _beforeBlobMeta),
+      );
+    }
+    if (data.containsKey('after_blob')) {
+      context.handle(
+        _afterBlobMeta,
+        afterBlob.isAcceptableOrUnknown(data['after_blob']!, _afterBlobMeta),
+      );
+    }
     return context;
   }
 
@@ -1154,6 +1190,14 @@ class LogEntries extends Table with TableInfo<LogEntries, LogEntry> {
         DriftSqlType.string,
         data['${effectivePrefix}triage_box_id'],
       ),
+      beforeBlob: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}before_blob'],
+      ),
+      afterBlob: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}after_blob'],
+      ),
     );
   }
 
@@ -1188,6 +1232,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
   final String? triageDestination;
   final String? triageVolumeTag;
   final String? triageBoxId;
+  final String? beforeBlob;
+  final String? afterBlob;
   const LogEntry({
     required this.id,
     required this.kind,
@@ -1210,6 +1256,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     this.triageDestination,
     this.triageVolumeTag,
     this.triageBoxId,
+    this.beforeBlob,
+    this.afterBlob,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1268,6 +1316,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     }
     if (!nullToAbsent || triageBoxId != null) {
       map['triage_box_id'] = Variable<String>(triageBoxId);
+    }
+    if (!nullToAbsent || beforeBlob != null) {
+      map['before_blob'] = Variable<String>(beforeBlob);
+    }
+    if (!nullToAbsent || afterBlob != null) {
+      map['after_blob'] = Variable<String>(afterBlob);
     }
     return map;
   }
@@ -1329,6 +1383,12 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       triageBoxId: triageBoxId == null && nullToAbsent
           ? const Value.absent()
           : Value(triageBoxId),
+      beforeBlob: beforeBlob == null && nullToAbsent
+          ? const Value.absent()
+          : Value(beforeBlob),
+      afterBlob: afterBlob == null && nullToAbsent
+          ? const Value.absent()
+          : Value(afterBlob),
     );
   }
 
@@ -1361,6 +1421,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       ),
       triageVolumeTag: serializer.fromJson<String?>(json['triage_volume_tag']),
       triageBoxId: serializer.fromJson<String?>(json['triage_box_id']),
+      beforeBlob: serializer.fromJson<String?>(json['before_blob']),
+      afterBlob: serializer.fromJson<String?>(json['after_blob']),
     );
   }
   @override
@@ -1388,6 +1450,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       'triage_destination': serializer.toJson<String?>(triageDestination),
       'triage_volume_tag': serializer.toJson<String?>(triageVolumeTag),
       'triage_box_id': serializer.toJson<String?>(triageBoxId),
+      'before_blob': serializer.toJson<String?>(beforeBlob),
+      'after_blob': serializer.toJson<String?>(afterBlob),
     };
   }
 
@@ -1413,6 +1477,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     Value<String?> triageDestination = const Value.absent(),
     Value<String?> triageVolumeTag = const Value.absent(),
     Value<String?> triageBoxId = const Value.absent(),
+    Value<String?> beforeBlob = const Value.absent(),
+    Value<String?> afterBlob = const Value.absent(),
   }) => LogEntry(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -1441,6 +1507,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
         ? triageVolumeTag.value
         : this.triageVolumeTag,
     triageBoxId: triageBoxId.present ? triageBoxId.value : this.triageBoxId,
+    beforeBlob: beforeBlob.present ? beforeBlob.value : this.beforeBlob,
+    afterBlob: afterBlob.present ? afterBlob.value : this.afterBlob,
   );
   LogEntry copyWithCompanion(LogEntriesCompanion data) {
     return LogEntry(
@@ -1493,6 +1561,10 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
       triageBoxId: data.triageBoxId.present
           ? data.triageBoxId.value
           : this.triageBoxId,
+      beforeBlob: data.beforeBlob.present
+          ? data.beforeBlob.value
+          : this.beforeBlob,
+      afterBlob: data.afterBlob.present ? data.afterBlob.value : this.afterBlob,
     );
   }
 
@@ -1519,7 +1591,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           ..write('enabled: $enabled, ')
           ..write('triageDestination: $triageDestination, ')
           ..write('triageVolumeTag: $triageVolumeTag, ')
-          ..write('triageBoxId: $triageBoxId')
+          ..write('triageBoxId: $triageBoxId, ')
+          ..write('beforeBlob: $beforeBlob, ')
+          ..write('afterBlob: $afterBlob')
           ..write(')'))
         .toString();
   }
@@ -1547,6 +1621,8 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
     triageDestination,
     triageVolumeTag,
     triageBoxId,
+    beforeBlob,
+    afterBlob,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1572,7 +1648,9 @@ class LogEntry extends DataClass implements Insertable<LogEntry> {
           other.enabled == this.enabled &&
           other.triageDestination == this.triageDestination &&
           other.triageVolumeTag == this.triageVolumeTag &&
-          other.triageBoxId == this.triageBoxId);
+          other.triageBoxId == this.triageBoxId &&
+          other.beforeBlob == this.beforeBlob &&
+          other.afterBlob == this.afterBlob);
 }
 
 class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
@@ -1597,6 +1675,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
   final Value<String?> triageDestination;
   final Value<String?> triageVolumeTag;
   final Value<String?> triageBoxId;
+  final Value<String?> beforeBlob;
+  final Value<String?> afterBlob;
   final Value<int> rowid;
   const LogEntriesCompanion({
     this.id = const Value.absent(),
@@ -1620,6 +1700,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.triageDestination = const Value.absent(),
     this.triageVolumeTag = const Value.absent(),
     this.triageBoxId = const Value.absent(),
+    this.beforeBlob = const Value.absent(),
+    this.afterBlob = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LogEntriesCompanion.insert({
@@ -1644,6 +1726,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     this.triageDestination = const Value.absent(),
     this.triageVolumeTag = const Value.absent(),
     this.triageBoxId = const Value.absent(),
+    this.beforeBlob = const Value.absent(),
+    this.afterBlob = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
@@ -1671,6 +1755,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Expression<String>? triageDestination,
     Expression<String>? triageVolumeTag,
     Expression<String>? triageBoxId,
+    Expression<String>? beforeBlob,
+    Expression<String>? afterBlob,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1695,6 +1781,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       if (triageDestination != null) 'triage_destination': triageDestination,
       if (triageVolumeTag != null) 'triage_volume_tag': triageVolumeTag,
       if (triageBoxId != null) 'triage_box_id': triageBoxId,
+      if (beforeBlob != null) 'before_blob': beforeBlob,
+      if (afterBlob != null) 'after_blob': afterBlob,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1721,6 +1809,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     Value<String?>? triageDestination,
     Value<String?>? triageVolumeTag,
     Value<String?>? triageBoxId,
+    Value<String?>? beforeBlob,
+    Value<String?>? afterBlob,
     Value<int>? rowid,
   }) {
     return LogEntriesCompanion(
@@ -1745,6 +1835,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
       triageDestination: triageDestination ?? this.triageDestination,
       triageVolumeTag: triageVolumeTag ?? this.triageVolumeTag,
       triageBoxId: triageBoxId ?? this.triageBoxId,
+      beforeBlob: beforeBlob ?? this.beforeBlob,
+      afterBlob: afterBlob ?? this.afterBlob,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1815,6 +1907,12 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
     if (triageBoxId.present) {
       map['triage_box_id'] = Variable<String>(triageBoxId.value);
     }
+    if (beforeBlob.present) {
+      map['before_blob'] = Variable<String>(beforeBlob.value);
+    }
+    if (afterBlob.present) {
+      map['after_blob'] = Variable<String>(afterBlob.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1845,6 +1943,8 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntry> {
           ..write('triageDestination: $triageDestination, ')
           ..write('triageVolumeTag: $triageVolumeTag, ')
           ..write('triageBoxId: $triageBoxId, ')
+          ..write('beforeBlob: $beforeBlob, ')
+          ..write('afterBlob: $afterBlob, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2234,6 +2334,8 @@ typedef $LogEntriesCreateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> triageDestination,
   Value<String?> triageVolumeTag,
   Value<String?> triageBoxId,
+  Value<String?> beforeBlob,
+  Value<String?> afterBlob,
   Value<int> rowid,
 });
 typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
@@ -2258,6 +2360,8 @@ typedef $LogEntriesUpdateCompanionBuilder = LogEntriesCompanion Function({
   Value<String?> triageDestination,
   Value<String?> triageVolumeTag,
   Value<String?> triageBoxId,
+  Value<String?> beforeBlob,
+  Value<String?> afterBlob,
   Value<int> rowid,
 });
 
@@ -2372,6 +2476,16 @@ class $LogEntriesFilterComposer
 
   ColumnFilters<String> get triageBoxId => $composableBuilder(
     column: $table.triageBoxId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get beforeBlob => $composableBuilder(
+    column: $table.beforeBlob,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get afterBlob => $composableBuilder(
+    column: $table.afterBlob,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2489,6 +2603,16 @@ class $LogEntriesOrderingComposer
     column: $table.triageBoxId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get beforeBlob => $composableBuilder(
+    column: $table.beforeBlob,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get afterBlob => $composableBuilder(
+    column: $table.afterBlob,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $LogEntriesAnnotationComposer
@@ -2590,6 +2714,14 @@ class $LogEntriesAnnotationComposer
     column: $table.triageBoxId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get beforeBlob => $composableBuilder(
+    column: $table.beforeBlob,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get afterBlob =>
+      $composableBuilder(column: $table.afterBlob, builder: (column) => column);
 }
 
 class $LogEntriesTableManager
@@ -2641,6 +2773,8 @@ class $LogEntriesTableManager
                 Value<String?> triageDestination = const Value.absent(),
                 Value<String?> triageVolumeTag = const Value.absent(),
                 Value<String?> triageBoxId = const Value.absent(),
+                Value<String?> beforeBlob = const Value.absent(),
+                Value<String?> afterBlob = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion(
                 id: id,
@@ -2664,6 +2798,8 @@ class $LogEntriesTableManager
                 triageDestination: triageDestination,
                 triageVolumeTag: triageVolumeTag,
                 triageBoxId: triageBoxId,
+                beforeBlob: beforeBlob,
+                afterBlob: afterBlob,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2689,6 +2825,8 @@ class $LogEntriesTableManager
                 Value<String?> triageDestination = const Value.absent(),
                 Value<String?> triageVolumeTag = const Value.absent(),
                 Value<String?> triageBoxId = const Value.absent(),
+                Value<String?> beforeBlob = const Value.absent(),
+                Value<String?> afterBlob = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LogEntriesCompanion.insert(
                 id: id,
@@ -2712,6 +2850,8 @@ class $LogEntriesTableManager
                 triageDestination: triageDestination,
                 triageVolumeTag: triageVolumeTag,
                 triageBoxId: triageBoxId,
+                beforeBlob: beforeBlob,
+                afterBlob: afterBlob,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

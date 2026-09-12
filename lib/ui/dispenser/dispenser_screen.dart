@@ -46,6 +46,7 @@
 // carrying its own provenance.
 import 'dart:async';
 
+import 'package:core/derive/reward.dart';
 import 'package:core/energy/energy.dart';
 import 'package:core/log/log_entry.dart';
 import 'package:core/ports/no_slicer_cause.dart';
@@ -57,12 +58,14 @@ import '../../capture/capture_controller.dart';
 import '../../capture/dictation_controller.dart';
 import '../../dispenser/dispenser_controller.dart';
 import '../../genesis/genesis_controller.dart';
+import '../../reward/reward_controller.dart';
 import '../../scan/scan_controller.dart';
 import '../../settings/settings_controller.dart';
 import '../capture/capture_screen.dart';
 import '../destinations/decluttering_protocol_screen.dart';
 import '../destinations/destination_flow_screen.dart';
 import '../no_slicer/no_slicer_surface.dart';
+import '../reward/reward_screen.dart';
 import '../settings/curation_screen.dart';
 import '../settings/nuevo_proyecto_screen.dart';
 import '../scan/scan_screen.dart';
@@ -107,6 +110,8 @@ class DispenserScreen extends StatefulWidget {
     this.dictation,
     this.scan,
     this.genesis,
+    this.reward,
+    this.sessionMilestone,
     this.routeObserver,
   });
 
@@ -147,6 +152,20 @@ class DispenserScreen extends StatefulWidget {
   /// the way-out still opens the surface with no controller behind
   /// it — an `Analizar` answers nothing.
   final GenesisController? genesis;
+
+  /// The reward seam (Story 7.1, FR-17): main constructs it over the
+  /// same store, the shared write queue, the same Files root and the
+  /// camera facade, and the milestone drains push its surface. Absent
+  /// (the test seam), a milestone still fires — the drain consumes it
+  /// — but no surface renders.
+  final RewardController? reward;
+
+  /// The lifecycle's session-milestone drain (Story 7.1, FR-17): the
+  /// session controller's own stash — a backgrounding's end has no
+  /// navigator in front of it, so the milestone stands there until
+  /// this screen's next commit claims it. Absent (the test seam),
+  /// the lifecycle's milestones are consumed silently.
+  final NamedRewardSpace? Function()? sessionMilestone;
 
   /// The route-awareness seam (Story 5.2): the observer main also
   /// registers with the MaterialApp, so a way-out chain popping back
@@ -826,6 +845,51 @@ class _DispenserScreenState extends State<DispenserScreen>
     // the card standing) so a fresh deal of the same item starts
     // clean and a re-warranted one auto-fires again.
     _endRescueMarkersIfDealEnded(view);
+    // The milestone reward's push (Story 7.1, FR-17): the one live
+    // navigator's drain, on the commit the milestone's write path
+    // precedes — the retiring `card_done` (the project milestone) or
+    // the session's end (the pause tap's stash here, the
+    // backgrounding's through the lifecycle seam). The drains consume
+    // whatever stands, so a closed reward never re-fires its moment;
+    // the push itself sits behind the same rapid-tap guard every
+    // push this surface owns.
+    _maybePushReward();
+  }
+
+  /// The milestone reward's drain-and-push (Story 7.1, FR-17): the
+  /// guards run BEFORE the drain — a commit arriving while another
+  /// route stands on top (the reward itself, a way-out surface)
+  /// leaves both stashes standing, so the next commit that CAN push
+  /// still claims the milestone: a drain consumed behind a covered
+  /// navigator would lose the reward forever (the review's
+  /// lost-milestone patch). With the route current, the screen's own
+  /// stash drains first, the lifecycle's behind it — one milestone,
+  /// one push, one surface (the controller stash wins when both
+  /// stand, the `??` order pinned). A test seam with no reward
+  /// controller consumes the milestone quietly (nothing half-wired
+  /// renders).
+  void _maybePushReward() {
+    if (!mounted) {
+      return;
+    }
+    if (!(ModalRoute.of(context)?.isCurrent ?? false)) {
+      // Another route covers the navigator: the milestone keeps —
+      // draining here would discard it (no surface could render it,
+      // and the stash would never re-fire).
+      return;
+    }
+    final space =
+        widget.controller.takeUnfiredReward() ??
+        widget.sessionMilestone?.call();
+    if (space == null) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            RewardScreen(space: space, controller: widget.reward),
+      ),
+    );
   }
 
   @override

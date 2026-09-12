@@ -29,9 +29,11 @@ import 'dart:ui' as ui;
 
 import 'package:core/catalogue/catalogue.dart';
 import 'package:core/commands/session_commands.dart';
+import 'package:core/derive/reward.dart';
 import 'package:core/derive/strip.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:core/ports/slicer_port.dart';
+import 'package:core/ports/files_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:core/settings/settings.dart';
 import 'package:core/weave/weave.dart';
@@ -51,11 +53,15 @@ import 'package:organizer/ui/capture/capture_screen.dart';
 import 'package:organizer/ui/destinations/decluttering_protocol_screen.dart';
 import 'package:organizer/ui/destinations/destination_flow_screen.dart';
 import 'package:organizer/ui/dispenser/ambient_strip.dart';
+import 'package:organizer/plugins/camera/camera_shell.dart';
+import 'package:organizer/reward/reward_controller.dart';
 import 'package:organizer/ui/dispenser/dispenser_screen.dart';
+import 'package:organizer/ui/reward/reward_screen.dart';
 import 'package:organizer/ui/dispenser/duration_chip.dart';
 import 'package:organizer/ui/dispenser/task_card.dart';
 import 'package:organizer/ui/dispenser/zone_marker.dart';
 import 'package:organizer/ui/glyphs/camera_glyph.dart';
+import 'package:organizer/ui/photo_frame.dart';
 import 'package:organizer/ui/glyphs/pencil_glyph.dart';
 import 'package:organizer/ui/settings/curation_screen.dart';
 import 'package:organizer/ui/settings/nuevo_proyecto_screen.dart';
@@ -274,15 +280,16 @@ class _FailFirstBoxStore implements StorePort {
       _inner.readLogEntries();
 }
 
-/// A store whose log reads fail exactly once, and only once a
-/// `card_done` has landed — the post-write refresh's read fails while
+/// A store whose log reads fail exactly twice, and only once a
+/// `card_done` has landed — the completion's own post-write reads
+/// (the milestone hook's, Story 7.1, then the refresh's) fail while
 /// the write itself succeeded (the transient the foreground heal
 /// covers).
 class _FailReadAfterDoneStore implements StorePort {
   _FailReadAfterDoneStore(this._inner);
 
   final _RecordingStore _inner;
-  var _thrown = false;
+  var _throwsLeft = 2;
 
   @override
   Future<void> appendPoolFact(PoolFactRecord fact) async {}
@@ -297,8 +304,8 @@ class _FailReadAfterDoneStore implements StorePort {
   @override
   Future<List<LogEntryRecord>> readLogEntries() async {
     final hasDone = _inner.entries.any((entry) => entry.kind == 'card_done');
-    if (hasDone && !_thrown) {
-      _thrown = true;
+    if (hasDone && _throwsLeft > 0) {
+      _throwsLeft--;
       throw StateError('read failed');
     }
     return _inner.readLogEntries();
@@ -644,6 +651,8 @@ LogEntryRecord _installOpen() => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 Rect _rect(WidgetTester tester, Finder finder) {
@@ -751,6 +760,15 @@ Widget _harness(
   /// real controller.
   SettingsController? settings,
 
+  /// The reward seam (Story 7.1, the 7.1 push test): threaded exactly
+  /// as main threads it, so the pushed reward surface reads through
+  /// the real controller.
+  RewardController? reward,
+
+  /// The lifecycle's session-milestone drain (Story 7.1, the 7.1
+  /// session push test): threaded exactly as main threads it.
+  NamedRewardSpace? Function()? sessionMilestone,
+
   /// Distinct keys are required whenever two harnesses are pumped in
   /// one test: a second pump at the same tree position silently
   /// reuses the first screen's element and committed view (State
@@ -765,8 +783,85 @@ Widget _harness(
     controller: controller,
     sessionSettled: sessionSettled,
     settings: settings,
+    reward: reward,
+    sessionMilestone: sessionMilestone,
   ),
 );
+
+/// One full log row, the tests' own seeding helper (Story 7.1): every
+/// payload column explicit, null where the kind carries none.
+LogEntryRecord _logRow(
+  String id,
+  DateTime at, {
+  required String kind,
+  String? itemId,
+  Origin? itemOrigin,
+}) => (
+  id: id,
+  kind: kind,
+  instantUtcMicros: at.microsecondsSinceEpoch,
+  offsetSeconds: 0,
+  itemId: itemId,
+  itemOrigin: itemOrigin,
+  stack: null,
+  settingKey: null,
+  settingValue: null,
+  settingTextValue: null,
+  pocketMinutes: null,
+  energyLevel: null,
+  reportValue: null,
+  reportWeek: null,
+  permission: null,
+  sliceCause: null,
+  cluster: null,
+  enabled: null,
+  triageDestination: null,
+  triageVolumeTag: null,
+  triageBoxId: null,
+  beforeName: null,
+  afterName: null,
+);
+
+/// The reward push test's Files seam: quiet on every read (no Before).
+class _RewardPushFiles implements FilesPort {
+  @override
+  Future<List<int>?> read(String scope, String name) async => null;
+
+  @override
+  Future<void> write(String scope, String name, List<int> bytes) async {}
+
+  @override
+  Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<void> sweepScanCache() async {}
+}
+
+/// The reward push test's camera seam: never opened on the no-Before
+/// arm.
+class _RewardPushCamera implements CameraShell {
+  @override
+  Future<CameraOpenOutcome> open() async => CameraOpenOutcome.unavailable;
+
+  @override
+  Future<CameraShotOutcome> takePicture() async => const CameraShotNone();
+
+  @override
+  Widget buildPreview() => const SizedBox.shrink();
+
+  @override
+  Future<void> dispose() async {}
+}
 
 /// A slicer whose every ask parks behind its own held completer — the
 /// multi-flight shape (the epic-4 retro's concurrent row): two asks on
@@ -1328,6 +1423,8 @@ void main() {
             triageDestination: null,
             triageVolumeTag: null,
             triageBoxId: null,
+            beforeName: null,
+            afterName: null,
           ),
           (
             id: 'seed-deal',
@@ -1358,6 +1455,8 @@ void main() {
             triageDestination: null,
             triageVolumeTag: null,
             triageBoxId: null,
+            beforeName: null,
+            afterName: null,
           ),
         ]);
       final controller = DispenserController(
@@ -2944,6 +3043,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     // Three eligible days of declines, each its own closed sitting.
@@ -3054,6 +3155,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     // An eligible decline day: its own closed sitting around the item.
@@ -3175,6 +3278,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       );
 
       List<LogEntryRecord> decline(int day) => [
@@ -3275,6 +3380,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     // Three eligible days of declines, each its own closed sitting —
@@ -3408,6 +3515,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     List<LogEntryRecord> decline(int day) => [
@@ -3583,6 +3692,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     final gapStore = _RecordingStore()
@@ -3812,6 +3923,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         id: 'seed-epic-activated',
@@ -3835,6 +3948,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         id: 'seed-session-started',
@@ -3858,6 +3973,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         // Story 6.1's world: an activated group's purge closes only
@@ -3885,6 +4002,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         id: 'seed-card-dealt',
@@ -3908,6 +4027,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         id: 'seed-card-done',
@@ -3931,6 +4052,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
       (
         id: 'seed-session-ended',
@@ -3954,6 +4077,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ),
     ];
 
@@ -4131,6 +4256,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4213,6 +4340,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
     final store = _RecordingStore()
       ..entries.addAll([
@@ -4248,6 +4377,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ),
       ]);
 
@@ -4441,6 +4572,8 @@ void main() {
             triageDestination: null,
             triageVolumeTag: null,
             triageBoxId: null,
+            beforeName: null,
+            afterName: null,
           ));
         }
         await SessionController(
@@ -4524,6 +4657,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     }
 
@@ -4846,6 +4981,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await SessionController(
         store: store,
@@ -4983,6 +5120,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     }
 
@@ -5533,6 +5672,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       store.entries.add((
         id: 'seed-pocket',
@@ -5557,6 +5698,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
     }
 
@@ -5708,6 +5851,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(_harness(buildController(store)));
@@ -6013,6 +6158,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     /// A `setting_changed` {camera_enabled, [value]} row.
@@ -6038,6 +6185,8 @@ void main() {
       triageDestination: null,
       triageVolumeTag: null,
       triageBoxId: null,
+      beforeName: null,
+      afterName: null,
     );
 
     Finder entryTarget(Finder glyph) =>
@@ -6186,6 +6335,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       offered.entries.add((
         id: 'seed-pocket',
@@ -6215,6 +6366,8 @@ void main() {
         triageDestination: null,
         triageVolumeTag: null,
         triageBoxId: null,
+        beforeName: null,
+        afterName: null,
       ));
       await tester.pumpWidget(_harness(buildController(offered)));
       await tester.pumpAndSettle();
@@ -6506,6 +6659,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       final session = SessionController(
         store: store,
@@ -6601,6 +6756,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       final failing = _FailNextAppendStore(inner);
       final session = SessionController(
@@ -6755,6 +6912,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ))
         ..entries.add((
           id: 'seed-session-started',
@@ -6787,6 +6946,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ))
         ..entries.add((
           id: 'seed-purge-dealt',
@@ -6817,6 +6978,8 @@ void main() {
           triageDestination: null,
           triageVolumeTag: null,
           triageBoxId: null,
+          beforeName: null,
+          afterName: null,
         ));
       return store;
     }
@@ -7448,5 +7611,261 @@ void main() {
       );
       expect(store.entries, orderedEquals(seededEntries));
     });
+  });
+  testWidgets('the retiring card_done pushes the milestone reward — the '
+      'project milestone\'s one moment, spent once, never re-fired '
+      '(Story 7.1, FR-17)', (tester) async {
+    final landing = DateTime.utc(2026, 8, 29, 10);
+    final store =
+        _RecordingStore([
+            (
+              id: 'step-1',
+              origin: Origin.cloud,
+              size: Size.maintenance,
+              instantUtcMicros: landing.microsecondsSinceEpoch,
+              offsetSeconds: 0,
+              originContext: 'Un rinc\u00f3n con cajas',
+              dictated: null,
+              rescueOf: null,
+              estimateSeconds: 240,
+              stepText: 'Recoger una caja',
+            ),
+          ])
+          ..entries.addAll([
+            _logRow(
+              'session-started',
+              DateTime.utc(2026, 8, 29, 11),
+              kind: 'session_started',
+            ),
+            _logRow(
+              'epic-activated',
+              DateTime.utc(2026, 8, 29, 11, 0, 1),
+              kind: 'epic_activated',
+              itemId: 'step-1',
+              itemOrigin: Origin.cloud,
+            ),
+            _logRow(
+              'step-dealt',
+              DateTime.utc(2026, 8, 29, 11, 0, 2),
+              kind: 'card_dealt',
+              itemId: 'step-1',
+              itemOrigin: Origin.cloud,
+            ),
+          ]);
+    final reward = RewardController(
+      store: store,
+      files: _RewardPushFiles(),
+      camera: _RewardPushCamera(),
+      nowOf: _fixedClock,
+    );
+    final controller = buildController(store);
+    await tester.pumpWidget(_harness(controller, reward: reward));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    // The group's only step retired with the answer: the milestone
+    // fired and the screen pushed the reward over the dispenser.
+    expect(find.byType(RewardScreen), findsOneWidget);
+    expect(find.text(AppStringsEs().rewardWithoutPhoto), findsOneWidget);
+
+    // Cerrar closes — zero side effects — and the milestone is spent:
+    // the pop's refresh commits with no second push, and the drain
+    // answers nothing more for either stash.
+    await tester.tap(find.text(AppStringsEs().rewardClose));
+    await tester.pumpAndSettle();
+    expect(find.byType(RewardScreen), findsNothing);
+    expect(
+      controller.takeUnfiredReward(),
+      isNull,
+      reason: 'the milestone is spent — closing consumed it',
+    );
+  });
+
+  testWidgets('the session milestone pushes on the next commit — the '
+      'controller stash wins while both stand, and a commit under a '
+      'covered route keeps the milestone (Story 7.1, FR-17)', (tester) async {
+    final landing = DateTime.utc(2026, 8, 29, 10);
+    final store =
+        _RecordingStore([
+            (
+              id: 'step-1',
+              origin: Origin.cloud,
+              size: Size.maintenance,
+              instantUtcMicros: landing.microsecondsSinceEpoch,
+              offsetSeconds: 0,
+              originContext: 'Un rinc\u00f3n con cajas',
+              dictated: null,
+              rescueOf: null,
+              estimateSeconds: 240,
+              stepText: 'Recoger una caja',
+            ),
+          ])
+          ..entries.addAll([
+            _logRow(
+              'session-started',
+              DateTime.utc(2026, 8, 29, 11),
+              kind: 'session_started',
+            ),
+            _logRow(
+              'epic-activated',
+              DateTime.utc(2026, 8, 29, 11, 0, 1),
+              kind: 'epic_activated',
+              itemId: 'step-1',
+              itemOrigin: Origin.cloud,
+            ),
+            _logRow(
+              'step-dealt',
+              DateTime.utc(2026, 8, 29, 11, 0, 2),
+              kind: 'card_dealt',
+              itemId: 'step-1',
+              itemOrigin: Origin.cloud,
+            ),
+          ])
+          ..entries.add(
+            // The controller stash's space holds a Before and the
+            // session's does not — the two pushes are told apart by
+            // the arm each renders.
+            (
+              id: 'before-1',
+              kind: 'before_saved',
+              instantUtcMicros: DateTime.utc(
+                2026,
+                8,
+                29,
+                11,
+                0,
+                3,
+              ).microsecondsSinceEpoch,
+              offsetSeconds: 0,
+              itemId: 'step-1',
+              itemOrigin: Origin.cloud,
+              stack: null,
+              settingKey: null,
+              settingValue: null,
+              settingTextValue: null,
+              pocketMinutes: null,
+              energyLevel: null,
+              reportValue: null,
+              reportWeek: null,
+              permission: null,
+              sliceCause: null,
+              cluster: null,
+              enabled: null,
+              triageDestination: null,
+              triageVolumeTag: null,
+              triageBoxId: null,
+              beforeName: 'hash-x.jpg',
+              afterName: null,
+            ),
+          );
+    final reward = RewardController(
+      store: store,
+      files: _RewardPushFiles(),
+      camera: _RewardPushCamera(),
+      nowOf: _fixedClock,
+    );
+    final controller = buildController(store);
+    // The session stash stands from AFTER the launch read (the
+    // launch commit would otherwise claim it) — the Hecho commit is
+    // the one where both stashes stand together.
+    NamedRewardSpace? sessionStash;
+    var sessionCalls = 0;
+    NamedRewardSpace? takeSession() {
+      sessionCalls++;
+      final stash = sessionStash;
+      sessionStash = null;
+      return stash;
+    }
+
+    await tester.pumpWidget(
+      _harness(controller, reward: reward, sessionMilestone: takeSession),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCard), findsOneWidget);
+    expect(
+      sessionCalls,
+      1,
+      reason:
+          'the launch commit drained the '
+          'empty session stash and answered null',
+    );
+    sessionStash = (groupId: 'g-session', origin: Origin.cloud);
+
+    await tester.tap(find.byType(HechoButton));
+    await tester.pumpAndSettle();
+
+    // BOTH stashes stand now (the retiring card_done set the
+    // controller's, the callback holds the session's): the drain's
+    // `??` order wins — the controller's space pushes, and the
+    // session drain was never consulted.
+    expect(find.byType(RewardScreen), findsOneWidget);
+    expect(
+      find.byType(PhotoFrame),
+      findsOneWidget,
+      reason: 'the controller stash\'s space holds the Before',
+    );
+    expect(find.text(AppStringsEs().rewardWithoutPhoto), findsNothing);
+    expect(
+      sessionCalls,
+      1,
+      reason:
+          'the controller stash wins while both stand — the '
+          'session drain was never consulted',
+    );
+
+    // A commit under a covered route keeps the milestone (the
+    // lost-milestone patch): the resume's read commits with the
+    // reward on top, the guards run BEFORE the drain, and the
+    // session stash survives untouched.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(sessionCalls, 1, reason: 'a covered navigator drains nothing');
+
+    // Cerrar closes the controller's reward — but the pop's own
+    // refresh commits while the exit transition still covers the
+    // navigator, so the kept session milestone stays stashed (a
+    // covered navigator drains nothing, even its own way back in).
+    await tester.ensureVisible(find.text(AppStringsEs().rewardClose));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStringsEs().rewardClose));
+    await tester.pumpAndSettle();
+    expect(find.byType(RewardScreen), findsNothing);
+    expect(
+      sessionCalls,
+      1,
+      reason:
+          'the pop\'s commit ran covered — '
+          'the stash kept',
+    );
+
+    // The NEXT commit (here a resume\'s quiet read; in the app any
+    // tap or lifecycle return) finds the route current and pushes
+    // the kept session milestone, its no-Before space rendering the
+    // no-photo arm.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byType(RewardScreen), findsOneWidget);
+    expect(find.text(AppStringsEs().rewardWithoutPhoto), findsOneWidget);
+    expect(sessionCalls, 2);
+
+    // The second close spends it: no third push, both drains empty.
+    await tester.ensureVisible(find.text(AppStringsEs().rewardClose));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AppStringsEs().rewardClose));
+    await tester.pumpAndSettle();
+    expect(find.byType(RewardScreen), findsNothing);
+    expect(controller.takeUnfiredReward(), isNull);
+    expect(
+      sessionCalls,
+      2,
+      reason:
+          'the session stash was consumed at its one push; the '
+          'later commits drained the empty stash and answered null',
+    );
   });
 }

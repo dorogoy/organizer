@@ -84,6 +84,15 @@
 -- and no follow-up-date column anywhere: box membership exists only
 -- as this link, and the box itself only as its `box_created` row.
 --
+-- Schema v14 (Story 7.1) adds the two nullable log-entry payload
+-- columns `before_blob` and `after_blob` — the reward's album blob
+-- names (FR-17, AD-13, AD-23), riding only the two photo kinds
+-- (`before_saved`, `album_entry_added`) — the same additive-only
+-- ALTER TABLE path, so a v13 install upgrades in place with its rows
+-- unchanged. The bytes themselves live in the Files `album` scope,
+-- never here: these columns hold content-addressed names (sha256 hex
+-- + `.jpg`), and there is deliberately no album table.
+--
 -- There are deliberately no FK or CHECK constraints: schema-level
 -- constraints would reject the forward-only evolution AD-23 requires — a
 -- future build's import must tolerate rows this build does not know, and
@@ -125,7 +134,9 @@ CREATE TABLE log_entries (
   enabled BOOL NULL,
   triage_destination TEXT NULL,
   triage_volume_tag TEXT NULL,
-  triage_box_id TEXT NULL
+  triage_box_id TEXT NULL,
+  before_blob TEXT NULL,
+  after_blob TEXT NULL
 );
 
 CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON pool_facts

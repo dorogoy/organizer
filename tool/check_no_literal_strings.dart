@@ -115,6 +115,10 @@ const Map<String, Set<String>> namedConstantAllowance = {
     // Story 6.5: the quarantine box link's own ALTER — the v13 step
     // on the v12 pair's own terms.
     'logEntriesTriageBoxIdUpgrade',
+    // Story 7.1: the reward blob-name columns' own ALTERs — the v14
+    // pair on the same terms.
+    'logEntriesBeforeBlobUpgrade',
+    'logEntriesAfterBlobUpgrade',
     'additiveAlterShape',
     'tableInfoPragmaTemplate',
     'tableInfoPragmaSlot',
@@ -167,6 +171,11 @@ const Map<String, Set<String>> namedConstantAllowance = {
     'scanFrameFileName',
     'scanCappedCopyName',
     'absentFramePath',
+    // Story 7.1: the album's reserved scope name, its blob-name
+    // suffix — the content-addressed write's two identifiers on the
+    // module's own terms, never widget copy.
+    'albumFilesScope',
+    'albumPhotoSuffix',
   },
   // Story 5.2: the camera plugin adapter's one mirrored wire code —
   // the plugin's own Kotlin denial identifier, read after a granted

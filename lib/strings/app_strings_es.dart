@@ -325,6 +325,19 @@ class AppStringsEs extends AppStrings {
   String get rewardLabelAfter => 'Después';
 
   @override
+  String get rewardClose => 'Cerrar';
+
+  @override
+  String get rewardBeforeOfferTitle =>
+      '¿Guardar una foto del espacio antes de empezar?';
+
+  @override
+  String get rewardBeforeShoot => 'Hacer la foto';
+
+  @override
+  String get rewardAfterShoot => 'Hacer la foto';
+
+  @override
   String get snowballDismissAcknowledgement => 'Está bien así.';
 
   @override

@@ -177,6 +177,8 @@ LogEntryRecord seededProvider(String id, {int at = 100}) => (
   triageDestination: null,
   triageVolumeTag: null,
   triageBoxId: null,
+  beforeName: null,
+  afterName: null,
 );
 
 /// The harness record: everything one test needs over one store.
