@@ -4041,8 +4041,14 @@ void main() {
     /// and upgrades.
     Future<void> takeOverWithV13({
       bool seedRows = true,
-      bool blobColumnsOnly = false,
+      int landedBlobColumns = 0,
     }) async {
+      assert(landedBlobColumns >= 0 && landedBlobColumns <= 2);
+      final landedBlobColumnsSql = switch (landedBlobColumns) {
+        0 => '',
+        1 => ', before_blob TEXT NULL',
+        _ => ', before_blob TEXT NULL, after_blob TEXT NULL',
+      };
       await db.close();
       db = SubstrateDatabase(
         NativeDatabase.memory(
@@ -4081,7 +4087,7 @@ void main() {
                   'triage_destination TEXT NULL, '
                   'triage_volume_tag TEXT NULL, '
                   'triage_box_id TEXT NULL'
-                  '${blobColumnsOnly ? ', before_blob TEXT NULL, after_blob TEXT NULL' : ''})',
+                  '$landedBlobColumnsSql)',
               'CREATE TRIGGER pool_facts_refuse_update BEFORE UPDATE ON '
                   "pool_facts BEGIN SELECT RAISE(ABORT, 'pool_facts is "
                   "insert-only (AD-2)'); END",
@@ -4189,7 +4195,7 @@ void main() {
         'before the version bump left the blob columns present, '
         'user_version still 13 — re-upgrades idempotently: each column '
         'once, the seeded row intact, appends work', () async {
-      await takeOverWithV13(blobColumnsOnly: true);
+      await takeOverWithV13(landedBlobColumns: 2);
 
       expect(db.schemaVersion, 14);
       expect(
@@ -4233,6 +4239,26 @@ void main() {
         convertLogEntryRecord((await store.readLogEntries()).last).entry,
         isA<BeforeSavedEntry>(),
       );
+    });
+
+    test('a restart after the first v14 ALTER adds only the missing '
+        'after-blob column and preserves the v13 row', () async {
+      await takeOverWithV13(landedBlobColumns: 1);
+
+      expect(db.schemaVersion, 14);
+      expect(
+        (await db.customSelect('PRAGMA table_info(log_entries)').get())
+            .map((row) => row.read<String>('name'))
+            .where((name) => name.endsWith('_blob'))
+            .toList()
+          ..sort(),
+        ['after_blob', 'before_blob'],
+      );
+      final rows = await store.readLogEntries();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'v13-quarantine');
+      expect(rows.single.beforeName, isNull);
+      expect(rows.single.afterName, isNull);
     });
 
     test('an empty v13 database upgrades too — no rows, the ALTERs, the '

@@ -45,7 +45,7 @@ Show the user the same corner of their home before and after, in two plates of e
 ## Cross-Story Dependencies
 
 - **Reads Epic 6's output:** per-destination counts and volume tags derive from `item_triaged` acts; nothing here recomputes them.
-- **Depends on Epic 5:** Before photos exist only for scanned spaces; the reward's shoot action follows the Cámara entry's own rule — absent when the camera is disabled or its permission refused, or degrading to the Manual Capture path — never a dead button on the reward surface.
+- **Depends on Epic 5:** Before photos exist only for scanned spaces; the reward's shoot action follows the Cámara entry's own rule — absent when the camera is disabled or its permission refused, and any failed attempt degrades to the reward's no-photo presentation — never a dead button on the reward surface.
 - **Ambient strip is Epic 2's component** — the snowball arrives as a new resident carried in behaviour/data, not new chrome.
 - **Instrumentation series (c)** (Before/After pairs per project milestone) is written here but assembled and rendered by Epic 9's series work; the content-addressed album blobs feed Epic 9's export generations, whose coordinator/property-test rules live there.
 - **Story order is the navigation order:** 7.1 → 7.2 → 7.3 — the album exists only as the reward's completion, the dashboard only behind the album.

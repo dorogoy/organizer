@@ -13,15 +13,16 @@ import 'package:core/log/log_entry.dart';
 import 'package:core/pool/pool_fact.dart';
 import 'package:test/test.dart';
 
-Origin _origin = Origin.cloud;
+const Origin _origin = Origin.cloud;
 
 PoolFact _step(
   String id,
   int instant, {
   String description = 'Un rincón con cajas',
+  Origin origin = _origin,
 }) => PoolFact(
   id: id,
-  origin: _origin,
+  origin: origin,
   size: Size.maintenance,
   instantUtcMicros: instant,
   offsetSeconds: 3600,
@@ -48,14 +49,15 @@ LogEntry _deal(String itemId, int instant) => ItemActEntry(
   itemOrigin: _origin,
 );
 
-LogEntry _done(String itemId, int instant) => ItemActEntry(
-  id: 'done-$itemId-$instant',
-  instantUtcMicros: instant,
-  offsetSeconds: 3600,
-  kind: LogKind.cardDone,
-  itemId: itemId,
-  itemOrigin: _origin,
-);
+LogEntry _done(String itemId, int instant, {Origin origin = _origin}) =>
+    ItemActEntry(
+      id: 'done-$itemId-$instant',
+      instantUtcMicros: instant,
+      offsetSeconds: 3600,
+      kind: LogKind.cardDone,
+      itemId: itemId,
+      itemOrigin: origin,
+    );
 
 LogEntry _before(String groupId, String blobName, int instant) =>
     BeforeSavedEntry(
@@ -100,6 +102,21 @@ void main() {
       final pool = [_step('s1', 1000), _step('s2', 1000)];
       final log = [_done('s1', 2100)];
       expect(retiringGroupId(pool, log, completedItemId: 's1'), isNull);
+    });
+
+    test('a local-origin group retires with its local origin intact', () {
+      const origin = Origin.local;
+      final pool = [
+        _step('s1', 1000, origin: origin),
+        _step('s2', 1000, origin: origin),
+      ];
+      final retired = retiringGroupId(pool, [
+        _done('s1', 2100, origin: origin),
+        _done('s2', 2200, origin: origin),
+      ], completedItemId: 's2');
+      expect(retired, isNotNull);
+      expect(retired!.groupId, 's1');
+      expect(retired.origin, origin);
     });
 
     test('a card_done naming no group step retires nothing — the '
@@ -208,6 +225,54 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('append order excludes a prior session after a clock rollback', () {
+      final pool = [
+        _step('a1', 1000),
+        _step('a2', 1000),
+        _step('b1', 2000),
+        _step('b2', 2000),
+      ];
+      final log = [
+        _start(1000),
+        _done('a1', 1200),
+        MomentEntry(
+          id: 'end-1201',
+          instantUtcMicros: 1201,
+          offsetSeconds: 3600,
+          kind: LogKind.sessionEnded,
+        ),
+        _start(1100), // The device clock was moved backwards.
+        _done('b1', 1110),
+      ];
+      expect(
+        sessionMilestoneGroupId(
+          poolFacts: pool,
+          log: log,
+          sessionStartUtcMicros: 1100,
+        )!.groupId,
+        'b1',
+      );
+    });
+
+    test('a local-origin group can earn the session milestone', () {
+      const origin = Origin.local;
+      final pool = [
+        _step('a1', 1000, origin: origin),
+        _step('a2', 1000, origin: origin),
+      ];
+      final milestone = sessionMilestoneGroupId(
+        poolFacts: pool,
+        log: [
+          _start(100),
+          _done('a1', 300, origin: origin),
+        ],
+        sessionStartUtcMicros: 100,
+      );
+      expect(milestone, isNotNull);
+      expect(milestone!.groupId, 'a1');
+      expect(milestone.origin, origin);
     });
 
     test('a group retired within the session is excluded — the '

@@ -8,6 +8,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:core/derive/reward.dart';
+import 'package:core/ports/files_port.dart';
 import 'package:core/ports/recognizer_port.dart';
 import 'package:core/ports/store_port.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +21,8 @@ import 'package:organizer/capture/dictation_controller.dart';
 import 'package:organizer/dispenser/dispenser_controller.dart';
 import 'package:organizer/genesis/genesis_controller.dart';
 import 'package:organizer/main.dart';
+import 'package:organizer/plugins/camera/camera_shell.dart';
+import 'package:organizer/reward/reward_controller.dart';
 import 'package:organizer/settings/settings_controller.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
@@ -76,6 +80,44 @@ class _EmptyCatalogueBundle implements AssetBundle {
 
   @override
   void clear() {}
+}
+
+class _EmptyFiles implements FilesPort {
+  @override
+  Future<void> delete(String scope, String name) async {}
+
+  @override
+  Future<List<int>?> read(String scope, String name) async => null;
+
+  @override
+  Future<void> sweepScanCache() async {}
+
+  @override
+  Future<void> unlinkScan(String scanId) async {}
+
+  @override
+  Future<void> write(String scope, String name, List<int> bytes) async {}
+
+  @override
+  Future<String> writeScanCappedCopy(String scanId, List<int> bytes) async =>
+      '';
+
+  @override
+  Future<String> writeScanFrame(String scanId, List<int> bytes) async => '';
+}
+
+class _NoopCamera implements CameraShell {
+  @override
+  Widget buildPreview() => const SizedBox.shrink();
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<CameraOpenOutcome> open() async => CameraOpenOutcome.unavailable;
+
+  @override
+  Future<CameraShotOutcome> takePicture() async => const CameraShotNone();
 }
 
 void main() {
@@ -195,6 +237,38 @@ void main() {
     await tester.pump();
     expect(dictation.visible, isFalse);
     expect(dictation.listening, isFalse);
+  });
+
+  testWidgets('the reward and session-milestone seams reach the '
+      'Dispenser home together (Story 7.1)', (tester) async {
+    final store = _EmptyCatalogueStore();
+    final reward = RewardController(
+      store: store,
+      files: _EmptyFiles(),
+      camera: _NoopCamera(),
+    );
+    NamedRewardSpace? takeSessionMilestone() => null;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: OrganizerApp(
+          dispenser: DispenserController(
+            store: store,
+            strings: AppStringsEs(),
+            bundle: _EmptyCatalogueBundle(),
+          ),
+          reward: reward,
+          sessionMilestone: takeSessionMilestone,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dispenser = tester.widget<DispenserScreen>(
+      find.byType(DispenserScreen),
+    );
+    expect(identical(dispenser.reward, reward), isTrue);
+    expect(identical(dispenser.sessionMilestone, takeSessionMilestone), isTrue);
   });
 
   test(

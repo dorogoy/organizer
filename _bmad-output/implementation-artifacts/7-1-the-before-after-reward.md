@@ -102,6 +102,13 @@ context: []
 - [x] [Review][Patch] Degrade system camera failures from the reward to the no-photo presentation [lib/ui/photo_shoot_screen.dart:189]
 - [x] [Review][Patch] Roll back a newly written album blob when its log act cannot be appended [lib/reward/reward_controller.dart:117; lib/scan/scan_controller.dart:973]
 - [x] [Review][Patch] Invalidate the Before offer when a real lifecycle departure closes its scan [lib/ui/scan/consent_gate_screen.dart:145; lib/scan/scan_controller.dart:967]
+- [x] [Review][Patch] Attribute session completions by log order, not device-clock order [packages/core/lib/derive/reward.dart:127]
+- [x] [Review][Patch] Cover local slicer-origin spaces in the reward derivations [packages/core/test/reward_test.dart:16]
+- [x] [Review][Patch] Serialize an album blob's write, append and rollback as one shared queue operation [lib/reward/reward_controller.dart:116; lib/scan/scan_controller.dart:986]
+- [x] [Review][Patch] Preserve an already referenced album blob when a later same-content append fails [test/ui/reward/reward_screen_test.dart:368]
+- [x] [Review][Patch] Exercise a v13→v14 recovery after only the first blob-column ALTER landed [test/store/substrate_test.dart:4042]
+- [x] [Review][Patch] Align Epic 7's camera-blocked reward fallback with the approved no-photo presentation [_bmad-output/implementation-artifacts/epic-7-context.md:43]
+- [x] [Review][Patch] Pin OrganizerApp's reward controller and session-milestone callback wiring [test/ui/app_test.dart:136]
 
 ## Spec Change Log
 

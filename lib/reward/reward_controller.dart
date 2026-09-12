@@ -114,17 +114,22 @@ class RewardController {
     required String beforeName,
   }) async {
     final afterName = albumPhotoName(bytes);
-    var createdHere = false;
-    try {
-      // A content-addressed write may be reusing a photo already named by a
-      // prior act. Only a blob this attempt created is eligible for rollback
-      // if the following append fails; deleting an existing blob would break
-      // that earlier album entry.
-      final existed = await files.read(albumFilesScope, afterName) != null;
-      await writeAlbumPhoto(files, bytes);
-      createdHere = !existed;
-      final now = nowOf();
-      await writeQueue.enqueue(() async {
+    // Keep the content-addressed read/write, the authoritative log append
+    // and a possible rollback under the shell's one queue. A second flow for
+    // the same hash cannot commit a row between this flow's failed append
+    // and its cleanup, which would otherwise leave that committed row naming
+    // a deleted blob.
+    return writeQueue.enqueue(() async {
+      var createdHere = false;
+      try {
+        // A content-addressed write may be reusing a photo already named by a
+        // prior act. Only a blob this attempt created is eligible for rollback
+        // if the following append fails; deleting an existing blob would break
+        // that earlier album entry.
+        final existed = await files.read(albumFilesScope, afterName) != null;
+        await writeAlbumPhoto(files, bytes);
+        createdHere = !existed;
+        final now = nowOf();
         for (final content in albumEntryAdded(
           groupId: space.groupId,
           origin: space.origin,
@@ -133,24 +138,24 @@ class RewardController {
         )) {
           await _appendContent(content, now);
         }
-      });
-      return afterName;
-    } on Object {
-      // The log is the album's authority. A failed append must not strand a
-      // newly written private image with no act that can ever surface it.
-      if (createdHere) {
-        try {
-          await files.delete(albumFilesScope, afterName);
-        } on Object {
-          // The original failure is already the user-visible outcome;
-          // cleanup is best effort because Files has no transaction with
-          // Store.
+        return afterName;
+      } on Object {
+        // The log is the album's authority. A failed append must not strand a
+        // newly written private image with no act that can ever surface it.
+        if (createdHere) {
+          try {
+            await files.delete(albumFilesScope, afterName);
+          } on Object {
+            // The original failure is already the user-visible outcome;
+            // cleanup is best effort because Files has no transaction with
+            // Store.
+          }
         }
+        // Quiet by contract: the pair's whole exposure is one blob and
+        // one row, and any failure leaves the honest nothing standing.
+        return null;
       }
-      // Quiet by contract: the pair's whole exposure is one blob and
-      // one row, and any failure leaves the honest nothing standing.
-      return null;
-    }
+    });
   }
 
   /// Appends one minted content row — the write path's shared copier,

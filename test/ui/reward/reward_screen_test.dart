@@ -21,6 +21,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:organizer/plugins/camera/camera_shell.dart';
 import 'package:organizer/reward/reward_controller.dart';
+import 'package:organizer/session/log_write_queue.dart';
 import 'package:organizer/strings/app_strings.dart';
 import 'package:organizer/strings/app_strings_es.dart';
 import 'package:organizer/ui/photo_frame.dart';
@@ -162,11 +163,13 @@ void main() {
   RewardController controllerWith(
     _RecordingStore store,
     _RecordingFiles files,
-    _FakeCamera camera,
-  ) => RewardController(
+    _FakeCamera camera, {
+    LogWriteQueue? writeQueue,
+  }) => RewardController(
     store: store,
     files: files,
     camera: camera,
+    writeQueue: writeQueue,
     idMinter: const Uuid(),
     nowOf: _fixedClock,
   );
@@ -382,6 +385,67 @@ void main() {
       expect(result, isNull);
       expect(files.blobsByName, isNot(contains(name)));
       expect(store.entries, isEmpty);
+    },
+  );
+
+  test(
+    'a failed same-content append preserves an existing album blob',
+    () async {
+      final store = _RecordingStore()..throwOnAppend = true;
+      final files = _RecordingFiles();
+      const bytes = [9, 8, 7];
+      final name = '${sha256.convert(bytes).toString()}.jpg';
+      files.blobsByName[name] = bytes;
+      final controller = controllerWith(store, files, _FakeCamera());
+
+      final result = await controller.saveAfterBlob(
+        bytes,
+        space: (groupId: 'group-2', origin: Origin.cloud),
+        beforeName: 'before.jpg',
+      );
+
+      expect(result, isNull);
+      expect(files.blobsByName[name], bytes);
+      expect(store.entries, isEmpty);
+    },
+  );
+
+  test(
+    'same-content flows cannot delete the blob committed by another flow',
+    () async {
+      final queue = LogWriteQueue();
+      final files = _RecordingFiles();
+      const bytes = [9, 8, 7];
+      final name = '${sha256.convert(bytes).toString()}.jpg';
+      final failed = controllerWith(
+        _RecordingStore()..throwOnAppend = true,
+        files,
+        _FakeCamera(),
+        writeQueue: queue,
+      );
+      final committedStore = _RecordingStore();
+      final committed = controllerWith(
+        committedStore,
+        files,
+        _FakeCamera(),
+        writeQueue: queue,
+      );
+
+      final failedResult = failed.saveAfterBlob(
+        bytes,
+        space: (groupId: 'group-1', origin: Origin.cloud),
+        beforeName: 'before.jpg',
+      );
+      final committedResult = committed.saveAfterBlob(
+        bytes,
+        space: (groupId: 'group-2', origin: Origin.cloud),
+        beforeName: 'before.jpg',
+      );
+
+      expect(await failedResult, isNull);
+      expect(await committedResult, name);
+      expect(files.blobsByName[name], bytes);
+      expect(committedStore.entries, hasLength(1));
     },
   );
 

@@ -98,10 +98,13 @@ NamedRewardSpace? _groupRetiredBy(
 }
 
 /// The session milestone's one space (Story 7.1, FR-17): the
-/// slicer-origin group with the most steps completed at-or-after
-/// [sessionStartUtcMicros] — the ending session's own start instant,
-/// the caller's to hand from the walk's open-session fact before the
-/// close row lands — or null when no group holds a completion. A
+/// slicer-origin group with the most steps completed after the latest
+/// `session_started` row at [sessionStartUtcMicros] — the ending session's
+/// own start instant, the caller's to hand from the walk's open-session fact
+/// before the close row lands — or null when no group holds a completion.
+/// The log's append order, not wall-clock order, bounds the session: a user
+/// changing the device clock cannot bring an earlier session's completion
+/// into this one. A
 /// group whose every step is answered (the walk's fold again) is
 /// excluded: its retirement was the project milestone's moment, and
 /// the session milestone never fires twice for one space. Ties break
@@ -116,6 +119,14 @@ NamedRewardSpace? sessionMilestoneGroupId({
   if (groups.isEmpty) {
     return null;
   }
+  final sessionStartIndex = log.lastIndexWhere(
+    (entry) =>
+        entry is SessionStartEntry &&
+        entry.instantUtcMicros == sessionStartUtcMicros,
+  );
+  if (sessionStartIndex < 0) {
+    return null;
+  }
   final stepGroupByStepId = <String, String>{};
   for (final entry in groups.entries) {
     for (final step in entry.value) {
@@ -123,10 +134,8 @@ NamedRewardSpace? sessionMilestoneGroupId({
     }
   }
   final completions = <String, int>{};
-  for (final entry in log) {
-    if (entry is ItemActEntry &&
-        entry.kind == LogKind.cardDone &&
-        entry.instantUtcMicros >= sessionStartUtcMicros) {
+  for (final entry in log.skip(sessionStartIndex + 1)) {
+    if (entry is ItemActEntry && entry.kind == LogKind.cardDone) {
       final group = stepGroupByStepId[entry.itemId];
       if (group != null) {
         completions[group] = (completions[group] ?? 0) + 1;

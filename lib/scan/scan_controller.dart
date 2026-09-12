@@ -984,22 +984,22 @@ class ScanController {
     required int epoch,
   }) async {
     final name = albumPhotoName(bytes);
-    var createdHere = false;
-    try {
-      if (_epoch != epoch || _scanId == null) {
-        return null;
-      }
-      final existed = await files.read(albumFilesScope, name) != null;
-      await writeAlbumPhoto(files, bytes);
-      createdHere = !existed;
-      if (_epoch != epoch || _scanId == null) {
-        throw _BeforeOfferInvalidated();
-      }
-      final now = nowOf();
-      final appended = await writeQueue.enqueue(() async {
+    // The blob's ownership decision and cleanup share the log queue with the
+    // reward's After flow. No same-hash writer can commit between a failed
+    // Before append and its rollback.
+    return writeQueue.enqueue(() async {
+      var createdHere = false;
+      try {
         if (_epoch != epoch || _scanId == null) {
-          return false;
+          return null;
         }
+        final existed = await files.read(albumFilesScope, name) != null;
+        await writeAlbumPhoto(files, bytes);
+        createdHere = !existed;
+        if (_epoch != epoch || _scanId == null) {
+          throw _BeforeOfferInvalidated();
+        }
+        final now = nowOf();
         for (final content in beforeSaved(
           groupId: groupId,
           origin: origin,
@@ -1007,25 +1007,21 @@ class ScanController {
         )) {
           await _appendContent(content, now);
         }
-        return true;
-      });
-      if (!appended) {
-        throw _BeforeOfferInvalidated();
-      }
-      return name;
-    } on Object {
-      if (createdHere) {
-        try {
-          await files.delete(albumFilesScope, name);
-        } on Object {
-          // Store and Files do not share a transaction; the flow still folds
-          // to no-Before when a best-effort cleanup itself cannot complete.
+        return name;
+      } on Object {
+        if (createdHere) {
+          try {
+            await files.delete(albumFilesScope, name);
+          } on Object {
+            // Store and Files do not share a transaction; the flow still folds
+            // to no-Before when a best-effort cleanup itself cannot complete.
+          }
         }
+        // Quiet by contract: the offer's whole exposure is one row and
+        // one blob, and any failure leaves the honest nothing standing.
+        return null;
       }
-      // Quiet by contract: the offer's whole exposure is one row and
-      // one blob, and any failure leaves the honest nothing standing.
-      return null;
-    }
+    });
   }
 }
 
